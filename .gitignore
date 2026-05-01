@@ -1,0 +1,6 @@
+# Reference materials (not committed — same convention as the ghp project)
+refs/
+
+# OS
+.DS_Store
+Thumbs.db
