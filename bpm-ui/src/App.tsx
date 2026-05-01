@@ -6,7 +6,13 @@ import { Search } from '@/screens/Search'
 import { Report } from '@/screens/Report'
 import { LeaveForm } from '@/screens/forms/LeaveForm'
 import { GEEForm } from '@/screens/forms/GEEForm'
-import { PlaceholderForm } from '@/screens/forms/PlaceholderForm'
+import { GEVForm } from '@/screens/forms/GEVForm'
+import { APEForm } from '@/screens/forms/APEForm'
+import { HWPForm } from '@/screens/forms/HWPForm'
+import { TRQView } from '@/screens/forms/TRQView'
+import { TEOView } from '@/screens/forms/TEOView'
+import { ITPRView } from '@/screens/forms/ITPRView'
+import { EXTOBView } from '@/screens/forms/EXTOBView'
 
 const SCREEN_KEY = 'bpm_screen'
 
@@ -37,7 +43,13 @@ export default function App() {
       switch (screen.code) {
         case 'LEAVE': body = <LeaveForm persona={persona} />; break
         case 'GEE':   body = <GEEForm persona={persona} />; break
-        default:      body = <PlaceholderForm code={screen.code} persona={persona} />; break
+        case 'GEV':   body = <GEVForm persona={persona} />; break
+        case 'APE':   body = <APEForm persona={persona} />; break
+        case 'HWP':   body = <HWPForm persona={persona} />; break
+        case 'TRQ':   body = <TRQView persona={persona} />; break
+        case 'TEO':   body = <TEOView persona={persona} />; break
+        case 'ITPR':  body = <ITPRView persona={persona} />; break
+        case 'EXTOB': body = <EXTOBView persona={persona} />; break
       }
       break
   }
