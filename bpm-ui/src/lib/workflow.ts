@@ -1,0 +1,169 @@
+import type { PersonaCode } from './role'
+
+export interface Step {
+  id: string
+  en: string
+  zh?: string
+}
+
+export interface FormDef {
+  code: FormCode
+  label: string
+  zhLabel: string
+  steps: Step[]
+  ownerByStep: (PersonaCode | null)[]   // null = no owner (e.g., terminal CLOSE)
+  /** mock 'current' position for the demo when this form is opened standalone */
+  initialActive: number
+}
+
+export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB'
+
+const STEP = (id: string, en: string, zh: string): Step => ({ id, en, zh })
+
+export const FORMS: Record<FormCode, FormDef> = {
+  LEAVE: {
+    code: 'LEAVE',
+    label: 'Leave Request',
+    zhLabel: '請假申請',
+    steps: [
+      STEP('apply', 'APPLY', '提出申請'),
+      STEP('manager_approve', 'MANAGER APPROVE', '主管簽核'),
+      STEP('hr_record', 'HR RECORD', '人資登錄'),
+      STEP('closed', 'CLOSED', '結案'),
+    ],
+    ownerByStep: ['employee', 'manager', 'hr', null],
+    initialActive: 0,
+  },
+  GEE: {
+    code: 'GEE',
+    label: 'Employee Expense (GEE)',
+    zhLabel: '員工費用申請',
+    steps: [
+      STEP('apply', 'APPLY', '申請'),
+      STEP('approve', 'APPROVE', '主管簽核'),
+      STEP('confirm', 'CONFIRM & PRINT', '確認列印'),
+      STEP('fin_review', 'FIN REVIEW', '財務審查'),
+      STEP('close', 'CLOSE', '結案'),
+    ],
+    ownerByStep: ['employee', 'manager', 'finance', 'finance', null],
+    initialActive: 0,
+  },
+  GEV: {
+    code: 'GEV',
+    label: 'Vendor Expense (GEV)',
+    zhLabel: '廠商費用申請',
+    steps: [
+      STEP('apply', 'APPLY', '申請'),
+      STEP('approve', 'APPROVE', '主管簽核'),
+      STEP('confirm', 'CONFIRM & PRINT', '確認列印'),
+      STEP('fin_review', 'FIN REVIEW', '財務審查'),
+      STEP('close', 'CLOSE', '結案'),
+    ],
+    ownerByStep: ['employee', 'manager', 'finance', 'finance', null],
+    initialActive: 0,
+  },
+  APE: {
+    code: 'APE',
+    label: 'Advance Payment (APE)',
+    zhLabel: '預支費用申請',
+    steps: [
+      STEP('apply', 'APPLY', '申請'),
+      STEP('approve', 'APPROVE', '主管簽核'),
+      STEP('confirm', 'CONFIRM & PRINT', '確認列印'),
+      STEP('fin_review', 'FIN REVIEW', '財務審查'),
+      STEP('close', 'CLOSE', '結案'),
+    ],
+    ownerByStep: ['employee', 'manager', 'finance', 'finance', null],
+    initialActive: 0,
+  },
+  HWP: {
+    code: 'HWP',
+    label: 'Hardware Purchase (HWP)',
+    zhLabel: '硬體採購申請',
+    steps: [
+      STEP('apply', 'APPLY', '申請'),
+      STEP('it_spec', 'IT SPEC REVIEW', 'IT 規格審查'),
+      STEP('quote', 'QUOTATION', '比價報價'),
+      STEP('confirm', 'CONFIRM & PRINT', '確認列印'),
+      STEP('approve', 'APPROVE', '主管簽核'),
+      STEP('po', 'PO PROCESSING', '採購單處理'),
+      STEP('close', 'CLOSE', '結案'),
+    ],
+    ownerByStep: ['employee', 'it', 'it', 'manager', 'manager', 'finance', null],
+    initialActive: 0,
+  },
+  ITPR: {
+    code: 'ITPR',
+    label: 'IT Purchase Request (ITPR)',
+    zhLabel: 'IT 軟體 / 服務採購',
+    steps: [
+      STEP('apply', 'APPLY', '申請'),
+      STEP('it_spec', 'IT SPEC REVIEW', 'IT 規格審查'),
+      STEP('quote', 'QUOTATION', '比價報價'),
+      STEP('confirm', 'CONFIRM & PRINT', '確認列印'),
+      STEP('approve', 'APPROVE', '主管簽核'),
+      STEP('po', 'PO PROCESSING', '採購單處理'),
+      STEP('close', 'CLOSE', '結案'),
+    ],
+    ownerByStep: ['employee', 'it', 'it', 'manager', 'manager', 'finance', null],
+    initialActive: 6,
+  },
+  TRQ: {
+    code: 'TRQ',
+    label: 'Travel Request (TRQ)',
+    zhLabel: '差旅申請',
+    steps: [
+      STEP('apply', 'APPLY', '申請'),
+      STEP('approve', 'APPROVE', '主管簽核'),
+      STEP('notify', 'NOTIFY ADM', '通知行政'),
+      STEP('close', 'CLOSE', '結案'),
+    ],
+    ownerByStep: ['employee', 'manager', 'admin', null],
+    initialActive: 3,
+  },
+  TEO: {
+    code: 'TEO',
+    label: 'Travel Expense (TEO)',
+    zhLabel: '差旅費報銷',
+    steps: [
+      STEP('apply', 'APPLY', '申請'),
+      STEP('approve', 'APPROVE', '主管簽核'),
+      STEP('confirm', 'CONFIRM & PRINT', '確認列印'),
+      STEP('fin_review', 'FIN REVIEW', '財務審查'),
+      STEP('close', 'CLOSE', '結案'),
+    ],
+    ownerByStep: ['employee', 'manager', 'finance', 'finance', null],
+    initialActive: 4,
+  },
+  EXTOB: {
+    code: 'EXTOB',
+    label: 'External Employee Onboarding',
+    zhLabel: '外部員工到職',
+    steps: [
+      STEP('submit', 'SUBMIT', '提交申請'),
+      STEP('account', 'CREATING ACCOUNT', '帳號建立'),
+      STEP('closed', 'CLOSED', '結案'),
+    ],
+    ownerByStep: ['manager', 'hr', null],
+    initialActive: 2,
+  },
+}
+
+/** Whether the active persona is allowed to act on the case at the given step. */
+export function canAct(formCode: FormCode, activeStep: number, persona: PersonaCode): boolean {
+  if (persona === 'admin') return true
+  const owner = FORMS[formCode].ownerByStep[activeStep]
+  return owner === persona
+}
+
+export function ownerLabel(persona: PersonaCode | null): string {
+  if (!persona) return '—'
+  return ({
+    employee: 'Employee / 員工',
+    manager:  'Manager / 主管',
+    finance:  'Finance / 財務',
+    it:       'IT / 資訊',
+    hr:       'HR / 人資',
+    admin:    'Admin / 管理員',
+  } as const)[persona]
+}
