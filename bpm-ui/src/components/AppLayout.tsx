@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Bell, HelpCircle, Plus, Search, FileText, BarChart3, Home, ChevronDown } from 'lucide-react'
+import { Bell, HelpCircle, Plus, Search, FileText, BarChart3, Home, ChevronDown, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { RoleSwitcher } from '@/components/RoleSwitcher'
 import type { PersonaCode } from '@/lib/role'
@@ -9,6 +9,7 @@ export type Screen =
   | { kind: 'home' }
   | { kind: 'search' }
   | { kind: 'report' }
+  | { kind: 'onboarding' }
   | { kind: 'form'; code: FormCode }
 
 interface AppLayoutProps {
@@ -90,6 +91,7 @@ export function AppLayout({ screen, setScreen, persona, setPersona, children }: 
             <NavBtn active={screen.kind === 'search'} onClick={() => setScreen({ kind: 'search' })} icon={<Search className="h-4 w-4" />}>Search</NavBtn>
             <NavBtn icon={<FileText className="h-4 w-4" />} onClick={() => alert('User Guide — placeholder')}>User Guide</NavBtn>
             <NavBtn active={screen.kind === 'report'} onClick={() => setScreen({ kind: 'report' })} icon={<BarChart3 className="h-4 w-4" />}>Report</NavBtn>
+            <NavBtn active={screen.kind === 'onboarding'} onClick={() => setScreen({ kind: 'onboarding' })} icon={<Sparkles className="h-4 w-4" />}>Onboard</NavBtn>
           </div>
 
           {/* Right side */}
