@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Bpm.Domain</RootNamespace>
+    <AssemblyName>Bpm.Domain</AssemblyName>
+  </PropertyGroup>
+
+</Project>
