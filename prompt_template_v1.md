@@ -1,4 +1,4 @@
-# Claude Code Prompt Template v1
+# Claude Code Prompt Template v1.1
 
 > Phase A 用人工跑：Jason 收到客戶的 spec deliverable JSON，cd 進對應 customer repo，把這份 prompt 餵給 Claude Code CLI，等它寫完 review。
 > 對應 `inovation_idea.md` §3.4。
@@ -112,7 +112,14 @@ Shared:
    - screens/forms/{FlowCode}Form.tsx — submitter form (from userTasks
      where permissions.submitter === 'self')
    - screens/forms/{FlowCode}View.tsx — case detail view + approval action
-   - Wire into App.tsx switch on screen.code
+   - Wire into App.tsx switch on screen.kind / screen.code
+   - **Register menu entry**: add the new flow under the Create dropdown's
+     correct group (HR / Expense / Travel / Purchase) in AppLayout.tsx, so the
+     flow is reachable from the home screen in ≤2 clicks. Use a human label
+     (e.g. "Leave Request (請假)"), not dev-internal markers like "*", "-v2",
+     "(spec)".
+   - **Hash deep-link route**: register `#{flowCode-lower}/<caseId>` so a single
+     case can be linked directly.
 
 7. Tests
    - Unit: ApprovalResolver, DecisionEvaluator (table-driven from spec.testCases)
@@ -138,7 +145,48 @@ Shared:
 5. **Tests come from spec.testCases.** Don't invent test data. If
    spec.testCases is empty, write a single happy-path test and add a TODO.
 
-6. **PR description format** (when running gh pr create):
+6. **End-to-end reachable, not just code-complete.**
+   Generating page components without wiring them into the router and home menu
+   does NOT count as done. A fresh user opening the dev server with no prior
+   knowledge must be able to find and enter the new flow without typing URLs
+   or knowing internal naming conventions.
+
+7. **Migrations must be generated, not just declared.**
+   After modifying any Entity / DbContext / EF Configuration, you MUST run:
+       cd bpm-svc/src/Persistence
+       dotnet ef migrations add Add{FlowCode} --startup-project ../Api
+   The generated `{Timestamp}_Add{FlowCode}.cs`, `.Designer.cs`, and
+   `AppDbContextModelSnapshot.cs` files MUST be committed. Schema written in
+   code without a migration file = not done. Then run `dotnet ef database
+   update` so SQLite has the table.
+
+8. **Browser walk-through is the final acceptance gate.**
+   Before declaring the task complete, you MUST:
+     a. Apply migrations (`dotnet ef database update`)
+     b. Start backend (`dotnet run --project bpm-svc/src/Api`, background)
+     c. Start frontend (`npm run dev` in bpm-ui, background)
+     d. Open Chrome via the chrome-devtools MCP
+     e. From the home screen, navigate to the new flow WITHOUT typing a URL
+        (must reach via clickable menu / button)
+     f. Submit a test case using data from `spec.testCases[0]`
+     g. Verify the case appears in the list view
+     h. Open the case detail view; verify all spec.userTasks[0].fields are
+        rendered with correct labels (bilingual) and types
+     i. Take a screenshot at steps e / f / g / h into
+        `./dogfood-screenshots/{ISO-timestamp}/`
+     j. For each screenshot write a one-line assertion naming the spec rule
+        it confirms (e.g. "step-f.png: form shows all 8 required fields per
+        spec.userTasks[0].fields where required=true")
+
+   Failure handling (no shortcuts):
+     - If any step fails, return to fix the underlying code. Do NOT declare
+       success because "the page renders" or "looks roughly right".
+     - 500 errors, empty forms, missing fields, blank lists, navigation
+       dead-ends are all failures even if the page loads.
+     - The final report MUST include the screenshot directory path, one
+       assertion per screenshot, and explicit pass/fail per acceptance step.
+
+9. **PR description format** (when running gh pr create):
        Title: "Add {flowName} workflow ({flowCode}) for {tenant}"
        Body:
          ## Spec summary
@@ -181,7 +229,16 @@ Shared:
 ## Prompt 演化紀錄
 
 - v1（2026-05-02）：初版，覆蓋 §3.3 spec schema 全部欄位
-- (TODO) v1.1：第 1 次 dogfood 後
+- v1.1（2026-05-02，第 1 次 dogfood 後）：
+  - 加 CRITICAL RULE #6「end-to-end reachable」——v0 只生 page 元件不接
+    router/選單，使用者進系統根本找不到新流程
+  - 加 CRITICAL RULE #7「migrations must be generated」——v0 寫了
+    Entity/DbContext 但沒跑 `dotnet ef migrations add`，DB 沒有表
+  - 加 CRITICAL RULE #8「browser walk-through 是最終 acceptance gate」——
+    用 chrome-devtools MCP 強迫 Claude 自己走完一輪、截圖、寫斷言；
+    走不通不可宣告完成。這條是 #6 / #7 的根本解（讓 AI 自己撞牆自己修）
+  - GENERATION ORDER §6 frontend：明確要求註冊到 Create dropdown 對應
+    group，禁用 dev 內部命名（`*`、`-v2`、`(spec)`）；加 hash deep-link route
 
 ---
 
