@@ -40,11 +40,12 @@ export function BpmnDiagram({ draft, height = 360 }: Props) {
       setError(null)
       return
     }
-    const xml = flowToBpmnXml(draft)
     let cancelled = false
-    viewer.importXML(xml).then(() => {
+    flowToBpmnXml(draft).then(xml => {
       if (cancelled) return
-      // fit-viewport so even small flows render at a sensible zoom
+      return viewer.importXML(xml)
+    }).then(() => {
+      if (cancelled) return
       const canvas = viewer.get('canvas') as { zoom: (mode: string | number, center?: 'auto') => void }
       try { canvas.zoom('fit-viewport', 'auto') } catch { /* ignore */ }
       setError(null)

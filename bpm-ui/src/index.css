@@ -53,3 +53,12 @@ body {
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+/* bpmn-js label legibility: stroke white outline behind glyphs so labels
+   stay readable when an edge happens to route through them. */
+.djs-label tspan {
+  paint-order: stroke fill;
+  stroke: #ffffff;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
