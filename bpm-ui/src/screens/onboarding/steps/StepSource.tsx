@@ -1,10 +1,10 @@
 import { Upload, FileText, Sparkles } from 'lucide-react'
 import { Field, Input } from '@/components/ui/form'
-import { type DraftSpec, LEAVE_PRESET, EMPTY_DRAFT } from '@/lib/onboarding'
+import { type DraftSpec, LEAVE_PRESET, PURCHASE_PRESET, EMPTY_DRAFT } from '@/lib/onboarding'
 
 const TEMPLATES = [
-  { code: 'LEAVE', name: '請假', preset: LEAVE_PRESET },
-  // future presets
+  { code: 'LEAVE',    name: '請假',     preset: LEAVE_PRESET },
+  { code: 'PURCHASE', name: '採購申請', preset: PURCHASE_PRESET },
 ]
 
 export function StepSource({ draft, setDraft }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void }) {
