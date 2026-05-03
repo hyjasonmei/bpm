@@ -1,9 +1,15 @@
 import { useState } from 'react'
-import { Rocket, CheckCircle2, Copy } from 'lucide-react'
+import { Rocket, CheckCircle2, Copy, AlertTriangle } from 'lucide-react'
 import { ONBOARDING_STEPS, validators, type DraftSpec } from '@/lib/onboarding'
 
+const SPEC_API = (import.meta.env.VITE_BPM_SVC_URL ?? 'http://localhost:5290') + '/api/spec'
+
+interface SpecAck { trackingId: string; path: string; receivedAt: string }
+
 export function StepGoLive({ draft }: { draft: DraftSpec }) {
-  const [submitted, setSubmitted] = useState(false)
+  const [submitted, setSubmitted] = useState<SpecAck | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
   const allChecks = ONBOARDING_STEPS.slice(0, -1).map(s => ({
@@ -14,10 +20,27 @@ export function StepGoLive({ draft }: { draft: DraftSpec }) {
   }))
   const allValid = allChecks.every(c => c.valid)
 
-  const submitSpec = () => {
-    // Phase A: just simulate submit. Phase B will POST /api/spec.
-    console.log('[Onboarding] spec submitted:', draft)
-    setSubmitted(true)
+  const submitSpec = async () => {
+    setSubmitting(true)
+    setError(null)
+    try {
+      const res = await fetch(SPEC_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draft),
+      })
+      if (!res.ok) {
+        const body = await res.text()
+        throw new Error(`HTTP ${res.status} — ${body || res.statusText}`)
+      }
+      const ack = await res.json() as SpecAck
+      setSubmitted(ack)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(msg.includes('fetch') ? `${msg}（後端 ${SPEC_API} 連不上？確認 dotnet run 是否啟動）` : msg)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const copyJson = async () => {
@@ -36,13 +59,12 @@ export function StepGoLive({ draft }: { draft: DraftSpec }) {
         <p className="mt-1 max-w-md text-sm text-ink-muted">
           後台 Claude Code pipeline 已收到您的 {draft.meta.flowName} spec。預計 1-2 工作天內您會收到上線通知。
         </p>
-        <div className="mt-6 rounded border border-rule bg-slate-50 px-4 py-3 text-xs text-ink-muted">
-          <p>📨 Tracking ID: <span className="font-mono text-ink">{draft.meta.tenant}-{draft.meta.flowCode}-v{draft.meta.flowVersion}-{Date.now().toString(36)}</span></p>
+        <div className="mt-6 rounded border border-rule bg-slate-50 px-4 py-3 text-left text-xs text-ink-muted">
+          <p>📨 Tracking ID: <span className="font-mono text-ink">{submitted.trackingId}</span></p>
+          <p className="mt-0.5">💾 Saved to: <span className="font-mono text-ink break-all">{submitted.path}</span></p>
+          <p className="mt-0.5">⏱ Received at: <span className="font-mono text-ink">{submitted.receivedAt}</span></p>
           <p className="mt-0.5">📧 通知會寄到 {draft.meta.createdBy}</p>
         </div>
-        <p className="mt-4 text-[11px] italic text-ink-faint">
-          (Phase A：實際的 POST /api/spec 還沒接，這裡只是 console.log。打開 DevTools console 看 spec 內容。)
-        </p>
       </div>
     )
   }
@@ -109,6 +131,13 @@ export function StepGoLive({ draft }: { draft: DraftSpec }) {
         </pre>
       </section>
 
+      {error && (
+        <div className="flex items-start gap-2 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="break-all">{error}</div>
+        </div>
+      )}
+
       <section className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
         <div>
           <p className="text-sm font-semibold text-amber-900">準備上線</p>
@@ -118,11 +147,11 @@ export function StepGoLive({ draft }: { draft: DraftSpec }) {
         </div>
         <button
           onClick={submitSpec}
-          disabled={!allValid}
+          disabled={!allValid || submitting}
           className="flex items-center gap-1.5 rounded bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
           <Rocket className="h-4 w-4" />
-          {allValid ? 'Submit Spec' : `${allChecks.filter(c => !c.valid).length} step 未通過`}
+          {submitting ? '送出中…' : allValid ? 'Submit Spec' : `${allChecks.filter(c => !c.valid).length} step 未通過`}
         </button>
       </section>
     </div>

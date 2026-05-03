@@ -1,6 +1,10 @@
 # Reference materials (not committed — same convention as the ghp project)
 refs/
 
+# Wizard hand-off — incoming spec.json drops from POST /api/spec
+incoming/
+**/incoming/
+
 # OS
 .DS_Store
 Thumbs.db
