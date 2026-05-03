@@ -6,4 +6,7 @@
     <Project Path="src/Functions/Functions.csproj" />
     <Project Path="src/Persistence/Persistence.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Bpm.Tests/Bpm.Tests.csproj" />
+  </Folder>
 </Solution>

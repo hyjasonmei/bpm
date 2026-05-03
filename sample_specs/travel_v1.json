@@ -1,0 +1,253 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "tenant": "acme",
+    "flowName": "差旅申請",
+    "flowCode": "TRAVEL",
+    "flowVersion": 1,
+    "createdAt": "2026-05-03T06:00:00Z",
+    "createdBy": "u_mary",
+    "language": "zh-TW"
+  },
+  "flow": {
+    "nodes": [
+      { "id": "start_1", "type": "startEvent", "label": "開始" },
+      { "id": "task_request", "type": "userTask", "label": "員工申請" },
+      { "id": "approval_manager", "type": "approval", "label": "主管核准" },
+      { "id": "gateway_intl", "type": "gateway", "label": "是否國外？" },
+      { "id": "approval_vp", "type": "approval", "label": "副總核准" },
+      { "id": "task_admin_book", "type": "userTask", "label": "行政訂票" },
+      { "id": "end_1", "type": "endEvent", "label": "完成" }
+    ],
+    "edges": [
+      { "id": "e1", "source": "start_1", "target": "task_request" },
+      { "id": "e2", "source": "task_request", "target": "approval_manager" },
+      { "id": "e3", "source": "approval_manager", "target": "gateway_intl" },
+      { "id": "e4", "source": "gateway_intl", "target": "task_admin_book", "condition": "destinationType == 'domestic'", "isDefault": true, "label": "國內直接訂票" },
+      { "id": "e5", "source": "gateway_intl", "target": "approval_vp", "condition": "destinationType == 'international'", "label": "國外需副總" },
+      { "id": "e6", "source": "approval_vp", "target": "task_admin_book" },
+      { "id": "e7", "source": "task_admin_book", "target": "end_1" }
+    ]
+  },
+  "userTasks": [
+    {
+      "id": "task_request",
+      "formCode": "TRAVEL_REQUEST",
+      "fields": [
+        {
+          "id": "destination_type",
+          "label": { "zh-TW": "出差類型", "en": "Destination type" },
+          "type": "select",
+          "required": true,
+          "options": [
+            { "value": "domestic", "label": "國內" },
+            { "value": "international", "label": "國外" }
+          ]
+        },
+        {
+          "id": "destination",
+          "label": { "zh-TW": "目的地", "en": "Destination" },
+          "type": "text",
+          "required": true,
+          "hint": { "zh-TW": "城市/國家，例 東京 / Japan" }
+        },
+        {
+          "id": "depart_date",
+          "label": { "zh-TW": "出發日", "en": "Depart date" },
+          "type": "date",
+          "required": true
+        },
+        {
+          "id": "return_date",
+          "label": { "zh-TW": "返回日", "en": "Return date" },
+          "type": "date",
+          "required": true
+        },
+        {
+          "id": "purpose",
+          "label": { "zh-TW": "出差目的", "en": "Purpose" },
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "id": "estimated_cost",
+          "label": { "zh-TW": "預估費用 (TWD)", "en": "Estimated cost (TWD)" },
+          "type": "number",
+          "required": true,
+          "validator": "value > 0 && value <= 1000000",
+          "hint": { "zh-TW": "包含機票、住宿、餐費" }
+        }
+      ],
+      "permissions": {
+        "submitter": "self",
+        "viewers": ["self", "manager", "role:Admin"]
+      }
+    },
+    {
+      "id": "task_admin_book",
+      "formCode": "TRAVEL_BOOK",
+      "fields": [
+        {
+          "id": "ticket_ref",
+          "label": { "zh-TW": "票務編號", "en": "Ticket ref" },
+          "type": "text",
+          "required": true,
+          "hint": { "zh-TW": "訂位代號或票號" }
+        },
+        {
+          "id": "hotel_ref",
+          "label": { "zh-TW": "住宿確認", "en": "Hotel confirmation" },
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "book_note",
+          "label": { "zh-TW": "訂票備註", "en": "Note" },
+          "type": "textarea",
+          "required": false
+        }
+      ],
+      "permissions": {
+        "submitter": "role:Admin",
+        "viewers": ["self", "manager", "role:Admin"]
+      }
+    }
+  ],
+  "decisions": [
+    {
+      "id": "gateway_intl",
+      "type": "exclusive",
+      "branches": [
+        { "edgeId": "e4", "condition": "destinationType == 'domestic'", "isDefault": true },
+        { "edgeId": "e5", "condition": "destinationType == 'international'" }
+      ]
+    }
+  ],
+  "approvals": [
+    { "id": "approval_manager", "rule": { "type": "direct_manager" } },
+    {
+      "id": "approval_vp",
+      "rule": { "type": "department_head", "deptOf": "applicant" },
+      "fallback": { "type": "role", "role": "VP" }
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notify_assign_approver",
+      "trigger": "on_assign",
+      "channel": ["email", "in_app"],
+      "recipients": [{ "type": "current_approver" }],
+      "template": {
+        "subject": { "zh-TW": "【差旅待簽】{{applicant.name}} 申請 {{travel.destination}} {{travel.estimatedCost}} 元" },
+        "body": { "zh-TW": "申請人: {{applicant.name}}\n類型: {{travel.destinationType}}\n目的地: {{travel.destination}}\n期間: {{travel.depart}} - {{travel.return}}\n預估費用: {{travel.estimatedCost}} 元\n目的: {{travel.purpose}}\n\n請點此核准: {{caseUrl}}" },
+        "variables": ["applicant.name", "travel.destinationType", "travel.destination", "travel.depart", "travel.return", "travel.estimatedCost", "travel.purpose", "caseUrl"]
+      }
+    },
+    {
+      "id": "notify_assign_admin",
+      "trigger": "on_assign",
+      "channel": ["email", "in_app"],
+      "recipients": [{ "type": "role", "role": "Admin" }],
+      "template": {
+        "subject": { "zh-TW": "【差旅待訂】{{applicant.name}} {{travel.destination}}" },
+        "body": { "zh-TW": "案件已核准完畢，請協助訂票/訂房。\n申請人: {{applicant.name}}\n目的地: {{travel.destination}}\n期間: {{travel.depart}} - {{travel.return}}\n\n處理頁面: {{caseUrl}}" },
+        "variables": ["applicant.name", "travel.destination", "travel.depart", "travel.return", "caseUrl"]
+      }
+    },
+    {
+      "id": "notify_complete",
+      "trigger": "on_complete",
+      "channel": ["email"],
+      "recipients": [{ "type": "submitter" }],
+      "template": {
+        "subject": { "zh-TW": "您的差旅申請已完成訂票" },
+        "body": { "zh-TW": "您於 {{submitDate}} 申請的 {{travel.destination}} ({{travel.depart}} - {{travel.return}}) 已訂票完畢，票號: {{travel.ticketRef}}。" },
+        "variables": ["submitDate", "travel.destination", "travel.depart", "travel.return", "travel.ticketRef"]
+      }
+    }
+  ],
+  "sla": {
+    "perNode": {
+      "approval_manager": {
+        "duration": "8h",
+        "businessHoursOnly": true,
+        "escalation": { "after": "8h", "action": "notify" }
+      },
+      "approval_vp": {
+        "duration": "16h",
+        "businessHoursOnly": true,
+        "escalation": { "after": "16h", "action": "notify" }
+      },
+      "task_admin_book": {
+        "duration": "24h",
+        "businessHoursOnly": true,
+        "escalation": { "after": "24h", "action": "notify" }
+      }
+    }
+  },
+  "integrations": {
+    "identityProvider": "csv",
+    "csvSource": { "url": "s3://bpm-tenants/acme/employees-2026-05-02.csv" },
+    "fieldMappings": {
+      "employeeId": "empId",
+      "displayName": "name",
+      "email": "email",
+      "reportsTo": "manager",
+      "department": "department",
+      "title": "title"
+    }
+  },
+  "testCases": [
+    {
+      "id": "tc_1",
+      "name": "國內出差，主管核准即可",
+      "inputs": {
+        "destination_type": "domestic",
+        "destination": "高雄",
+        "depart_date": "2026-06-10",
+        "return_date": "2026-06-12",
+        "purpose": "客戶現場部署",
+        "estimated_cost": 8000
+      },
+      "expectedPath": ["start_1", "task_request", "approval_manager", "gateway_intl", "task_admin_book", "end_1"],
+      "expectedApprovers": [
+        { "nodeId": "approval_manager", "userIds": ["u_wang_manager"] }
+      ],
+      "expectedNotifications": [
+        { "trigger": "on_assign", "recipientCount": 1 },
+        { "trigger": "on_complete", "recipientCount": 1 }
+      ]
+    },
+    {
+      "id": "tc_2",
+      "name": "國外出差，需主管 + 副總",
+      "inputs": {
+        "destination_type": "international",
+        "destination": "東京 / Japan",
+        "depart_date": "2026-07-01",
+        "return_date": "2026-07-05",
+        "purpose": "客戶 kickoff",
+        "estimated_cost": 80000
+      },
+      "expectedPath": ["start_1", "task_request", "approval_manager", "gateway_intl", "approval_vp", "task_admin_book", "end_1"],
+      "expectedApprovers": [
+        { "nodeId": "approval_manager", "userIds": ["u_wang_manager"] },
+        { "nodeId": "approval_vp", "userIds": ["u_chen_vp"] }
+      ]
+    },
+    {
+      "id": "tc_3",
+      "name": "預算超界 (>1,000,000) 應 400",
+      "inputs": {
+        "destination_type": "international",
+        "destination": "Test",
+        "depart_date": "2026-07-01",
+        "return_date": "2026-07-02",
+        "purpose": "boundary",
+        "estimated_cost": 1000001
+      },
+      "expectedHttpStatus": 400,
+      "expectedValidationErrors": ["EstimatedCost must satisfy 0 < value <= 1,000,000"]
+    }
+  ]
+}

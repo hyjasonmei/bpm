@@ -10,7 +10,7 @@ export type Screen =
   | { kind: 'search' }
   | { kind: 'report' }
   | { kind: 'onboarding' }
-  | { kind: 'form'; code: FormCode }
+  | { kind: 'form'; code: FormCode; caseId?: string }
 
 interface AppLayoutProps {
   screen: Screen
@@ -23,7 +23,11 @@ interface AppLayoutProps {
 const FORM_GROUPS: Array<{ group: string; items: { id: FormCode; label: string }[] }> = [
   { group: 'HR', items: [{ id: 'LEAVE', label: 'Leave Request (請假)' }, { id: 'EXTOB', label: 'External Onboarding' }] },
   { group: 'Expense', items: [{ id: 'GEE', label: 'Employee Expense (GEE)' }, { id: 'GEV', label: 'Vendor Expense (GEV)' }, { id: 'APE', label: 'Advance Payment (APE)' }] },
-  { group: 'Travel', items: [{ id: 'TRQ', label: 'Travel Request (TRQ)' }, { id: 'TEO', label: 'Travel Expense (TEO)' }] },
+  { group: 'Travel', items: [
+    { id: 'TRAVEL', label: 'Travel Request (差旅申請)' },
+    { id: 'TRQ', label: 'Travel Request (TRQ)' },
+    { id: 'TEO', label: 'Travel Expense (TEO)' },
+  ] },
   { group: 'Purchase', items: [{ id: 'HWP', label: 'Hardware Purchase' }, { id: 'ITPR', label: 'IT Purchase Request' }] },
 ]
 
@@ -79,6 +83,7 @@ export function AppLayout({ screen, setScreen, persona, setPersona, children }: 
                           <span className="font-mono text-[10.5px] text-ink-faint mr-2">{item.id}</span>
                           {item.label}
                           {item.id === 'LEAVE' && <span className="ml-2 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">NEW</span>}
+                          {item.id === 'TRAVEL' && <span className="ml-2 inline-block rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">SPEC</span>}
                         </button>
                       ))}
                     </div>

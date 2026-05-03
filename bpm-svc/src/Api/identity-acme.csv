@@ -1,0 +1,6 @@
+empId,name,email,manager,department,title,roles
+u_wilson,Wilson Liu,wilson@acme.example,u_wang_manager,Engineering,Senior Engineer,
+u_mary,Mary Chen,mary@acme.example,u_wang_manager,Engineering,Software Engineer,
+u_wang_manager,Wang Manager,wang@acme.example,u_chen_vp,Engineering,Engineering Manager,
+u_chen_vp,Chen VP,chen@acme.example,,Engineering,VP Engineering,DEPT_HEAD;VP
+u_admin_lead,Anna Admin,admin@acme.example,u_chen_vp,Operations,Admin Lead,Admin

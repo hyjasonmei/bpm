@@ -1,7 +1,11 @@
 using Bpm.Application.Common.Abstractions;
+using Bpm.Application.Common.Identity;
+using Bpm.Application.Common.Notifications;
 using Bpm.Application.Common.Services;
 using Bpm.Persistence.Common;
+using Bpm.Persistence.Identity;
 using Bpm.Persistence.Interceptors;
+using Bpm.Persistence.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +31,14 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
+        services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+
+        var csvPath = configuration["Identity:CsvPath"] ?? "identity-acme.csv";
+        if (!Path.IsPathRooted(csvPath))
+            csvPath = Path.Combine(AppContext.BaseDirectory, csvPath);
+        services.AddSingleton<IIdentityProvider>(_ => new CsvIdentityProvider(csvPath));
+
+        services.AddSingleton<INotificationSender, LoggingNotificationSender>();
 
         return services;
     }
