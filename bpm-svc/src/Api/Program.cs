@@ -24,6 +24,17 @@ builder.Services.AddHttpClient("anthropic", c =>
     c.Timeout = TimeSpan.FromSeconds(60);
 });
 
+// AI backend selection. Default to "cli" (uses Jason's Claude Code
+// subscription) for local dev convenience; "api" must be set explicitly when
+// shipping to production / cloud since Claude Code CLI auth can't be reused
+// across machines or service accounts.
+var aiBackendName = (Environment.GetEnvironmentVariable("BPM_AI_BACKEND") ?? "cli").ToLowerInvariant();
+builder.Services.AddSingleton<IAiBackend>(sp => aiBackendName switch
+{
+    "api" => new AnthropicApiBackend(sp.GetRequiredService<IHttpClientFactory>()),
+    _     => new ClaudeCliBackend(sp.GetRequiredService<ILogger<ClaudeCliBackend>>()),
+});
+
 builder.Services.AddCors(o => o.AddPolicy("bpm-ui", p =>
 {
     var configured = builder.Configuration["Cors:BpmUiOrigin"] ?? "http://localhost:5173";
@@ -36,6 +47,8 @@ builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 
+app.Logger.LogInformation("AI backend: {Backend} (set BPM_AI_BACKEND=api|cli to switch)", aiBackendName);
+
 app.UseExceptionHandler();
 app.UseCors("bpm-ui");
 
@@ -47,16 +60,18 @@ if (app.Environment.IsDevelopment())
 
 app.MapControllers();
 
-app.MapGet("/health", async (AppDbContext db) =>
+app.MapGet("/health", async (AppDbContext db, IAiBackend ai) =>
 {
     try
     {
         var ok = await db.Database.CanConnectAsync();
-        return ok ? Results.Ok(new { status = "healthy" }) : Results.Json(new { status = "db-unreachable" }, statusCode: 503);
+        return ok
+            ? Results.Ok(new { status = "healthy", aiBackend = ai.Name })
+            : Results.Json(new { status = "db-unreachable", aiBackend = ai.Name }, statusCode: 503);
     }
     catch
     {
-        return Results.Json(new { status = "db-unreachable" }, statusCode: 503);
+        return Results.Json(new { status = "db-unreachable", aiBackend = ai.Name }, statusCode: 503);
     }
 });
 
@@ -107,25 +122,11 @@ app.MapPost("/api/spec", async (HttpContext ctx, IClock clock) =>
     }
 });
 
-// CoPilot chat — proxies the wizard's left-pane chat to Anthropic so we can
-// keep the API key on the server. System prompt + tools are hand-tuned for
-// the BPM onboarding context. If ANTHROPIC_API_KEY is not configured the
-// endpoint returns 503 with a structured payload the UI renders as a setup
-// hint instead of a generic error.
-app.MapPost("/api/chat", async (HttpContext ctx, IHttpClientFactory clientFactory) =>
+// CoPilot chat — routes to whichever IAiBackend is registered (cli or api).
+app.MapPost("/api/chat", async (HttpContext ctx, IAiBackend ai, CancellationToken ct) =>
 {
-    var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
-    if (string.IsNullOrWhiteSpace(apiKey))
-    {
-        return Results.Json(new
-        {
-            error = "configure_api_key",
-            message = "後端環境變數 ANTHROPIC_API_KEY 尚未設定。請執行：export ANTHROPIC_API_KEY=sk-ant-... && dotnet run"
-        }, statusCode: 503);
-    }
-
     using var reader = new StreamReader(ctx.Request.Body);
-    var body = await reader.ReadToEndAsync();
+    var body = await reader.ReadToEndAsync(ct);
     if (string.IsNullOrWhiteSpace(body))
         return Results.BadRequest(new { error = "Empty body" });
 
@@ -161,59 +162,17 @@ Reply in 繁體中文 (Traditional Chinese) by default. Keep responses tight (2-
 
 Phase A: Customers cannot upload diagrams yet — direct them to use the LEAVE / PURCHASE preset on the SOURCE step.";
 
-        var anthropicReq = new
-        {
-            model = "claude-sonnet-4-6",
-            max_tokens = 1024,
-            system = new object[]
-            {
-                new { type = "text", text = systemPrompt, cache_control = new { type = "ephemeral" } }
-            },
-            messages = JsonSerializer.Deserialize<object>(messages.GetRawText())
-        };
-
-        var http = clientFactory.CreateClient("anthropic");
-        using var req = new HttpRequestMessage(HttpMethod.Post, "v1/messages")
-        {
-            Content = JsonContent.Create(anthropicReq)
-        };
-        req.Headers.Add("x-api-key", apiKey);
-        req.Headers.Add("anthropic-version", "2023-06-01");
-
-        try
-        {
-            using var res = await http.SendAsync(req);
-            var resBody = await res.Content.ReadAsStringAsync();
-            if (!res.IsSuccessStatusCode)
-                return Results.Json(new { error = "anthropic_error", status = (int)res.StatusCode, body = resBody }, statusCode: (int)res.StatusCode);
-            return Results.Content(resBody, "application/json");
-        }
-        catch (Exception ex)
-        {
-            return Results.Json(new { error = "upstream_failure", message = ex.Message }, statusCode: 502);
-        }
+        var result = await ai.ChatAsync(systemPrompt, messages, ct);
+        return Results.Content(result.Body, result.ContentType, statusCode: result.StatusCode);
     }
 });
 
-// Spec extraction — turns either a free-form text description ("我們公司
-// 請假流程是員工填表 → 主管批 → HR 備案") or an uploaded flowchart image
-// into a draft flow skeleton. Uses Claude vision when an image is supplied.
-// Tool use forces structured output so the front-end can apply it directly
-// without prompt-engineering JSON parsing.
-app.MapPost("/api/spec-extract", async (HttpContext ctx, IHttpClientFactory clientFactory) =>
+// Spec extraction — text → flow skeleton (both backends), image → flow
+// skeleton (api backend only; cli has no base64 image flag for -p mode).
+app.MapPost("/api/spec-extract", async (HttpContext ctx, IAiBackend ai, CancellationToken ct) =>
 {
-    var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
-    if (string.IsNullOrWhiteSpace(apiKey))
-    {
-        return Results.Json(new
-        {
-            error = "configure_api_key",
-            message = "後端環境變數 ANTHROPIC_API_KEY 尚未設定。請執行：export ANTHROPIC_API_KEY=sk-ant-... && dotnet run"
-        }, statusCode: 503);
-    }
-
     using var reader = new StreamReader(ctx.Request.Body);
-    var body = await reader.ReadToEndAsync();
+    var body = await reader.ReadToEndAsync(ct);
     if (string.IsNullOrWhiteSpace(body))
         return Results.BadRequest(new { error = "Empty body" });
 
@@ -228,30 +187,19 @@ app.MapPost("/api/spec-extract", async (HttpContext ctx, IHttpClientFactory clie
         if (kind != "description" && kind != "image")
             return Results.BadRequest(new { error = "kind must be 'description' or 'image'" });
 
-        // Build the user-message content based on kind.
-        var userContent = new List<object>();
+        string? userText = null;
+        string? imageDataUrl = null;
         if (kind == "description")
         {
-            var text = root.TryGetProperty("text", out var t) ? t.GetString() : null;
-            if (string.IsNullOrWhiteSpace(text))
+            userText = root.TryGetProperty("text", out var t) ? t.GetString() : null;
+            if (string.IsNullOrWhiteSpace(userText))
                 return Results.BadRequest(new { error = "Missing text" });
-            userContent.Add(new { type = "text", text = $"請根據以下流程描述抽出 BPMN skeleton：\n\n{text}" });
         }
         else
         {
-            var dataUrl = root.TryGetProperty("dataUrl", out var d) ? d.GetString() : null;
-            if (string.IsNullOrWhiteSpace(dataUrl) || !dataUrl.StartsWith("data:"))
+            imageDataUrl = root.TryGetProperty("dataUrl", out var d) ? d.GetString() : null;
+            if (string.IsNullOrWhiteSpace(imageDataUrl) || !imageDataUrl.StartsWith("data:"))
                 return Results.BadRequest(new { error = "Missing or invalid dataUrl (expected data:image/...;base64,...)" });
-            var commaIdx = dataUrl.IndexOf(',');
-            var header = dataUrl.Substring(5, commaIdx - 5);
-            var mediaType = header.Split(';')[0];
-            var base64 = dataUrl.Substring(commaIdx + 1);
-            userContent.Add(new
-            {
-                type = "image",
-                source = new { type = "base64", media_type = mediaType, data = base64 }
-            });
-            userContent.Add(new { type = "text", text = "請根據這張流程圖抽出 BPMN skeleton。如果是手繪、影像不清楚，盡力推斷並在 confidence_notes 中標出不確定的節點。" });
         }
 
         var systemPrompt = @"You are an expert BPMN architect. The customer is starting a wizard that will deploy a workflow engine. Extract a complete flow skeleton (nodes + edges + meta) from their input. Conventions:
@@ -262,113 +210,67 @@ app.MapPost("/api/spec-extract", async (HttpContext ctx, IHttpClientFactory clie
 - Approval nodes are nodes where a human approves; userTask are nodes where someone fills a form
 - ID convention: snake_case ASCII (start_1, task_apply, approval_manager, gateway_amount, end_1)
 - meta.flowCode UPPERCASE_SNAKE for class/table naming
-- meta.flowName 中文 (the customer's domain language)
-- Reply only via the emit_flow_skeleton tool — no prose answer.";
+- meta.flowName 中文 (the customer's domain language)";
 
-        var tool = new
+        var schema = new
         {
-            name = "emit_flow_skeleton",
-            description = "Emit the extracted BPMN flow skeleton.",
-            input_schema = new
+            type = "object",
+            required = new[] { "meta", "nodes", "edges" },
+            properties = new
             {
-                type = "object",
-                required = new[] { "meta", "nodes", "edges" },
-                properties = new
+                meta = new
                 {
-                    meta = new
+                    type = "object",
+                    required = new[] { "tenant", "flowName", "flowCode" },
+                    properties = new
+                    {
+                        tenant = new { type = "string", description = "Customer tenant code, lowercase, e.g. acme" },
+                        flowName = new { type = "string", description = "Human-readable Chinese name" },
+                        flowCode = new { type = "string", description = "UPPERCASE_SNAKE identifier" }
+                    }
+                },
+                nodes = new
+                {
+                    type = "array",
+                    items = new
                     {
                         type = "object",
-                        required = new[] { "tenant", "flowName", "flowCode" },
+                        required = new[] { "id", "type", "label" },
                         properties = new
                         {
-                            tenant = new { type = "string", description = "Customer tenant code, lowercase, e.g. acme" },
-                            flowName = new { type = "string", description = "Human-readable Chinese name" },
-                            flowCode = new { type = "string", description = "UPPERCASE_SNAKE identifier" }
+                            id = new { type = "string" },
+                            type = new { type = "string", @enum = new[] { "startEvent", "endEvent", "userTask", "approval", "gateway", "serviceTask", "notify" } },
+                            label = new { type = "string" }
                         }
-                    },
-                    nodes = new
-                    {
-                        type = "array",
-                        items = new
-                        {
-                            type = "object",
-                            required = new[] { "id", "type", "label" },
-                            properties = new
-                            {
-                                id = new { type = "string" },
-                                type = new { type = "string", @enum = new[] { "startEvent", "endEvent", "userTask", "approval", "gateway", "serviceTask", "notify" } },
-                                label = new { type = "string" }
-                            }
-                        }
-                    },
-                    edges = new
-                    {
-                        type = "array",
-                        items = new
-                        {
-                            type = "object",
-                            required = new[] { "id", "source", "target" },
-                            properties = new
-                            {
-                                id = new { type = "string" },
-                                source = new { type = "string" },
-                                target = new { type = "string" },
-                                label = new { type = "string", description = "Optional edge label, especially for gateway branches" },
-                                condition = new { type = "string", description = "Optional condition expression for gateway branches" }
-                            }
-                        }
-                    },
-                    confidence_notes = new
-                    {
-                        type = "string",
-                        description = "Plain-text notes about parts you were uncertain about (especially for image input)."
                     }
-                }
-            }
-        };
-
-        var anthropicReq = new
-        {
-            model = "claude-sonnet-4-6",
-            max_tokens = 2048,
-            system = systemPrompt,
-            tools = new object[] { tool },
-            tool_choice = new { type = "tool", name = "emit_flow_skeleton" },
-            messages = new object[] { new { role = "user", content = userContent } }
-        };
-
-        var http = clientFactory.CreateClient("anthropic");
-        using var req = new HttpRequestMessage(HttpMethod.Post, "v1/messages")
-        {
-            Content = JsonContent.Create(anthropicReq)
-        };
-        req.Headers.Add("x-api-key", apiKey);
-        req.Headers.Add("anthropic-version", "2023-06-01");
-
-        try
-        {
-            using var res = await http.SendAsync(req);
-            var resBody = await res.Content.ReadAsStringAsync();
-            if (!res.IsSuccessStatusCode)
-                return Results.Json(new { error = "anthropic_error", status = (int)res.StatusCode, body = resBody }, statusCode: (int)res.StatusCode);
-
-            using var resDoc = JsonDocument.Parse(resBody);
-            var content = resDoc.RootElement.GetProperty("content");
-            foreach (var block in content.EnumerateArray())
-            {
-                if (block.GetProperty("type").GetString() == "tool_use" &&
-                    block.GetProperty("name").GetString() == "emit_flow_skeleton")
+                },
+                edges = new
                 {
-                    var input = block.GetProperty("input");
-                    return Results.Content(input.GetRawText(), "application/json");
+                    type = "array",
+                    items = new
+                    {
+                        type = "object",
+                        required = new[] { "id", "source", "target" },
+                        properties = new
+                        {
+                            id = new { type = "string" },
+                            source = new { type = "string" },
+                            target = new { type = "string" },
+                            label = new { type = "string", description = "Optional edge label, especially for gateway branches" },
+                            condition = new { type = "string", description = "Optional condition expression for gateway branches" }
+                        }
+                    }
+                },
+                confidence_notes = new
+                {
+                    type = "string",
+                    description = "Plain-text notes about parts you were uncertain about (especially for image input)."
                 }
             }
-            return Results.Json(new { error = "no_tool_use", message = "Model did not invoke emit_flow_skeleton", raw = resBody }, statusCode: 502);
-        }
-        catch (Exception ex)
-        {
-            return Results.Json(new { error = "upstream_failure", message = ex.Message }, statusCode: 502);
-        }
+        };
+
+        var result = await ai.ExtractFlowAsync(systemPrompt, userText, imageDataUrl, schema, ct);
+        return Results.Content(result.Body, result.ContentType, statusCode: result.StatusCode);
     }
 });
 
