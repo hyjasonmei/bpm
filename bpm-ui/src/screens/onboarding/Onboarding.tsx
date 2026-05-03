@@ -15,6 +15,9 @@ import { CoPilotCanvas } from './CoPilotCanvas'
 import { StepSource } from './steps/StepSource'
 import { StepStructure } from './steps/StepStructure'
 import { StepForms } from './steps/StepForms'
+import { StepDecisions } from './steps/StepDecisions'
+import { StepApprovers } from './steps/StepApprovers'
+import { StepTest } from './steps/StepTest'
 import { StepPlaceholder } from './steps/StepPlaceholder'
 import { StepGoLive } from './steps/StepGoLive'
 
@@ -145,6 +148,9 @@ function renderCanvas(stepId: string, draft: DraftSpec, setDraft: (d: DraftSpec)
     case 'source':    return <StepSource draft={draft} setDraft={setDraft} />
     case 'structure': return <StepStructure draft={draft} setDraft={setDraft} />
     case 'forms':     return <StepForms draft={draft} setDraft={setDraft} />
+    case 'decisions': return <StepDecisions draft={draft} setDraft={setDraft} />
+    case 'approvers': return <StepApprovers draft={draft} setDraft={setDraft} />
+    case 'test':      return <StepTest draft={draft} setDraft={setDraft} />
     case 'go_live':   return <StepGoLive draft={draft} />
     default:          return <StepPlaceholder stepId={stepId} draft={draft} />
   }

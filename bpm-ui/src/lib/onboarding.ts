@@ -73,6 +73,73 @@ export interface FlowEdge {
   label?: string
 }
 
+/* Decisions (gateway rules) — mirrors spec_schema.md §2.4 */
+export interface DecisionBranch {
+  edgeId: string
+  condition: string
+  isDefault?: boolean
+}
+export interface Decision {
+  id: string
+  type: 'exclusive' | 'parallel' | 'inclusive'
+  branches: DecisionBranch[]
+}
+
+/* Approvals — mirrors spec_schema.md §2.5 */
+export type ApprovalRule =
+  | { type: 'direct_manager' }
+  | { type: 'role'; role: string }
+  | { type: 'specific_user'; userId: string }
+  | { type: 'department_head'; deptOf: 'applicant' }
+export interface Approval {
+  id: string
+  rule: ApprovalRule
+  fallback?: ApprovalRule
+  requiresAll?: boolean
+}
+
+/* Notifications — mirrors spec_schema.md §2.6 */
+export type NotifyTrigger = 'on_submit' | 'on_approve' | 'on_reject' | 'on_complete' | 'on_assign' | 'on_sla_breach'
+export type NotifyRecipient =
+  | { type: 'submitter' }
+  | { type: 'current_approver' }
+  | { type: 'role'; role: string }
+  | { type: 'specific_user'; userId: string }
+export interface NotifyTemplate {
+  subject: { 'zh-TW': string; en?: string }
+  body: { 'zh-TW': string; en?: string }
+  variables: string[]
+}
+export interface Notification {
+  id: string
+  trigger: NotifyTrigger
+  channel: ('email' | 'teams' | 'in_app')[]
+  recipients: NotifyRecipient[]
+  template: NotifyTemplate
+}
+
+/* SLA — mirrors spec_schema.md §2.7 */
+export interface NodeSLA {
+  duration: string
+  businessHoursOnly?: boolean
+  escalation?: {
+    after: string
+    action: 'notify' | 'reassign' | 'escalate_one_level' | 'auto_approve' | 'auto_reject'
+  }
+}
+
+/* Test cases — mirrors spec_schema.md §2.9 */
+export interface TestCase {
+  id: string
+  name: string
+  inputs: Record<string, unknown>
+  expectedPath?: string[]
+  expectedApprovers?: { nodeId: string; userIds: string[] }[]
+  expectedNotifications?: { trigger: string; recipientCount: number }[]
+  expectedHttpStatus?: number
+  expectedValidationErrors?: string[]
+}
+
 export interface DraftSpec {
   meta: {
     schemaVersion: '1.0'
@@ -86,12 +153,16 @@ export interface DraftSpec {
   }
   flow: { nodes: FlowNode[]; edges: FlowEdge[] }
   userTasks: UserTask[]
-  decisions: unknown[]
-  approvals: unknown[]
-  notifications: unknown[]
-  sla: { perNode: Record<string, unknown> }
-  integrations: { identityProvider: 'csv' | 'mcp:entra' }
-  testCases: unknown[]
+  decisions: Decision[]
+  approvals: Approval[]
+  notifications: Notification[]
+  sla: { perNode: Record<string, NodeSLA> }
+  integrations: {
+    identityProvider: 'csv' | 'mcp:entra'
+    csvSource?: { url: string }
+    fieldMappings?: Record<string, string>
+  }
+  testCases: TestCase[]
 }
 
 export const EMPTY_DRAFT: DraftSpec = {
@@ -253,6 +324,8 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
             { value: '公假', label: '公假' },
           ] },
         { id: 'date_range', label: { 'zh-TW': '起訖時間' }, type: 'daterange', required: true },
+        { id: 'days', label: { 'zh-TW': '天數' }, type: 'derived', required: false,
+          derivedFrom: 'businessDaysBetween(date_range.start, date_range.end)' },
         { id: 'reason', label: { 'zh-TW': '事由', en: 'Reason' }, type: 'textarea', required: true,
           hint: { 'zh-TW': '中英文皆可' } },
         { id: 'cert', label: { 'zh-TW': '證明文件' }, type: 'file', required: true,
@@ -267,6 +340,277 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
         { id: 'archive_note', label: { 'zh-TW': '備案備註' }, type: 'textarea', required: false },
       ],
       permissions: { submitter: 'role:HR', viewers: ['role:HR', 'self'] },
+    },
+  ],
+  decisions: [
+    {
+      id: 'gateway_days',
+      type: 'exclusive',
+      branches: [
+        { edgeId: 'e4', condition: 'days >= 7' },
+        { edgeId: 'e5', condition: 'days < 7', isDefault: true },
+      ],
+    },
+  ],
+  approvals: [
+    { id: 'approval_manager', rule: { type: 'direct_manager' } },
+    {
+      id: 'approval_vp',
+      rule: { type: 'department_head', deptOf: 'applicant' },
+      fallback: { type: 'role', role: 'VP' },
+    },
+  ],
+  notifications: [
+    {
+      id: 'notify_assign_manager',
+      trigger: 'on_assign',
+      channel: ['email', 'in_app'],
+      recipients: [{ type: 'current_approver' }],
+      template: {
+        subject: { 'zh-TW': '【請假待簽】{{applicant.name}} 申請 {{leave.days}} 天 {{leave.type}}' },
+        body: { 'zh-TW': '申請人: {{applicant.name}}\n假別: {{leave.type}}\n期間: {{leave.start}} - {{leave.end}}\n事由: {{leave.reason}}\n\n請點此核准: {{caseUrl}}' },
+        variables: ['applicant.name', 'leave.days', 'leave.type', 'leave.start', 'leave.end', 'leave.reason', 'caseUrl'],
+      },
+    },
+    {
+      id: 'notify_complete',
+      trigger: 'on_complete',
+      channel: ['email'],
+      recipients: [{ type: 'submitter' }],
+      template: {
+        subject: { 'zh-TW': '您的請假已備案' },
+        body: { 'zh-TW': '您於 {{submitDate}} 申請的 {{leave.days}} 天 {{leave.type}} 已完成備案。' },
+        variables: ['submitDate', 'leave.days', 'leave.type'],
+      },
+    },
+  ],
+  sla: {
+    perNode: {
+      approval_manager: { duration: '8h', businessHoursOnly: true, escalation: { after: '8h', action: 'notify' } },
+      approval_vp:      { duration: '24h', businessHoursOnly: true, escalation: { after: '24h', action: 'notify' } },
+    },
+  },
+  integrations: {
+    identityProvider: 'csv',
+    csvSource: { url: 's3://bpm-tenants/acme/employees-2026-05-02.csv' },
+    fieldMappings: {
+      employeeId: 'empId', displayName: 'name', email: 'email',
+      reportsTo: 'manager', department: 'department', title: 'title',
+    },
+  },
+  testCases: [
+    {
+      id: 'tc_1',
+      name: '5 天特休、直屬主管核准',
+      inputs: { leave_type: '特休', date_range: { start: '2026-05-10', end: '2026-05-12' }, reason: '家裡有事' },
+      expectedPath: ['start_1', 'task_apply', 'approval_manager', 'gateway_days', 'task_hr_archive', 'end_1'],
+      expectedApprovers: [{ nodeId: 'approval_manager', userIds: ['u_wang_manager'] }],
+      expectedNotifications: [
+        { trigger: 'on_assign', recipientCount: 1 },
+        { trigger: 'on_complete', recipientCount: 1 },
+      ],
+    },
+    {
+      id: 'tc_2',
+      name: '8 天事假、需副總加簽',
+      inputs: { leave_type: '事假', date_range: { start: '2026-06-01', end: '2026-06-10' }, reason: '出國' },
+      expectedPath: ['start_1', 'task_apply', 'approval_manager', 'gateway_days', 'approval_vp', 'task_hr_archive', 'end_1'],
+      expectedApprovers: [
+        { nodeId: 'approval_manager', userIds: ['u_wang_manager'] },
+        { nodeId: 'approval_vp', userIds: ['u_chen_vp'] },
+      ],
+    },
+    {
+      id: 'tc_3',
+      name: '病假需附證明',
+      inputs: { leave_type: '病假', date_range: { start: '2026-05-15', end: '2026-05-15' }, reason: '流感', cert: 'certificate.pdf' },
+      expectedPath: ['start_1', 'task_apply', 'approval_manager', 'gateway_days', 'task_hr_archive', 'end_1'],
+      expectedApprovers: [{ nodeId: 'approval_manager', userIds: ['u_wang_manager'] }],
+    },
+  ],
+}
+
+export const PURCHASE_PRESET: Partial<DraftSpec> = {
+  meta: {
+    ...EMPTY_DRAFT.meta,
+    tenant: 'acme',
+    flowName: '採購申請',
+    flowCode: 'PURCHASE',
+    flowVersion: 1,
+  },
+  flow: {
+    nodes: [
+      { id: 'start_1', type: 'startEvent', label: '開始' },
+      { id: 'task_request', type: 'userTask', label: '員工申請' },
+      { id: 'approval_manager', type: 'approval', label: '主管核准' },
+      { id: 'gateway_after_manager', type: 'gateway', label: '金額 ≥ 1 萬？' },
+      { id: 'approval_finance', type: 'approval', label: '財務核准' },
+      { id: 'gateway_after_finance', type: 'gateway', label: '金額 ≥ 10 萬？' },
+      { id: 'approval_ceo', type: 'approval', label: 'CEO 核准' },
+      { id: 'task_purchase_exec', type: 'userTask', label: '採購處理' },
+      { id: 'end_1', type: 'endEvent', label: '完成' },
+    ],
+    edges: [
+      { id: 'e1', source: 'start_1', target: 'task_request' },
+      { id: 'e2', source: 'task_request', target: 'approval_manager' },
+      { id: 'e3', source: 'approval_manager', target: 'gateway_after_manager' },
+      { id: 'e4', source: 'gateway_after_manager', target: 'task_purchase_exec', condition: 'amount < 10000', isDefault: true, label: '小額直接執行' },
+      { id: 'e5', source: 'gateway_after_manager', target: 'approval_finance', condition: 'amount >= 10000', label: '需財務核准' },
+      { id: 'e6', source: 'approval_finance', target: 'gateway_after_finance' },
+      { id: 'e7', source: 'gateway_after_finance', target: 'task_purchase_exec', condition: 'amount < 100000', isDefault: true, label: '中額執行' },
+      { id: 'e8', source: 'gateway_after_finance', target: 'approval_ceo', condition: 'amount >= 100000', label: '大額需 CEO' },
+      { id: 'e9', source: 'approval_ceo', target: 'task_purchase_exec' },
+      { id: 'e10', source: 'task_purchase_exec', target: 'end_1' },
+    ],
+  },
+  userTasks: [
+    {
+      id: 'task_request',
+      formCode: 'PURCHASE_REQUEST',
+      fields: [
+        { id: 'vendor', label: { 'zh-TW': '供應商', en: 'Vendor' }, type: 'text', required: true },
+        { id: 'category', label: { 'zh-TW': '採購類別', en: 'Category' }, type: 'select', required: true,
+          options: [
+            { value: 'office', label: '辦公耗材' },
+            { value: 'it', label: 'IT 設備' },
+            { value: 'service', label: '服務委外' },
+            { value: 'other', label: '其他' },
+          ] },
+        { id: 'amount', label: { 'zh-TW': '金額 (TWD)', en: 'Amount (TWD)' }, type: 'number', required: true,
+          hint: { 'zh-TW': '未稅金額，整數' } },
+        { id: 'items', label: { 'zh-TW': '品項明細', en: 'Items' }, type: 'textarea', required: true,
+          hint: { 'zh-TW': '一行一品項，含數量單價' } },
+        { id: 'justification', label: { 'zh-TW': '採購理由', en: 'Justification' }, type: 'textarea', required: true },
+        { id: 'quote_file', label: { 'zh-TW': '報價單', en: 'Quote' }, type: 'file', required: true,
+          conditional: 'amount >= 10000', hint: { 'zh-TW': '1 萬以上必附正式報價單' } },
+      ],
+      permissions: { submitter: 'self', viewers: ['self', 'manager', 'role:Finance', 'role:Purchase'] },
+    },
+    {
+      id: 'task_purchase_exec',
+      formCode: 'PURCHASE_EXEC',
+      fields: [
+        { id: 'po_number', label: { 'zh-TW': '採購單號', en: 'PO Number' }, type: 'text', required: true,
+          hint: { 'zh-TW': 'ERP 開立後填回' } },
+        { id: 'expected_delivery', label: { 'zh-TW': '預計到貨日', en: 'Expected delivery' }, type: 'date', required: true },
+        { id: 'exec_note', label: { 'zh-TW': '處理備註', en: 'Note' }, type: 'textarea', required: false },
+      ],
+      permissions: { submitter: 'role:Purchase', viewers: ['self', 'manager', 'role:Finance', 'role:Purchase'] },
+    },
+  ],
+  decisions: [
+    {
+      id: 'gateway_after_manager',
+      type: 'exclusive',
+      branches: [
+        { edgeId: 'e4', condition: 'amount < 10000', isDefault: true },
+        { edgeId: 'e5', condition: 'amount >= 10000' },
+      ],
+    },
+    {
+      id: 'gateway_after_finance',
+      type: 'exclusive',
+      branches: [
+        { edgeId: 'e7', condition: 'amount < 100000', isDefault: true },
+        { edgeId: 'e8', condition: 'amount >= 100000' },
+      ],
+    },
+  ],
+  approvals: [
+    { id: 'approval_manager', rule: { type: 'direct_manager' } },
+    { id: 'approval_finance', rule: { type: 'role', role: 'Finance' } },
+    { id: 'approval_ceo', rule: { type: 'role', role: 'CEO' }, fallback: { type: 'role', role: 'VP' } },
+  ],
+  notifications: [
+    {
+      id: 'notify_assign_approver',
+      trigger: 'on_assign',
+      channel: ['email', 'in_app'],
+      recipients: [{ type: 'current_approver' }],
+      template: {
+        subject: { 'zh-TW': '【採購待簽】{{applicant.name}} 申請 {{purchase.amount}} 元 ({{purchase.vendor}})' },
+        body: { 'zh-TW': '申請人: {{applicant.name}}\n供應商: {{purchase.vendor}}\n金額: {{purchase.amount}} 元\n類別: {{purchase.category}}\n理由: {{purchase.justification}}\n\n請點此核准: {{caseUrl}}' },
+        variables: ['applicant.name', 'purchase.amount', 'purchase.vendor', 'purchase.category', 'purchase.justification', 'caseUrl'],
+      },
+    },
+    {
+      id: 'notify_assign_purchase',
+      trigger: 'on_assign',
+      channel: ['email', 'in_app'],
+      recipients: [{ type: 'role', role: 'Purchase' }],
+      template: {
+        subject: { 'zh-TW': '【採購待處理】{{purchase.vendor}} - {{purchase.amount}} 元' },
+        body: { 'zh-TW': '案件已核准完畢，請開立 PO。\n供應商: {{purchase.vendor}}\n金額: {{purchase.amount}} 元\n\n處理頁面: {{caseUrl}}' },
+        variables: ['purchase.vendor', 'purchase.amount', 'caseUrl'],
+      },
+    },
+    {
+      id: 'notify_complete',
+      trigger: 'on_complete',
+      channel: ['email'],
+      recipients: [{ type: 'submitter' }],
+      template: {
+        subject: { 'zh-TW': '您的採購申請已完成' },
+        body: { 'zh-TW': '您於 {{submitDate}} 申請的 {{purchase.vendor}} {{purchase.amount}} 元已開立 PO ({{purchase.poNumber}})，預計 {{purchase.expectedDelivery}} 到貨。' },
+        variables: ['submitDate', 'purchase.vendor', 'purchase.amount', 'purchase.poNumber', 'purchase.expectedDelivery'],
+      },
+    },
+  ],
+  sla: {
+    perNode: {
+      approval_manager:    { duration: '8h',  businessHoursOnly: true, escalation: { after: '8h',  action: 'notify' } },
+      approval_finance:    { duration: '16h', businessHoursOnly: true, escalation: { after: '16h', action: 'notify' } },
+      approval_ceo:        { duration: '24h', businessHoursOnly: true, escalation: { after: '24h', action: 'notify' } },
+      task_purchase_exec:  { duration: '48h', businessHoursOnly: true, escalation: { after: '48h', action: 'notify' } },
+    },
+  },
+  integrations: {
+    identityProvider: 'csv',
+    csvSource: { url: 's3://bpm-tenants/acme/employees-2026-05-02.csv' },
+    fieldMappings: {
+      employeeId: 'empId', displayName: 'name', email: 'email',
+      reportsTo: 'manager', department: 'department', title: 'title',
+    },
+  },
+  testCases: [
+    {
+      id: 'tc_1',
+      name: '5000 元辦公耗材，主管核准即可',
+      inputs: { vendor: '全聯辦公用品', category: 'office', amount: 5000, items: 'A4 影印紙 x 50 包\n原子筆 x 100 支', justification: 'Q2 季度耗材補充' },
+      expectedPath: ['start_1', 'task_request', 'approval_manager', 'gateway_after_manager', 'task_purchase_exec', 'end_1'],
+      expectedApprovers: [{ nodeId: 'approval_manager', userIds: ['u_wang_manager'] }],
+      expectedNotifications: [
+        { trigger: 'on_assign', recipientCount: 1 },
+        { trigger: 'on_complete', recipientCount: 1 },
+      ],
+    },
+    {
+      id: 'tc_2',
+      name: '50000 元 IT 設備，需主管 + 財務',
+      inputs: { vendor: '聯強國際', category: 'it', amount: 50000, items: 'MacBook Air M3 13" x 1', justification: '新進工程師配機', quote_file: 'quote_50k.pdf' },
+      expectedPath: ['start_1', 'task_request', 'approval_manager', 'gateway_after_manager', 'approval_finance', 'gateway_after_finance', 'task_purchase_exec', 'end_1'],
+      expectedApprovers: [
+        { nodeId: 'approval_manager', userIds: ['u_wang_manager'] },
+        { nodeId: 'approval_finance', userIds: ['u_finance_lead'] },
+      ],
+    },
+    {
+      id: 'tc_3',
+      name: '200000 元服務委外，三層核准',
+      inputs: { vendor: '資安顧問公司', category: 'service', amount: 200000, items: '年度資安滲透測試', justification: 'ISO 27001 稽核要求', quote_file: 'quote_200k.pdf' },
+      expectedPath: ['start_1', 'task_request', 'approval_manager', 'gateway_after_manager', 'approval_finance', 'gateway_after_finance', 'approval_ceo', 'task_purchase_exec', 'end_1'],
+      expectedApprovers: [
+        { nodeId: 'approval_manager', userIds: ['u_wang_manager'] },
+        { nodeId: 'approval_finance', userIds: ['u_finance_lead'] },
+        { nodeId: 'approval_ceo', userIds: ['u_ceo'] },
+      ],
+    },
+    {
+      id: 'tc_4',
+      name: '1 萬以下不附報價單應通過、1 萬以上不附應 400',
+      inputs: { vendor: '邊界測試', category: 'other', amount: 10000, items: 'boundary', justification: '邊界測試 — 沒附 quote_file 預期 400' },
+      expectedHttpStatus: 400,
+      expectedValidationErrors: ['quote_file is required when amount >= 10000'],
     },
   ],
 }
