@@ -5,6 +5,10 @@ Hand-written `spec.json` files used for dogfood (Phase A) and Pipeline tests (Ph
 ## Files
 
 - `leave_v1.json` — 請假流程 spec deliverable v1.0 (corresponds to `spec_schema.md` §3 example)
+- `purchase_v1.json` — 採購流程 spec deliverable v1.0
+  - 2 串接 gateway（金額 ≥ 1 萬走財務、再 ≥ 10 萬走 CEO），3 層 approval chain
+  - 用來驗 prompt v1.2 的 React-controlled `number` input fill 規則（chrome-devtools `fill` 在 `<Input type="number">` 也會失效）
+  - 有 `conditional` file field（quote_file 只在 amount ≥ 10000 時 required）測 conditional validation
 
 ## Dogfood guide (Phase A)
 
@@ -50,7 +54,6 @@ hand-written specs become regression test fixtures.
 ## Adding more samples
 
 When dogfooding more flow types, add them here with version suffix:
-- `purchase_v1.json` — 採購流程
 - `announcement_v1.json` — 發公告流程
 - `travel_v1.json` — 差旅申請
 
