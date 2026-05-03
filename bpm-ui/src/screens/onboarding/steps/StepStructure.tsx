@@ -1,7 +1,7 @@
-import { BpmnDiagram } from '@/components/BpmnDiagram'
+import { BpmnEditor } from '@/components/BpmnEditor'
 import type { DraftSpec } from '@/lib/onboarding'
 
-export function StepStructure({ draft }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void }) {
+export function StepStructure({ draft, setDraft }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void }) {
   if (draft.flow.nodes.length === 0) {
     return (
       <div className="rounded border border-dashed border-rule p-10 text-center text-sm text-ink-faint">
@@ -13,11 +13,12 @@ export function StepStructure({ draft }: { draft: DraftSpec; setDraft: (d: Draft
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-ink-muted">
-        bpmn-js 即時渲染流程拓撲。Phase A：拓撲只能從 preset / spec import 來、無法在這裡用滑鼠拉。
-        要編輯節點 / 邊請回 SOURCE 改 preset，或在後續 step（FORMS / DECISIONS / APPROVERS）改該節點對應的設定。Phase B 會接 bpmn-js Modeler。
+        bpmn-js Modeler — 直接拖拉編輯節點 / 邊。新增節點請從左側 palette；
+        刪除選取後按 Delete。結構改動會即時 sync 回 spec。後續 step（FORMS /
+        DECISIONS / APPROVERS）會自動針對新節點配置設定。
       </p>
 
-      <BpmnDiagram draft={draft} height={420} />
+      <BpmnEditor draft={draft} onChange={setDraft} height={420} />
 
       <details className="text-xs text-ink-muted">
         <summary className="cursor-pointer">節點明細 ({draft.flow.nodes.length}) / 邊明細 ({draft.flow.edges.length})</summary>
