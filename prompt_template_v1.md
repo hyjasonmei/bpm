@@ -189,6 +189,13 @@ Shared:
      j. For each screenshot write a one-line assertion naming the spec rule
         it confirms (e.g. "step-f.png: form shows all 8 required fields per
         spec.userTasks[0].fields where required=true")
+     k. **Shut down everything once the report is written.** Kill the dotnet
+        run (`Bpm.Api`), the `npm run dev` (vite), and the chrome-devtools
+        MCP-controlled Chrome instance. The next dogfood round needs ports
+        :5290 / :5173 and the chrome-profile dir (`~/.cache/chrome-devtools-mcp/chrome-profile`)
+        free; leaving them up forces the next run to confirm a kill mid-flight,
+        which costs a turn. Verify with `lsof -nP -iTCP:5290 -sTCP:LISTEN` and
+        `lsof -nP -iTCP:5173 -sTCP:LISTEN` returning empty.
 
    Failure handling (no shortcuts):
      - If any step fails, return to fix the underlying code. Do NOT declare
@@ -260,6 +267,13 @@ Shared:
     生成不該再卡。
     （受影響的不只 date：所有 `<Input>` 都是 controlled，下一個會踩坑的
     很可能是 number / select / textarea。）
+- v1.3（2026-05-03，第 3 次 dogfood 後）：
+  - RULE #8 加 step (k)：跑完報告後要把 dotnet API / vite / chrome-devtools
+    管理的 Chrome 全部關掉。第 3 次 dogfood 一開頭就被第 2 輪留下的
+    Bpm.Api (5290) + vite (5173) + Chrome instance 擋住，多花一個來回確認
+    才能 kill。寫進 prompt 後下一輪不該再卡。
+  - v1.2 React-controlled input 規則在第 3 輪 number / textarea / date 上
+    全部驗證有效，免重複處理。
 
 ---
 

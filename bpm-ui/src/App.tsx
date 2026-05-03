@@ -6,6 +6,8 @@ import { Search } from '@/screens/Search'
 import { Report } from '@/screens/Report'
 import { Onboarding } from '@/screens/onboarding/Onboarding'
 import { LeaveForm } from '@/screens/forms/LeaveForm'
+import { PurchaseForm } from '@/screens/forms/PurchaseForm'
+import { PurchaseView } from '@/screens/forms/PurchaseView'
 import { GEEForm } from '@/screens/forms/GEEForm'
 import { GEVForm } from '@/screens/forms/GEVForm'
 import { APEForm } from '@/screens/forms/APEForm'
@@ -18,6 +20,11 @@ import { EXTOBView } from '@/screens/forms/EXTOBView'
 const SCREEN_KEY = 'bpm_screen'
 
 function readSavedScreen(): Screen {
+  // hash deep-link wins over localStorage: #purchase/<caseId>
+  const hash = typeof window !== 'undefined' ? window.location.hash : ''
+  const m = hash.match(/^#purchase\/([0-9a-fA-F-]{8,})$/)
+  if (m) return { kind: 'form', code: 'PURCHASE', caseId: m[1] }
+
   try {
     const raw = localStorage.getItem(SCREEN_KEY)
     if (!raw) return { kind: 'home' }
@@ -35,6 +42,26 @@ export default function App() {
     localStorage.setItem(SCREEN_KEY, JSON.stringify(screen))
   }, [screen])
 
+  // Sync hash with PURCHASE deep link
+  useEffect(() => {
+    if (screen.kind === 'form' && screen.code === 'PURCHASE' && screen.caseId) {
+      const want = `#purchase/${screen.caseId}`
+      if (window.location.hash !== want) window.location.hash = want
+    } else if (window.location.hash.startsWith('#purchase/')) {
+      history.replaceState(null, '', window.location.pathname + window.location.search)
+    }
+  }, [screen])
+
+  // Listen for browser back/forward changing the hash
+  useEffect(() => {
+    const onHash = () => {
+      const m = window.location.hash.match(/^#purchase\/([0-9a-fA-F-]{8,})$/)
+      if (m) setScreen({ kind: 'form', code: 'PURCHASE', caseId: m[1] })
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
   let body: React.ReactNode
   switch (screen.kind) {
     case 'home':       body = <Home persona={persona} setScreen={setScreen} />; break
@@ -43,7 +70,10 @@ export default function App() {
     case 'onboarding': body = <Onboarding />; break
     case 'form':
       switch (screen.code) {
-        case 'LEAVE': body = <LeaveForm persona={persona} />; break
+        case 'LEAVE':    body = <LeaveForm persona={persona} />; break
+        case 'PURCHASE': body = screen.caseId
+          ? <PurchaseView persona={persona} caseId={screen.caseId} setScreen={setScreen} />
+          : <PurchaseForm persona={persona} setScreen={setScreen} />; break
         case 'GEE':   body = <GEEForm persona={persona} />; break
         case 'GEV':   body = <GEVForm persona={persona} />; break
         case 'APE':   body = <APEForm persona={persona} />; break

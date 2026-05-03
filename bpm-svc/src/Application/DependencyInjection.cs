@@ -1,6 +1,7 @@
 using System.Reflection;
 using FluentValidation;
 using Bpm.Application.Common.Behaviors;
+using Bpm.Application.Purchase.Services;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -21,6 +22,9 @@ public static class DependencyInjection
         });
 
         services.AddValidatorsFromAssembly(assembly);
+
+        services.AddScoped<PurchaseApprovalResolver>();
+        services.AddScoped<PurchaseNotificationEmitter>();
 
         return services;
     }

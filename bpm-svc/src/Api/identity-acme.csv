@@ -1,0 +1,8 @@
+empId,name,email,manager,department,title,roles
+u_wilson,Wilson Liu,wilson@acme.example,u_wang_manager,Engineering,Senior Engineer,
+u_mary,Mary Chen,mary@acme.example,u_wang_manager,Engineering,Software Engineer,
+u_wang_manager,Wang Manager,wang@acme.example,u_chen_vp,Engineering,Engineering Manager,
+u_chen_vp,Chen VP,chen@acme.example,u_ceo,Engineering,VP Engineering,DEPT_HEAD;VP
+u_finance_lead,Lin Finance,finance@acme.example,u_ceo,Finance,Finance Director,Finance;DEPT_HEAD
+u_purchase_lead,Sam Purchasing,purchase@acme.example,u_finance_lead,Finance,Purchasing Lead,Purchase
+u_ceo,Anna CEO,ceo@acme.example,,Executive,Chief Executive Officer,CEO
