@@ -1,4 +1,4 @@
-# Claude Code Prompt Template v1.1
+# Claude Code Prompt Template v1.2
 
 > Phase A 用人工跑：Jason 收到客戶的 spec deliverable JSON，cd 進對應 customer repo，把這份 prompt 餵給 Claude Code CLI，等它寫完 review。
 > 對應 `inovation_idea.md` §3.4。
@@ -168,7 +168,19 @@ Shared:
      d. Open Chrome via the chrome-devtools MCP
      e. From the home screen, navigate to the new flow WITHOUT typing a URL
         (must reach via clickable menu / button)
-     f. Submit a test case using data from `spec.testCases[0]`
+     f. Submit a test case using data from `spec.testCases[0]`.
+        Tooling note for React-controlled inputs (date / number / and any
+        input whose `onChange` lives on a controlled component): the
+        chrome-devtools `fill` tool sets `element.value` directly, which
+        React does NOT observe — the form's state stays empty and Submit
+        stays disabled. Drive these via `evaluate_script` using the native
+        value setter + a bubbling `input` event, e.g.:
+            const el = document.querySelector('input[name="start"]');
+            const setter = Object.getOwnPropertyDescriptor(
+              window.HTMLInputElement.prototype, 'value').set;
+            setter.call(el, '2026-05-10');
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+        Use `fill` for plain `<input type="text">` only.
      g. Verify the case appears in the list view
      h. Open the case detail view; verify all spec.userTasks[0].fields are
         rendered with correct labels (bilingual) and types
@@ -239,7 +251,16 @@ Shared:
     走不通不可宣告完成。這條是 #6 / #7 的根本解（讓 AI 自己撞牆自己修）
   - GENERATION ORDER §6 frontend：明確要求註冊到 Create dropdown 對應
     group，禁用 dev 內部命名（`*`、`-v2`、`(spec)`）；加 hash deep-link route
+- v1.2（2026-05-03，第 2 次 dogfood 後）：
+  - RULE #8 step (f)：補上 React-controlled input 的填值規則。
+    chrome-devtools `fill` 直接寫 `element.value`，React 看不到，會卡在
+    Submit disabled。改用 `evaluate_script` 走 prototype value setter +
+    bubbling `input` event。第 2 次 dogfood 在 LeaveSpecForm 的
+    `<input type="date">` 撞到，現場 workaround 過了；寫進 prompt 後下一輪
+    生成不該再卡。
+    （受影響的不只 date：所有 `<Input>` 都是 controlled，下一個會踩坑的
+    很可能是 number / select / textarea。）
 
 ---
 
-*Last updated: 2026-05-02*
+*Last updated: 2026-05-03*
