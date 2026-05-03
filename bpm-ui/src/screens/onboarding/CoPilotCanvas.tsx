@@ -1,32 +1,51 @@
 import { useEffect, useRef, useState } from 'react'
-import { Send, Bot, User } from 'lucide-react'
+import { Send, Bot, User, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import type { OnboardingStep, DraftSpec } from '@/lib/onboarding'
 
 /**
  * Co-Pilot Canvas — split layout (chat left, AI-generated canvas right).
  *
- * Phase A: chat is a *scripted* mock per step; messages don't actually call
- * Claude API yet. The point right now is to demo the interaction shape so the
- * partner can show customers what the experience feels like. Phase B will
- * wire this to the real Claude API + spec patcher.
+ * Sprint 3 #3: chat now calls bpm-svc /api/chat which proxies to Anthropic.
+ * The backend swallows ANTHROPIC_API_KEY (so it never leaves the server) and
+ * returns 503 + a structured payload when the key is unset, which we surface
+ * inline so the developer knows exactly what to configure.
  */
 
+const CHAT_API = (import.meta.env.VITE_BPM_SVC_URL ?? 'http://localhost:5290') + '/api/chat'
+
 interface ChatMessage {
-  role: 'ai' | 'user'
+  role: 'assistant' | 'user'
   text: string
 }
 
-const SCRIPTED_GREETINGS: Record<string, string> = {
-  source:    '請描述您要設計的流程，或是上傳 PPT / Visio / 手繪 / Excel。也可以選一個既有範本（如「請假」）開始。',
-  structure: '看一下右邊的 BPMN 骨架——節點、邊都對嗎？我有標出信心較低的節點，您可以點擊修改。',
-  forms:     '右邊列出每個 user task 的欄位。請確認欄位、必填、條件規則。如果想加新欄位告訴我，我會更新右邊。',
+interface AnthropicTextBlock { type: 'text'; text: string }
+interface AnthropicResponse { content?: AnthropicTextBlock[] }
+
+const STEP_OPENERS: Record<string, string> = {
+  source:    '請描述您要設計的流程，或選一個範本（LEAVE / PURCHASE）開始。需要建議哪個範本適合您嗎？',
+  structure: '看一下右邊的 BPMN 骨架，您可以直接拖拉節點 / 連線。如有想加 / 改 / 刪的步驟，告訴我，我會建議怎麼動。',
+  forms:     '右邊列出每個 user task 的欄位。要加新欄位、改型別、加條件規則都跟我說。',
   decisions: '每個 gateway 我都列在右邊。請告訴我每個 gateway 的條件——譬如「金額 > 50K 走 A 路徑」。',
-  approvers: '請告訴我每個 approval 步驟由誰簽。我可以查您 AD（如果接了 MCP）找出對應的人。',
+  approvers: '請告訴我每個 approval 步驟由誰簽。我可以建議常見的審核者規則組合。',
   notify:    '預設我先給您雙語的 email 模板，您可以在右邊微調文字、變數、收件人。',
-  sla:       '建議：審核 24 工時、超時 escalation 通知。要不要改？',
-  test:      '我用您的 spec 模擬了 3 張案件，請看右邊的測試結果。如果路徑不如預期，告訴我哪裡需要調整。',
+  sla:       '常見配置：審核 24 工時、超時 escalation 通知。要套用這個，還是您有不同需求？',
+  test:      '我會用您的 spec 模擬幾張案件，請看右邊的測試結果。如果路徑不如預期，告訴我哪裡需要調整。',
   go_live:   '所有 validator 都過了。確認 spec 摘要正確嗎？按下「Submit Spec」就送到後台。',
+}
+
+function summarizeDraft(d: DraftSpec) {
+  return {
+    meta: d.meta,
+    nodeCount: d.flow.nodes.length,
+    edgeCount: d.flow.edges.length,
+    nodes: d.flow.nodes.map(n => ({ id: n.id, type: n.type, label: n.label })),
+    userTaskFormCodes: d.userTasks.map(t => ({ id: t.id, formCode: t.formCode, fieldCount: t.fields.length })),
+    approvalCount: d.approvals.length,
+    decisionCount: d.decisions.length,
+    notificationCount: d.notifications.length,
+    testCaseCount: d.testCases.length,
+  }
 }
 
 export function CoPilotCanvas({
@@ -42,31 +61,75 @@ export function CoPilotCanvas({
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [setupHint, setSetupHint] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Reset chat when step changes; seed with scripted greeting.
+  // Reset chat when step changes; seed with the step opener.
   useEffect(() => {
-    setMessages([{ role: 'ai', text: SCRIPTED_GREETINGS[step.id] ?? '請開始這一步。' }])
+    setMessages([{ role: 'assistant', text: STEP_OPENERS[step.id] ?? '請開始這一步。' }])
+    setSetupHint(null)
   }, [step.id])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
 
-  const send = () => {
-    const text = input.trim()
-    if (!text) return
-    setMessages(m => [
-      ...m,
-      { role: 'user', text },
-      { role: 'ai', text: scriptedReply(step.id, text, draft) },
-    ])
-    setInput('')
-  }
-
-  // Suppress unused linter warning — `setDraft` is intentionally available for
-  // future use when chat actually mutates the spec.
+  // setDraft reserved for future tool-use (AI mutates draft directly).
   void setDraft
+
+  const send = async () => {
+    const text = input.trim()
+    if (!text || busy) return
+    const next: ChatMessage[] = [...messages, { role: 'user', text }]
+    setMessages(next)
+    setInput('')
+    setBusy(true)
+    setSetupHint(null)
+
+    try {
+      // Anthropic expects messages without our role labels — map assistant/user.
+      const anthropicMessages = next
+        .filter(m => m.text.trim().length > 0)
+        .map(m => ({ role: m.role, content: m.text }))
+
+      const res = await fetch(CHAT_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          step: step.id,
+          draftSummary: summarizeDraft(draft),
+          messages: anthropicMessages,
+        }),
+      })
+
+      if (res.status === 503) {
+        const body = await res.json().catch(() => ({}))
+        const msg = body?.message ?? 'Chat unavailable — backend not configured.'
+        setSetupHint(msg)
+        setBusy(false)
+        return
+      }
+      if (!res.ok) {
+        const body = await res.text()
+        throw new Error(`HTTP ${res.status} — ${body || res.statusText}`)
+      }
+
+      const data = await res.json() as AnthropicResponse
+      const replyText = (data.content ?? [])
+        .filter((b): b is AnthropicTextBlock => b.type === 'text')
+        .map(b => b.text)
+        .join('\n\n')
+        .trim() || '(AI returned no text content.)'
+
+      setMessages(m => [...m, { role: 'assistant', text: replyText }])
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setMessages(m => [...m, { role: 'assistant', text: `⚠️ 呼叫 AI 失敗：${msg}` }])
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div className="grid h-[640px] grid-cols-[380px_1fr] gap-3">
@@ -82,18 +145,34 @@ export function CoPilotCanvas({
             <div key={i} className={cn('flex items-start gap-2', m.role === 'user' && 'flex-row-reverse')}>
               <div className={cn(
                 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
-                m.role === 'ai' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700',
+                m.role === 'assistant' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700',
               )}>
-                {m.role === 'ai' ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
+                {m.role === 'assistant' ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
               </div>
               <div className={cn(
-                'max-w-[280px] rounded-lg px-3 py-2 text-sm leading-snug',
-                m.role === 'ai' ? 'bg-slate-50 text-ink' : 'bg-primary text-white',
+                'max-w-[280px] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm leading-snug',
+                m.role === 'assistant' ? 'bg-slate-50 text-ink' : 'bg-primary text-white',
               )}>
                 {m.text}
               </div>
             </div>
           ))}
+          {busy && (
+            <div className="flex items-start gap-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                <Bot className="h-4 w-4" />
+              </div>
+              <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-ink-muted italic">
+                AI 思考中…
+              </div>
+            </div>
+          )}
+          {setupHint && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="break-words font-mono">{setupHint}</div>
+            </div>
+          )}
         </div>
 
         <div className="border-t border-rule bg-slate-50 p-2">
@@ -102,18 +181,20 @@ export function CoPilotCanvas({
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-              placeholder="跟 AI 說明這個 step…"
-              className="h-8 flex-1 rounded-md border border-rule bg-white px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder={busy ? '送出中…' : '跟 AI 說明這個 step…'}
+              disabled={busy}
+              className="h-8 flex-1 rounded-md border border-rule bg-white px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-slate-100"
             />
             <button
               onClick={send}
-              className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-white hover:bg-blue-700"
+              disabled={busy}
+              className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-white hover:bg-blue-700 disabled:bg-slate-300"
             >
               <Send className="h-4 w-4" />
             </button>
           </div>
           <p className="mt-1 text-[10px] text-ink-faint">
-            Phase A：scripted demo（沒接 Claude API）。Phase B 才會即時跟 AI 對話。
+            POST /api/chat → Anthropic Claude Sonnet 4.6（system prompt 走 prompt cache）
           </p>
         </div>
       </div>
@@ -135,16 +216,4 @@ export function CoPilotCanvas({
       </div>
     </div>
   )
-}
-
-function scriptedReply(stepId: string, _userText: string, _draft: DraftSpec): string {
-  // Very simple keyword echoes for demo purposes. Phase B replaces this.
-  const lower = _userText.toLowerCase()
-  if (lower.includes('請假') || lower.includes('leave')) {
-    return '已套用「請假」範本到右邊 canvas。您可以接著在右邊微調或繼續對話。（Phase A：實際的範本載入請按 canvas 上的 Load Preset 按鈕）'
-  }
-  if (lower.includes('幫') || lower.includes('help')) {
-    return `這一步：${stepId}。請看右邊 canvas，那是 spec 在這個 step 的可視化。任何想改的都可以在 canvas 上直接動，或在這裡描述需求。`
-  }
-  return `（Phase A scripted）已收到「${_userText}」。Phase B 接 Claude API 後會根據您的描述更新右邊 canvas。`
 }

@@ -18,6 +18,11 @@ builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpClient("anthropic", c =>
+{
+    c.BaseAddress = new Uri("https://api.anthropic.com/");
+    c.Timeout = TimeSpan.FromSeconds(60);
+});
 
 builder.Services.AddCors(o => o.AddPolicy("bpm-ui", p =>
 {
@@ -99,6 +104,94 @@ app.MapPost("/api/spec", async (HttpContext ctx, IClock clock) =>
 
         app.Logger.LogInformation("Spec received: tracking={Tracking} path={Path} bytes={Bytes}", trackingId, fullPath, json.Length);
         return Results.Ok(new { trackingId, path = fullPath, receivedAt = now });
+    }
+});
+
+// CoPilot chat — proxies the wizard's left-pane chat to Anthropic so we can
+// keep the API key on the server. System prompt + tools are hand-tuned for
+// the BPM onboarding context. If ANTHROPIC_API_KEY is not configured the
+// endpoint returns 503 with a structured payload the UI renders as a setup
+// hint instead of a generic error.
+app.MapPost("/api/chat", async (HttpContext ctx, IHttpClientFactory clientFactory) =>
+{
+    var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+    if (string.IsNullOrWhiteSpace(apiKey))
+    {
+        return Results.Json(new
+        {
+            error = "configure_api_key",
+            message = "後端環境變數 ANTHROPIC_API_KEY 尚未設定。請執行：export ANTHROPIC_API_KEY=sk-ant-... && dotnet run"
+        }, statusCode: 503);
+    }
+
+    using var reader = new StreamReader(ctx.Request.Body);
+    var body = await reader.ReadToEndAsync();
+    if (string.IsNullOrWhiteSpace(body))
+        return Results.BadRequest(new { error = "Empty body" });
+
+    JsonDocument incoming;
+    try { incoming = JsonDocument.Parse(body); }
+    catch (JsonException ex) { return Results.BadRequest(new { error = "Invalid JSON", detail = ex.Message }); }
+
+    using (incoming)
+    {
+        var root = incoming.RootElement;
+        if (!root.TryGetProperty("messages", out var messages) || messages.ValueKind != JsonValueKind.Array)
+            return Results.BadRequest(new { error = "Missing messages[]" });
+
+        var stepHint = root.TryGetProperty("step", out var s) ? s.GetString() : "unknown";
+        var draftSummary = root.TryGetProperty("draftSummary", out var ds) ? ds.GetRawText() : "{}";
+
+        var systemPrompt = $@"You are the AI co-pilot inside a BPM (Business Process Management) onboarding wizard. The customer is mid-way through a 9-step flow that produces a spec.json describing their workflow.
+
+Current step: **{stepHint}**
+
+Current draft (summary, JSON):
+```json
+{draftSummary}
+```
+
+Help the customer:
+- Explain what this step is for if asked
+- Suggest sensible defaults for their industry / flow
+- Spot-check inconsistencies in the current draft and surface them
+- When the customer asks for a change, describe what you would change in plain language so they can apply it via the canvas. Do NOT invent fields/types beyond the spec_schema (startEvent, endEvent, userTask, approval, gateway, serviceTask, notify).
+
+Reply in 繁體中文 (Traditional Chinese) by default. Keep responses tight (2-4 sentences). If the customer writes in English, reply in English.
+
+Phase A: Customers cannot upload diagrams yet — direct them to use the LEAVE / PURCHASE preset on the SOURCE step.";
+
+        var anthropicReq = new
+        {
+            model = "claude-sonnet-4-6",
+            max_tokens = 1024,
+            system = new object[]
+            {
+                new { type = "text", text = systemPrompt, cache_control = new { type = "ephemeral" } }
+            },
+            messages = JsonSerializer.Deserialize<object>(messages.GetRawText())
+        };
+
+        var http = clientFactory.CreateClient("anthropic");
+        using var req = new HttpRequestMessage(HttpMethod.Post, "v1/messages")
+        {
+            Content = JsonContent.Create(anthropicReq)
+        };
+        req.Headers.Add("x-api-key", apiKey);
+        req.Headers.Add("anthropic-version", "2023-06-01");
+
+        try
+        {
+            using var res = await http.SendAsync(req);
+            var resBody = await res.Content.ReadAsStringAsync();
+            if (!res.IsSuccessStatusCode)
+                return Results.Json(new { error = "anthropic_error", status = (int)res.StatusCode, body = resBody }, statusCode: (int)res.StatusCode);
+            return Results.Content(resBody, "application/json");
+        }
+        catch (Exception ex)
+        {
+            return Results.Json(new { error = "upstream_failure", message = ex.Message }, statusCode: 502);
+        }
     }
 });
 
