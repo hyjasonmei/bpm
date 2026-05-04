@@ -3,6 +3,7 @@ import { Send, Bot, User, AlertTriangle, Wand2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import type { OnboardingStep, DraftSpec } from '@/lib/onboarding'
 import { STEP_TOOLS } from '@/lib/onboardingTools'
+import { apiFetch } from '@/lib/apiFetch'
 
 /**
  * Co-Pilot Canvas — split layout (chat left, AI-generated canvas right).
@@ -18,8 +19,6 @@ import { STEP_TOOLS } from '@/lib/onboardingTools'
  * Anthropic tools; the CLI path emulates them via a sentinel-delimited prompt
  * contract that the backend re-wraps as tool_use blocks.
  */
-
-const CHAT_API = (import.meta.env.VITE_BPM_SVC_URL ?? 'http://localhost:5290') + '/api/chat'
 
 interface ChatMessage {
   role: 'assistant' | 'user'
@@ -76,6 +75,7 @@ export function CoPilotCanvas({
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [setupHint, setSetupHint] = useState<string | null>(null)
+  const [elapsed, setElapsed] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Reset chat when step changes; seed with the step opener.
@@ -87,6 +87,15 @@ export function CoPilotCanvas({
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
+
+  // Tick once per second while waiting on the backend so the spinner shows
+  // "AI 思考中… 12s" instead of an opaque spinner — CLI cold starts can take
+  // 30s+ and a frozen UI looks broken.
+  useEffect(() => {
+    if (!busy) { setElapsed(0); return }
+    const t = setInterval(() => setElapsed(e => e + 1), 1000)
+    return () => clearInterval(t)
+  }, [busy])
 
   const send = async () => {
     const text = input.trim()
@@ -105,7 +114,7 @@ export function CoPilotCanvas({
         .filter(m => m.text.trim().length > 0)
         .map(m => ({ role: m.role, content: m.text }))
 
-      const res = await fetch(CHAT_API, {
+      const res = await apiFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -206,7 +215,7 @@ export function CoPilotCanvas({
                 <Bot className="h-4 w-4" />
               </div>
               <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-ink-muted italic">
-                AI 思考中…
+                AI 思考中…{elapsed > 0 && <span className="ml-1 not-italic font-mono text-[11px] text-ink-faint">{elapsed}s</span>}
               </div>
             </div>
           )}

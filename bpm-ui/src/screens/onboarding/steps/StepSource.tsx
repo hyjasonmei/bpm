@@ -10,13 +10,12 @@ import {
   EMPTY_DRAFT,
 } from '@/lib/onboarding'
 import { parseBpmnXml } from '@/lib/bpmnXmlParse'
+import { apiFetch } from '@/lib/apiFetch'
 
 const TEMPLATES = [
   { code: 'LEAVE',    name: '請假',     preset: LEAVE_PRESET },
   { code: 'PURCHASE', name: '採購申請', preset: PURCHASE_PRESET },
 ]
-
-const EXTRACT_API = (import.meta.env.VITE_BPM_SVC_URL ?? 'http://localhost:5290') + '/api/spec-extract'
 
 interface ExtractedSkeleton {
   meta: { tenant: string; flowName: string; flowCode: string }
@@ -52,7 +51,7 @@ export function StepSource({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
     setError(null)
     setConfNotes(null)
     try {
-      const res = await fetch(EXTRACT_API, {
+      const res = await apiFetch('/api/spec-extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

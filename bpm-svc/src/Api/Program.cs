@@ -32,7 +32,9 @@ builder.Services.AddHttpClient("anthropic", c =>
 var aiBackendName = (Environment.GetEnvironmentVariable("BPM_AI_BACKEND") ?? "cli").ToLowerInvariant();
 builder.Services.AddSingleton<IAiBackend>(sp => aiBackendName switch
 {
-    "api" => new AnthropicApiBackend(sp.GetRequiredService<IHttpClientFactory>()),
+    "api" => new AnthropicApiBackend(
+        sp.GetRequiredService<IHttpClientFactory>(),
+        sp.GetRequiredService<ILogger<AnthropicApiBackend>>()),
     _     => new ClaudeCliBackend(sp.GetRequiredService<ILogger<ClaudeCliBackend>>()),
 });
 
@@ -52,6 +54,48 @@ app.Logger.LogInformation("AI backend: {Backend} (set BPM_AI_BACKEND=api|cli to 
 
 app.UseExceptionHandler();
 app.UseCors("bpm-ui");
+
+// Demo bearer auth — gated by BPM_DEMO_TOKEN. Empty/unset = bypass (local
+// dev). Set on Azure App Settings for any deployment that's reachable
+// outside localhost. The check sits AFTER UseCors so OPTIONS preflights
+// don't get rejected.
+var demoToken = Environment.GetEnvironmentVariable("BPM_DEMO_TOKEN");
+if (!string.IsNullOrWhiteSpace(demoToken))
+{
+    app.Logger.LogInformation("Demo bearer auth: ENABLED (BPM_DEMO_TOKEN is set)");
+    var expected = $"Bearer {demoToken}";
+    app.Use(async (ctx, next) =>
+    {
+        var path = ctx.Request.Path.Value ?? "";
+        // Public: liveness probe + Swagger landing.
+        if (path == "/health" || path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase))
+        {
+            await next();
+            return;
+        }
+        // CORS preflight has already passed UseCors above; let it through.
+        if (HttpMethods.IsOptions(ctx.Request.Method))
+        {
+            await next();
+            return;
+        }
+        if (ctx.Request.Headers.Authorization.ToString() != expected)
+        {
+            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await ctx.Response.WriteAsJsonAsync(new
+            {
+                error = "unauthorized",
+                message = "Missing or invalid Authorization header. Expected: Bearer <BPM_DEMO_TOKEN>",
+            });
+            return;
+        }
+        await next();
+    });
+}
+else
+{
+    app.Logger.LogInformation("Demo bearer auth: DISABLED (BPM_DEMO_TOKEN unset — local dev mode)");
+}
 
 if (app.Environment.IsDevelopment())
 {

@@ -1,10 +1,7 @@
 import { useState } from 'react'
 import { Rocket, CheckCircle2, Copy, AlertTriangle, FolderOpen, Check } from 'lucide-react'
 import { ONBOARDING_STEPS, validators, type DraftSpec } from '@/lib/onboarding'
-
-const BPM_SVC = (import.meta.env.VITE_BPM_SVC_URL ?? 'http://localhost:5290')
-const SPEC_API = BPM_SVC + '/api/spec'
-const REVEAL_API = BPM_SVC + '/api/spec/reveal'
+import { apiFetch, BPM_SVC_URL } from '@/lib/apiFetch'
 
 interface SpecAck { trackingId: string; path: string; receivedAt: string }
 
@@ -28,7 +25,7 @@ export function StepGoLive({ draft }: { draft: DraftSpec }) {
     setSubmitting(true)
     setError(null)
     try {
-      const res = await fetch(SPEC_API, {
+      const res = await apiFetch('/api/spec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(draft),
@@ -41,7 +38,7 @@ export function StepGoLive({ draft }: { draft: DraftSpec }) {
       setSubmitted(ack)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
-      setError(msg.includes('fetch') ? `${msg}（後端 ${SPEC_API} 連不上？確認 dotnet run 是否啟動）` : msg)
+      setError(msg.includes('fetch') ? `${msg}（後端 ${BPM_SVC_URL}/api/spec 連不上？確認 dotnet run 是否啟動）` : msg)
     } finally {
       setSubmitting(false)
     }
@@ -62,7 +59,7 @@ export function StepGoLive({ draft }: { draft: DraftSpec }) {
   const revealInFinder = async (path: string) => {
     setRevealError(null)
     try {
-      const res = await fetch(REVEAL_API, {
+      const res = await apiFetch('/api/spec/reveal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path }),
