@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Bpm.Api.Common;
 using Bpm.Application;
@@ -108,10 +109,7 @@ app.MapPost("/api/spec", async (HttpContext ctx, IClock clock) =>
         var ts = now.ToString("yyyyMMddTHHmmssZ");
         var trackingId = $"{safeTenant}-{safeFlow}-{ts}";
 
-        var configured = app.Configuration["Spec:IncomingFolder"];
-        var rootFolder = string.IsNullOrWhiteSpace(configured)
-            ? Path.Combine(Directory.GetCurrentDirectory(), "incoming")
-            : configured;
+        var rootFolder = SpecRoot(app);
         var folder = Path.Combine(rootFolder, safeTenant);
         Directory.CreateDirectory(folder);
         var fullPath = Path.Combine(folder, $"{ts}-{safeFlow}.json");
@@ -284,4 +282,67 @@ app.MapPost("/api/spec-extract", async (HttpContext ctx, IAiBackend ai, Cancella
     }
 });
 
+// Reveal a previously-submitted spec in Finder (macOS only). Front-end posts
+// the path it got back from /api/spec; we sandbox it to the configured root
+// and shell out to `open -R`. Linux/Windows would need xdg-open / explorer
+// equivalents — not needed for current dev environment.
+app.MapPost("/api/spec/reveal", async (HttpContext ctx) =>
+{
+    using var reader = new StreamReader(ctx.Request.Body);
+    var body = await reader.ReadToEndAsync();
+    JsonDocument doc;
+    try { doc = JsonDocument.Parse(body); }
+    catch (JsonException ex) { return Results.BadRequest(new { error = "Invalid JSON", detail = ex.Message }); }
+
+    using (doc)
+    {
+        if (!doc.RootElement.TryGetProperty("path", out var pathEl) || pathEl.ValueKind != JsonValueKind.String)
+            return Results.BadRequest(new { error = "Missing 'path' string" });
+
+        var requested = pathEl.GetString()!;
+        var rootFull = Path.GetFullPath(SpecRoot(app));
+        string requestedFull;
+        try { requestedFull = Path.GetFullPath(requested); }
+        catch (Exception ex) { return Results.BadRequest(new { error = "Invalid path", detail = ex.Message }); }
+
+        // Containment check — refuse anything outside the configured spec root
+        // so a malicious / buggy client can't ask us to reveal /etc/passwd.
+        var sep = Path.DirectorySeparatorChar;
+        if (requestedFull != rootFull && !requestedFull.StartsWith(rootFull + sep, StringComparison.Ordinal))
+            return Results.BadRequest(new { error = "Path is outside the configured spec root", root = rootFull });
+
+        if (!File.Exists(requestedFull) && !Directory.Exists(requestedFull))
+            return Results.NotFound(new { error = "Path does not exist", path = requestedFull });
+
+        if (!OperatingSystem.IsMacOS())
+            return Results.Json(new { error = "Reveal is only implemented for macOS" }, statusCode: 501);
+
+        try
+        {
+            var psi = new ProcessStartInfo("open") { UseShellExecute = false };
+            psi.ArgumentList.Add("-R");
+            psi.ArgumentList.Add(requestedFull);
+            using var proc = Process.Start(psi);
+            return Results.NoContent();
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem($"Failed to spawn `open -R`: {ex.Message}");
+        }
+    }
+});
+
 app.Run();
+
+// Spec root resolution shared by /api/spec (write) and /api/spec/reveal (read).
+// Resolves Spec:IncomingFolder against ContentRootPath (bpm-svc/src/Api/) so
+// `dotnet run`'s cwd-in-bin doesn't make the path relative to the build output.
+static string SpecRoot(WebApplication app)
+{
+    var configured = app.Configuration["Spec:IncomingFolder"];
+    if (string.IsNullOrWhiteSpace(configured))
+        return Path.Combine(app.Environment.ContentRootPath, "incoming");
+    if (Path.IsPathRooted(configured))
+        return configured;
+    return Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, configured));
+}

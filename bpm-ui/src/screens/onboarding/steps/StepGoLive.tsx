@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Rocket, CheckCircle2, Copy, AlertTriangle } from 'lucide-react'
+import { Rocket, CheckCircle2, Copy, AlertTriangle, FolderOpen, Check } from 'lucide-react'
 import { ONBOARDING_STEPS, validators, type DraftSpec } from '@/lib/onboarding'
 
-const SPEC_API = (import.meta.env.VITE_BPM_SVC_URL ?? 'http://localhost:5290') + '/api/spec'
+const BPM_SVC = (import.meta.env.VITE_BPM_SVC_URL ?? 'http://localhost:5290')
+const SPEC_API = BPM_SVC + '/api/spec'
+const REVEAL_API = BPM_SVC + '/api/spec/reveal'
 
 interface SpecAck { trackingId: string; path: string; receivedAt: string }
 
@@ -11,6 +13,8 @@ export function StepGoLive({ draft }: { draft: DraftSpec }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [pathCopied, setPathCopied] = useState(false)
+  const [revealError, setRevealError] = useState<string | null>(null)
 
   const allChecks = ONBOARDING_STEPS.slice(0, -1).map(s => ({
     id: s.id,
@@ -49,6 +53,29 @@ export function StepGoLive({ draft }: { draft: DraftSpec }) {
     setTimeout(() => setCopied(false), 1500)
   }
 
+  const copyPath = async (path: string) => {
+    await navigator.clipboard.writeText(path)
+    setPathCopied(true)
+    setTimeout(() => setPathCopied(false), 1500)
+  }
+
+  const revealInFinder = async (path: string) => {
+    setRevealError(null)
+    try {
+      const res = await fetch(REVEAL_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setRevealError(body?.error ?? `HTTP ${res.status}`)
+      }
+    } catch (e: unknown) {
+      setRevealError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   if (submitted) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -59,11 +86,29 @@ export function StepGoLive({ draft }: { draft: DraftSpec }) {
         <p className="mt-1 max-w-md text-sm text-ink-muted">
           後台 Claude Code pipeline 已收到您的 {draft.meta.flowName} spec。預計 1-2 工作天內您會收到上線通知。
         </p>
-        <div className="mt-6 rounded border border-rule bg-slate-50 px-4 py-3 text-left text-xs text-ink-muted">
+        <div className="mt-6 w-full max-w-2xl rounded border border-rule bg-slate-50 px-4 py-3 text-left text-xs text-ink-muted">
           <p>📨 Tracking ID: <span className="font-mono text-ink">{submitted.trackingId}</span></p>
           <p className="mt-0.5">💾 Saved to: <span className="font-mono text-ink break-all">{submitted.path}</span></p>
           <p className="mt-0.5">⏱ Received at: <span className="font-mono text-ink">{submitted.receivedAt}</span></p>
           <p className="mt-0.5">📧 通知會寄到 {draft.meta.createdBy}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              onClick={() => copyPath(submitted.path)}
+              className="flex items-center gap-1 rounded border border-rule bg-white px-2.5 py-1 text-[11px] text-ink hover:bg-slate-100"
+            >
+              {pathCopied ? <Check className="h-3 w-3 text-good" /> : <Copy className="h-3 w-3" />}
+              {pathCopied ? 'Path copied' : 'Copy path'}
+            </button>
+            <button
+              onClick={() => revealInFinder(submitted.path)}
+              className="flex items-center gap-1 rounded border border-rule bg-white px-2.5 py-1 text-[11px] text-ink hover:bg-slate-100"
+            >
+              <FolderOpen className="h-3 w-3" /> Reveal in Finder
+            </button>
+          </div>
+          {revealError && (
+            <p className="mt-2 text-[11px] text-rose-700">⚠️ Reveal 失敗：{revealError}</p>
+          )}
         </div>
       </div>
     )

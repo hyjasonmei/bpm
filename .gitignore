@@ -4,6 +4,7 @@ refs/
 # Wizard hand-off — incoming spec.json drops from POST /api/spec
 incoming/
 **/incoming/
+specs-incoming/
 
 # OS
 .DS_Store
