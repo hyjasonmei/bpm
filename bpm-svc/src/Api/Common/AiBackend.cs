@@ -64,11 +64,13 @@ public static class AiBackendErrors
 public sealed class AnthropicApiBackend : IAiBackend
 {
     private readonly IHttpClientFactory _httpFactory;
+    private readonly ILogger<AnthropicApiBackend> _logger;
     private readonly string? _apiKey;
 
-    public AnthropicApiBackend(IHttpClientFactory httpFactory)
+    public AnthropicApiBackend(IHttpClientFactory httpFactory, ILogger<AnthropicApiBackend> logger)
     {
         _httpFactory = httpFactory;
+        _logger = logger;
         _apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
     }
 
@@ -78,24 +80,33 @@ public sealed class AnthropicApiBackend : IAiBackend
     {
         if (string.IsNullOrWhiteSpace(_apiKey)) return AiBackendErrors.ConfigureApiKey();
 
+        const string model = "claude-sonnet-4-6";
+        var hasTools = tools is { ValueKind: JsonValueKind.Array } t && t.GetArrayLength() > 0;
         var fields = new Dictionary<string, object?>
         {
-            ["model"] = "claude-sonnet-4-6",
+            ["model"] = model,
             ["max_tokens"] = 1024,
             ["system"] = new object[] { new { type = "text", text = systemPrompt, cache_control = new { type = "ephemeral" } } },
             ["messages"] = JsonSerializer.Deserialize<object>(messages.GetRawText()),
         };
-        if (tools is { ValueKind: JsonValueKind.Array } t && t.GetArrayLength() > 0)
+        if (hasTools)
         {
-            fields["tools"] = JsonSerializer.Deserialize<object>(t.GetRawText());
+            fields["tools"] = JsonSerializer.Deserialize<object>(tools!.Value.GetRawText());
         }
-        return await PostAsync(fields, ct);
+        var sw = Stopwatch.StartNew();
+        var result = await PostAsync(fields, ct);
+        sw.Stop();
+        _logger.LogInformation(
+            "AI api/chat: model={Model} status={Status} duration_ms={Duration} body_chars={Bytes} tools={HasTools}",
+            model, result.StatusCode, sw.ElapsedMilliseconds, result.Body.Length, hasTools);
+        return result;
     }
 
     public async Task<AiResult> ExtractFlowAsync(string systemPrompt, string? userText, string? imageDataUrl, object jsonSchema, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(_apiKey)) return AiBackendErrors.ConfigureApiKey();
 
+        var inputKind = !string.IsNullOrWhiteSpace(imageDataUrl) ? "image" : "description";
         var content = new List<object>();
         if (!string.IsNullOrWhiteSpace(imageDataUrl))
         {
@@ -115,9 +126,10 @@ public sealed class AnthropicApiBackend : IAiBackend
             return new AiResult(400, JsonSerializer.Serialize(new { error = "Either text or imageDataUrl must be provided" }));
         }
 
+        const string model = "claude-sonnet-4-6";
         var anthropicReq = new
         {
-            model = "claude-sonnet-4-6",
+            model,
             max_tokens = 2048,
             system = systemPrompt,
             tools = new object[] { new { name = "emit_flow_skeleton", description = "Emit the extracted BPMN flow skeleton.", input_schema = jsonSchema } },
@@ -125,7 +137,12 @@ public sealed class AnthropicApiBackend : IAiBackend
             messages = new object[] { new { role = "user", content } }
         };
 
+        var sw = Stopwatch.StartNew();
         var raw = await PostAsync(anthropicReq, ct);
+        sw.Stop();
+        _logger.LogInformation(
+            "AI api/spec-extract: model={Model} input={InputKind} status={Status} duration_ms={Duration} body_chars={Bytes}",
+            model, inputKind, raw.StatusCode, sw.ElapsedMilliseconds, raw.Body.Length);
         if (raw.StatusCode != 200) return raw;
 
         // Unwrap the tool_use input — front-end wants only the schema payload.
@@ -262,11 +279,16 @@ public sealed class ClaudeCliBackend : IAiBackend
             promptBuilder.AppendLine($"If a draft change is warranted, append the {ToolOpen}…{ToolClose} block at the very end.");
         }
 
+        var sw = Stopwatch.StartNew();
         var (exitCode, stdout, stderr) = await RunClaudeAsync(
             systemPrompt: systemPrompt,
             stdinPrompt: promptBuilder.ToString(),
             jsonSchema: null,
             ct: ct);
+        sw.Stop();
+        _logger.LogInformation(
+            "AI cli/chat: model=claude-sonnet-4-6 exit={Exit} duration_ms={Duration} stdout_chars={StdOut} stderr_chars={StdErr} tools={HasTools}",
+            exitCode, sw.ElapsedMilliseconds, stdout.Length, stderr.Length, toolsRequested);
 
         if (exitCode == 127) return AiBackendErrors.ClaudeCliMissing(stderr.Length > 0 ? stderr : "command not found");
         if (exitCode != 0)
@@ -409,6 +431,8 @@ JSON Schema：
                 return new AiResult(400, JsonSerializer.Serialize(new { error = "Missing text or imageDataUrl" }));
             }
 
+            var inputKind = !string.IsNullOrWhiteSpace(imageDataUrl) ? "image" : "description";
+            var sw = Stopwatch.StartNew();
             var (exitCode, stdout, stderr) = await RunClaudeAsync(
                 systemPrompt: systemPrompt,
                 stdinPrompt: prompt,
@@ -417,6 +441,10 @@ JSON Schema：
                 addDir: extraDir,
                 model: model,
                 ct: ct);
+            sw.Stop();
+            _logger.LogInformation(
+                "AI cli/spec-extract: model={Model} input={InputKind} exit={Exit} duration_ms={Duration} stdout_chars={StdOut} stderr_chars={StdErr}",
+                model, inputKind, exitCode, sw.ElapsedMilliseconds, stdout.Length, stderr.Length);
 
             if (exitCode == 127) return AiBackendErrors.ClaudeCliMissing(stderr.Length > 0 ? stderr : "command not found");
             if (exitCode != 0) return AiBackendErrors.Upstream($"claude CLI exit {exitCode}: {stderr}".Trim());
