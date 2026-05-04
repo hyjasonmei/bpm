@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Send, Bot, User, AlertTriangle } from 'lucide-react'
+import { Send, Bot, User, AlertTriangle, Wand2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import type { OnboardingStep, DraftSpec } from '@/lib/onboarding'
+import { STEP_TOOLS } from '@/lib/onboardingTools'
 
 /**
  * Co-Pilot Canvas — split layout (chat left, AI-generated canvas right).
@@ -10,6 +11,12 @@ import type { OnboardingStep, DraftSpec } from '@/lib/onboarding'
  * The backend swallows ANTHROPIC_API_KEY (so it never leaves the server) and
  * returns 503 + a structured payload when the key is unset, which we surface
  * inline so the developer knows exactly what to configure.
+ *
+ * Tool use: per-step tools in onboardingTools.ts let Claude mutate the draft
+ * directly. When the response contains a tool_use block, we apply it and tell
+ * the user. Both backends produce the same shape — the API path uses native
+ * Anthropic tools; the CLI path emulates them via a sentinel-delimited prompt
+ * contract that the backend re-wraps as tool_use blocks.
  */
 
 const CHAT_API = (import.meta.env.VITE_BPM_SVC_URL ?? 'http://localhost:5290') + '/api/chat'
@@ -17,10 +24,16 @@ const CHAT_API = (import.meta.env.VITE_BPM_SVC_URL ?? 'http://localhost:5290') +
 interface ChatMessage {
   role: 'assistant' | 'user'
   text: string
+  /** assistant only — set when this turn applied a tool_use to the draft */
+  appliedTool?: string
 }
 
 interface AnthropicTextBlock { type: 'text'; text: string }
-interface AnthropicResponse { content?: AnthropicTextBlock[] }
+interface AnthropicToolUseBlock { type: 'tool_use'; id: string; name: string; input: unknown }
+type AnthropicBlock = AnthropicTextBlock | AnthropicToolUseBlock
+interface AnthropicResponse {
+  content?: AnthropicBlock[]
+}
 
 const STEP_OPENERS: Record<string, string> = {
   source:    '請描述您要設計的流程，或選一個範本（LEAVE / PURCHASE）開始。需要建議哪個範本適合您嗎？',
@@ -75,9 +88,6 @@ export function CoPilotCanvas({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
 
-  // setDraft reserved for future tool-use (AI mutates draft directly).
-  void setDraft
-
   const send = async () => {
     const text = input.trim()
     if (!text || busy) return
@@ -86,6 +96,8 @@ export function CoPilotCanvas({
     setInput('')
     setBusy(true)
     setSetupHint(null)
+
+    const stepTool = STEP_TOOLS[step.id]
 
     try {
       // Anthropic expects messages without our role labels — map assistant/user.
@@ -100,6 +112,7 @@ export function CoPilotCanvas({
           step: step.id,
           draftSummary: summarizeDraft(draft),
           messages: anthropicMessages,
+          ...(stepTool ? { tools: [stepTool.tool] } : {}),
         }),
       })
 
@@ -116,13 +129,37 @@ export function CoPilotCanvas({
       }
 
       const data = await res.json() as AnthropicResponse
-      const replyText = (data.content ?? [])
+      const blocks = data.content ?? []
+
+      const replyText = blocks
         .filter((b): b is AnthropicTextBlock => b.type === 'text')
         .map(b => b.text)
         .join('\n\n')
-        .trim() || '(AI returned no text content.)'
+        .trim()
 
-      setMessages(m => [...m, { role: 'assistant', text: replyText }])
+      // Apply any tool_use call from the model. Multiple tool_use blocks per
+      // turn are rare but we handle them — last one wins for the same slice.
+      let appliedToolName: string | undefined
+      let toolError: string | undefined
+      if (stepTool) {
+        for (const block of blocks) {
+          if (block.type !== 'tool_use' || block.name !== stepTool.tool.name) continue
+          try {
+            setDraft(stepTool.apply(draft, block.input))
+            appliedToolName = block.name
+          } catch (e) {
+            toolError = e instanceof Error ? e.message : String(e)
+          }
+        }
+      }
+
+      const finalText = [
+        replyText,
+        appliedToolName && '✓ 已套用到右邊 canvas',
+        toolError && `⚠️ Tool 套用失敗：${toolError}`,
+      ].filter(Boolean).join('\n\n') || '(AI returned no text content.)'
+
+      setMessages(m => [...m, { role: 'assistant', text: finalText, appliedTool: appliedToolName }])
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       setMessages(m => [...m, { role: 'assistant', text: `⚠️ 呼叫 AI 失敗：${msg}` }])
@@ -145,13 +182,19 @@ export function CoPilotCanvas({
             <div key={i} className={cn('flex items-start gap-2', m.role === 'user' && 'flex-row-reverse')}>
               <div className={cn(
                 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
-                m.role === 'assistant' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700',
+                m.role === 'assistant'
+                  ? m.appliedTool ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                  : 'bg-slate-100 text-slate-700',
               )}>
-                {m.role === 'assistant' ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
+                {m.role === 'assistant'
+                  ? (m.appliedTool ? <Wand2 className="h-4 w-4" /> : <Bot className="h-4 w-4" />)
+                  : <User className="h-4 w-4" />}
               </div>
               <div className={cn(
                 'max-w-[280px] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm leading-snug',
-                m.role === 'assistant' ? 'bg-slate-50 text-ink' : 'bg-primary text-white',
+                m.role === 'assistant'
+                  ? m.appliedTool ? 'bg-emerald-50 text-ink ring-1 ring-emerald-200' : 'bg-slate-50 text-ink'
+                  : 'bg-primary text-white',
               )}>
                 {m.text}
               </div>
@@ -194,7 +237,7 @@ export function CoPilotCanvas({
             </button>
           </div>
           <p className="mt-1 text-[10px] text-ink-faint">
-            POST /api/chat → Anthropic Claude Sonnet 4.6（system prompt 走 prompt cache）
+            POST /api/chat → Anthropic Claude Sonnet 4.6{STEP_TOOLS[step.id] ? ` · 工具：${STEP_TOOLS[step.id]!.tool.name}` : ''}
           </p>
         </div>
       </div>

@@ -142,6 +142,18 @@ app.MapPost("/api/chat", async (HttpContext ctx, IAiBackend ai, CancellationToke
 
         var stepHint = root.TryGetProperty("step", out var s) ? s.GetString() : "unknown";
         var draftSummary = root.TryGetProperty("draftSummary", out var ds) ? ds.GetRawText() : "{}";
+        JsonElement? tools = root.TryGetProperty("tools", out var to) && to.ValueKind == JsonValueKind.Array
+            ? to.Clone()
+            : null;
+        var hasTools = tools.HasValue;
+
+        var toolGuidance = hasTools
+            ? @"
+You have a tool available for THIS step. When the customer asks for a concrete change to the current step's draft (add field, change rule, set duration, etc.), call the tool with the merged result so the canvas updates immediately. The tool input must be the COMPLETE state for the relevant slice (not a patch) — include both existing and new items.
+
+For purely informational questions (""what does this step do?"", ""is my draft OK?""), reply with text only and do NOT call the tool.
+"
+            : "";
 
         var systemPrompt = $@"You are the AI co-pilot inside a BPM (Business Process Management) onboarding wizard. The customer is mid-way through a 9-step flow that produces a spec.json describing their workflow.
 
@@ -156,13 +168,11 @@ Help the customer:
 - Explain what this step is for if asked
 - Suggest sensible defaults for their industry / flow
 - Spot-check inconsistencies in the current draft and surface them
-- When the customer asks for a change, describe what you would change in plain language so they can apply it via the canvas. Do NOT invent fields/types beyond the spec_schema (startEvent, endEvent, userTask, approval, gateway, serviceTask, notify).
+- Do NOT invent node types beyond the spec_schema (startEvent, endEvent, userTask, approval, gateway, serviceTask, notify).
+{toolGuidance}
+Reply in 繁體中文 (Traditional Chinese) by default. Keep text replies tight (2-4 sentences). If the customer writes in English, reply in English.";
 
-Reply in 繁體中文 (Traditional Chinese) by default. Keep responses tight (2-4 sentences). If the customer writes in English, reply in English.
-
-Phase A: Customers cannot upload diagrams yet — direct them to use the LEAVE / PURCHASE preset on the SOURCE step.";
-
-        var result = await ai.ChatAsync(systemPrompt, messages, ct);
+        var result = await ai.ChatAsync(systemPrompt, messages, tools, ct);
         return Results.Content(result.Body, result.ContentType, statusCode: result.StatusCode);
     }
 });
