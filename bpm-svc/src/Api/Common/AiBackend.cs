@@ -312,6 +312,15 @@ JSON Schema：
         psi.ArgumentList.Add("--no-session-persistence");
         psi.ArgumentList.Add("--setting-sources");
         psi.ArgumentList.Add("user"); // skip project / local CLAUDE.md, keep user OAuth
+        // Block user-level MCP servers from loading in the subprocess. Without this,
+        // a parent Claude Code session that owns a single-connection MCP (e.g. a
+        // Telegram bot — Bot API getUpdates only allows one polling client per
+        // token) gets kicked off when the child connects. --strict-mcp-config +
+        // an empty config means the child loads zero MCP servers regardless of
+        // user settings.
+        psi.ArgumentList.Add("--strict-mcp-config");
+        psi.ArgumentList.Add("--mcp-config");
+        psi.ArgumentList.Add("{\"mcpServers\":{}}");
         psi.ArgumentList.Add("--model");
         psi.ArgumentList.Add("claude-sonnet-4-6");
         psi.ArgumentList.Add("--tools");
