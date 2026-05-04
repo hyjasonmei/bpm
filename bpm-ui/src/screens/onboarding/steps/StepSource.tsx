@@ -9,6 +9,7 @@ import {
   PURCHASE_PRESET,
   EMPTY_DRAFT,
 } from '@/lib/onboarding'
+import { parseBpmnXml } from '@/lib/bpmnXmlParse'
 
 const TEMPLATES = [
   { code: 'LEAVE',    name: '請假',     preset: LEAVE_PRESET },
@@ -73,8 +74,37 @@ export function StepSource({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
   }
 
   const handleUpload = async (file: File) => {
+    const isBpmnXml = /\.(bpmn|xml)$/i.test(file.name)
+                   || file.type === 'application/xml'
+                   || file.type === 'text/xml'
+    if (isBpmnXml) {
+      setBusyKind('image') // reuse spinner state — visual feedback for any upload
+      setError(null)
+      setConfNotes(null)
+      try {
+        const text = await file.text()
+        const parsed = parseBpmnXml(text)
+        setDraft({
+          ...EMPTY_DRAFT,
+          meta: {
+            ...EMPTY_DRAFT.meta,
+            ...draft.meta,
+            flowName: draft.meta.flowName || parsed.flowName,
+          },
+          flow: { nodes: parsed.nodes, edges: parsed.edges },
+        })
+        if (parsed.warnings.length > 0) {
+          setConfNotes(`BPMN 解析提示：\n${parsed.warnings.map(w => `· ${w}`).join('\n')}`)
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+      } finally {
+        setBusyKind(null)
+      }
+      return
+    }
     if (!file.type.startsWith('image/')) {
-      setError(`Phase A 只支援 PNG / JPG 圖片格式（手機拍照、截圖、PDF 第一頁匯出皆可）。收到的是 ${file.type || file.name}。PPT / Visio / Excel 之後支援。`)
+      setError(`只支援 PNG / JPG 圖片或 .bpmn / .xml 檔案。收到的是 ${file.type || file.name}。`)
       return
     }
     setBusyKind('image')
@@ -133,15 +163,15 @@ export function StepSource({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
           {/* Upload */}
           <SourceCard
             icon={busyKind === 'image' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
-            title="Upload 圖片"
-            subtitle="PNG / JPG（手機照、截圖、白板拍照）"
+            title="Upload 檔案"
+            subtitle="PNG / JPG（AI 看圖）或 .bpmn / .xml（直接 import）"
             active={busyKind === 'image'}
             disabled={busyKind !== null}
           >
             <input
               ref={fileRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp"
+              accept="image/png,image/jpeg,image/webp,application/xml,text/xml,.bpmn,.xml"
               hidden
               onChange={e => {
                 const f = e.target.files?.[0]
@@ -154,9 +184,11 @@ export function StepSource({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
               disabled={busyKind !== null}
               className="mt-2 w-full rounded border border-rule bg-white px-2.5 py-1.5 text-xs hover:bg-slate-50 disabled:opacity-50"
             >
-              {busyKind === 'image' ? 'Claude vision 分析中…' : '選擇圖片 →'}
+              {busyKind === 'image' ? 'Claude vision 分析中…' : '選擇檔案 →'}
             </button>
-            <p className="mt-1 text-[10px] italic text-ink-faint">PPT / Visio / Excel 之後支援</p>
+            <p className="mt-1 text-[10px] italic text-ink-faint">
+              .bpmn / .xml 走純解析（免 AI、免 token）
+            </p>
           </SourceCard>
 
           {/* Templates */}
