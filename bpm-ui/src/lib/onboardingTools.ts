@@ -1,8 +1,9 @@
 import type {
   DraftSpec, OnboardingStepId,
   Decision, Approval, Notification, NodeSLA, TestCase,
-  FormField, FieldType, ApprovalRule, NotifyTrigger, NotifyRecipient,
+  FormField, FieldType, ActorRef, NotifyTrigger, NotifyRecipient,
 } from './onboarding'
+import { ACTOR_PATH_WHITELIST } from './onboarding'
 
 /**
  * Per-step Anthropic tool definitions for the CoPilot chat.
@@ -163,10 +164,91 @@ const decisionsTool: StepToolBinding = {
   },
 }
 
+// approvers — emits the v1.1 ActorRef discriminated union (see
+// spec_schema.md §2.10). The schema is recursive: conditional.then/else
+// and collection.actors[*] both reference actorRef, plus any actorRef may
+// carry one fallback. Depth limits (conditional ≤ 3, fallback ≤ 1) are
+// validated server-side at /api/spec — keeping the schema permissive here
+// avoids ballooning the input_schema and works around tool input validation
+// that doesn't enforce $ref recursion depth.
+const ACTOR_REF_DEFS = {
+  actorRef: {
+    oneOf: [
+      {
+        type: 'object',
+        required: ['type', 'path'],
+        properties: {
+          type: { const: 'expr' },
+          path: { type: 'string', enum: [...ACTOR_PATH_WHITELIST], description: 'Whitelisted org-chart path. Use lowercase exactly as listed.' },
+          fallback: { $ref: '#/$defs/actorRef' },
+        },
+      },
+      {
+        type: 'object',
+        required: ['type', 'code'],
+        properties: {
+          type: { const: 'role' },
+          code: { type: 'string', description: 'Role code, e.g. Finance / CEO / VP / HR / admin / designer / viewer' },
+          fallback: { $ref: '#/$defs/actorRef' },
+        },
+      },
+      {
+        type: 'object',
+        required: ['type', 'id'],
+        properties: {
+          type: { const: 'group' },
+          id: { type: 'string', description: 'Group id (Guid)' },
+          fallback: { $ref: '#/$defs/actorRef' },
+        },
+      },
+      {
+        type: 'object',
+        required: ['type', 'id'],
+        properties: {
+          type: { const: 'user' },
+          id: { type: 'string', description: 'Specific user id (Guid). TEST-ONLY — production specs should use expr/role.' },
+          fallback: { $ref: '#/$defs/actorRef' },
+        },
+      },
+      {
+        type: 'object',
+        required: ['type', 'condition', 'then', 'else'],
+        properties: {
+          type: { const: 'conditional' },
+          condition: {
+            type: 'object',
+            required: ['field', 'op', 'value'],
+            properties: {
+              field: { type: 'string', description: 'A form field id from userTasks' },
+              op: { type: 'string', enum: ['==', '!=', '>', '>=', '<', '<=', 'in', 'not_in'] },
+              value: { description: 'Literal or array (for in / not_in)' },
+            },
+          },
+          then: { $ref: '#/$defs/actorRef' },
+          else: { $ref: '#/$defs/actorRef' },
+          fallback: { $ref: '#/$defs/actorRef' },
+        },
+      },
+      {
+        type: 'object',
+        required: ['type', 'mode', 'actors'],
+        properties: {
+          type: { const: 'collection' },
+          mode: { type: 'string', enum: ['any', 'all'] },
+          min_approvals: { type: 'integer', minimum: 1, description: 'Required when mode=any. Must be ≤ actors.length.' },
+          actors: { type: 'array', minItems: 1, items: { $ref: '#/$defs/actorRef' } },
+          fallback: { $ref: '#/$defs/actorRef' },
+        },
+      },
+    ],
+  },
+} as const
+
 const approversTool: StepToolBinding = {
   tool: {
     name: 'emit_approver_config',
-    description: 'Replace the entire approvals[] array. Include one entry per approval node. Each rule (and optional fallback) is a discriminated union by type.',
+    description:
+      'Replace the entire approvals[] array. Include one entry per approval node. Each entry has {id, approver: ActorRef}. ActorRef is a discriminated union by type: expr (org-chart path walk), role (code), group (id), user (id, test-only), conditional (if/then/else against form field), collection (any|all of N actors with optional min_approvals). Any ActorRef may carry one fallback. Use the typed-discriminator form — never strings or sigil syntax.',
     input_schema: {
       type: 'object',
       required: ['approvals'],
@@ -175,31 +257,21 @@ const approversTool: StepToolBinding = {
           type: 'array',
           items: {
             type: 'object',
-            required: ['id', 'rule'],
+            required: ['id', 'approver'],
             properties: {
-              id: { type: 'string', description: 'approval node id' },
-              rule: { $ref: '#/$defs/rule' },
-              fallback: { $ref: '#/$defs/rule' },
-              requiresAll: { type: 'boolean' },
+              id: { type: 'string', description: 'approval node id (matches flow.nodes[].id)' },
+              approver: { $ref: '#/$defs/actorRef' },
             },
           },
         },
       },
-      $defs: {
-        rule: {
-          oneOf: [
-            { type: 'object', required: ['type'], properties: { type: { const: 'direct_manager' } } },
-            { type: 'object', required: ['type', 'role'], properties: { type: { const: 'role' }, role: { type: 'string' } } },
-            { type: 'object', required: ['type', 'userId'], properties: { type: { const: 'specific_user' }, userId: { type: 'string' } } },
-            { type: 'object', required: ['type', 'deptOf'], properties: { type: { const: 'department_head' }, deptOf: { const: 'applicant' } } },
-          ],
-        },
-      },
+      $defs: ACTOR_REF_DEFS,
     },
   },
   apply: (draft, raw) => {
-    const input = raw as { approvals: Array<{ id: string; rule: ApprovalRule; fallback?: ApprovalRule; requiresAll?: boolean }> }
-    return { ...draft, approvals: input.approvals as Approval[] }
+    const input = raw as { approvals: Array<{ id: string; approver: ActorRef }> }
+    const next: Approval[] = input.approvals.map(a => ({ id: a.id, approver: a.approver }))
+    return { ...draft, approvals: next }
   },
 }
 
@@ -226,8 +298,8 @@ const notifyTool: StepToolBinding = {
                   oneOf: [
                     { type: 'object', required: ['type'], properties: { type: { const: 'submitter' } } },
                     { type: 'object', required: ['type'], properties: { type: { const: 'current_approver' } } },
-                    { type: 'object', required: ['type', 'role'], properties: { type: { const: 'role' }, role: { type: 'string' } } },
-                    { type: 'object', required: ['type', 'userId'], properties: { type: { const: 'specific_user' }, userId: { type: 'string' } } },
+                    { type: 'object', required: ['type', 'code'], properties: { type: { const: 'role' }, code: { type: 'string', description: 'Role code, e.g. HR / Finance / VP' } } },
+                    { type: 'object', required: ['type', 'id'], properties: { type: { const: 'user' }, id: { type: 'string', description: 'User Guid (test-only — production specs should use role)' } } },
                   ],
                 },
               },
