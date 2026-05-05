@@ -178,15 +178,15 @@ export function CoPilotCanvas({
   }
 
   return (
-    <div className="grid h-[640px] grid-cols-[380px_1fr] gap-3">
+    <div className="grid grid-cols-[380px_1fr] gap-3 h-[calc(100vh-220px)] min-h-[480px] max-h-[820px]">
       {/* Left — Chat */}
-      <div className="flex flex-col rounded-md border border-rule bg-card">
+      <div className="flex min-h-0 flex-col rounded-md border border-rule bg-card">
         <div className="border-b border-rule bg-slate-50 px-3 py-2">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Chat</p>
           <p className="text-xs text-ink-faint">{step.brief}</p>
         </div>
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
           {messages.map((m, i) => (
             <div key={i} className={cn('flex items-start gap-2', m.role === 'user' && 'flex-row-reverse')}>
               <div className={cn(
@@ -252,7 +252,7 @@ export function CoPilotCanvas({
       </div>
 
       {/* Right — Canvas */}
-      <div className="flex flex-col rounded-md border border-rule bg-card overflow-hidden">
+      <div className="flex min-h-0 flex-col rounded-md border border-rule bg-card overflow-hidden">
         <div className="border-b border-rule bg-slate-50 px-3 py-2 flex items-center justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Canvas — {step.en}</p>
@@ -262,7 +262,7 @@ export function CoPilotCanvas({
             spec.{step.id}
           </span>
         </div>
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4">
           {canvas}
         </div>
       </div>
