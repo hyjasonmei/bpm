@@ -126,7 +126,10 @@ public sealed class AnthropicApiBackend : IAiBackend
             return new AiResult(400, JsonSerializer.Serialize(new { error = "Either text or imageDataUrl must be provided" }));
         }
 
-        const string model = "claude-sonnet-4-6";
+        // Opus has the strongest vision in 4.x — worth the extra latency for
+        // diagram OCR. Text-only extracts stay on Sonnet (cheaper, fast enough,
+        // accuracy parity for prose). Mirrors the CLI backend's split.
+        var model = !string.IsNullOrWhiteSpace(imageDataUrl) ? "claude-opus-4-7" : "claude-sonnet-4-6";
         var anthropicReq = new
         {
             model,
