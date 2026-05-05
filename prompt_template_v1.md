@@ -48,12 +48,99 @@ See bpm/spec_schema.md for the full schema. Key parts:
 - spec.meta.flowCode → use as Identifier for class names, tables (e.g. "LEAVE")
 - spec.flow.nodes + edges → BPMN topology, drives the state machine
 - spec.userTasks[] → forms (each becomes a Case Form + entity fields)
-- spec.approvals[] → approver resolution logic
+- spec.approvals[] → approver resolution logic (each `approvals[].approver` is an ActorRef — see ACTORREF DSL section below)
 - spec.decisions[] → gateway logic
 - spec.notifications[] → email / in-app templates emitted on state transitions
 - spec.sla.perNode → timeouts and escalation handlers
 - spec.integrations → CSV-based IIdentityProvider in Phase A (no MCP yet)
 - spec.testCases → integration tests you must generate and run
+
+## ACTORREF DSL (v1.1)
+
+Anywhere a spec field refers to a person/group (`approvals[].approver`,
+`notifications[].recipients[]`, etc.) it uses an `ActorRef`. ActorRef is a
+discriminated union — every node has a `type` field that selects the shape:
+
+```
+{ "type": "expr",  "path": "<whitelisted-path>" }              // walk org chart
+{ "type": "role",  "code": "<role-code>" }                     // all assignees of role
+{ "type": "group", "id":   "<group-guid>" }                    // all members (transitive)
+{ "type": "user",  "id":   "<user-guid>" }                     // ⚠ test only
+{ "type": "conditional",
+  "condition": { "field": "<form-field>", "op": "<op>", "value": <literal> },
+  "then": <ActorRef>, "else": <ActorRef> }                     // nesting depth ≤ 3
+{ "type": "collection",
+  "mode": "any" | "all",
+  "min_approvals": <int, mode=any only, ≤ actors.length>,
+  "actors": [ <ActorRef>, ... ] }
+```
+
+Any ActorRef may carry `"fallback": <ActorRef>` — used by resolver if the
+primary returns empty/error. **Fallback chains are limited to 1 level**.
+
+**`expr.path` is a closed whitelist**:
+```
+submitter
+submitter.manager
+submitter.manager.manager
+submitter.manager.manager.manager
+submitter.department
+submitter.department.head
+submitter.department.parent
+submitter.department.parent.head
+submitter.department.parent.parent.head
+```
+Paths outside this set are rejected at spec-load time. Lowercase only.
+
+**`condition.op`**: `==` `!=` `>` `>=` `<` `<=` `in` `not_in`.
+`in`/`not_in` expect an array on `value`.
+
+**Worked examples** (always emit the typed object form, never strings or
+sigil syntax):
+
+```jsonc
+// 1. Direct manager simple case
+{ "type": "expr", "path": "submitter.manager" }
+
+// 2. Department head with fallback
+{ "type": "expr", "path": "submitter.department.head",
+  "fallback": { "type": "role", "code": "admin" } }
+
+// 3. Threshold-based routing
+{ "type": "conditional",
+  "condition": { "field": "amount", "op": ">=", "value": 50000 },
+  "then":  { "type": "role", "code": "CEO" },
+  "else":  { "type": "expr", "path": "submitter.manager" } }
+
+// 4. Committee voting (any 2 of 3)
+{ "type": "collection", "mode": "any", "min_approvals": 2,
+  "actors": [
+    { "type": "user", "id": "u_a" },
+    { "type": "user", "id": "u_b" },
+    { "type": "user", "id": "u_c" } ] }
+
+// 5. Mixed: large amount → all of (dept-head + CEO + finance);
+//          smaller → manager
+{ "type": "conditional",
+  "condition": { "field": "amount", "op": ">=", "value": 100000 },
+  "then": { "type": "collection", "mode": "all",
+            "actors": [ { "type": "expr", "path": "submitter.department.head" },
+                        { "type": "role", "code": "CEO" },
+                        { "type": "role", "code": "Finance" } ] },
+  "else": { "type": "expr", "path": "submitter.manager" } }
+```
+
+**Generation guidance** when emitting / interpreting ActorRef:
+- Always use the typed-discriminator form. Never invent shorthand strings.
+- Don't introduce new `path` segments — if a customer's flow needs a path
+  outside the whitelist, surface that as a TODO referencing
+  `bpm/spec_schema.md#210-actorref`.
+- When generating `{FlowCode}ApprovalResolver.cs`, dispatch on `type`. The
+  backend already provides `IActorResolver` (see
+  `bpm-svc/src/Application/Spec/IActorResolver.cs`) — call into it rather
+  than re-implementing the walk.
+- For tests, use `user`-typed ActorRefs against fixture user IDs from the
+  org seed (`bpm-svc/src/Persistence/Seed/OrgFixture.cs`).
 
 ## TECH STACK & CONVENTIONS
 

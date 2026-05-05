@@ -1,0 +1,156 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "tenant": "acme",
+    "flowName": "差旅費用申請",
+    "flowCode": "EXPENSE",
+    "flowVersion": 1,
+    "createdAt": "2026-05-04T12:00:00Z",
+    "createdBy": "u_demo",
+    "language": "zh-TW"
+  },
+  "flow": {
+    "nodes": [
+      { "id": "start_1", "type": "startEvent", "label": "開始" },
+      { "id": "task_submit", "type": "userTask", "label": "員工提交費用單" },
+      { "id": "approval_primary", "type": "approval", "label": "金額分流核准" },
+      { "id": "task_finance_review", "type": "userTask", "label": "財務複核" },
+      { "id": "end_1", "type": "endEvent", "label": "完成" }
+    ],
+    "edges": [
+      { "id": "e1", "source": "start_1", "target": "task_submit" },
+      { "id": "e2", "source": "task_submit", "target": "approval_primary" },
+      { "id": "e3", "source": "approval_primary", "target": "task_finance_review" },
+      { "id": "e4", "source": "task_finance_review", "target": "end_1" }
+    ]
+  },
+  "userTasks": [
+    {
+      "id": "task_submit",
+      "formCode": "EXPENSE_SUBMIT",
+      "fields": [
+        { "id": "purpose", "label": { "zh-TW": "出差目的", "en": "Purpose" }, "type": "textarea", "required": true },
+        { "id": "destination", "label": { "zh-TW": "目的地" }, "type": "text", "required": true },
+        { "id": "amount", "label": { "zh-TW": "金額 (NTD)", "en": "Amount" }, "type": "number", "required": true },
+        { "id": "receipts", "label": { "zh-TW": "收據" }, "type": "file", "required": true }
+      ],
+      "permissions": { "submitter": "self", "viewers": ["self", "manager", "role:Finance"] }
+    },
+    {
+      "id": "task_finance_review",
+      "formCode": "EXPENSE_FINANCE_REVIEW",
+      "fields": [
+        { "id": "fin_note", "label": { "zh-TW": "複核備註" }, "type": "textarea", "required": false }
+      ],
+      "permissions": { "submitter": "role:Finance", "viewers": ["role:Finance", "self"] }
+    }
+  ],
+  "decisions": [],
+  "approvals": [
+    {
+      "id": "approval_primary",
+      "approver": {
+        "type": "conditional",
+        "condition": { "field": "amount", "op": ">=", "value": 100000 },
+        "then": {
+          "type": "collection",
+          "mode": "all",
+          "actors": [
+            { "type": "expr", "path": "submitter.department.head" },
+            { "type": "role", "code": "CEO" },
+            { "type": "role", "code": "Finance" }
+          ]
+        },
+        "else": {
+          "type": "conditional",
+          "condition": { "field": "amount", "op": ">=", "value": 30000 },
+          "then": {
+            "type": "collection",
+            "mode": "any",
+            "min_approvals": 2,
+            "actors": [
+              { "type": "expr", "path": "submitter.manager" },
+              { "type": "role", "code": "Finance" },
+              { "type": "expr", "path": "submitter.department.head" }
+            ]
+          },
+          "else": {
+            "type": "expr",
+            "path": "submitter.manager",
+            "fallback": { "type": "expr", "path": "submitter.department.head" }
+          }
+        }
+      }
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notify_submit",
+      "trigger": "on_submit",
+      "channel": ["email", "in_app"],
+      "recipients": [{ "type": "submitter" }],
+      "template": {
+        "subject": { "zh-TW": "費用單已提交 ({{expense.amount}} NTD)" },
+        "body": { "zh-TW": "您於 {{submitDate}} 提交的差旅費用單已進入核准流程。" },
+        "variables": ["submitDate", "expense.amount"]
+      }
+    },
+    {
+      "id": "notify_assign",
+      "trigger": "on_assign",
+      "channel": ["email"],
+      "recipients": [{ "type": "current_approver" }],
+      "template": {
+        "subject": { "zh-TW": "【費用待簽】{{applicant.name}} - {{expense.amount}} NTD" },
+        "body": { "zh-TW": "金額: {{expense.amount}}\n目的: {{expense.purpose}}\n核准連結: {{caseUrl}}" },
+        "variables": ["applicant.name", "expense.amount", "expense.purpose", "caseUrl"]
+      }
+    }
+  ],
+  "sla": {
+    "perNode": {
+      "approval_primary": { "duration": "24h", "businessHoursOnly": true },
+      "task_finance_review": { "duration": "8h", "businessHoursOnly": true }
+    }
+  },
+  "integrations": {
+    "identityProvider": "csv",
+    "csvSource": { "url": "s3://bpm-tenants/acme/employees-2026-05-04.csv" },
+    "fieldMappings": {
+      "employeeId": "empId",
+      "displayName": "name",
+      "email": "email",
+      "reportsTo": "manager",
+      "department": "department",
+      "title": "title"
+    }
+  },
+  "testCases": [
+    {
+      "id": "tc_small",
+      "name": "5,000 NTD 小額 → 主管簽即可",
+      "inputs": { "purpose": "客戶拜訪", "destination": "台中", "amount": 5000 },
+      "expectedPath": ["start_1", "task_submit", "approval_primary", "task_finance_review", "end_1"],
+      "expectedApprovers": [{ "nodeId": "approval_primary", "userIds": ["u_manager"] }],
+      "expectedNotifications": [{ "trigger": "on_submit", "recipientCount": 1 }]
+    },
+    {
+      "id": "tc_medium",
+      "name": "50,000 NTD 中額 → 3 人中 2 人簽 (any 2/3)",
+      "inputs": { "purpose": "海外研討會", "destination": "東京", "amount": 50000 },
+      "expectedPath": ["start_1", "task_submit", "approval_primary", "task_finance_review", "end_1"],
+      "expectedApprovers": [
+        { "nodeId": "approval_primary", "userIds": ["u_manager", "u_finance_lead", "u_dept_head"] }
+      ]
+    },
+    {
+      "id": "tc_large",
+      "name": "150,000 NTD 大額 → 部門主管 + CEO + 財務 全簽 (all 3/3)",
+      "inputs": { "purpose": "美國年會", "destination": "舊金山", "amount": 150000 },
+      "expectedPath": ["start_1", "task_submit", "approval_primary", "task_finance_review", "end_1"],
+      "expectedApprovers": [
+        { "nodeId": "approval_primary", "userIds": ["u_dept_head", "u_ceo", "u_finance_lead"] }
+      ]
+    }
+  ]
+}

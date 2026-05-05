@@ -78,7 +78,7 @@
       "id": "task_hr_archive",
       "formCode": "LEAVE_ARCHIVE",
       "fields": [
-        { "id": "archive_note", "label": { "zh-TW": "備案備註" }, "type": "textarea", "required": false }
+        { "id": "archive_note", "label": { "zh-TW": "備案備註" }, "type": "textarea", "required": true, "hint": { "zh-TW": "HR 留下處理紀錄供日後追溯" } }
       ],
       "permissions": {
         "submitter": "role:HR",
@@ -97,11 +97,14 @@
     }
   ],
   "approvals": [
-    { "id": "approval_manager", "rule": { "type": "direct_manager" } },
+    { "id": "approval_manager", "approver": { "type": "expr", "path": "submitter.manager" } },
     {
       "id": "approval_vp",
-      "rule": { "type": "department_head", "deptOf": "applicant" },
-      "fallback": { "type": "role", "role": "VP" }
+      "approver": {
+        "type": "expr",
+        "path": "submitter.department.head",
+        "fallback": { "type": "role", "code": "VP" }
+      }
     }
   ],
   "notifications": [

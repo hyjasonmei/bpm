@@ -117,27 +117,33 @@ type DecisionBranch = {
 
 ### 2.5 approvals（審核者規則）
 
+> **v1.1 變更**：`ApprovalRule` 已下線，改用統一的 `ActorRef`（見 §2.10）。
+> ActorRef 用 typed discriminated union 表達 expr / role / group / user / conditional / collection，
+> 既能取代原本所有 ApprovalRule 變體，又可以複用到 notifications / userTasks 等場景。
+
 ```typescript
 type Approval = {
   id: string                    // 對應 FlowNode.id
-  rule: ApprovalRule
-  fallback?: ApprovalRule       // 若 rule 找不到人時用 fallback
-  requiresAll?: boolean         // 多人時是否要全部簽（預設 false = 任一）
+  approver: ActorRef            // 取代原本的 rule + fallback + requiresAll
+                                // - 多人簽用 collection (mode=any/all + min_approvals)
+                                // - 找不到人 fallback 寫在 ActorRef.fallback（限 1 層）
+                                // - 條件式分流用 conditional
 }
-
-type ApprovalRule =
-  | { type: 'direct_manager' }
-  | { type: 'role'; role: string }                 // 'VP'、'HR_Manager'
-  | { type: 'specific_user'; userId: string }
-  | { type: 'department_head'; deptOf: 'applicant' }
-  | { type: 'amount_threshold'
-      field: string                                // 對應 userTask field
-      thresholds: { lt?: number; gte?: number; approver: ApprovalRule }[] }
-  | { type: 'duration_threshold'
-      field: string
-      thresholds: { ltDays?: number; gteDays?: number; approver: ApprovalRule }[] }
-  | { type: 'composite'; all: ApprovalRule[] }     // 同時要這些 approver
 ```
+
+舊 `ApprovalRule` → `ActorRef` 對照（migration cheat-sheet）：
+
+| 舊 ApprovalRule | 新 ActorRef |
+|---|---|
+| `{type:"direct_manager"}` | `{type:"expr",path:"submitter.manager"}` |
+| `{type:"role",role:"VP"}` | `{type:"role",code:"VP"}` |
+| `{type:"specific_user",userId:"u_x"}` | `{type:"user",id:"u_x"}` |
+| `{type:"department_head",deptOf:"applicant"}` | `{type:"expr",path:"submitter.department.head"}` |
+| `{type:"amount_threshold",field:"amount",thresholds:[...]}` | `{type:"conditional",condition:{field:"amount",op:">=",value:50000},then:...,else:...}` |
+| `{type:"composite",all:[a,b,c]}` | `{type:"collection",mode:"all",actors:[a,b,c]}` |
+| `requiresAll: true` (多人) | `{type:"collection",mode:"all",actors:[...]}` |
+| `requiresAll: false` (任一) | `{type:"collection",mode:"any",min_approvals:1,actors:[...]}` |
+| `fallback: rule_b` | `{ ...primary..., fallback: rule_b }` |
 
 ### 2.6 notifications
 
@@ -152,10 +158,9 @@ type Notification = {
 }
 
 type NotifyRecipient =
-  | { type: 'submitter' }
-  | { type: 'current_approver' }
-  | { type: 'role'; role: string }
-  | { type: 'specific_user'; userId: string }
+  | { type: 'submitter' }                          // 仍保留 — 等同 expr "submitter"
+  | { type: 'current_approver' }                   // 特殊語意，由 runtime 決定
+  | ActorRef                                       // role / group / user / conditional / collection
 
 type NotifyTemplate = {
   subject: { 'zh-TW': string; 'en'?: string }
@@ -276,7 +281,7 @@ type TestCase = {
       "id": "task_hr_archive",
       "formCode": "LEAVE_ARCHIVE",
       "fields": [
-        {"id":"archive_note","label":{"zh-TW":"備案備註"},"type":"textarea","required":false}
+        {"id":"archive_note","label":{"zh-TW":"備案備註"},"type":"textarea","required":true,"hint":{"zh-TW":"HR 留下處理紀錄供日後追溯"}}
       ],
       "permissions": {
         "submitter": "role:HR",
@@ -297,12 +302,14 @@ type TestCase = {
   "approvals": [
     {
       "id": "approval_manager",
-      "rule": {"type":"direct_manager"}
+      "approver": {"type":"expr","path":"submitter.manager"}
     },
     {
       "id": "approval_vp",
-      "rule": {"type":"department_head","deptOf":"applicant"},
-      "fallback": {"type":"role","role":"VP"}
+      "approver": {
+        "type":"expr","path":"submitter.department.head",
+        "fallback": {"type":"role","code":"VP"}
+      }
     }
   ],
   "notifications": [
@@ -380,6 +387,96 @@ type TestCase = {
     }
   ]
 }
+```
+
+---
+
+### 2.10 ActorRef — 統一的「指涉某人」DSL（v1.1 新增）
+
+任何 spec 欄位需要表達「誰」（簽核者、收件人、表單 owner...）都用 `ActorRef`。
+這是個 typed discriminated union — 每個 ActorRef 一定有 `type` 欄位，型別決定有哪些子欄位。
+
+```typescript
+type ActorRef =
+  // —— 4 個 atomic 型別（單一指涉）——
+  | { type: 'expr';  path: PathString;     fallback?: ActorRef }
+  | { type: 'role';  code: string;         fallback?: ActorRef }
+  | { type: 'group'; id: string;           fallback?: ActorRef }
+  | { type: 'user';  id: string;           fallback?: ActorRef }   // ⚠️ test only — production spec 不該出現
+
+  // —— 2 個 composite 型別（組合）——
+  | { type: 'conditional'
+      condition: { field: string; op: ConditionOp; value: any }
+      then: ActorRef
+      else: ActorRef
+      fallback?: ActorRef }                                          // 嵌套深度 ≤ 3
+
+  | { type: 'collection'
+      mode: 'any' | 'all'
+      min_approvals?: number                                         // mode=any 必填，≤ actors.length
+      actors: ActorRef[]                                             // 不可空
+      fallback?: ActorRef }
+
+type ConditionOp = '==' | '!=' | '>' | '>=' | '<' | '<=' | 'in' | 'not_in'
+
+type PathString =
+  | 'submitter'
+  | 'submitter.manager'
+  | 'submitter.manager.manager'
+  | 'submitter.manager.manager.manager'
+  | 'submitter.department'
+  | 'submitter.department.head'
+  | 'submitter.department.parent'
+  | 'submitter.department.parent.head'
+  | 'submitter.department.parent.parent.head'
+```
+
+**重要規則**：
+- `path` 是封閉集合（whitelist）。寫不在表上的字串 → spec validator 在載入時就 reject
+- `fallback` 只允許 1 層（`fallback.fallback` 會被 reject）
+- `conditional` 嵌套深度 ≤ 3
+- `collection.actors` 至少 1 個
+- `collection.mode = "any"` 時 `min_approvals` 必須 ≤ `actors.length`
+- 解析失敗模式（`PathUnresolved` / `RoleEmpty` / `GroupEmpty` / `Cycle` / `ConditionalBranchEmpty` / `ValidationFailed`）會進 `ActorResolutionAudits` 表
+
+**worked examples**：
+
+```jsonc
+// 員工的直屬主管簽
+{ "type": "expr", "path": "submitter.manager" }
+
+// 部門頭簽，找不到 fallback 給 admin
+{ "type": "expr", "path": "submitter.department.head",
+  "fallback": { "type": "role", "code": "admin" } }
+
+// 金額大於 5 萬走 CEO，否則走主管
+{ "type": "conditional",
+  "condition": { "field": "amount", "op": ">", "value": 50000 },
+  "then":  { "type": "role", "code": "CEO" },
+  "else":  { "type": "expr", "path": "submitter.manager" } }
+
+// 採購委員會 3 人中要 2 人簽
+{ "type": "collection", "mode": "any", "min_approvals": 2,
+  "actors": [
+    { "type": "user", "id": "u_a" },
+    { "type": "user", "id": "u_b" },
+    { "type": "user", "id": "u_c" }
+  ] }
+
+// 「主管 + 財務」雙簽
+{ "type": "collection", "mode": "all",
+  "actors": [
+    { "type": "expr", "path": "submitter.manager" },
+    { "type": "role", "code": "finance_manager" }
+  ] }
+
+// 條件式 + 合議：金額 >= 10萬，要 CEO + CFO 雙簽；否則主管
+{ "type": "conditional",
+  "condition": { "field": "amount", "op": ">=", "value": 100000 },
+  "then": { "type": "collection", "mode": "all",
+            "actors": [ { "type": "role", "code": "CEO" },
+                        { "type": "role", "code": "CFO" } ] },
+  "else": { "type": "expr", "path": "submitter.manager" } }
 ```
 
 ---

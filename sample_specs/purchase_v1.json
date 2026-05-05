@@ -141,12 +141,15 @@
     }
   ],
   "approvals": [
-    { "id": "approval_manager", "rule": { "type": "direct_manager" } },
-    { "id": "approval_finance", "rule": { "type": "role", "role": "Finance" } },
+    { "id": "approval_manager", "approver": { "type": "expr", "path": "submitter.manager" } },
+    { "id": "approval_finance", "approver": { "type": "role", "code": "Finance" } },
     {
       "id": "approval_ceo",
-      "rule": { "type": "role", "role": "CEO" },
-      "fallback": { "type": "role", "role": "VP" }
+      "approver": {
+        "type": "role",
+        "code": "CEO",
+        "fallback": { "type": "role", "code": "VP" }
+      }
     }
   ],
   "notifications": [
@@ -165,7 +168,7 @@
       "id": "notify_assign_purchase",
       "trigger": "on_assign",
       "channel": ["email", "in_app"],
-      "recipients": [{ "type": "role", "role": "Purchase" }],
+      "recipients": [{ "type": "role", "code": "Purchase" }],
       "template": {
         "subject": { "zh-TW": "【採購待處理】{{purchase.vendor}} - {{purchase.amount}} 元" },
         "body": { "zh-TW": "案件已核准完畢，請開立 PO。\n供應商: {{purchase.vendor}}\n金額: {{purchase.amount}} 元\n\n處理頁面: {{caseUrl}}" },
