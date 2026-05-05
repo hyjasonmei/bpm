@@ -1,11 +1,16 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
+using Bpm.Api.Auth;
 using Bpm.Api.Common;
 using Bpm.Application;
 using Bpm.Application.Common.Abstractions;
 using Bpm.Persistence;
+using Bpm.Persistence.Seed;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +43,52 @@ builder.Services.AddSingleton<IAiBackend>(sp => aiBackendName switch
     _     => new ClaudeCliBackend(sp.GetRequiredService<ILogger<ClaudeCliBackend>>()),
 });
 
+// JWT bearer + dev-login wiring.
+// `BPM_AUTH_MODE` selects the auth scheme:
+//   - "dev"      → JWT validated locally; /api/dev/login mints persona JWTs
+//   - "prod"     → JWT validated locally; dev-login endpoint NOT registered
+//   - "disabled" → no auth middleware; everything is anonymous (legacy demo bypass)
+// Default is "dev" so the wizard's RoleSwitcher works out of the box.
+var authMode = (Environment.GetEnvironmentVariable("BPM_AUTH_MODE") ?? "dev").ToLowerInvariant();
+var jwtSecret = Environment.GetEnvironmentVariable("BPM_JWT_SECRET")
+    ?? "dev-secret-do-not-use-in-prod-must-be-32-bytes-long-x";  // dev fallback
+if (jwtSecret.Length < 32)
+    throw new InvalidOperationException("BPM_JWT_SECRET must be ≥ 32 bytes (current length: " + jwtSecret.Length + ")");
+
+var jwtOptions = new JwtOptions { Secret = jwtSecret };
+builder.Services.AddSingleton(jwtOptions);
+builder.Services.AddSingleton(_ =>
+{
+    var map = builder.Configuration.GetSection("Personas").Get<Dictionary<string, string>>() ?? new();
+    return new PersonaMappingOptions { Map = map };
+});
+builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddScoped<PersonaLoginService>();
+
+if (authMode != "disabled")
+{
+    builder.Services
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(opts =>
+        {
+            opts.RequireHttpsMetadata = false;
+            opts.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = jwtOptions.Issuer,
+                ValidateAudience = true,
+                ValidAudience = jwtOptions.Audience,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret)),
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromMinutes(1),
+                NameClaimType = "sub",
+                RoleClaimType = "roles",
+            };
+        });
+    builder.Services.AddAuthorization();
+}
+
 builder.Services.AddCors(o => o.AddPolicy("bpm-ui", p =>
 {
     var configured = builder.Configuration["Cors:BpmUiOrigin"] ?? "http://localhost:5173";
@@ -51,50 +102,43 @@ builder.Services.AddProblemDetails();
 var app = builder.Build();
 
 app.Logger.LogInformation("AI backend: {Backend} (set BPM_AI_BACKEND=api|cli to switch)", aiBackendName);
+app.Logger.LogInformation("Auth mode: {AuthMode} (set BPM_AUTH_MODE=dev|prod|disabled)", authMode);
 
 app.UseExceptionHandler();
 app.UseCors("bpm-ui");
 
-// Demo bearer auth — gated by BPM_DEMO_TOKEN. Empty/unset = bypass (local
-// dev). Set on Azure App Settings for any deployment that's reachable
-// outside localhost. The check sits AFTER UseCors so OPTIONS preflights
-// don't get rejected.
-var demoToken = Environment.GetEnvironmentVariable("BPM_DEMO_TOKEN");
-if (!string.IsNullOrWhiteSpace(demoToken))
+// JWT bearer auth pipeline. Public routes (/health, /swagger, OPTIONS,
+// /api/dev/login when in dev mode) bypass the [Authorize] requirement.
+if (authMode != "disabled")
 {
-    app.Logger.LogInformation("Demo bearer auth: ENABLED (BPM_DEMO_TOKEN is set)");
-    var expected = $"Bearer {demoToken}";
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    // Custom 401 envelope to match the rest of the API's error JSON shape.
     app.Use(async (ctx, next) =>
     {
-        var path = ctx.Request.Path.Value ?? "";
-        // Public: liveness probe + Swagger landing.
-        if (path == "/health" || path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase))
-        {
-            await next();
-            return;
-        }
-        // CORS preflight has already passed UseCors above; let it through.
-        if (HttpMethods.IsOptions(ctx.Request.Method))
-        {
-            await next();
-            return;
-        }
-        if (ctx.Request.Headers.Authorization.ToString() != expected)
-        {
-            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await ctx.Response.WriteAsJsonAsync(new
-            {
-                error = "unauthorized",
-                message = "Missing or invalid Authorization header. Expected: Bearer <BPM_DEMO_TOKEN>",
-            });
-            return;
-        }
         await next();
+        if (ctx.Response.StatusCode == StatusCodes.Status401Unauthorized && !ctx.Response.HasStarted)
+        {
+            ctx.Response.ContentType = "application/json";
+            await ctx.Response.WriteAsJsonAsync(new { error = "missing_or_invalid_token" });
+        }
     });
 }
-else
+
+// Auth gate for legacy minimal-API endpoints (/api/spec, /api/chat, etc.) —
+// MVC controllers with [Authorize] are handled by the framework above; the
+// minimal-API routes below need the gate inline.
+async Task<bool> RequireAuth(HttpContext ctx)
 {
-    app.Logger.LogInformation("Demo bearer auth: DISABLED (BPM_DEMO_TOKEN unset — local dev mode)");
+    if (authMode == "disabled") return true;
+    var path = ctx.Request.Path.Value ?? "";
+    if (path == "/health" || path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase)) return true;
+    if (HttpMethods.IsOptions(ctx.Request.Method)) return true;
+    if (ctx.User?.Identity?.IsAuthenticated == true) return true;
+    ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+    await ctx.Response.WriteAsJsonAsync(new { error = "missing_or_invalid_token" });
+    return false;
 }
 
 if (app.Environment.IsDevelopment())
@@ -111,12 +155,12 @@ app.MapGet("/health", async (AppDbContext db, IAiBackend ai) =>
     {
         var ok = await db.Database.CanConnectAsync();
         return ok
-            ? Results.Ok(new { status = "healthy", aiBackend = ai.Name })
-            : Results.Json(new { status = "db-unreachable", aiBackend = ai.Name }, statusCode: 503);
+            ? Results.Ok(new { status = "healthy", aiBackend = ai.Name, authMode })
+            : Results.Json(new { status = "db-unreachable", aiBackend = ai.Name, authMode }, statusCode: 503);
     }
     catch
     {
-        return Results.Json(new { status = "db-unreachable", aiBackend = ai.Name }, statusCode: 503);
+        return Results.Json(new { status = "db-unreachable", aiBackend = ai.Name, authMode }, statusCode: 503);
     }
 });
 
@@ -127,6 +171,8 @@ app.MapGet("/health", async (AppDbContext db, IAiBackend ai) =>
 // this for a job queue / pipeline trigger.
 app.MapPost("/api/spec", async (HttpContext ctx, IClock clock) =>
 {
+    if (!await RequireAuth(ctx)) return Results.Empty;
+
     using var reader = new StreamReader(ctx.Request.Body);
     var json = await reader.ReadToEndAsync();
 
@@ -167,6 +213,8 @@ app.MapPost("/api/spec", async (HttpContext ctx, IClock clock) =>
 // CoPilot chat — routes to whichever IAiBackend is registered (cli or api).
 app.MapPost("/api/chat", async (HttpContext ctx, IAiBackend ai, CancellationToken ct) =>
 {
+    if (!await RequireAuth(ctx)) return Results.Empty;
+
     using var reader = new StreamReader(ctx.Request.Body);
     var body = await reader.ReadToEndAsync(ct);
     if (string.IsNullOrWhiteSpace(body))
@@ -223,6 +271,8 @@ Reply in 繁體中文 (Traditional Chinese) by default. Keep text replies tight 
 // skeleton (api backend only; cli has no base64 image flag for -p mode).
 app.MapPost("/api/spec-extract", async (HttpContext ctx, IAiBackend ai, CancellationToken ct) =>
 {
+    if (!await RequireAuth(ctx)) return Results.Empty;
+
     using var reader = new StreamReader(ctx.Request.Body);
     var body = await reader.ReadToEndAsync(ct);
     if (string.IsNullOrWhiteSpace(body))
@@ -332,6 +382,8 @@ app.MapPost("/api/spec-extract", async (HttpContext ctx, IAiBackend ai, Cancella
 // equivalents — not needed for current dev environment.
 app.MapPost("/api/spec/reveal", async (HttpContext ctx) =>
 {
+    if (!await RequireAuth(ctx)) return Results.Empty;
+
     using var reader = new StreamReader(ctx.Request.Body);
     var body = await reader.ReadToEndAsync();
     JsonDocument doc;
@@ -375,6 +427,27 @@ app.MapPost("/api/spec/reveal", async (HttpContext ctx) =>
         }
     }
 });
+
+// Apply EF migrations and (optionally) seed the org fixture at startup.
+// Seed runs only when BPM_SEED_ON_STARTUP=true (default in dev) so prod
+// boots can't accidentally write fixture data into a real DB.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        await db.Database.MigrateAsync();
+        var seedOnStartup = (Environment.GetEnvironmentVariable("BPM_SEED_ON_STARTUP")
+            ?? (app.Environment.IsDevelopment() ? "true" : "false")).ToLowerInvariant() == "true";
+        if (seedOnStartup)
+            await OrgFixture.RunAsync(db, logger);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Startup migration/seed failed");
+    }
+}
 
 app.Run();
 
