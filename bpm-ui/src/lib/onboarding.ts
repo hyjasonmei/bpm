@@ -85,26 +85,72 @@ export interface Decision {
   branches: DecisionBranch[]
 }
 
-/* Approvals — mirrors spec_schema.md §2.5 */
-export type ApprovalRule =
-  | { type: 'direct_manager' }
-  | { type: 'role'; role: string }
-  | { type: 'specific_user'; userId: string }
-  | { type: 'department_head'; deptOf: 'applicant' }
+/* ── ActorRef DSL — mirrors spec_schema.md §2.10 (v1.1) ── */
+
+export const ACTOR_PATH_WHITELIST = [
+  'submitter',
+  'submitter.manager',
+  'submitter.manager.manager',
+  'submitter.manager.manager.manager',
+  'submitter.department',
+  'submitter.department.head',
+  'submitter.department.parent',
+  'submitter.department.parent.head',
+  'submitter.department.parent.parent.head',
+] as const
+
+export type ActorPath = (typeof ACTOR_PATH_WHITELIST)[number]
+
+export type ActorRefCondition = {
+  field: string
+  op: '==' | '!=' | '>' | '>=' | '<' | '<=' | 'in' | 'not_in'
+  value: unknown
+}
+
+export type ActorRef =
+  | { type: 'expr'; path: ActorPath; fallback?: ActorRef }
+  | { type: 'role'; code: string; fallback?: ActorRef }
+  | { type: 'group'; id: string; fallback?: ActorRef }
+  | { type: 'user'; id: string; fallback?: ActorRef }
+  | {
+      type: 'conditional'
+      condition: ActorRefCondition
+      then: ActorRef
+      else: ActorRef
+      fallback?: ActorRef
+    }
+  | {
+      type: 'collection'
+      mode: 'any' | 'all'
+      min_approvals?: number
+      actors: ActorRef[]
+      fallback?: ActorRef
+    }
+
+export type ActorRefType = ActorRef['type']
+
+export const ACTOR_TYPE_LABELS: Record<ActorRefType, { en: string; zh: string }> = {
+  expr:        { en: 'Org-chart path', zh: '組織路徑' },
+  role:        { en: 'Role',           zh: '角色' },
+  group:       { en: 'Group',          zh: '群組' },
+  user:        { en: 'Specific user',  zh: '指定使用者 (測試用)' },
+  conditional: { en: 'Conditional',    zh: '條件式' },
+  collection:  { en: 'Collection',     zh: '合議' },
+}
+
+/* Approvals — mirrors spec_schema.md §2.5 (v1.1) */
 export interface Approval {
   id: string
-  rule: ApprovalRule
-  fallback?: ApprovalRule
-  requiresAll?: boolean
+  approver: ActorRef
 }
 
 /* Notifications — mirrors spec_schema.md §2.6 */
 export type NotifyTrigger = 'on_submit' | 'on_approve' | 'on_reject' | 'on_complete' | 'on_assign' | 'on_sla_breach'
+
 export type NotifyRecipient =
   | { type: 'submitter' }
   | { type: 'current_approver' }
-  | { type: 'role'; role: string }
-  | { type: 'specific_user'; userId: string }
+  | ActorRef                                              // role / group / user / conditional / collection
 export interface NotifyTemplate {
   subject: { 'zh-TW': string; en?: string }
   body: { 'zh-TW': string; en?: string }
@@ -337,7 +383,8 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
       id: 'task_hr_archive',
       formCode: 'LEAVE_ARCHIVE',
       fields: [
-        { id: 'archive_note', label: { 'zh-TW': '備案備註' }, type: 'textarea', required: false },
+        { id: 'archive_note', label: { 'zh-TW': '備案備註' }, type: 'textarea', required: true,
+          hint: { 'zh-TW': 'HR 留下處理紀錄供日後追溯' } },
       ],
       permissions: { submitter: 'role:HR', viewers: ['role:HR', 'self'] },
     },
@@ -353,11 +400,14 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
     },
   ],
   approvals: [
-    { id: 'approval_manager', rule: { type: 'direct_manager' } },
+    { id: 'approval_manager', approver: { type: 'expr', path: 'submitter.manager' } },
     {
       id: 'approval_vp',
-      rule: { type: 'department_head', deptOf: 'applicant' },
-      fallback: { type: 'role', role: 'VP' },
+      approver: {
+        type: 'expr',
+        path: 'submitter.department.head',
+        fallback: { type: 'role', code: 'VP' },
+      },
     },
   ],
   notifications: [
@@ -517,9 +567,9 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
     },
   ],
   approvals: [
-    { id: 'approval_manager', rule: { type: 'direct_manager' } },
-    { id: 'approval_finance', rule: { type: 'role', role: 'Finance' } },
-    { id: 'approval_ceo', rule: { type: 'role', role: 'CEO' }, fallback: { type: 'role', role: 'VP' } },
+    { id: 'approval_manager', approver: { type: 'expr', path: 'submitter.manager' } },
+    { id: 'approval_finance', approver: { type: 'role', code: 'Finance' } },
+    { id: 'approval_ceo', approver: { type: 'role', code: 'CEO', fallback: { type: 'role', code: 'VP' } } },
   ],
   notifications: [
     {
@@ -537,7 +587,7 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
       id: 'notify_assign_purchase',
       trigger: 'on_assign',
       channel: ['email', 'in_app'],
-      recipients: [{ type: 'role', role: 'Purchase' }],
+      recipients: [{ type: 'role', code: 'Purchase' }],
       template: {
         subject: { 'zh-TW': '【採購待處理】{{purchase.vendor}} - {{purchase.amount}} 元' },
         body: { 'zh-TW': '案件已核准完畢，請開立 PO。\n供應商: {{purchase.vendor}}\n金額: {{purchase.amount}} 元\n\n處理頁面: {{caseUrl}}' },

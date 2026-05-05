@@ -11,7 +11,7 @@ const TRIGGERS: NotifyTrigger[] = [
 
 const CHANNELS = ['email', 'in_app', 'teams'] as const
 
-const RECIPIENT_TYPES = ['submitter', 'current_approver', 'role', 'specific_user'] as const
+const RECIPIENT_TYPES = ['submitter', 'current_approver', 'role', 'user'] as const
 
 export function StepNotify({ draft, setDraft }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void }) {
   const [expandedId, setExpandedId] = useState<string | null>(draft.notifications[0]?.id ?? null)
@@ -136,17 +136,21 @@ function recipientLabel(r: NotifyRecipient): string {
   switch (r.type) {
     case 'submitter':        return 'submitter'
     case 'current_approver': return 'current_approver'
-    case 'role':             return `role:${r.role}`
-    case 'specific_user':    return `user:${r.userId}`
+    case 'role':             return `role:${r.code || '(unset)'}`
+    case 'user':             return `user:${(r.id || '(unset)').slice(0, 8)}`
+    case 'group':            return `group:${(r.id || '(unset)').slice(0, 8)}`
+    case 'expr':             return `expr:${r.path}`
+    case 'conditional':      return 'conditional'
+    case 'collection':       return `${r.mode}(${r.actors.length})`
   }
 }
 
-function emptyRecipient(type: NotifyRecipient['type']): NotifyRecipient {
+function emptyRecipient(type: 'submitter' | 'current_approver' | 'role' | 'user'): NotifyRecipient {
   switch (type) {
     case 'submitter':        return { type: 'submitter' }
     case 'current_approver': return { type: 'current_approver' }
-    case 'role':             return { type: 'role', role: '' }
-    case 'specific_user':    return { type: 'specific_user', userId: '' }
+    case 'role':             return { type: 'role', code: '' }
+    case 'user':             return { type: 'user', id: '' }
   }
 }
 
@@ -164,7 +168,7 @@ function RecipientsEditor({
               value={r.type}
               onChange={e => {
                 const updated = [...recipients]
-                updated[i] = emptyRecipient(e.target.value as NotifyRecipient['type'])
+                updated[i] = emptyRecipient(e.target.value as 'submitter' | 'current_approver' | 'role' | 'user')
                 onChange(updated)
               }}
             >
@@ -174,22 +178,22 @@ function RecipientsEditor({
               <Input
                 className="h-7 text-xs"
                 placeholder="HR / VP / Finance"
-                value={r.role}
+                value={r.code}
                 onChange={e => {
                   const updated = [...recipients]
-                  updated[i] = { type: 'role', role: e.target.value }
+                  updated[i] = { type: 'role', code: e.target.value }
                   onChange(updated)
                 }}
               />
             )}
-            {r.type === 'specific_user' && (
+            {r.type === 'user' && (
               <Input
                 className="h-7 text-xs"
-                placeholder="u_xxx"
-                value={r.userId}
+                placeholder="user GUID"
+                value={r.id}
                 onChange={e => {
                   const updated = [...recipients]
-                  updated[i] = { type: 'specific_user', userId: e.target.value }
+                  updated[i] = { type: 'user', id: e.target.value }
                   onChange(updated)
                 }}
               />
