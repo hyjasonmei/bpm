@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { apiFetch, setJwt, clearJwt, getJwt } from './apiFetch'
 
 export type PersonaCode = 'employee' | 'manager' | 'finance' | 'it' | 'hr' | 'admin'
 
@@ -64,16 +65,75 @@ export const PERSONAS: Record<PersonaCode, Persona> = {
 
 const STORAGE_KEY = 'bpm_active_role'
 
+export interface DevLoginUser {
+  id: string
+  fullName: string
+  email: string
+  departmentCode: string | null
+  personaCode: PersonaCode
+  roles: string[]
+}
+
+/// Calls /api/dev/login for the given persona. Stores the returned JWT in
+/// localStorage and returns the user summary. Throws on non-200.
+async function loginAs(personaCode: PersonaCode): Promise<DevLoginUser> {
+  const res = await apiFetch('/api/dev/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ PersonaCode: personaCode }),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`dev-login failed (${res.status}): ${text}`)
+  }
+  const data = await res.json()
+  setJwt(data.token)
+  return data.user as DevLoginUser
+}
+
 export function useActivePersona() {
-  const [code, setCode] = useState<PersonaCode>(() => {
+  const [code, setCodeState] = useState<PersonaCode>(() => {
     if (typeof window === 'undefined') return 'employee'
     const saved = localStorage.getItem(STORAGE_KEY)
-    return (saved && saved in PERSONAS ? (saved as PersonaCode) : 'employee')
+    return saved && saved in PERSONAS ? (saved as PersonaCode) : 'employee'
   })
+  const [authedUser, setAuthedUser] = useState<DevLoginUser | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
 
+  const setCode = useCallback(async (next: PersonaCode) => {
+    setPending(true)
+    setError(null)
+    try {
+      const user = await loginAs(next)
+      setAuthedUser(user)
+      localStorage.setItem(STORAGE_KEY, next)
+      setCodeState(next)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(msg)
+      // Don't clear existing token — keep prior session alive on switch failure.
+    } finally {
+      setPending(false)
+    }
+  }, [])
+
+  // On first mount: if no JWT yet, mint one for the saved persona so demo
+  // works zero-click. If we already have a JWT we trust it (validated on
+  // first API call; 401 clears it).
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, code)
-  }, [code])
+    if (typeof window === 'undefined') return
+    if (getJwt()) return
+    void setCode(code)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  return { persona: PERSONAS[code], code, setCode }
+  // Re-mint when something downstream clears the token (401 from any call).
+  useEffect(() => {
+    const onCleared = () => { void setCode(code) }
+    window.addEventListener('bpm:auth-cleared', onCleared as EventListener)
+    return () => window.removeEventListener('bpm:auth-cleared', onCleared as EventListener)
+  }, [code, setCode])
+
+  return { persona: PERSONAS[code], code, setCode, authedUser, pending, error, clearAuth: clearJwt }
 }

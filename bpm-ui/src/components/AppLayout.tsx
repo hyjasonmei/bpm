@@ -16,7 +16,10 @@ interface AppLayoutProps {
   screen: Screen
   setScreen: (s: Screen) => void
   persona: PersonaCode
-  setPersona: (p: PersonaCode) => void
+  setPersona: (p: PersonaCode) => void | Promise<void>
+  authedFullName?: string | null
+  authPending?: boolean
+  authError?: string | null
   children: React.ReactNode
 }
 
@@ -27,7 +30,7 @@ const FORM_GROUPS: Array<{ group: string; items: { id: FormCode; label: string }
   { group: 'Purchase', items: [{ id: 'HWP', label: 'Hardware Purchase' }, { id: 'ITPR', label: 'IT Purchase Request' }] },
 ]
 
-export function AppLayout({ screen, setScreen, persona, setPersona, children }: AppLayoutProps) {
+export function AppLayout({ screen, setScreen, persona, setPersona, authedFullName = null, authPending = false, authError = null, children }: AppLayoutProps) {
   const [createOpen, setCreateOpen] = React.useState(false)
   const createRef = React.useRef<HTMLDivElement>(null)
 
@@ -102,7 +105,13 @@ export function AppLayout({ screen, setScreen, persona, setPersona, children }: 
             <button title="Help" className="flex h-8 w-8 items-center justify-center rounded text-white/70 transition-colors hover:bg-white/10 hover:text-white">
               <HelpCircle className="h-4 w-4" />
             </button>
-            <RoleSwitcher active={persona} onChange={setPersona} />
+            <RoleSwitcher
+              active={persona}
+              onChange={setPersona}
+              pending={authPending}
+              error={authError}
+              authedFullName={authedFullName}
+            />
           </div>
         </div>
 

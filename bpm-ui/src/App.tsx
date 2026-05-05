@@ -28,7 +28,7 @@ function readSavedScreen(): Screen {
 }
 
 export default function App() {
-  const { code: persona, setCode: setPersona } = useActivePersona()
+  const { code: persona, setCode: setPersona, authedUser, pending: authPending, error: authError } = useActivePersona()
   const [screen, setScreen] = useState<Screen>(readSavedScreen)
 
   useEffect(() => {
@@ -57,7 +57,15 @@ export default function App() {
   }
 
   return (
-    <AppLayout screen={screen} setScreen={setScreen} persona={persona} setPersona={setPersona}>
+    <AppLayout
+      screen={screen}
+      setScreen={setScreen}
+      persona={persona}
+      setPersona={setPersona}
+      authedFullName={authedUser?.fullName ?? null}
+      authPending={authPending}
+      authError={authError}
+    >
       {body}
     </AppLayout>
   )
