@@ -68,3 +68,25 @@ The system SHALL provide an `IOrgChartReader` service exposing methods: `GetUser
 #### Scenario: ExpandGroup is transitive
 - **WHEN** `ExpandGroup(groupId)` is called on a group with nested group members
 - **THEN** the returned set contains all transitively-reachable users
+
+### Requirement: Principal carries a uniform DisplayName
+
+The `Principal` base class SHALL expose a `DisplayName` (string, non-null, default empty) usable by UI surfaces that show "an actor" without needing to discriminate User / Department / Group. For Users this typically mirrors `FullName`; for Departments / Groups it typically mirrors `Name`. Each subclass MAY keep a more specific name field (e.g., `User.FullName`, `Department.Name`) but MUST also populate `DisplayName` so generic surfaces (audit log, role assignment lists, group member tables) can render any principal uniformly.
+
+#### Scenario: User DisplayName mirrors FullName
+
+- **GIVEN** a User with `FullName = "Wilson You"`
+- **WHEN** the row is persisted
+- **THEN** `DisplayName = "Wilson You"`
+
+#### Scenario: Department DisplayName mirrors Name
+
+- **GIVEN** a Department with `Name = "前端工程部"`
+- **WHEN** the row is persisted
+- **THEN** `DisplayName = "前端工程部"`
+
+#### Scenario: Generic actor list renders any principal type
+
+- **GIVEN** a `RoleAssignment` row whose `PrincipalId` could be a User, Department, or Group
+- **WHEN** the admin UI renders the assignment row
+- **THEN** the row label uses `Principal.DisplayName` without needing to JOIN-and-discriminate by type

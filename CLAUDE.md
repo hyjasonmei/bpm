@@ -38,6 +38,19 @@ MVP 功能範圍：
 
 最終目標: 賣出POC給潛在客戶並可跟微軟生態 (Entra ID, AD) 整合
 
-現在進度: 尚未開始
+兩大賣點 (2026-05-10 brainstorm 拍板)
+1. AI onboarding — 9-step stepper + AI 對話 + 即時生成的問卷，產 spec bundle (zip)
+2. 無痛上線驗收 — 完善 sandbox（mail capture、webhook redirect、persona switch、time advance、state reset），一個驗收員就能跑完整 UAT
+   合規 (FDA / 21 CFR Part 11) 賣點降級到「不主打」(audit-immutability proposal archived)
 
-當前目標: 建立一請假流程，都用c#寫，但使用者可透過bpmn圖形化檢視流程進度
+商業模式
+第一年導入費（含送幾隻流程）+ 之後每年 30% 導入費 + 顧問點數，大量需求另購點數。多客戶時 Anthropic API 用我們代墊，bill 客戶。Bundle 可由客戶自 host 也可以我們代管。
+
+現在進度 (2026-05-10)
+openspec 32 個 active proposal（含 add-spec-bundle-and-flow-library + add-acceptance-sandbox 兩個本日新加），實作面：bpm-svc 已有 Org/Authz/Sandbox/Auth/HrFlows/Spec(ActorRef) 全套，bpm-ui 9 個 demo form + Home/Search/Report，bpm-admin-ui 9-step onboarding + CoPilotCanvas + 5 個 admin screen。
+
+當前目標 (foundation 三角，P0)
+1. add-process-runtime — 建 ProcessInstance / Task / TaskHistory 真正能跑 case
+2. add-actor-and-org-model — 已 80% 寫完，補 spec + extension 收尾
+3. add-cel-expressions — 用 Cel.NET 1.0.0 (NuGet) 實作 IExpressionEvaluator + bpm-cel-v1 subset validator
+   三個一起做 4-8 週，後續 10+ proposal 可併行展開

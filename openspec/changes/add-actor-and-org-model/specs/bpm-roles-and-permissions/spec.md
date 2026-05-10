@@ -56,3 +56,32 @@ The system SHALL provide a query "effective roles for user X (optionally scoped 
 - **WHEN** user X has direct RoleAssignment for `viewer` AND is a member of a group with RoleAssignment for `designer`
 - **AND** the effective-roles query is run on X
 - **THEN** the result contains both `viewer` and `designer`
+
+### Requirement: Role assignment changes are audited
+
+The system SHALL persist a `RoleAssignmentChange` row for every successful role grant or revoke, capturing: `ActorUserId` (who initiated the change), `TargetUserId` (who the role applies to), `RoleId` + `RoleCodeSnapshot` (snapshot resilient to role rename), `Action` (`Assign` / `Revoke`), `Scope`, `ScopeRef`, optional `ImpersonatedByUserId` (when the actor was acting under impersonation).
+
+`RoleAssignmentChange` SHALL implement `IImpersonable` so the impersonation interceptor populates `ImpersonatedByUserId` automatically when applicable. The audit row SHALL be append-only — no UPDATE / DELETE permitted at the application layer.
+
+#### Scenario: Direct grant audited
+
+- **GIVEN** admin Jason grants role "finance_manager" to user Mary at tenant scope
+- **WHEN** the grant is persisted
+- **THEN** a RoleAssignmentChange row exists with `ActorUserId = Jason`, `TargetUserId = Mary`, `RoleCodeSnapshot = "finance_manager"`, `Action = Assign`, `Scope = Tenant`, `ScopeRef = null`
+
+#### Scenario: Revoke audited
+
+- **WHEN** admin Jason revokes Mary's "finance_manager" role
+- **THEN** a separate RoleAssignmentChange row exists with `Action = Revoke`
+
+#### Scenario: Role rename does not break audit history
+
+- **GIVEN** a RoleAssignmentChange row with `RoleCodeSnapshot = "finance_manager"` and `RoleId = R1`
+- **WHEN** an admin renames role R1 from "finance_manager" to "fin_mgr"
+- **THEN** the snapshot field still reads "finance_manager" — historical audit reflects what the role was *named at the time of the change*
+
+#### Scenario: Impersonated grant records both actors
+
+- **GIVEN** Jason is impersonating Mary, and "Mary" grants role X to user Z
+- **WHEN** the grant is persisted
+- **THEN** the row has `ActorUserId = Mary`, `ImpersonatedByUserId = Jason`
