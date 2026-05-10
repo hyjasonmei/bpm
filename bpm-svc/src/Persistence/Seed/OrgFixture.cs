@@ -13,7 +13,8 @@ public static class OrgFixture
     {
         if (await db.Users.AnyAsync(ct))
         {
-            logger.LogInformation("OrgFixture: Users already exist, skipping seed");
+            logger.LogInformation("OrgFixture: Users already exist, skipping main seed");
+            await EnsureHrRoleAsync(db, logger, ct);
             return;
         }
 
@@ -49,9 +50,10 @@ public static class OrgFixture
         var roleAdmin    = new Role { Id = Guid.NewGuid(), Code = "admin",    Name = "System Administrator", Scope = RoleScope.System };
         var roleDesigner = new Role { Id = Guid.NewGuid(), Code = "designer", Name = "Spec Designer",        Scope = RoleScope.System };
         var roleViewer   = new Role { Id = Guid.NewGuid(), Code = "viewer",   Name = "Read-only Viewer",     Scope = RoleScope.System };
+        var roleHr       = new Role { Id = Guid.NewGuid(), Code = "hr",       Name = "Human Resources",      Scope = RoleScope.System };
 
         await db.Groups.AddRangeAsync([financeReviewers, procurementCommittee], ct);
-        await db.Roles.AddRangeAsync([roleAdmin, roleDesigner, roleViewer], ct);
+        await db.Roles.AddRangeAsync([roleAdmin, roleDesigner, roleViewer, roleHr], ct);
 
         await db.SaveChangesAsync(ct);
 
@@ -79,11 +81,36 @@ public static class OrgFixture
             new RoleAssignment { RoleId = roleViewer.Id,   PrincipalId = wilson.Id },
             new RoleAssignment { RoleId = roleViewer.Id,   PrincipalId = jean.Id },
             new RoleAssignment { RoleId = roleViewer.Id,   PrincipalId = amy.Id },
+            new RoleAssignment { RoleId = roleHr.Id,       PrincipalId = amy.Id },
         ], ct);
 
         await db.SaveChangesAsync(ct);
 
         logger.LogInformation("OrgFixture: seeded {Users} users, {Depts} departments, {Groups} groups, {Roles} roles, {Assignments} role assignments",
-            10, 3, 2, 3, 8);
+            10, 3, 2, 4, 9);
+    }
+
+    // Backfill for DBs seeded before the `hr` role was added. Idempotent.
+    private static async Task EnsureHrRoleAsync(AppDbContext db, ILogger logger, CancellationToken ct)
+    {
+        var hrRole = await db.Roles.FirstOrDefaultAsync(r => r.Code == "hr", ct);
+        if (hrRole is null)
+        {
+            hrRole = new Role { Id = Guid.NewGuid(), Code = "hr", Name = "Human Resources", Scope = RoleScope.System };
+            db.Roles.Add(hrRole);
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation("OrgFixture: backfilled missing hr role");
+        }
+
+        var amy = await db.Users.FirstOrDefaultAsync(u => u.Email == "hr@bpm.local", ct);
+        if (amy is null) return;
+
+        var hasAssignment = await db.RoleAssignments.AnyAsync(ra => ra.RoleId == hrRole.Id && ra.PrincipalId == amy.Id, ct);
+        if (!hasAssignment)
+        {
+            db.RoleAssignments.Add(new RoleAssignment { RoleId = hrRole.Id, PrincipalId = amy.Id });
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation("OrgFixture: backfilled hr role assignment to amy");
+        }
     }
 }

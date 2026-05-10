@@ -9,3 +9,5 @@ specs-incoming/
 # OS
 .DS_Store
 Thumbs.db
+
+bpm-admin-ui/node_modules/

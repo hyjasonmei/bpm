@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Check, Loader2, AlertCircle } from 'lucide-react'
+import { ChevronDown, Check, Loader2, AlertCircle, ExternalLink, Eye } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { PERSONAS, type PersonaCode, type Persona } from '@/lib/role'
+import { decodeJwt, isAdmin } from '@/lib/jwt'
+import { getJwt } from '@/lib/apiFetch'
+import { isImpersonating } from '@/lib/impersonationToken'
+import { ImpersonationModal } from '@/components/ImpersonationModal'
 
 export interface RoleSwitcherProps {
   active: PersonaCode
@@ -13,6 +17,7 @@ export interface RoleSwitcherProps {
 
 export function RoleSwitcher({ active, onChange, pending = false, error = null, authedFullName = null }: RoleSwitcherProps) {
   const [open, setOpen] = useState(false)
+  const [impersonateOpen, setImpersonateOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -31,6 +36,8 @@ export function RoleSwitcher({ active, onChange, pending = false, error = null, 
 
   const current = PERSONAS[active]
   const all = Object.values(PERSONAS) as Persona[]
+  const jwt = getJwt()
+  const callerIsAdmin = jwt ? isAdmin(decodeJwt(jwt)) : false
 
   return (
     <div ref={ref} className="relative">
@@ -88,6 +95,24 @@ export function RoleSwitcher({ active, onChange, pending = false, error = null, 
               )
             })}
           </div>
+          {callerIsAdmin && !isImpersonating() && (
+            <button
+              onClick={() => { setOpen(false); setImpersonateOpen(true) }}
+              className="flex w-full items-center gap-2 border-t border-rule bg-amber-50/30 px-4 py-2 text-left text-xs font-medium text-amber-800 hover:bg-amber-50"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              🎭 Act as another user…
+            </button>
+          )}
+          {callerIsAdmin && (
+            <a
+              href="/admin/"
+              className="flex items-center gap-2 border-t border-rule bg-slate-50/40 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open Admin Console →
+            </a>
+          )}
           {error && (
             <div className="border-t border-rule bg-rose-50 px-4 py-2 text-[11px] text-rose-700">
               <span className="font-medium">登入失敗 · </span>{error}
@@ -98,6 +123,7 @@ export function RoleSwitcher({ active, onChange, pending = false, error = null, 
           </div>
         </div>
       )}
+      <ImpersonationModal open={impersonateOpen} onClose={() => setImpersonateOpen(false)} />
     </div>
   )
 }

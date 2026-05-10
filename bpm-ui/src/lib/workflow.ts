@@ -16,7 +16,7 @@ export interface FormDef {
   initialActive: number
 }
 
-export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB'
+export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB' | 'RESIGN' | 'DEPTX'
 
 const STEP = (id: string, en: string, zh: string): Step => ({ id, en, zh })
 
@@ -146,6 +146,32 @@ export const FORMS: Record<FormCode, FormDef> = {
     ],
     ownerByStep: ['manager', 'hr', null],
     initialActive: 2,
+  },
+  RESIGN: {
+    code: 'RESIGN',
+    label: 'Resignation',
+    zhLabel: '離職申請',
+    steps: [
+      STEP('apply', 'APPLY', '提出申請'),
+      STEP('manager_approve', 'MANAGER APPROVE', '主管簽核'),
+      STEP('hr_approve', 'HR APPROVE', '人資簽核'),
+      STEP('closed', 'CLOSED', '結案'),
+    ],
+    ownerByStep: ['employee', 'manager', 'hr', null],
+    initialActive: 0,
+  },
+  DEPTX: {
+    code: 'DEPTX',
+    label: 'Department Transfer',
+    zhLabel: '部門異動申請',
+    steps: [
+      STEP('apply', 'APPLY', '提出申請'),
+      STEP('manager_approve', 'MANAGER APPROVE', '主管簽核'),
+      STEP('hr_approve', 'HR APPROVE', '人資簽核'),
+      STEP('closed', 'CLOSED', '結案'),
+    ],
+    ownerByStep: ['employee', 'manager', 'hr', null],
+    initialActive: 0,
   },
 }
 

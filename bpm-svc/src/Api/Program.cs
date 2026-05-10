@@ -64,6 +64,7 @@ builder.Services.AddSingleton(_ =>
 });
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<PersonaLoginService>();
+builder.Services.AddScoped<Bpm.Application.Impersonation.IImpersonationTokenMinter, Bpm.Api.Impersonation.JwtImpersonationTokenMinter>();
 
 if (authMode != "disabled")
 {
@@ -72,6 +73,10 @@ if (authMode != "disabled")
         .AddJwtBearer(opts =>
         {
             opts.RequireHttpsMetadata = false;
+            // Without this, "sub"/"roles" get mapped to long XML URIs
+            // (nameidentifier / role) and our NameClaimType/RoleClaimType
+            // settings below no longer match — User.IsInRole returns false.
+            opts.MapInboundClaims = false;
             opts.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -84,6 +89,34 @@ if (authMode != "disabled")
                 ClockSkew = TimeSpan.FromMinutes(1),
                 NameClaimType = "sub",
                 RoleClaimType = "roles",
+            };
+            opts.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+            {
+                OnTokenValidated = ctx =>
+                {
+                    if (ctx.Principal?.Identity is System.Security.Claims.ClaimsIdentity ident)
+                    {
+                        var arrayLikeRoles = ident.Claims
+                            .Where(c => c.Type == "roles" && c.Value.StartsWith("[") && c.Value.EndsWith("]"))
+                            .ToList();
+                        foreach (var c in arrayLikeRoles)
+                        {
+                            ident.RemoveClaim(c);
+                            try
+                            {
+                                var values = System.Text.Json.JsonSerializer.Deserialize<string[]>(c.Value) ?? Array.Empty<string>();
+                                foreach (var v in values)
+                                    ident.AddClaim(new System.Security.Claims.Claim("roles", v));
+                            }
+                            catch
+                            {
+                                // If parsing fails, keep the original string as a single role.
+                                ident.AddClaim(c);
+                            }
+                        }
+                    }
+                    return Task.CompletedTask;
+                },
             };
         });
     builder.Services.AddAuthorization();

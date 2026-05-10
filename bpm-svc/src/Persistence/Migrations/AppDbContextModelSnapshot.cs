@@ -17,6 +17,46 @@ namespace Bpm.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.7");
 
+            modelBuilder.Entity("Bpm.Domain.Entities.Attendance.AttendancePunch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("LocalDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("PunchAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PunchType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "LocalDate");
+
+                    b.HasIndex("UserId", "PunchAt");
+
+                    b.ToTable("AttendancePunches", (string)null);
+                });
+
             modelBuilder.Entity("Bpm.Domain.Entities.Audit.ActorResolutionAudit", b =>
                 {
                     b.Property<Guid>("Id")
@@ -43,6 +83,9 @@ namespace Bpm.Persistence.Migrations
                     b.Property<string>("FlowCode")
                         .IsRequired()
                         .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ImpersonatedByUserId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("RequestId")
@@ -193,6 +236,58 @@ namespace Bpm.Persistence.Migrations
                     b.ToTable("RoleAssignments", (string)null);
                 });
 
+            modelBuilder.Entity("Bpm.Domain.Entities.Authz.RoleAssignmentChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ImpersonatedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RoleCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Scope")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ScopeRef")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("TargetUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId", "CreatedAt");
+
+                    b.HasIndex("TargetUserId", "CreatedAt");
+
+                    b.ToTable("RoleAssignmentChanges", (string)null);
+                });
+
             modelBuilder.Entity("Bpm.Domain.Entities.Authz.RolePermission", b =>
                 {
                     b.Property<Guid>("RoleId")
@@ -216,6 +311,154 @@ namespace Bpm.Persistence.Migrations
                     b.HasIndex("PermissionId");
 
                     b.ToTable("RolePermissions", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.HrFlows.HrFlowAction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FromStep")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("ImpersonatedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("InstanceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ToStep")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstanceId", "CreatedAt");
+
+                    b.ToTable("HrFlowActions", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.HrFlows.HrFlowInstance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CurrentStep")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FormDataJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("InitiatorUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastActivityAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ResolvedManagerUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SpecCode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("InitiatorUserId", "LastActivityAt");
+
+                    b.HasIndex("ResolvedManagerUserId", "Status");
+
+                    b.ToTable("HrFlowInstances", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.Impersonation.ImpersonationSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("EndReason")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ImpersonatorUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("TargetUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EndedAt");
+
+                    b.HasIndex("ImpersonatorUserId", "StartedAt");
+
+                    b.ToTable("ImpersonationSessions", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Domain.Entities.Org.GroupMember", b =>
@@ -271,6 +514,98 @@ namespace Bpm.Persistence.Migrations
                     b.ToTable("Principals", (string)null);
 
                     b.UseTptMappingStrategy();
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.Sandbox.SandboxRedirect", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Channel")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("DispatchedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginalTargetsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RedirectedTargetsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SampleSubject")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TenantCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantCode", "DispatchedAt");
+
+                    b.HasIndex("TenantCode", "Channel", "DispatchedAt");
+
+                    b.ToTable("SandboxRedirects", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.Sandbox.TenantSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SandboxConfigJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("SandboxLastToggledAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("SandboxLastToggledByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("SandboxMode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TenantCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantCode")
+                        .IsUnique();
+
+                    b.ToTable("TenantSettings", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Domain.Entities.Org.Department", b =>
@@ -398,6 +733,17 @@ namespace Bpm.Persistence.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("Bpm.Domain.Entities.HrFlows.HrFlowAction", b =>
+                {
+                    b.HasOne("Bpm.Domain.Entities.HrFlows.HrFlowInstance", "Instance")
+                        .WithMany("Actions")
+                        .HasForeignKey("InstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Instance");
+                });
+
             modelBuilder.Entity("Bpm.Domain.Entities.Org.GroupMember", b =>
                 {
                     b.HasOne("Bpm.Domain.Entities.Org.Group", "Group")
@@ -475,6 +821,11 @@ namespace Bpm.Persistence.Migrations
             modelBuilder.Entity("Bpm.Domain.Entities.Authz.Role", b =>
                 {
                     b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.HrFlows.HrFlowInstance", b =>
+                {
+                    b.Navigation("Actions");
                 });
 
             modelBuilder.Entity("Bpm.Domain.Entities.Org.Group", b =>

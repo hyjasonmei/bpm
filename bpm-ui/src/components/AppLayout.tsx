@@ -1,7 +1,11 @@
 import * as React from 'react'
-import { Bell, HelpCircle, Plus, Search, FileText, BarChart3, Home, ChevronDown, Sparkles } from 'lucide-react'
+import { Plus, Search, FileText, BarChart3, Home, ChevronDown, Clock } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { RoleSwitcher } from '@/components/RoleSwitcher'
+import { ImpersonationBanner } from '@/components/ImpersonationBanner'
+import { SandboxBanner } from '@/components/SandboxBanner'
+import { NotificationsMenu } from '@/components/NotificationsMenu'
+import { HelpReportMenu } from '@/components/HelpReportMenu'
 import type { PersonaCode } from '@/lib/role'
 import { FORMS, type FormCode } from '@/lib/workflow'
 
@@ -9,7 +13,7 @@ export type Screen =
   | { kind: 'home' }
   | { kind: 'search' }
   | { kind: 'report' }
-  | { kind: 'onboarding' }
+  | { kind: 'attendance' }
   | { kind: 'form'; code: FormCode }
 
 interface AppLayoutProps {
@@ -24,7 +28,7 @@ interface AppLayoutProps {
 }
 
 const FORM_GROUPS: Array<{ group: string; items: { id: FormCode; label: string }[] }> = [
-  { group: 'HR', items: [{ id: 'LEAVE', label: 'Leave Request (請假)' }, { id: 'EXTOB', label: 'External Onboarding' }] },
+  { group: 'HR', items: [{ id: 'LEAVE', label: 'Leave Request (請假)' }, { id: 'EXTOB', label: 'External Onboarding' }, { id: 'RESIGN', label: 'Resignation (離職申請)' }, { id: 'DEPTX', label: 'Department Transfer (部門異動)' }] },
   { group: 'Expense', items: [{ id: 'GEE', label: 'Employee Expense (GEE)' }, { id: 'GEV', label: 'Vendor Expense (GEV)' }, { id: 'APE', label: 'Advance Payment (APE)' }] },
   { group: 'Travel', items: [{ id: 'TRQ', label: 'Travel Request (TRQ)' }, { id: 'TEO', label: 'Travel Expense (TEO)' }] },
   { group: 'Purchase', items: [{ id: 'HWP', label: 'Hardware Purchase' }, { id: 'ITPR', label: 'IT Purchase Request' }] },
@@ -45,6 +49,8 @@ export function AppLayout({ screen, setScreen, persona, setPersona, authedFullNa
 
   return (
     <div className="min-h-screen bg-bg">
+      <SandboxBanner />
+      <ImpersonationBanner />
       {/* ── Header ────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 bg-header text-white shadow-md">
         <div className="mx-auto flex h-12 max-w-screen-2xl items-center gap-2 px-4">
@@ -56,6 +62,8 @@ export function AppLayout({ screen, setScreen, persona, setPersona, authedFullNa
 
           {/* Nav */}
           <div className="flex items-center gap-0.5">
+            <NavBtn active={screen.kind === 'home'} onClick={() => setScreen({ kind: 'home' })} icon={<Home className="h-4 w-4" />}>Home</NavBtn>
+
             {/* Create dropdown */}
             <div ref={createRef} className="relative">
               <NavBtn
@@ -90,21 +98,16 @@ export function AppLayout({ screen, setScreen, persona, setPersona, authedFullNa
               )}
             </div>
 
-            <NavBtn active={screen.kind === 'home'} onClick={() => setScreen({ kind: 'home' })} icon={<Home className="h-4 w-4" />}>Home</NavBtn>
             <NavBtn active={screen.kind === 'search'} onClick={() => setScreen({ kind: 'search' })} icon={<Search className="h-4 w-4" />}>Search</NavBtn>
             <NavBtn icon={<FileText className="h-4 w-4" />} onClick={() => alert('User Guide — placeholder')}>User Guide</NavBtn>
             <NavBtn active={screen.kind === 'report'} onClick={() => setScreen({ kind: 'report' })} icon={<BarChart3 className="h-4 w-4" />}>Report</NavBtn>
-            <NavBtn active={screen.kind === 'onboarding'} onClick={() => setScreen({ kind: 'onboarding' })} icon={<Sparkles className="h-4 w-4" />}>Onboard</NavBtn>
           </div>
 
           {/* Right side */}
           <div className="ml-auto flex items-center gap-1">
-            <button title="Notifications" className="flex h-8 w-8 items-center justify-center rounded text-white/70 transition-colors hover:bg-white/10 hover:text-white">
-              <Bell className="h-4 w-4" />
-            </button>
-            <button title="Help" className="flex h-8 w-8 items-center justify-center rounded text-white/70 transition-colors hover:bg-white/10 hover:text-white">
-              <HelpCircle className="h-4 w-4" />
-            </button>
+            <NavBtn active={screen.kind === 'attendance'} onClick={() => setScreen({ kind: 'attendance' })} icon={<Clock className="h-4 w-4" />}>Attendance</NavBtn>
+            <NotificationsMenu />
+            <HelpReportMenu />
             <RoleSwitcher
               active={persona}
               onChange={setPersona}

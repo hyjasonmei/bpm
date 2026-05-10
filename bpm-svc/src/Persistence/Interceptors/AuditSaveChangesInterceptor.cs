@@ -1,5 +1,6 @@
 using Bpm.Application.Common.Abstractions;
 using Bpm.Domain.Common;
+using Bpm.Domain.Entities.HrFlows;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -42,6 +43,23 @@ public sealed class AuditSaveChangesInterceptor(IClock clock, ICurrentUser curre
                     entry.Property(nameof(AuditableEntity.CreatedAt)).IsModified = false;
                     entry.Property(nameof(AuditableEntity.CreatedBy)).IsModified = false;
                     break;
+            }
+        }
+
+        foreach (EntityEntry<HrFlowAction> entry in context.ChangeTracker.Entries<HrFlowAction>())
+        {
+            if (entry.State is EntityState.Modified or EntityState.Deleted)
+                throw new InvalidOperationException(
+                    $"HrFlowAction is append-only: {entry.State} is not permitted (Id={entry.Entity.Id}).");
+        }
+
+        // Stamp ImpersonatedByUserId onto IImpersonable entities at insert time.
+        if (currentUser.ImpersonatedById is { } impId)
+        {
+            foreach (EntityEntry<IImpersonable> entry in context.ChangeTracker.Entries<IImpersonable>())
+            {
+                if (entry.State == EntityState.Added && entry.Entity.ImpersonatedByUserId is null)
+                    entry.Entity.ImpersonatedByUserId = impId;
             }
         }
     }

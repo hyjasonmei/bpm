@@ -37,6 +37,17 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     headers.set('Authorization', `Bearer ${token}`)
   }
   const res = await fetch(`${BASE}${path}`, { ...init, headers })
-  if (res.status === 401) clearJwt()
+  if (res.status === 401) {
+    // If currently impersonating, swap back to admin token rather than
+    // dropping auth entirely. Caller will see the 401, but next call works.
+    const pre = window.localStorage.getItem('bpm_jwt_pre_impersonation')
+    if (pre) {
+      window.localStorage.setItem(JWT_KEY, pre)
+      window.localStorage.removeItem('bpm_jwt_pre_impersonation')
+      window.dispatchEvent(new CustomEvent('bpm:impersonation-ended'))
+    } else {
+      clearJwt()
+    }
+  }
   return res
 }

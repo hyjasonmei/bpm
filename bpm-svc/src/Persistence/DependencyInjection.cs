@@ -1,10 +1,20 @@
+using Bpm.Application.Admin;
+using Bpm.Application.Attendance;
 using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Services;
+using Bpm.Application.HrFlows;
+using Bpm.Application.Impersonation;
 using Bpm.Application.Org;
+using Bpm.Application.Sandbox;
 using Bpm.Application.Spec;
+using Bpm.Persistence.Admin;
+using Bpm.Persistence.Attendance;
 using Bpm.Persistence.Common;
+using Bpm.Persistence.HrFlows;
+using Bpm.Persistence.Impersonation;
 using Bpm.Persistence.Interceptors;
 using Bpm.Persistence.Org;
+using Bpm.Persistence.Sandbox;
 using Bpm.Persistence.Spec;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -37,6 +47,13 @@ public static class DependencyInjection
         services.AddScoped<IActorResolutionAuditor, ActorResolutionAuditor>();
         services.AddScoped<IActorResolver, ActorResolver>();
         services.AddSingleton<ActorRefValidator>();
+
+        services.AddScoped<IHrFlowService, HrFlowService>();
+        services.AddScoped<IAttendanceService, AttendanceService>();
+        services.AddScoped<IImpersonationService, ImpersonationService>();
+        services.AddScoped<ISandboxService, SandboxService>();
+        services.AddScoped<IOutboundGate, OutboundGate>();
+        services.AddScoped<IRoleAdminService, RoleAdminService>();
 
         return services;
     }
