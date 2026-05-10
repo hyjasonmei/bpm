@@ -59,7 +59,7 @@ The system SHALL reject any `CreateDelegation` where `GranterUserId == DelegateU
 - `EndAt <= StartAt + 1 hour` — too short
 - `StartAt < now - 5 minutes` — start in the past (5-min skew tolerance)
 
-`UpdateDelegation` SHALL allow shortening `EndAt` only — never extending. The new `EndAt` must still satisfy `EndAt > StartAt + 1 hour` and `EndAt > now`.
+`UpdateDelegation` SHALL allow modifying `EndAt` in either direction (shorten OR extend). The new `EndAt` must still satisfy `EndAt > StartAt + 1 hour` and `EndAt > now`. Changing direction freely is intentional: the granter is the owner of the window and may rescind earlier or extend later as their absence plans change.
 
 #### Scenario: 30-minute window rejected
 
@@ -76,33 +76,47 @@ The system SHALL reject any `CreateDelegation` where `GranterUserId == DelegateU
 - **WHEN** a granter submits StartAt = now + 7 days, EndAt = now + 14 days
 - **THEN** the delegation is created with Status = Scheduled
 
-#### Scenario: Update can only shorten EndAt
+#### Scenario: Update shortens EndAt
 
 - **GIVEN** an active delegation EndAt = now + 5 days
 - **WHEN** the granter sends `PUT /api/delegations/{id}` with `end_at = now + 2 days`
 - **THEN** the delegation's EndAt is updated to now + 2 days
 
-#### Scenario: Update cannot extend EndAt
+#### Scenario: Update extends EndAt
 
 - **GIVEN** the same delegation with EndAt = now + 5 days
 - **WHEN** the granter sends `end_at = now + 10 days`
-- **THEN** the request returns 400 with "EndAt can only be shortened, not extended"
+- **THEN** the delegation's EndAt is updated to now + 10 days
+- **AND** the request returns 200 OK
 
-### Requirement: Cycle detection emits warning, does not block
+#### Scenario: Update past EndAt rejected
 
-The system SHALL detect 1-hop cycles at create time: if creating delegation `A → B`, the system MUST query whether B has an existing non-cancelled delegation pointing back at A. If yes, the response MUST include a `warnings: ["1-hop cycle detected: B → A exists"]` array but the create SHALL succeed. The runtime applies one delegation hop only, eliminating any infinite-loop risk.
+- **GIVEN** an active delegation EndAt = now + 5 days
+- **WHEN** the granter sends `end_at = now - 1 hour`
+- **THEN** the request returns 400 with "EndAt must be in the future"
 
-#### Scenario: Cycle warns but does not reject
+### Requirement: Cycle detection rejects creation
+
+The system SHALL detect 1-hop cycles at create time: if creating delegation `A → B`, the system MUST query whether B has an existing non-cancelled delegation pointing back at A. If yes, the create SHALL be rejected with 409 Conflict and an error message identifying the conflicting reverse-direction delegation. Allowing cycles even with runtime safeguards (1-hop only) creates audit / mental-model confusion that outweighs the convenience; rejecting at write time keeps the delegation graph acyclic by construction.
+
+#### Scenario: Cycle rejected at create
 
 - **GIVEN** Yang has an active delegation pointing at Wilson `(Yang → Wilson)`
-- **WHEN** Wilson creates a delegation pointing at Yang `(Wilson → Yang)`
-- **THEN** the response is 201 Created with `warnings = ["1-hop cycle detected: Yang → Wilson exists"]`
+- **WHEN** Wilson attempts to create a delegation pointing at Yang `(Wilson → Yang)`
+- **THEN** the response is 409 Conflict with body referencing the conflicting delegation `Yang → Wilson` (id and time window)
+- **AND** no new delegation row is persisted
 
-#### Scenario: No warning when no cycle
+#### Scenario: Reverse delegation allowed after original cancelled
+
+- **GIVEN** Yang's delegation to Wilson is `Cancelled`
+- **WHEN** Wilson creates `(Wilson → Yang)`
+- **THEN** the response is 201 Created — cycles only consider non-cancelled rows
+
+#### Scenario: Non-cyclic creation succeeds normally
 
 - **GIVEN** Yang has no delegation
 - **WHEN** Wilson creates `(Wilson → Yang)`
-- **THEN** the response is 201 with no warnings
+- **THEN** the response is 201 Created
 
 ### Requirement: Only granter can cancel their own delegation
 

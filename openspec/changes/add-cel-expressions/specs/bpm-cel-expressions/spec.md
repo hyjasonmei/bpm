@@ -109,3 +109,68 @@ The system SHALL expose `POST /api/specs/validate-expression` accepting `{ expre
 
 - **WHEN** POST with `{ expression: "days >== 7", shape: "boolean" }`
 - **THEN** response is `{ valid: false, errors: [{ message: "parse error: unexpected '==' at column 7", line: 1, column: 7 }] }`
+
+### Requirement: bpm-cel-v1 subset enforced for spec author expressions
+
+The system SHALL enforce a documented "bpm-cel-v1" subset for any expression appearing in a spec.json. The 9-stepper validator and the spec import validator SHALL both reject expressions using operators, literals, functions, identifiers, or macros outside this subset, with a clear error message naming the offending construct and the v1 alternative (or "defer to v1.5").
+
+This subset is intentionally smaller than full CEL because:
+1. Both backend (.NET) and frontend (JS) evaluators must agree bit-identically on every expression that appears in a customer flow; constraining the surface area is the only practical way to guarantee parity
+2. Spec authors are not engineers — narrowing what they can write keeps onboarding cognitively manageable
+3. Macros (filter / map / exists) require lambdas and are an outsized parity / implementation cost; ActorRef DSL covers most "find users matching X" needs without expressions
+
+#### v1 surface
+
+**Operators:** `==` `!=` `<` `<=` `>` `>=` `&&` `||` `!` `+` `-` `*` `/` `%` ternary `?:` membership `in` field access `.` index `[…]`. **Excluded:** bitwise `&` `|` `^` `>>` `<<`; slice syntax `a[1:3]`.
+
+**Literals:** integer (`42`), decimal (`3.14`), string (`'hi'` / `"hi"`), boolean (`true` / `false`), null (`null`), list (`[1, 2, 3]`), duration (`duration("24h")` / `duration("3d12h")`), timestamp (`timestamp("2026-05-10T00:00:00Z")`). **Excluded:** map literal `{}`, bytes literal, type literal — defer to v1.5.
+
+**Built-in functions (11):** `now()` / `today()` / `daysBetween(t1, t2)` / `businessDaysBetween(t1, t2)` / `sum(list)` / `count(list)` / `len(x)` / `match(s, regex)` / `lower(s)` / `upper(s)` / `contains(haystack, needle)`.
+
+**Identifiers / context:** form-field ids (root scope of current form data), `submitter` (User object), path traversal limited by `ActorPathWhitelist`, `instance` (ProcessInstance metadata), `now` shorthand for `now()`.
+
+**Macros:** ALL EXCLUDED in v1 — `filter` / `map` / `exists` / `exists_one` / `all` / closures / list comprehension. Defer to v1.5.
+
+#### Edge case definitions (cross-runtime parity rules)
+
+- Integer overflow: throw error at int64 bounds — DO NOT wrap
+- Decimal precision: `decimal(18,2)` everywhere; JS uses `decimal.js`, .NET uses `decimal`
+- Division by zero: throw error — DO NOT return Infinity / NaN
+- String comparison: byte-wise UTF-8 — guarantees the same ordering on both runtimes
+- Date comparison: internal arithmetic in UTC; presentation in tenant TZ
+- Regex flavor: ECMAScript subset — no lookbehind, no named groups; .NET uses `RegexOptions.ECMAScript`
+- Null propagation: `null.field` THROWS — DO NOT silently return null
+- Boolean truthiness: STRICT — only literal `true` / `false` count as boolean; numeric 0, empty string, and null are NOT falsy
+
+#### Scenario: Spec author uses macro — rejected
+
+- **GIVEN** a spec with notification recipient filter `users.filter(u => u.dept == submitter.dept)`
+- **WHEN** the spec is imported (or saved in the 9-stepper)
+- **THEN** validator rejects with: "macro 'filter' not supported in bpm-cel-v1 (defer to v1.5); use ActorRef.functional_members instead"
+
+#### Scenario: Spec author uses bitwise operator — rejected
+
+- **WHEN** spec has `flags & 0x01 == 0x01`
+- **THEN** validator rejects with: "operator '&' not supported in bpm-cel-v1"
+
+#### Scenario: Division by zero throws
+
+- **GIVEN** form data has `count: 0`
+- **WHEN** evaluator runs `total / count`
+- **THEN** evaluator throws `ExpressionEvaluationException` with message containing "division by zero"
+
+#### Scenario: Both runtimes agree on UTF-8 ordering
+
+- **GIVEN** strings `"abc"` and `"ab中"`
+- **WHEN** the .NET evaluator and the JS evaluator each compare `"abc" < "ab中"`
+- **THEN** both return `true` (because "中" UTF-8 bytes start with `e4` > "c"'s `63`)
+
+### Requirement: Subset version is declared in spec metadata
+
+Each spec.json SHALL declare `meta.celVersion: "bpm-cel-v1"` (or higher when subsequent versions ship). The validator MUST refuse to import a spec whose celVersion the current build doesn't support. This versioning is independent of the spec.json schema version (`meta.flowVersion`); CEL subset version evolution is not lock-stepped with spec schema evolution.
+
+#### Scenario: Unknown celVersion rejected
+
+- **GIVEN** a spec with `meta.celVersion: "bpm-cel-v9"`
+- **WHEN** the spec is imported on a build that knows v1 only
+- **THEN** the import fails with: "unknown CEL subset version 'bpm-cel-v9'; this build supports: bpm-cel-v1"

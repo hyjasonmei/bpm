@@ -2,16 +2,16 @@
 
 ## 1. Domain — org model extensions
 
-- [ ] 1.1 Extend `bpm-svc/src/Domain/Entities/Org/Department.cs` with `FunctionTag` (string?), `ApprovalLimit` (decimal?)
-- [ ] 1.2 Extend `bpm-svc/src/Domain/Entities/Org/User.cs` with `TitleRaw` (string?), `TitleNormalized` (string?), `ApprovalLimit` (decimal?), `IsDepartmentHead` (bool, denormalized), `IsExecutive` (bool, denormalized), `Attributes` (string? containing JSON)
+- [ ] 1.1 Extend `bpm-svc/src/Domain/Entities/Org/Department.cs` with `FunctionTag` (string?), `ApprovalLimit` (decimal(18,2)?)
+- [ ] 1.2 Extend `bpm-svc/src/Domain/Entities/Org/User.cs` with `TitleRaw` (string?), `TitleNormalized` (string?), `ApprovalLimit` (decimal(18,2)?), `IsDepartmentHead` (bool, denormalized), `IsExecutive` (bool, denormalized), `Attributes` (string? containing JSON). Decimal precision (18,2) covers TWD amounts up to ~10 quadrillion at cent precision — exceeds any plausible business approval limit.
 - [ ] 1.3 Create `bpm-svc/src/Domain/Org/FunctionTagWhitelist.cs` static class with the 8 allowed values + `IsValid(string)` helper
 - [ ] 1.4 Create `bpm-svc/src/Domain/Org/TitleNormalizer.cs` with pure-function `Normalize(string raw) -> string` (prefix stripping + CN/EN unification table)
 - [ ] 1.5 Unit-test `TitleNormalizer` with: "資深副總" → "vp", "Vice President" → "vp", "代理經理" → "manager", "處長" → "director", "Senior Director" → "director", and an unknown title returning lowercased trimmed input
 
 ## 2. Persistence — migration + EF config
 
-- [ ] 2.1 Update `bpm-svc/src/Persistence/Configurations/Org/UserConfiguration.cs` — add the new columns; index `TitleNormalized`, `ApprovalLimit`
-- [ ] 2.2 Update `bpm-svc/src/Persistence/Configurations/Org/DepartmentConfiguration.cs` — add `FunctionTag`, `ApprovalLimit`; index `FunctionTag`
+- [ ] 2.1 Update `bpm-svc/src/Persistence/Configurations/Org/UserConfiguration.cs` — add the new columns; configure `ApprovalLimit` as `HasPrecision(18, 2)`; index `TitleNormalized`, `ApprovalLimit`
+- [ ] 2.2 Update `bpm-svc/src/Persistence/Configurations/Org/DepartmentConfiguration.cs` — add `FunctionTag`, `ApprovalLimit` (also `HasPrecision(18, 2)`); index `FunctionTag`
 - [ ] 2.3 Generate migration: `dotnet ef migrations add ExtendOrgAndActorTypes -p src/Persistence -s src/Api`
 - [ ] 2.4 Apply migration locally; verify schema with `sqlite3 src/Api/bpm.db .schema "Users"` and `.schema "Departments"`
 - [ ] 2.5 Update `bpm-svc/src/Persistence/Seed/OrgFixture.cs`:
