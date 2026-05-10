@@ -6,6 +6,7 @@ using Bpm.Domain.Entities.Authz;
 using Bpm.Domain.Entities.HrFlows;
 using Bpm.Domain.Entities.Impersonation;
 using Bpm.Domain.Entities.Org;
+using Bpm.Domain.Entities.Process;
 using Bpm.Domain.Entities.Sandbox;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,6 +38,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SandboxRedirect> SandboxRedirects => Set<SandboxRedirect>();
 
     public DbSet<RoleAssignmentChange> RoleAssignmentChanges => Set<RoleAssignmentChange>();
+
+    public DbSet<ProcessInstance> ProcessInstances => Set<ProcessInstance>();
+    public DbSet<ProcessTask> ProcessTasks => Set<ProcessTask>();
+    public DbSet<TaskHistory> TaskHistory => Set<TaskHistory>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

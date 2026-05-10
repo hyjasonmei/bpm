@@ -50,6 +50,8 @@ T EvalAs<T>(string expr, IDictionary<string, object> values, params (string name
     return script.Execute<T>(values);
 }
 
+Probe.FunctionProbe.Run();
+
 Console.WriteLine("\n=== bpm-cel-v1 spike ===\n");
 
 Console.WriteLine("[1] Basic comparison operators");
