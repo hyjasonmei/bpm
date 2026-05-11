@@ -598,10 +598,10 @@ JSON Schema：
         // happens to be near the dotnet process. tmp avoids any project memory.
         psi.WorkingDirectory = Path.GetTempPath();
 
-        Process proc;
+        System.Diagnostics.Process proc;
         try
         {
-            proc = Process.Start(psi)!;
+            proc = System.Diagnostics.Process.Start(psi)!;
         }
         catch (System.ComponentModel.Win32Exception ex)
         {

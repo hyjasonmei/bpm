@@ -8,6 +8,7 @@ using Bpm.Application.Impersonation;
 using Bpm.Application.Notifications;
 using Bpm.Application.Org;
 using Bpm.Application.Process.Runtime;
+using Bpm.Application.Process.Runtime.Queries;
 using Bpm.Application.Sandbox;
 using Bpm.Application.Spec;
 using Bpm.Persistence.Admin;
@@ -67,6 +68,7 @@ public static class DependencyInjection
         services.AddScoped<IDelegationService, StubDelegationService>();
         services.AddScoped<INotificationDispatcher, LoggingNotificationDispatcher>();
         services.AddScoped<IProcessRuntime, ProcessRuntime>();
+        services.AddScoped<IProcessQueryService, ProcessQueryService>();
 
         return services;
     }

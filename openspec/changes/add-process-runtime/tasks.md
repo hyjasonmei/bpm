@@ -64,19 +64,19 @@
 
 ## 8. API endpoints
 
-- [ ] 8.1 Create `bpm-svc/src/Api/Process/ProcessController.cs`:
+- [x] 8.1 Create `bpm-svc/src/Api/Process/ProcessController.cs`:
   - `POST /api/processes` — start an instance
   - `GET /api/processes/{id}` — instance + open tasks
-  - `GET /api/processes/{id}/history` — paginated history
+  - `GET /api/processes/{id}/history` — paginated history (cursor = `CreatedAt|Id`)
   - `POST /api/processes/{id}/cancel` — cancel
-- [ ] 8.2 Create `TaskController.cs`:
+- [x] 8.2 Create `TaskController.cs`:
   - `GET /api/tasks/mine?status=open|completed|all&limit=50` — current user's tasks
-  - `GET /api/tasks/{id}` — single task
+  - `GET /api/tasks/{id}` — single task with merged form snapshot
   - `POST /api/tasks/{id}/claim` — claim a pool task
   - `POST /api/tasks/{id}/submit` — submit form patch + decision
   - `POST /api/tasks/{id}/return` — return to previous userTask
-- [ ] 8.3 Authorization: handlers checking `ActualAssigneeUserId == current user` for action endpoints; readers checking allowed reader roles
-- [ ] 8.4 Integration tests for each endpoint (happy + permission rejection + not found + cancellation race)
+- [x] 8.3 Authorization: action endpoints rely on `ProcessRuntime`'s assignee/initiator checks (Forbidden surfaced via exception filter); read endpoints (`GetById`, `GetHistory`, `GetTask`) reject non-initiator/non-assignee with `ForbiddenException`. Tenant-admin override is a v2 TODO. Helper extracted to `Bpm.Api.Common.BpmControllerBase`.
+- [x] 8.4 Controller-layer integration tests in `bpm-svc/tests/Bpm.Tests/Api/Process/`: 17 facts covering happy path (start/get/history/cancel/mine/get task/submit/return/claim) + permission rejection (cross-user GetById, GetTask, Submit) + cancellation race (concurrent claim) + bad input (missing specCode, invalid decision, empty cancel reason, empty return comment).
 
 ## 9. Frontend — types + API client
 
