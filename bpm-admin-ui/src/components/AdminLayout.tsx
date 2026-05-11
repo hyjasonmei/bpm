@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Settings, Users, Sparkles, Shield, Activity, ExternalLink, LogOut, Eye } from 'lucide-react'
+import { Settings, Users, Sparkles, Shield, Activity, ExternalLink, LogOut, Eye, Library } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { decodeJwt } from '@/lib/jwt'
 import { clearJwt, getJwt } from '@/lib/apiFetch'
@@ -7,6 +7,7 @@ import { SandboxBanner } from '@/components/SandboxBanner'
 
 export type AdminScreen =
   | { kind: 'onboarding' }
+  | { kind: 'flow-library' }
   | { kind: 'site-settings' }
   | { kind: 'users-roles' }
   | { kind: 'impersonation' }
@@ -21,9 +22,10 @@ interface AdminLayoutProps {
 
 const NAV: Array<{ kind: AdminScreen['kind']; label: string; icon: React.ReactNode }> = [
   { kind: 'onboarding',    label: 'Onboarding',    icon: <Sparkles className="h-4 w-4" /> },
+  { kind: 'flow-library',  label: 'Flow Library',  icon: <Library  className="h-4 w-4" /> },
   { kind: 'site-settings', label: 'Site Settings', icon: <Settings className="h-4 w-4" /> },
-  { kind: 'users-roles',   label: 'Users & Roles', icon: <Users className="h-4 w-4" /> },
-  { kind: 'impersonation', label: 'Impersonation', icon: <Eye className="h-4 w-4" /> },
+  { kind: 'users-roles',   label: 'Users & Roles', icon: <Users    className="h-4 w-4" /> },
+  { kind: 'impersonation', label: 'Impersonation', icon: <Eye      className="h-4 w-4" /> },
   { kind: 'audit',         label: 'Audit Logs',    icon: <Activity className="h-4 w-4" /> },
 ]
 

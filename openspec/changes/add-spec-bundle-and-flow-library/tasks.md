@@ -66,17 +66,17 @@
 
 ## 7. Frontend (`bpm-admin-ui`) — Flow Library screen
 
-- [ ] 7.1 Add `flow-library` to `AdminScreen` union in `components/AdminLayout.tsx` and add nav entry with icon `Library` from lucide-react
-- [ ] 7.2 Create `screens/FlowLibrary/FlowLibrary.tsx` — list view: cards per bundle with flowCode / version / status badge / exported_at / last repro result
-- [ ] 7.3 Create `screens/FlowLibrary/BundleDetail.tsx` — tabs: Manifest / spec.json / bpmn.xml render (via existing `BpmnDiagram` component) / spec.md / forms / notifications / sla / actors / sample-org / test-cases / assets
-- [ ] 7.4 Create `lib/api/flowLibrary.ts` — typed wrappers around `/api/admin/flow-library` endpoints
-- [ ] 7.5 Add `jszip@3.x` dep to `bpm-admin-ui/package.json` (for client-side bundle inspection without round trip)
-- [ ] 7.6 Create `lib/bundle/parseBundleClientSide.ts` — open zip in browser → returns same `ParsedBundle` shape as backend (used by Import drag-drop preview)
-- [ ] 7.7 Implement Import button: drag-drop `.zip` → modal showing preview (manifest + file list) + radio choice `Install for runtime` / `Open as 9-stepper draft` / `Cancel`
-- [ ] 7.8 Implement Export button (per row): GET `/{id}/export` → trigger download
-- [ ] 7.9 Implement Repro Check button (per row): POST `/{id}/repro-check` → poll until done → show result dialog
-- [ ] 7.10 Implement Delete button (per row): confirm dialog → DELETE
-- [ ] 7.11 Wire `Open as 9-stepper draft`: navigate to Onboarding screen with `?bundle=<importId>` query param
+- [x] 7.1 Add `flow-library` to `AdminScreen` union in `components/AdminLayout.tsx` and add nav entry with icon `Library` from lucide-react
+- [x] 7.2 Create `screens/FlowLibrary/FlowLibrary.tsx` — list view: cards per bundle with flowCode / version / status badge / exported_at / last repro result
+- [x] 7.3 Create `screens/FlowLibrary/BundleDetail.tsx` — tabs: Manifest / spec.json / bpmn.xml (rendered as `<pre>` for now — live BpmnDiagram needs a synthesized DraftSpec; live preview deferred to PR-I7 when bundle hydration lands) / spec.md / forms / notifications / sla / actors / sample-org / test-cases / assets / last-repro
+- [x] 7.4 Create `lib/api/flowLibrary.ts` — typed wrappers around `/api/admin/flow-library` endpoints (+ `types/flowLibrary.ts` mirroring backend DTOs)
+- [x] 7.5 Add `jszip@3.x` dep to `bpm-admin-ui/package.json` (for client-side bundle inspection without round trip) — `jszip@3.10.1`, ships its own types
+- [x] 7.6 Create `lib/bundle/parseBundleClientSide.ts` — open zip in browser → returns `{ manifest, fileList }` for the import drag-drop preview
+- [x] 7.7 Implement Import button: drag-drop `.zip` → modal showing preview (manifest + file list) + actions `Install for runtime` / `Open as 9-stepper draft` / `Cancel`
+- [x] 7.8 Implement Export button (per row): downloads via `apiFetch` + Blob URL so the JWT bearer rides on the request (`exportBundleUrl` also exported for callers that want a plain `window.location` redirect once a session-cookie path lands)
+- [x] 7.9 Implement Repro Check button (per row): POST `/{id}/repro-check` → result dialog (`ReproReportModal`) + refresh row
+- [x] 7.10 Implement Delete button (per row): `ConfirmDialog` → DELETE → refresh
+- [ ] 7.11 Wire `Open as 9-stepper draft`: navigate to Onboarding screen with `?bundle=<importId>` query param — PR-I6 stub navigates and sets the marker; full hydration is PR-I7's mission (note: Open-as-draft from a *saved* bundle row is rendered disabled with a tooltip pointing at PR-I7)
 
 ## 8. Frontend (`bpm-admin-ui`) — Onboarding rewire
 
@@ -98,9 +98,9 @@
 
 ## 10. Frontend (`bpm-admin-ui`) — assorted
 
-- [ ] 10.1 Update `AdminLayout` nav order: Onboarding → Flow Library → Site Settings → Users & Roles → Impersonation → Audit Logs
-- [ ] 10.2 Add a "Saved bundles: {n}" indicator in the Onboarding header that links to Flow Library
-- [ ] 10.3 Type-check: `npm --prefix bpm-admin-ui run build` (uses `tsc -p tsconfig.app.json`) passes
+- [x] 10.1 Update `AdminLayout` nav order: Onboarding → Flow Library → Site Settings → Users & Roles → Impersonation → Audit Logs
+- [x] 10.2 Add a "Saved bundles: {n}" indicator in the Onboarding header that links to Flow Library (best-effort fetch — silently hidden when the backend is unreachable so a non-essential affordance can't break the wizard)
+- [x] 10.3 Type-check: `cd bpm-admin-ui && npx tsc -p tsconfig.app.json --noEmit` passes clean (note: `npm run build` runs `tsc -b` first which falls back to repo-root tsconfig where Jason hit the silently-skipped-files trap; per Jason memory, always use the explicit `-p tsconfig.app.json` form)
 
 ## 11. Cleanup of deferred Claude Code pipeline references
 

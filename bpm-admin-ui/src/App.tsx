@@ -4,6 +4,7 @@ import { NoPermission } from '@/components/NoPermission'
 import { apiFetch, getJwt, setJwt } from '@/lib/apiFetch'
 import { decodeJwt, isAdmin } from '@/lib/jwt'
 import { Onboarding } from '@/screens/onboarding/Onboarding'
+import { FlowLibrary } from '@/screens/FlowLibrary/FlowLibrary'
 import { SiteSettings } from '@/screens/SiteSettings'
 import { UsersRoles } from '@/screens/UsersRoles'
 import { Impersonation } from '@/screens/Impersonation'
@@ -73,7 +74,8 @@ export default function App() {
 
   let body: React.ReactNode
   switch (screen.kind) {
-    case 'onboarding':    body = <Onboarding />; break
+    case 'onboarding':    body = <Onboarding onNavigate={setScreen} />; break
+    case 'flow-library':  body = <FlowLibrary />; break
     case 'site-settings': body = <SiteSettings />; break
     case 'users-roles':   body = <UsersRoles />; break
     case 'impersonation': body = <Impersonation />; break

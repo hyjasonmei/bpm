@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Sparkles, Download, RotateCcw } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Sparkles, Download, RotateCcw, Library } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import {
   ONBOARDING_STEPS,
@@ -11,6 +11,8 @@ import {
   resetDraft,
   type DraftSpec,
 } from '@/lib/onboarding'
+import { listBundles } from '@/lib/api/flowLibrary'
+import type { AdminScreen } from '@/components/AdminLayout'
 import { CoPilotCanvas } from './CoPilotCanvas'
 import { StepSource } from './steps/StepSource'
 import { StepStructure } from './steps/StepStructure'
@@ -23,13 +25,29 @@ import { StepTest } from './steps/StepTest'
 import { StepPlaceholder } from './steps/StepPlaceholder'
 import { StepGoLive } from './steps/StepGoLive'
 
-export function Onboarding() {
+interface OnboardingProps {
+  onNavigate?: (s: AdminScreen) => void
+}
+
+export function Onboarding({ onNavigate }: OnboardingProps = {}) {
   const [draft, setDraft] = useState<DraftSpec>(() => loadDraft())
   const [stepIdx, setStepIdx] = useState<number>(() => loadStep())
+  const [savedBundleCount, setSavedBundleCount] = useState<number | null>(null)
   const step = ONBOARDING_STEPS[stepIdx]
 
   useEffect(() => { saveDraft(draft) }, [draft])
   useEffect(() => { saveStep(stepIdx) }, [stepIdx])
+
+  // Saved-bundles indicator (PR-I6 task §10.2). Best-effort fetch — if the
+  // backend is unreachable or auth hasn't kicked in yet, we just hide the
+  // pill instead of surfacing an error from a non-essential affordance.
+  useEffect(() => {
+    let cancelled = false
+    listBundles()
+      .then(items => { if (!cancelled) setSavedBundleCount(items.length) })
+      .catch(() => { /* silently hide */ })
+    return () => { cancelled = true }
+  }, [])
 
   const validation = useMemo(() => validators[step.id](draft), [step.id, draft])
 
@@ -70,6 +88,16 @@ export function Onboarding() {
           <p className="text-xs text-ink-muted">9 個 step 跟 AI 把流程規格談清楚 — 完成後 spec 自動送至後台 Claude Code 部署管線</p>
         </div>
         <div className="flex items-center gap-2">
+          {savedBundleCount !== null && (
+            <button
+              onClick={() => onNavigate?.({ kind: 'flow-library' })}
+              className="flex items-center gap-1.5 rounded border border-rule bg-white px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-slate-50 hover:text-ink"
+              title="Open Flow Library"
+            >
+              <Library className="h-3.5 w-3.5" />
+              Saved bundles: <span className="font-semibold text-ink">{savedBundleCount}</span>
+            </button>
+          )}
           <button onClick={exportSpec} className="flex items-center gap-1.5 rounded border border-rule bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-slate-50">
             <Download className="h-3.5 w-3.5" /> Export Draft Spec
           </button>
