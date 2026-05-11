@@ -9,9 +9,13 @@ import {
   loadStep,
   saveStep,
   resetDraft,
+  EMPTY_DRAFT,
+  emptySampleOrg,
   type DraftSpec,
+  type OnboardingStepId,
 } from '@/lib/onboarding'
-import { listBundles } from '@/lib/api/flowLibrary'
+import { listBundles, getBundleDraftHydration } from '@/lib/api/flowLibrary'
+import type { ImportDraftResult } from '@/types/flowLibrary'
 import type { AdminScreen } from '@/components/AdminLayout'
 import { CoPilotCanvas } from './CoPilotCanvas'
 import { StepSource } from './steps/StepSource'
@@ -29,10 +33,46 @@ interface OnboardingProps {
   onNavigate?: (s: AdminScreen) => void
 }
 
+const SESSION_DRAFT_KEY = 'bpm_draft_bundle'
+
+/** Translate a fetched ImportDraftResult into our DraftSpec shape. */
+function hydrationToDraft(h: ImportDraftResult): DraftSpec {
+  // The bundle's spec.json IS a serialized DraftSpec (the wizard built it
+  // that way in PR-I7 §8.3). For a hand-uploaded bundle from a different
+  // source the field set may be partial — fall back to EMPTY_DRAFT and
+  // overlay the SampleOrg / TestCases the parser already extracted.
+  const spec = h.specJson as Partial<DraftSpec> & Record<string, unknown>
+  return {
+    ...EMPTY_DRAFT,
+    ...spec,
+    meta: { ...EMPTY_DRAFT.meta, ...(spec?.meta ?? {}) },
+    flow: spec?.flow ?? EMPTY_DRAFT.flow,
+    userTasks: spec?.userTasks ?? [],
+    decisions: spec?.decisions ?? [],
+    approvals: spec?.approvals ?? [],
+    notifications: spec?.notifications ?? [],
+    sla: spec?.sla ?? EMPTY_DRAFT.sla,
+    integrations: spec?.integrations ?? EMPTY_DRAFT.integrations,
+    sampleOrg: h.sampleOrg && h.sampleOrg.users ? h.sampleOrg : emptySampleOrg(),
+    testCases: h.testCases ?? [],
+  }
+}
+
+/** Walk validators in step order; return the first failing index, or
+ *  the go_live index if all pass. */
+function pickStepFromValidation(d: DraftSpec): number {
+  for (let i = 0; i < ONBOARDING_STEPS.length; i++) {
+    const id = ONBOARDING_STEPS[i].id as OnboardingStepId
+    if (!validators[id](d).valid) return i
+  }
+  return ONBOARDING_STEPS.findIndex(s => s.id === 'go_live')
+}
+
 export function Onboarding({ onNavigate }: OnboardingProps = {}) {
   const [draft, setDraft] = useState<DraftSpec>(() => loadDraft())
   const [stepIdx, setStepIdx] = useState<number>(() => loadStep())
   const [savedBundleCount, setSavedBundleCount] = useState<number | null>(null)
+  const [hydrating, setHydrating] = useState(false)
   const step = ONBOARDING_STEPS[stepIdx]
 
   useEffect(() => { saveDraft(draft) }, [draft])
@@ -46,6 +86,70 @@ export function Onboarding({ onNavigate }: OnboardingProps = {}) {
     listBundles()
       .then(items => { if (!cancelled) setSavedBundleCount(items.length) })
       .catch(() => { /* silently hide */ })
+    return () => { cancelled = true }
+  }, [])
+
+  /**
+   * PR-I7 §8.1 — Hydrate from `?bundle=<id>` query param on mount.
+   *
+   * Two paths:
+   *  - `?bundle=<guid>` — saved bundle row in Flow Library; fetch its
+   *    hydration payload from the new GET /{id}/hydration endpoint.
+   *  - `?bundle=draft` — fresh import the user kicked off via
+   *    ImportModal; the parsed payload was stashed in sessionStorage
+   *    so we don't have to re-upload the file just to read it back.
+   *
+   * Either way we strip the query param via history.replaceState so a
+   * page refresh doesn't re-trigger the hydration.
+   */
+  useEffect(() => {
+    let cancelled = false
+    const url = new URL(window.location.href)
+    const bundleParam = url.searchParams.get('bundle')
+    if (!bundleParam) return
+
+    setHydrating(true)
+    const finish = (result: ImportDraftResult | null, err?: string) => {
+      if (cancelled) return
+      try {
+        url.searchParams.delete('bundle')
+        window.history.replaceState(null, '', url.toString())
+      } catch { /* ignore */ }
+      try { sessionStorage.removeItem(SESSION_DRAFT_KEY) } catch { /* ignore */ }
+      if (result) {
+        const next = hydrationToDraft(result)
+        setDraft(next)
+        setStepIdx(pickStepFromValidation(next))
+      } else if (err) {
+        // Surface in console only — a popup would be too aggressive for
+        // an auto-hydration that the user merely landed on. The wizard
+        // continues with whatever localStorage draft they had.
+        console.warn('[Onboarding] bundle hydration failed:', err)
+      }
+      setHydrating(false)
+    }
+
+    if (bundleParam === 'draft') {
+      // Fresh import handed off via sessionStorage by ImportModal.
+      try {
+        const raw = sessionStorage.getItem(SESSION_DRAFT_KEY)
+        if (!raw) {
+          finish(null, 'sessionStorage marker missing — re-import the bundle')
+          return
+        }
+        const parsed = JSON.parse(raw) as ImportDraftResult
+        finish(parsed)
+      } catch (e) {
+        finish(null, e instanceof Error ? e.message : String(e))
+      }
+      return
+    }
+
+    // GUID path — saved bundle row.
+    void getBundleDraftHydration(bundleParam)
+      .then(r => finish(r))
+      .catch(e => finish(null, e instanceof Error ? e.message : String(e)))
+
     return () => { cancelled = true }
   }, [])
 
@@ -64,6 +168,10 @@ export function Onboarding({ onNavigate }: OnboardingProps = {}) {
     setStepIdx(0)
   }
 
+  /**
+   * Dev-only escape hatch (PR-I7 §8.3 keeps the JSON download for
+   * debugging, but renames it so the canonical flow is "Save bundle").
+   */
   const exportSpec = () => {
     const blob = new Blob([JSON.stringify(draft, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -85,9 +193,12 @@ export function Onboarding({ onNavigate }: OnboardingProps = {}) {
             <Sparkles className="h-5 w-5 text-accent" />
             AI Onboarding
           </h1>
-          <p className="text-xs text-ink-muted">9 個 step 跟 AI 把流程規格談清楚 — 完成後 spec 自動送至後台 Claude Code 部署管線</p>
+          <p className="text-xs text-ink-muted">9 個 step 把流程規格談清楚，最後產生可攜帶的 spec bundle，存到 Flow Library。</p>
         </div>
         <div className="flex items-center gap-2">
+          {hydrating && (
+            <span className="text-[11px] text-ink-faint">Hydrating from saved bundle…</span>
+          )}
           {savedBundleCount !== null && (
             <button
               onClick={() => onNavigate?.({ kind: 'flow-library' })}
@@ -98,8 +209,8 @@ export function Onboarding({ onNavigate }: OnboardingProps = {}) {
               Saved bundles: <span className="font-semibold text-ink">{savedBundleCount}</span>
             </button>
           )}
-          <button onClick={exportSpec} className="flex items-center gap-1.5 rounded border border-rule bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-slate-50">
-            <Download className="h-3.5 w-3.5" /> Export Draft Spec
+          <button onClick={exportSpec} className="flex items-center gap-1.5 rounded border border-rule bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-slate-50" title="Debug only — canonical export is 'Save to Flow Library'">
+            <Download className="h-3.5 w-3.5" /> Export DraftSpec (debug)
           </button>
           <button onClick={reset} className="flex items-center gap-1.5 rounded border border-rule bg-white px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-slate-50 hover:text-danger">
             <RotateCcw className="h-3.5 w-3.5" /> Reset
@@ -141,7 +252,7 @@ export function Onboarding({ onNavigate }: OnboardingProps = {}) {
         step={step}
         draft={draft}
         setDraft={setDraft}
-        canvas={renderCanvas(step.id, draft, setDraft)}
+        canvas={renderCanvas(step.id, draft, setDraft, onNavigate)}
       />
 
       {/* Footer — back / next */}
@@ -173,7 +284,7 @@ export function Onboarding({ onNavigate }: OnboardingProps = {}) {
   )
 }
 
-function renderCanvas(stepId: string, draft: DraftSpec, setDraft: (d: DraftSpec) => void) {
+function renderCanvas(stepId: string, draft: DraftSpec, setDraft: (d: DraftSpec) => void, onNavigate?: (s: AdminScreen) => void) {
   switch (stepId) {
     case 'source':    return <StepSource draft={draft} setDraft={setDraft} />
     case 'structure': return <StepStructure draft={draft} setDraft={setDraft} />
@@ -183,7 +294,7 @@ function renderCanvas(stepId: string, draft: DraftSpec, setDraft: (d: DraftSpec)
     case 'notify':    return <StepNotify draft={draft} setDraft={setDraft} />
     case 'sla':       return <StepSla draft={draft} setDraft={setDraft} />
     case 'test':      return <StepTest draft={draft} setDraft={setDraft} />
-    case 'go_live':   return <StepGoLive draft={draft} />
+    case 'go_live':   return <StepGoLive draft={draft} onNavigate={onNavigate} />
     default:          return <StepPlaceholder stepId={stepId} draft={draft} />
   }
 }

@@ -3,7 +3,7 @@ import type {
   Decision, Approval, Notification, NodeSLA, TestCase,
   FormField, FieldType, ActorRef, NotifyTrigger, NotifyRecipient,
 } from './onboarding'
-import { ACTOR_PATH_WHITELIST } from './onboarding'
+import { ACTOR_PATH_WHITELIST, testCaseToSnapshot } from './onboarding'
 
 /**
  * Per-step Anthropic tool definitions for the CoPilot chat.
@@ -423,7 +423,10 @@ const testTool: StepToolBinding = {
   },
   apply: (draft, raw) => {
     const input = raw as { testCases: TestCase[] }
-    return { ...draft, testCases: input.testCases }
+    // The AI tool emits the legacy expanded shape (expectedPath /
+    // expectedApprovers / etc.); the DraftSpec carries the bundle's
+    // `TestCaseSnapshot` shape so the build payload is a passthrough.
+    return { ...draft, testCases: input.testCases.map(testCaseToSnapshot) }
   },
 }
 

@@ -45,6 +45,7 @@ public sealed class FlowLibraryController(
     IBundleValidator validator,
     IBundleRuntimeLoader runtimeLoader,
     IBundleReproducibilityRunner reproRunner,
+    IBundleBuilder builder,
     IClock clock,
     ILogger<FlowLibraryController> logger) : BpmControllerBase
 {
@@ -369,6 +370,119 @@ public sealed class FlowLibraryController(
         return Ok(report);
     }
 
+    /// <summary>
+    /// Build a bundle from in-memory wizard state (PR-I7 §8.3 / §9.3).
+    /// Differs from <see cref="Import"/>: no zip is uploaded — the caller
+    /// supplies the spec JSON + bpmn xml + sample-org + test-cases and the
+    /// server runs <see cref="IBundleBuilder"/> to produce the canonical
+    /// .zip bytes, then persists a SpecBundle row in <c>Pending</c> status.
+    /// Repro is NOT executed here (the wizard surface gives users a
+    /// distinct "Repro Check" affordance once the bundle exists).
+    /// Idempotent on <c>ManifestChecksum</c> — re-posting an identical
+    /// payload returns the existing row id with 200 OK.
+    /// </summary>
+    [HttpPost("build")]
+    public async Task<IActionResult> Build([FromBody] FlowLibraryBuildRequest req, CancellationToken ct)
+    {
+        if (req is null) return BadRequest(new { error = "body is required" });
+
+        var buildReq = new BundleBuildRequest(
+            DraftSpecJson: req.SpecJson,
+            BpmnXml: req.BpmnXml ?? string.Empty,
+            SampleOrg: req.SampleOrg,
+            TestCases: req.TestCases ?? Array.Empty<TestCaseSnapshot>(),
+            IncludeAssets: false,
+            IncludeChatSnapshots: false,
+            ParentSpecJson: null,
+            SourceInstanceId: string.IsNullOrWhiteSpace(req.SourceInstanceId) ? "default" : req.SourceInstanceId!);
+
+        byte[] zipBytes;
+        try
+        {
+            zipBytes = await builder.BuildAsync(buildReq, ct);
+        }
+        catch (BundleBuildException ex)
+        {
+            return BadRequest(new { error = "build failed", errors = ex.Errors });
+        }
+
+        // Re-parse our own output to extract the manifest checksum + stable
+        // manifest JSON. Cheaper-feeling alternatives (sha the manifest in
+        // the builder) would mean two divergent paths to the same number;
+        // round-trip parse is one source of truth and trivially fast.
+        ParsedBundle parsed;
+        using (var ms = new MemoryStream(zipBytes, writable: false))
+        {
+            parsed = await parser.ParseAsync(ms, ct);
+        }
+
+        var tc = string.IsNullOrWhiteSpace(req.TenantCode) ? "default" : req.TenantCode!;
+
+        // Idempotent — same checksum collapses to the existing row.
+        var existing = await db.SpecBundles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.ManifestChecksum == parsed.ManifestChecksum, ct);
+        if (existing is not null)
+        {
+            return Ok(new FlowLibraryBuildResult(existing.Id, existing.Status, existing.ManifestChecksum));
+        }
+
+        var manifestJson = JsonSerializer.Serialize(parsed.Manifest, JsonOpts);
+        var bundle = new SpecBundle
+        {
+            Id = Guid.NewGuid(),
+            TenantCode = tc,
+            FlowCode = parsed.Manifest.FlowCode,
+            FlowVersion = parsed.Manifest.FlowVersion,
+            ManifestChecksum = parsed.ManifestChecksum,
+            ParentManifestChecksum = parsed.Manifest.Parent,
+            ManifestJson = manifestJson,
+            ZipBlob = zipBytes,
+            Status = SpecBundleStatus.Pending,
+        };
+        db.SpecBundles.Add(bundle);
+        await db.SaveChangesAsync(ct);
+
+        return CreatedAtAction(nameof(GetById), new { id = bundle.Id },
+            new FlowLibraryBuildResult(bundle.Id, bundle.Status, bundle.ManifestChecksum));
+    }
+
+    /// <summary>
+    /// Re-hydrate a saved bundle into the import-draft payload shape (PR-I7
+    /// §8.1). The wizard's "Open as draft" button on a Flow Library row
+    /// hits this — same response as <c>POST /import?mode=draft</c> for a
+    /// fresh upload but reading from the persisted ZipBlob instead of
+    /// taking another upload.
+    /// </summary>
+    [HttpGet("{id:guid}/hydration")]
+    public async Task<IActionResult> Hydration(Guid id, CancellationToken ct)
+    {
+        var b = await db.SpecBundles.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (b is null || b.Status == SpecBundleStatus.SoftDeleted) return NotFound();
+
+        ParsedBundle parsed;
+        try
+        {
+            using var ms = new MemoryStream(b.ZipBlob, writable: false);
+            parsed = await parser.ParseAsync(ms, ct);
+        }
+        catch (BundleParseException ex)
+        {
+            // Persisted bytes failing to parse is exceptional — log and
+            // return a synthetic 500 so the UI surfaces it without crashing.
+            logger.LogError(ex, "Hydration failed to parse persisted bundle {Id}", id);
+            return StatusCode(500, new { error = "bundle parse failed", detail = ex.Message });
+        }
+
+        var validation = validator.Validate(parsed);
+        return Ok(new ImportDraftResult(
+            parsed.Manifest,
+            parsed.SpecJson,
+            parsed.SampleOrg,
+            parsed.TestCases,
+            validation));
+    }
+
     /// <summary>Soft-delete (Status -> SoftDeleted). Returns 204.</summary>
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
@@ -506,3 +620,22 @@ public sealed record ImportInstallResult(
     Guid Id,
     SpecBundleStatus Status,
     ReproReport? ReproReport);
+
+/// <summary>
+/// Wizard-side build payload (PR-I7). Mirrors the trimmed
+/// <see cref="BundleBuildRequest"/> surface the admin UI needs — the
+/// SourceInstanceId is optional (defaults to "default") and parent
+/// hand-off / asset toggles aren't exposed yet.
+/// </summary>
+public sealed record FlowLibraryBuildRequest(
+    JsonElement SpecJson,
+    string? BpmnXml,
+    SampleOrgSnapshot SampleOrg,
+    IReadOnlyList<TestCaseSnapshot>? TestCases,
+    string? TenantCode = null,
+    string? SourceInstanceId = null);
+
+public sealed record FlowLibraryBuildResult(
+    Guid Id,
+    SpecBundleStatus Status,
+    string ManifestChecksum);

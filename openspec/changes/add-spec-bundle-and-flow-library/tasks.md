@@ -63,6 +63,8 @@
 - [x] 6.7 `POST /{id}/repro-check` — re-run reproducibility on demand; updates `LastReproCheckAt` / `LastReproCheckResultJson` and Status
 - [x] 6.8 `DELETE /{id}` — soft-delete (set Status = SoftDeleted)
 - [x] 6.9 Integration test: round-trip — POST import → GET list shows it → GET export downloads identical bytes (manifest checksum equal). 15 controller tests under `tests/Bpm.Tests/Api/Admin/FlowLibrary/`
+- [x] 6.10 (PR-I7) `POST /build` — accepts `{ specJson, bpmnXml, sampleOrg, testCases }`; runs `IBundleBuilder.BuildAsync` → persists `SpecBundle` (Status=Pending). Idempotent on `ManifestChecksum` — same payload returns existing id with 200 OK. No repro auto-runs (wizard surface has its own Repro Check button)
+- [x] 6.11 (PR-I7) `GET /{id}/hydration` — reads persisted `ZipBlob`, parses + validates, returns same `ImportDraftResult` shape as `POST /import?mode=draft` so the wizard hand-off code path is one-shape-fits-both. 6 new controller tests; total 15 → 21
 
 ## 7. Frontend (`bpm-admin-ui`) — Flow Library screen
 
@@ -76,25 +78,25 @@
 - [x] 7.8 Implement Export button (per row): downloads via `apiFetch` + Blob URL so the JWT bearer rides on the request (`exportBundleUrl` also exported for callers that want a plain `window.location` redirect once a session-cookie path lands)
 - [x] 7.9 Implement Repro Check button (per row): POST `/{id}/repro-check` → result dialog (`ReproReportModal`) + refresh row
 - [x] 7.10 Implement Delete button (per row): `ConfirmDialog` → DELETE → refresh
-- [ ] 7.11 Wire `Open as 9-stepper draft`: navigate to Onboarding screen with `?bundle=<importId>` query param — PR-I6 stub navigates and sets the marker; full hydration is PR-I7's mission (note: Open-as-draft from a *saved* bundle row is rendered disabled with a tooltip pointing at PR-I7)
+- [x] 7.11 Wire `Open as 9-stepper draft`: navigate to Onboarding screen with `?bundle=<importId>` query param. PR-I7 enables this for both saved bundle rows (GUID → GET /{id}/hydration) and fresh imports (sessionStorage payload + `?bundle=draft` marker)
 
 ## 8. Frontend (`bpm-admin-ui`) — Onboarding rewire
 
-- [ ] 8.1 In `Onboarding.tsx`, on mount check `?bundle=<id>` query param; if present, fetch the import-preview payload and hydrate `DraftSpec` + sample-org + test-cases
-- [ ] 8.2 Determine `stepIdx` after hydration: first failing validator, or `go_live` if all pass
-- [ ] 8.3 Replace `Onboarding.tsx#exportSpec` (single-JSON download) with a "Build bundle" path that POSTs the assembled payload to `/api/admin/flow-library/build` and returns a saved bundle id
-- [ ] 8.4 Update `lib/onboarding.ts` `DraftSpec` to carry `sampleOrg: SampleOrgSnapshot` and `testCases: TestCaseSnapshot[]` first-class (today these are stubs)
-- [ ] 8.5 Update `StepTest.tsx` to actually capture test-cases (test name, form-data inputs per userTask, expected node trace, expected final status); today it's mostly a placeholder
-- [ ] 8.6 Update `StepTest.tsx` to surface a "Sample Org" editor with the curated default seeded if empty
-- [ ] 8.7 Update validators in `lib/onboarding.ts`: `validators.test` requires ≥1 test-case; `validators.go_live` requires sample-org non-empty
+- [x] 8.1 In `Onboarding.tsx`, on mount check `?bundle=<id>` query param; if present, fetch the import-preview payload and hydrate `DraftSpec` + sample-org + test-cases. Two paths: GUID → `getBundleDraftHydration(id)` (new GET /api/admin/flow-library/{id}/hydration endpoint), `draft` → consume `sessionStorage.bpm_draft_bundle` set by ImportModal
+- [x] 8.2 Determine `stepIdx` after hydration: first failing validator, or `go_live` if all pass — `pickStepFromValidation()` walks `ONBOARDING_STEPS` in order
+- [x] 8.3 Replace `Onboarding.tsx#exportSpec` (single-JSON download) with a "Build bundle" path that POSTs the assembled payload to `/api/admin/flow-library/build` and returns a saved bundle id. Live in `StepGoLive.handleSave()`; the legacy JSON download stays as `Export DraftSpec (debug)` for dev triage
+- [x] 8.4 Update `lib/onboarding.ts` `DraftSpec` to carry `sampleOrg: SampleOrgSnapshot` and `testCases: TestCaseSnapshot[]` first-class. `migrateDraft()` shim brings forward old localStorage drafts (legacy `TestCase` shape mapped via `testCaseToSnapshot`); presets converted to snapshot shape
+- [x] 8.5 Update `StepTest.tsx` to actually capture test-cases (id, name, JSON inputs, expectedTrace, expectedFinalStatus). Auto-walks the flow graph from startEvent on Add for a sane default; bilingual labels
+- [x] 8.6 Update `StepTest.tsx` to surface a "Sample Org" editor with the curated default seeded if empty. Two tables (users + departments) with reset-to-default; cascading FK cleanup on delete
+- [x] 8.7 Update validators in `lib/onboarding.ts`: `validators.test` requires ≥1 test-case; `validators.go_live` requires `sampleOrg.users.length >= 1`
 
 ## 9. Frontend (`bpm-admin-ui`) — `StepGoLive` rewrite
 
-- [ ] 9.1 Remove `submitSpec` (POST to `/api/spec`) and `revealInFinder` (POST to `/api/spec/reveal`) — both endpoints go away
-- [ ] 9.2 Replace the "Submit Spec → 1-2 工作天部署" amber banner with a bundle preview panel: file list with sizes, total bundle size, "Save to Flow Library" button, "Download .zip" button
-- [ ] 9.3 On Save: POST `/api/admin/flow-library/build` → on success, navigate to Flow Library with the new bundle highlighted
-- [ ] 9.4 On Download: same call but with `?download=1` → response is the zip stream
-- [ ] 9.5 Remove the SpecAck success-state UI (Tracking ID + Reveal in Finder); replace with a simpler "Bundle saved as v{n}" confirmation linking to Flow Library
+- [x] 9.1 Remove `submitSpec` (POST to `/api/spec`) and `revealInFinder` (POST to `/api/spec/reveal`) — both endpoints go away. PR-I7 stops calling them; PR-I8 will delete the server-side handlers
+- [x] 9.2 Replace the "Submit Spec → 1-2 工作天部署" amber banner with a bundle preview panel: bundle content summary + Save to Flow Library + Download .zip. (Deviation: skipped per-file size table preview; the wizard hands off to the Flow Library detail screen for that view to keep the build path single-source-of-truth on the backend)
+- [x] 9.3 On Save: POST `/api/admin/flow-library/build` → on success, set `localStorage.bpm_admin_screen_focus = id` for FlowLibrary's flash-highlight + render success state with "Open in Flow Library →"
+- [x] 9.4 On Download: build then `downloadBundle(id)` (PR-I6's blob-with-bearer helper). Simpler than `?download=1` overload — server stays one path
+- [x] 9.5 Remove the SpecAck success-state UI (Tracking ID + Reveal in Finder); replace with "Bundle saved as v{n}" confirmation showing manifest sha + Open-in-library / Download buttons
 
 ## 10. Frontend (`bpm-admin-ui`) — assorted
 
@@ -107,7 +109,7 @@
 - [ ] 11.1 Remove the legacy `/api/spec` and `/api/spec/reveal` endpoints from `bpm-svc/src/Api/Program.cs` (after one release deprecation window)
 - [ ] 11.2 Remove `bpm-svc/src/Api/incoming/` directory writes; delete leftover tracking-id files
 - [ ] 11.3 Update `inovation_idea.md` §3.4 / §9 to reflect that Phase A's deliverable is "bundle in customer's Flow Library", NOT "Claude Code pipeline" (pipeline becomes Phase B)
-- [ ] 11.4 Remove "AI Onboarding" subtitle text in `Onboarding.tsx` mentioning "spec 自動送至後台 Claude Code 部署管線"
+- [x] 11.4 Remove "AI Onboarding" subtitle text in `Onboarding.tsx` mentioning "spec 自動送至後台 Claude Code 部署管線" — replaced with "9 個 step 把流程規格談清楚，最後產生可攜帶的 spec bundle，存到 Flow Library。"
 
 ## 12. End-to-end acceptance test
 

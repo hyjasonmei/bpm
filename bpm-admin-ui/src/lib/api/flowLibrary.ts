@@ -165,6 +165,37 @@ export async function deleteBundle(id: string): Promise<void> {
   }
 }
 
+/* ── PR-I7 §8.3 / §9.3 — Build a bundle from in-memory wizard state ── */
+export interface BuildBundleRequest {
+  specJson: unknown
+  bpmnXml: string
+  sampleOrg: SampleOrgSnapshot
+  testCases: TestCaseSnapshot[]
+  tenantCode?: string
+  sourceInstanceId?: string
+}
+
+export interface BuildBundleResult {
+  id: string
+  status: SpecBundleStatus
+  manifestChecksum: string
+}
+
+export async function buildAndSaveBundle(req: BuildBundleRequest): Promise<BuildBundleResult> {
+  const res = await apiFetch('/api/admin/flow-library/build', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  })
+  return jsonOrThrow<BuildBundleResult>(res)
+}
+
+/* ── PR-I7 §8.1 — Hydrate the wizard from a saved bundle ── */
+export async function getBundleDraftHydration(id: string): Promise<ImportDraftResult> {
+  const res = await apiFetch(`/api/admin/flow-library/${id}/hydration`)
+  return jsonOrThrow<ImportDraftResult>(res)
+}
+
 // Re-export common types for screen consumers.
 export type {
   BundleManifest,

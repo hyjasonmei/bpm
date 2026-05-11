@@ -55,6 +55,19 @@ export function FlowLibrary() {
 
   useEffect(() => { void refresh() }, [refresh])
 
+  // PR-I7 §9.3 — flash-highlight the just-saved bundle when StepGoLive
+  // navigates here. Consume the localStorage marker so subsequent visits
+  // don't re-flash an old row.
+  useEffect(() => {
+    try {
+      const focus = localStorage.getItem('bpm_admin_screen_focus')
+      if (focus) {
+        setHighlightId(focus)
+        localStorage.removeItem('bpm_admin_screen_focus')
+      }
+    } catch { /* ignore */ }
+  }, [])
+
   const handleRepro = async (item: FlowLibraryItemDto) => {
     setBusyId(item.id)
     try {
@@ -99,24 +112,37 @@ export function FlowLibrary() {
   }
 
   const handleImportDraft = async (file: File): Promise<ImportDraftResult> => {
-    // PR-I6: just navigate; PR-I7 will hydrate the wizard from the bundle.
-    // The draft endpoint never persists a row, so there's no id to redirect
-    // to. Stash the parsed payload via a query param marker for now and let
-    // PR-I7 wire the actual hand-off (it will likely re-upload to a side
-    // endpoint to materialise an id, then read it back).
+    // PR-I7 §8.1 — fresh imports never persist a row, so we stash the
+    // parsed payload in sessionStorage and let Onboarding.tsx pick it up
+    // via `?bundle=draft`. sessionStorage avoids the localStorage churn
+    // (and survives the navigation reload exactly once).
     const res = await importBundleDraft(file)
-    // Use the location hash so we don't trample whatever screen-state is
-    // already stored under SCREEN_KEY in localStorage.
+    try { sessionStorage.setItem('bpm_draft_bundle', JSON.stringify(res)) } catch { /* ignore */ }
     const url = new URL(window.location.href)
     url.searchParams.set('bundle', 'draft')
     window.history.replaceState(null, '', url.toString())
-    // Navigate to onboarding by rewriting the saved screen key — PR-I7
-    // will replace this hop with actual hydration.
     try {
       localStorage.setItem('bpm_admin_screen', JSON.stringify({ kind: 'onboarding' }))
     } catch { /* ignore */ }
     window.location.reload()
     return res
+  }
+
+  /**
+   * PR-I7 §8.1 — Open a SAVED bundle as a draft. We don't stash a payload
+   * here; the wizard fetches it via GET /{id}/hydration once it sees the
+   * `?bundle=<guid>` marker. Two-stage so reload-with-the-same-id
+   * re-fetches a fresh payload from server (the bundle could have been
+   * re-imported / re-checksummed since last visit).
+   */
+  const openAsDraft = (id: string) => {
+    const url = new URL(window.location.href)
+    url.searchParams.set('bundle', id)
+    window.history.replaceState(null, '', url.toString())
+    try {
+      localStorage.setItem('bpm_admin_screen', JSON.stringify({ kind: 'onboarding' }))
+    } catch { /* ignore */ }
+    window.location.reload()
   }
 
   return (
@@ -162,6 +188,7 @@ export function FlowLibrary() {
               onView={() => setViewId(item.id)}
               onRepro={() => handleRepro(item)}
               onExport={() => handleExport(item)}
+              onOpenAsDraft={() => openAsDraft(item.id)}
               onDelete={() => setConfirmDelete(item)}
             />
           ))}
@@ -208,13 +235,11 @@ interface BundleCardProps {
   onView: () => void
   onRepro: () => void
   onExport: () => void
+  onOpenAsDraft: () => void
   onDelete: () => void
-  // "Open as draft" from a saved bundle is wired in PR-I7 (DraftSpec
-  // hydration). The card renders a disabled affordance so users see
-  // what's coming, but no callback is needed yet.
 }
 
-function BundleCard({ item, busy, highlighted, onView, onRepro, onExport, onDelete }: BundleCardProps) {
+function BundleCard({ item, busy, highlighted, onView, onRepro, onExport, onOpenAsDraft, onDelete }: BundleCardProps) {
   const exported = formatDate(item.exportedAt)
   const lastChecked = item.lastReproCheckAt ? formatDate(item.lastReproCheckAt) : 'never'
   const summary = item.lastReproCheckSummary ?? '—'
@@ -262,12 +287,7 @@ function BundleCard({ item, busy, highlighted, onView, onRepro, onExport, onDele
         <Button variant="outline" size="xs" onClick={onExport} disabled={busy}>
           <Download className="h-3.5 w-3.5" /> Export
         </Button>
-        {/*
-          "Open as 9-stepper draft" from an existing bundle is PR-I7's job
-          (needs DraftSpec hydration). Keep the affordance present but
-          disabled so users see what's coming.
-        */}
-        <Button variant="outline" size="xs" disabled title="Hydration arrives in PR-I7">
+        <Button variant="outline" size="xs" onClick={onOpenAsDraft} disabled={busy} title="Hydrate this bundle into the 9-step wizard">
           <FileEdit className="h-3.5 w-3.5" /> Open as draft
         </Button>
         <Button variant="destructive" size="xs" onClick={onDelete} disabled={busy}>

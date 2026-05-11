@@ -312,6 +312,119 @@ public sealed class FlowLibraryControllerTests : IDisposable
         Assert.IsType<NotFoundResult>(result);
     }
 
+    // ===== PR-I7 §8.3 / §9.3 — Build (in-memory wizard payload → bundle) =====
+
+    [Fact]
+    public async Task Build_persists_pending_bundle_and_returns_id()
+    {
+        // Use the same LEAVE fixture pieces the import path uses; the body
+        // mirrors what the wizard will assemble from the DraftSpec.
+        var spec = await BundleTestFactory.LoadLeaveSpecAsync();
+        var req = new FlowLibraryBuildRequest(
+            SpecJson: spec,
+            BpmnXml: "<bpmn:definitions />",
+            SampleOrg: BundleTestFactory.DefaultOrg(),
+            TestCases: BundleTestFactory.DefaultCases());
+
+        var controller = BuildController();
+        var result = await controller.Build(req, default);
+
+        var created = Assert.IsType<CreatedAtActionResult>(result);
+        var body = Assert.IsType<FlowLibraryBuildResult>(created.Value);
+        Assert.Equal(SpecBundleStatus.Pending, body.Status);
+        Assert.False(string.IsNullOrEmpty(body.ManifestChecksum));
+
+        using var read = new AppDbContext(_options);
+        var row = await read.SpecBundles.FirstAsync(b => b.Id == body.Id);
+        Assert.Equal("LEAVE", row.FlowCode);
+        Assert.Equal(SpecBundleStatus.Pending, row.Status);
+        Assert.Equal(body.ManifestChecksum, row.ManifestChecksum);
+        Assert.NotNull(row.ZipBlob);
+        Assert.True(row.ZipBlob.Length > 0);
+        // No repro yet — wizard hits the dedicated button.
+        Assert.Null(row.LastReproCheckAt);
+    }
+
+    [Fact]
+    public async Task Build_idempotent_on_manifest_checksum_returns_existing_id()
+    {
+        var spec = await BundleTestFactory.LoadLeaveSpecAsync();
+        var req = new FlowLibraryBuildRequest(
+            SpecJson: spec,
+            BpmnXml: "<bpmn:definitions />",
+            SampleOrg: BundleTestFactory.DefaultOrg(),
+            TestCases: BundleTestFactory.DefaultCases());
+
+        var first = await BuildController().Build(req, default);
+        var firstBody = Assert.IsType<FlowLibraryBuildResult>(((CreatedAtActionResult)first).Value);
+
+        // The clock is fixed (StubClock), so a second build with the same
+        // payload reproduces the same manifest bytes → same checksum.
+        var second = await BuildController().Build(req, default);
+        var ok = Assert.IsType<OkObjectResult>(second);
+        var secondBody = Assert.IsType<FlowLibraryBuildResult>(ok.Value);
+        Assert.Equal(firstBody.Id, secondBody.Id);
+
+        using var read = new AppDbContext(_options);
+        Assert.Single(read.SpecBundles);
+    }
+
+    [Fact]
+    public async Task Build_rejects_payload_with_no_test_cases_with_400()
+    {
+        var spec = await BundleTestFactory.LoadLeaveSpecAsync();
+        var req = new FlowLibraryBuildRequest(
+            SpecJson: spec,
+            BpmnXml: "<bpmn:definitions />",
+            SampleOrg: BundleTestFactory.DefaultOrg(),
+            TestCases: Array.Empty<TestCaseSnapshot>());
+
+        var result = await BuildController().Build(req, default);
+        Assert.IsType<BadRequestObjectResult>(result);
+
+        using var read = new AppDbContext(_options);
+        Assert.Empty(read.SpecBundles);
+    }
+
+    // ===== PR-I7 §8.1 — Hydration (saved bundle → import-draft shape) =====
+
+    [Fact]
+    public async Task Hydration_returns_import_draft_shape_for_saved_bundle()
+    {
+        var bytes = await BundleTestFactory.BuildLeaveBundleAsync();
+        var importResult = await BuildController().Import("install", null, BuildFormFile(bytes), default);
+        var install = Assert.IsType<ImportInstallResult>(((CreatedAtActionResult)importResult).Value);
+
+        var result = await BuildController().Hydration(install.Id, default);
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var draft = Assert.IsType<ImportDraftResult>(ok.Value);
+
+        Assert.Equal("LEAVE", draft.Manifest.FlowCode);
+        Assert.True(draft.Validation.Valid);
+        Assert.NotEmpty(draft.SampleOrg.Users);
+        Assert.NotEmpty(draft.TestCases);
+    }
+
+    [Fact]
+    public async Task Hydration_returns_404_for_missing_bundle()
+    {
+        var result = await BuildController().Hydration(Guid.NewGuid(), default);
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Hydration_returns_404_for_soft_deleted_bundle()
+    {
+        var bytes = await BundleTestFactory.BuildLeaveBundleAsync();
+        var importResult = await BuildController().Import("install", null, BuildFormFile(bytes), default);
+        var install = Assert.IsType<ImportInstallResult>(((CreatedAtActionResult)importResult).Value);
+
+        await BuildController().Delete(install.Id, default);
+
+        var result = await BuildController().Hydration(install.Id, default);
+        Assert.IsType<NotFoundResult>(result);
+    }
+
     // ===== harness =====
 
     private FlowLibraryController BuildController()
@@ -337,8 +450,9 @@ public sealed class FlowLibraryControllerTests : IDisposable
         var runner = new BundleReproducibilityRunner(
             new AppDbContext(_options), runtime, NullLogger<BundleReproducibilityRunner>.Instance);
 
+        var bundleBuilder = BundleTestFactory.NewBuilder();
         var controller = new FlowLibraryController(
-            db, parser, validator, loader, runner, _clock,
+            db, parser, validator, loader, runner, bundleBuilder, _clock,
             NullLogger<FlowLibraryController>.Instance);
         controller.ControllerContext = new ControllerContext { HttpContext = HttpContextFor(AdminId) };
         return controller;

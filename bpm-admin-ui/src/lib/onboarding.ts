@@ -1,10 +1,13 @@
 /**
  * Onboarding wizard types — mirrors bpm/spec_schema.md.
  *
- * The 9-step wizard mutates a DraftSpec; on GO LIVE the export is a complete
- * SpecDeliverable JSON, which becomes input to Claude Code per the
- * Concierge MVP pipeline.
+ * The 9-step wizard mutates a DraftSpec; on GO LIVE the wizard packages
+ * the draft into a Flow Library bundle (zip) via the bpm-svc bundle
+ * pipeline (see PR-I1..PR-I8). The two embedded bundle-shaped fields —
+ * `sampleOrg` and `testCases` — match `SampleOrgSnapshot` /
+ * `TestCaseSnapshot` so the build payload is a near-passthrough.
  */
+import type { SampleOrgSnapshot, TestCaseSnapshot } from '@/types/flowLibrary'
 
 export type OnboardingStepId =
   | 'source' | 'structure' | 'forms' | 'decisions'
@@ -176,7 +179,14 @@ export interface NodeSLA {
   }
 }
 
-/* Test cases — mirrors spec_schema.md §2.9 */
+/* Test cases — mirrors spec_schema.md §2.9.
+ *
+ * Legacy AI-tool input shape (`TestCase`) is kept because the
+ * `emit_test_cases` Claude tool still emits it. The DraftSpec itself
+ * holds the bundle-shaped `TestCaseSnapshot` form (id / name / inputs /
+ * expectedTrace / expectedFinalStatus); converters between the two live
+ * in `onboardingTools.ts`.
+ */
 export interface TestCase {
   id: string
   name: string
@@ -186,6 +196,17 @@ export interface TestCase {
   expectedNotifications?: { trigger: string; recipientCount: number }[]
   expectedHttpStatus?: number
   expectedValidationErrors?: string[]
+}
+
+/** Convert the AI-tool emitted test-case shape into the bundle's snapshot shape. */
+export function testCaseToSnapshot(tc: TestCase): TestCaseSnapshot {
+  return {
+    id: tc.id,
+    name: tc.name,
+    inputs: tc.inputs ?? {},
+    expectedTrace: tc.expectedPath ?? [],
+    expectedFinalStatus: tc.expectedHttpStatus ? `Http${tc.expectedHttpStatus}` : 'Completed',
+  }
 }
 
 export interface DraftSpec {
@@ -210,7 +231,39 @@ export interface DraftSpec {
     csvSource?: { url: string }
     fieldMappings?: Record<string, string>
   }
-  testCases: TestCase[]
+  /** Bundle-shaped sample org (mirrors `sample-org.json` inside the bundle). */
+  sampleOrg: SampleOrgSnapshot
+  /** Bundle-shaped test cases (mirrors `test-cases/*.json` inside the bundle). */
+  testCases: TestCaseSnapshot[]
+}
+
+/**
+ * Curated default sample-org. PR-I7 §8.6: a 4-user 1-department fixture
+ * that's enough to satisfy approver paths (`submitter.manager`,
+ * `submitter.department.head`, role:HR / role:VP fallbacks) so the
+ * wizard's GO_LIVE validator passes out of the box.
+ *
+ * IDs are stable hardcoded UUIDs so re-seeding the same draft on a
+ * different machine produces identical bundle bytes (the manifest sha
+ * stays stable across builds — see BundleBuilder.WriteRaw timestamp pin).
+ */
+export function emptySampleOrg(): SampleOrgSnapshot {
+  return {
+    users: [
+      { id: '11111111-1111-1111-1111-111111111111', email: 'employee@acme.tld', fullName: 'Emily Employee', managerId: '22222222-2222-2222-2222-222222222222', departmentId: '44444444-4444-4444-4444-444444444444' },
+      { id: '22222222-2222-2222-2222-222222222222', email: 'manager@acme.tld',  fullName: 'Mike Manager',   managerId: '33333333-3333-3333-3333-333333333333', departmentId: '44444444-4444-4444-4444-444444444444' },
+      { id: '33333333-3333-3333-3333-333333333333', email: 'vp@acme.tld',       fullName: 'Vera VP',        managerId: null, departmentId: '44444444-4444-4444-4444-444444444444' },
+      { id: '55555555-5555-5555-5555-555555555555', email: 'hr@acme.tld',       fullName: 'Hannah HR',      managerId: null, departmentId: '44444444-4444-4444-4444-444444444444' },
+    ],
+    departments: [
+      { id: '44444444-4444-4444-4444-444444444444', code: 'HQ', name: 'Headquarters', parentId: null, headUserId: '22222222-2222-2222-2222-222222222222' },
+    ],
+    groups: [],
+    roleAssignments: [
+      { roleCode: 'HR', principalId: '55555555-5555-5555-5555-555555555555', scope: 'tenant', scopeRef: null },
+      { roleCode: 'VP', principalId: '33333333-3333-3333-3333-333333333333', scope: 'tenant', scopeRef: null },
+    ],
+  }
 }
 
 export const EMPTY_DRAFT: DraftSpec = {
@@ -231,7 +284,46 @@ export const EMPTY_DRAFT: DraftSpec = {
   notifications: [],
   sla: { perNode: {} },
   integrations: { identityProvider: 'csv' },
+  sampleOrg: emptySampleOrg(),
   testCases: [],
+}
+
+/**
+ * Bring an arbitrary persisted-draft shape forward to the current
+ * `DraftSpec` interface. Old localStorage drafts (pre-PR-I7) lacked
+ * `sampleOrg` and held `testCases` in the legacy AI-tool shape; both
+ * cases collapse to deterministic defaults instead of throwing.
+ */
+export function migrateDraft(d: unknown): DraftSpec {
+  const partial = (d ?? {}) as Partial<DraftSpec> & { testCases?: unknown }
+  let testCases: TestCaseSnapshot[]
+  if (Array.isArray(partial.testCases)) {
+    testCases = (partial.testCases as Array<unknown>).map(raw => {
+      const r = raw as Partial<TestCaseSnapshot> & Partial<TestCase>
+      // Looks like the bundle/snapshot shape if it has expectedTrace.
+      if (Array.isArray((r as TestCaseSnapshot).expectedTrace)) {
+        return {
+          id: r.id ?? '',
+          name: r.name ?? '',
+          inputs: (r as TestCaseSnapshot).inputs ?? {},
+          expectedTrace: (r as TestCaseSnapshot).expectedTrace ?? [],
+          expectedFinalStatus: (r as TestCaseSnapshot).expectedFinalStatus ?? 'Completed',
+        }
+      }
+      // Else assume the legacy AI-tool shape and map.
+      return testCaseToSnapshot(r as TestCase)
+    })
+  } else {
+    testCases = []
+  }
+  return {
+    ...EMPTY_DRAFT,
+    ...partial,
+    sampleOrg: (partial.sampleOrg && (partial.sampleOrg as SampleOrgSnapshot).users)
+      ? (partial.sampleOrg as SampleOrgSnapshot)
+      : emptySampleOrg(),
+    testCases,
+  } as DraftSpec
 }
 
 /* ── Validators (gate to next step) ── */
@@ -294,7 +386,11 @@ export const validators: Record<OnboardingStepId, (s: DraftSpec) => ValidationRe
     if (s.testCases.length === 0) return { valid: false, errors: ['至少建立一個測試案'] }
     return { valid: true, errors: [] }
   },
-  go_live: () => ({ valid: true, errors: [] }),
+  go_live: (s) => {
+    const errors: string[] = []
+    if (!s.sampleOrg || s.sampleOrg.users.length === 0) errors.push('Sample org 至少需要 1 名 user (上線驗收必備)')
+    return { valid: errors.length === 0, errors }
+  },
 }
 
 /* ── Persistence (localStorage) ── */
@@ -306,7 +402,7 @@ export function loadDraft(): DraftSpec {
   try {
     const raw = localStorage.getItem(DRAFT_KEY)
     if (!raw) return EMPTY_DRAFT
-    return { ...EMPTY_DRAFT, ...JSON.parse(raw) }
+    return migrateDraft(JSON.parse(raw))
   } catch { return EMPTY_DRAFT }
 }
 
@@ -450,34 +546,28 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
       reportsTo: 'manager', department: 'department', title: 'title',
     },
   },
+  sampleOrg: emptySampleOrg(),
   testCases: [
     {
       id: 'tc_1',
       name: '5 天特休、直屬主管核准',
       inputs: { leave_type: '特休', date_range: { start: '2026-05-10', end: '2026-05-12' }, reason: '家裡有事' },
-      expectedPath: ['start_1', 'task_apply', 'approval_manager', 'gateway_days', 'task_hr_archive', 'end_1'],
-      expectedApprovers: [{ nodeId: 'approval_manager', userIds: ['u_wang_manager'] }],
-      expectedNotifications: [
-        { trigger: 'on_assign', recipientCount: 1 },
-        { trigger: 'on_complete', recipientCount: 1 },
-      ],
+      expectedTrace: ['start_1', 'task_apply', 'approval_manager', 'gateway_days', 'task_hr_archive', 'end_1'],
+      expectedFinalStatus: 'Completed',
     },
     {
       id: 'tc_2',
       name: '8 天事假、需副總加簽',
       inputs: { leave_type: '事假', date_range: { start: '2026-06-01', end: '2026-06-10' }, reason: '出國' },
-      expectedPath: ['start_1', 'task_apply', 'approval_manager', 'gateway_days', 'approval_vp', 'task_hr_archive', 'end_1'],
-      expectedApprovers: [
-        { nodeId: 'approval_manager', userIds: ['u_wang_manager'] },
-        { nodeId: 'approval_vp', userIds: ['u_chen_vp'] },
-      ],
+      expectedTrace: ['start_1', 'task_apply', 'approval_manager', 'gateway_days', 'approval_vp', 'task_hr_archive', 'end_1'],
+      expectedFinalStatus: 'Completed',
     },
     {
       id: 'tc_3',
       name: '病假需附證明',
       inputs: { leave_type: '病假', date_range: { start: '2026-05-15', end: '2026-05-15' }, reason: '流感', cert: 'certificate.pdf' },
-      expectedPath: ['start_1', 'task_apply', 'approval_manager', 'gateway_days', 'task_hr_archive', 'end_1'],
-      expectedApprovers: [{ nodeId: 'approval_manager', userIds: ['u_wang_manager'] }],
+      expectedTrace: ['start_1', 'task_apply', 'approval_manager', 'gateway_days', 'task_hr_archive', 'end_1'],
+      expectedFinalStatus: 'Completed',
     },
   ],
 }
@@ -624,45 +714,35 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
       reportsTo: 'manager', department: 'department', title: 'title',
     },
   },
+  sampleOrg: emptySampleOrg(),
   testCases: [
     {
       id: 'tc_1',
       name: '5000 元辦公耗材，主管核准即可',
       inputs: { vendor: '全聯辦公用品', category: 'office', amount: 5000, items: 'A4 影印紙 x 50 包\n原子筆 x 100 支', justification: 'Q2 季度耗材補充' },
-      expectedPath: ['start_1', 'task_request', 'approval_manager', 'gateway_after_manager', 'task_purchase_exec', 'end_1'],
-      expectedApprovers: [{ nodeId: 'approval_manager', userIds: ['u_wang_manager'] }],
-      expectedNotifications: [
-        { trigger: 'on_assign', recipientCount: 1 },
-        { trigger: 'on_complete', recipientCount: 1 },
-      ],
+      expectedTrace: ['start_1', 'task_request', 'approval_manager', 'gateway_after_manager', 'task_purchase_exec', 'end_1'],
+      expectedFinalStatus: 'Completed',
     },
     {
       id: 'tc_2',
       name: '50000 元 IT 設備，需主管 + 財務',
       inputs: { vendor: '聯強國際', category: 'it', amount: 50000, items: 'MacBook Air M3 13" x 1', justification: '新進工程師配機', quote_file: 'quote_50k.pdf' },
-      expectedPath: ['start_1', 'task_request', 'approval_manager', 'gateway_after_manager', 'approval_finance', 'gateway_after_finance', 'task_purchase_exec', 'end_1'],
-      expectedApprovers: [
-        { nodeId: 'approval_manager', userIds: ['u_wang_manager'] },
-        { nodeId: 'approval_finance', userIds: ['u_finance_lead'] },
-      ],
+      expectedTrace: ['start_1', 'task_request', 'approval_manager', 'gateway_after_manager', 'approval_finance', 'gateway_after_finance', 'task_purchase_exec', 'end_1'],
+      expectedFinalStatus: 'Completed',
     },
     {
       id: 'tc_3',
       name: '200000 元服務委外，三層核准',
       inputs: { vendor: '資安顧問公司', category: 'service', amount: 200000, items: '年度資安滲透測試', justification: 'ISO 27001 稽核要求', quote_file: 'quote_200k.pdf' },
-      expectedPath: ['start_1', 'task_request', 'approval_manager', 'gateway_after_manager', 'approval_finance', 'gateway_after_finance', 'approval_ceo', 'task_purchase_exec', 'end_1'],
-      expectedApprovers: [
-        { nodeId: 'approval_manager', userIds: ['u_wang_manager'] },
-        { nodeId: 'approval_finance', userIds: ['u_finance_lead'] },
-        { nodeId: 'approval_ceo', userIds: ['u_ceo'] },
-      ],
+      expectedTrace: ['start_1', 'task_request', 'approval_manager', 'gateway_after_manager', 'approval_finance', 'gateway_after_finance', 'approval_ceo', 'task_purchase_exec', 'end_1'],
+      expectedFinalStatus: 'Completed',
     },
     {
       id: 'tc_4',
       name: '1 萬以下不附報價單應通過、1 萬以上不附應 400',
       inputs: { vendor: '邊界測試', category: 'other', amount: 10000, items: 'boundary', justification: '邊界測試 — 沒附 quote_file 預期 400' },
-      expectedHttpStatus: 400,
-      expectedValidationErrors: ['quote_file is required when amount >= 10000'],
+      expectedTrace: [],
+      expectedFinalStatus: 'Http400',
     },
   ],
 }
