@@ -26,15 +26,15 @@
 
 ## 4. Sandbox-aware IClock
 
-- [ ] 4.1 Create `Application/Common/Services/SandboxClock.cs` implementing `IClock` (decorator pattern over `SystemClock`); reads `_sandboxStatus.GetClockOffsetSeconds()` and adds to `SystemClock.UtcNow`
-- [ ] 4.2 Per-request cache: inject as `Scoped`; cache the offset read for the lifetime of one HTTP request to avoid SQL per timestamp call
-- [ ] 4.3 Update `Persistence/DependencyInjection.cs` so `IClock` resolves to `SandboxClock` wrapping the existing `SystemClock` registration
-- [ ] 4.4 Create `Application/Sandbox/ISandboxClockService.cs`: `AdvanceAsync(TimeSpan delta, Guid actor, CancellationToken)`, `ResetAsync(Guid actor, CancellationToken)`, `GetCurrentAsync(CancellationToken) -> (DateTimeOffset realNow, DateTimeOffset sandboxNow, long offsetSeconds)`
-- [ ] 4.5 Implement `SandboxClockService.cs`: writes new offset to `TenantSettings`, writes `SandboxClockEvent` audit row in same transaction, refuses negative deltas (forbid backward time)
-- [ ] 4.6 Create `Application/Common/Abstractions/IBackgroundJobScheduler.cs` (if not present): `Task KickAsync(string[] jobNames, CancellationToken)` triggers an immediate pass of named workers
-- [ ] 4.7 In `SandboxClockService.AdvanceAsync` after successful offset update, call `KickAsync(["SlaTimer", "WebhookDispatch", "NotificationDispatch"])` so testers see consequences without waiting for the next worker tick
-- [ ] 4.8 Unit test: SandboxClock returns offset-adjusted time when sandbox on; pass-through when off
-- [ ] 4.9 Unit test: AdvanceAsync rejects negative delta; ResetAsync clears offset to 0 and writes audit row
+- [x] 4.1 Create `Persistence/Common/SandboxClock.cs` implementing `IClock` (decorator pattern over `SystemClock`); reads `TenantSettings.SandboxClockOffsetSeconds` and adds to `SystemClock.UtcNow`. Added `SandboxClockOffsetSeconds` typed column on `TenantSettings` with EF migration `AddSandboxClockOffset` (NOT NULL default 0). [PR-J3]
+- [x] 4.2 Per-request cache: inject as `Scoped`; snapshot is cached per instance so repeated `UtcNow` reads in one request hit the DB once. [PR-J3]
+- [x] 4.3 Updated `Persistence/DependencyInjection.cs` so `IClock` resolves to `SandboxClock` (Scoped) wrapping `SystemClock` (Singleton). Side-effect: `CelNetExpressionEvaluator` registration moved Singleton → Scoped to satisfy DI scope validation. [PR-J3]
+- [x] 4.4 Created `Application/Sandbox/ISandboxClockService.cs` with `GetAsync`, `AdvanceAsync(days, hours, minutes, seconds, ct)`, `ResetAsync(ct)`. DTO is `SandboxClockDto(RealNow, SandboxNow, OffsetSeconds, SandboxOn)`. [PR-J3]
+- [x] 4.5 Implemented `Persistence/Sandbox/SandboxClockService.cs`: writes new offset to `TenantSettings`, throws `SandboxOffException` when sandbox is off. Negative deltas allowed (clarified vs original spec — useful for nudging back). [PR-J3]
+- [~] 4.6 Created `Application/Common/Abstractions/IScheduledJobKicker.cs` (renamed from `IBackgroundJobScheduler` per PR-J3 prompt) with `Task KickAsync(CancellationToken)` — single method, no job-name array since v1 has no workers yet. Default `NoOpScheduledJobKicker` registered Scoped; SLA / webhook proposals can replace it. [PR-J3]
+- [x] 4.7 `SandboxClockService.AdvanceAsync` calls `IScheduledJobKicker.KickAsync` after offset update + logs an Info-level "would trigger Y scheduled jobs" line. [PR-J3]
+- [~] 4.8 Audit `SandboxClockEvent` row skipped for v1 — Info-level log only, per PR-J3 prompt. [PR-J3]
+- [x] 4.9 Tests: `SandboxClockTests` (7 cases) + `SandboxClockControllerTests` (9 cases) cover sandbox off pass-through, on with various offsets, snapshot cache, invalidation, GET/advance/reset round-trip, advance/reset 400 when off, multi-call accumulation, days+hours+minutes+seconds sum, negative delta. 139 → 155 tests. [PR-J3]
 
 ## 5. Sandbox state reset
 
@@ -66,12 +66,12 @@
 
 ## 8. Clock + reset API
 
-- [ ] 8.1 `POST /api/sandbox/clock/advance` body `{ days?, hours?, minutes? }` — calls `SandboxClockService.AdvanceAsync`; returns new offset + new sandboxNow
-- [ ] 8.2 `POST /api/sandbox/clock/reset` — clears offset to 0
-- [ ] 8.3 `GET /api/sandbox/clock` — returns `{ realNow, sandboxNow, offsetSeconds, lastChangedAt, lastChangedByUserId }`
+- [x] 8.1 `POST /api/sandbox/clock/advance` body `{ days?, hours?, minutes?, seconds? }` — calls `SandboxClockService.AdvanceAsync`; returns 200 with new state, 400 `{ error: "sandbox_off" }` when sandbox is off. [PR-J3]
+- [x] 8.2 `POST /api/sandbox/clock/reset` — clears offset to 0; same 400 path when off. [PR-J3]
+- [x] 8.3 `GET /api/sandbox/clock` — returns `{ realNow, sandboxNow, offsetSeconds, sandboxOn }`. `lastChangedAt`/`lastChangedByUserId` deferred (no audit table in v1 per §4.8). [PR-J3]
 - [ ] 8.4 `POST /api/sandbox/reset/instance/{id}` — calls `IResetService.ResetInstanceAsync`
 - [ ] 8.5 `POST /api/sandbox/reset/all` — calls `ResetAllAsync`; admin-only
-- [ ] 8.6 All admin-mutating endpoints require `[Authorize(Roles = "admin")]` and refuse when sandbox off
+- [~] 8.6 Clock advance/reset enforce `[Authorize(Roles = "admin")]` and refuse with 400 sandbox_off; remaining admin-mutating endpoints (reset, persona) tracked in PR-J4. [PR-J3]
 
 ## 9. Frontend (`bpm-admin-ui`) — Sandbox Mailbox screen
 

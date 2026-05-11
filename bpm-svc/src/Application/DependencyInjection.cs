@@ -25,7 +25,11 @@ public static class DependencyInjection
 
         services.AddValidatorsFromAssembly(assembly);
 
-        services.AddSingleton<IExpressionEvaluator, CelNetExpressionEvaluator>();
+        // PR-J3: IClock is now Scoped (SandboxClock decorator). The CelNet
+        // evaluator consumes IClock for the today()/now() built-ins, so it
+        // must also be Scoped — Singleton would capture a stale clock and
+        // fail DI scope validation in Development.
+        services.AddScoped<IExpressionEvaluator, CelNetExpressionEvaluator>();
         services.AddSingleton<BpmCelV1Validator>();
         services.AddScoped<ISpecImportService, SpecImportService>();
 

@@ -2,11 +2,14 @@ using Bpm.Application.Common.Abstractions;
 
 namespace Bpm.Persistence.Common;
 
-public sealed class SystemClock : IClock
+public class SystemClock : IClock
 {
     private static readonly TimeZoneInfo Taipei = ResolveTaipei();
 
-    public DateTime UtcNow => DateTime.UtcNow;
+    // Virtual so unit tests for the SandboxClock decorator can subclass with
+    // a fixed UtcNow (otherwise the decorator's "real now" varies per call,
+    // making offset assertions flaky).
+    public virtual DateTime UtcNow => DateTime.UtcNow;
 
     public DateOnly TodayInTaipei()
     {

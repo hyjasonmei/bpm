@@ -36,7 +36,13 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddPersistence(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddSingleton<IClock, SystemClock>();
+        // PR-J3: IClock now resolves through SandboxClock (Scoped) so sandbox
+        // mode can shift time for every downstream consumer. SystemClock stays
+        // available as a Singleton for code that explicitly wants real wall-clock
+        // time (e.g., SandboxClockService.GetAsync's "realNow" output).
+        services.AddSingleton<SystemClock>();
+        services.AddScoped<IClock, SandboxClock>();
+        services.AddScoped<IScheduledJobKicker, NoOpScheduledJobKicker>();
         services.TryAddScoped<ICurrentUser, SystemCurrentUser>();
 
         services.AddScoped<AuditSaveChangesInterceptor>();
@@ -61,6 +67,7 @@ public static class DependencyInjection
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IImpersonationService, ImpersonationService>();
         services.AddScoped<ISandboxService, SandboxService>();
+        services.AddScoped<ISandboxClockService, SandboxClockService>();
         services.AddScoped<IOutboundGate, OutboundGate>();
         services.AddScoped<IRoleAdminService, RoleAdminService>();
 
