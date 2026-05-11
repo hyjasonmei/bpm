@@ -28,9 +28,16 @@ public sealed class SpecImportServiceTests
     }
 
     [Theory]
-    [InlineData("expense_with_threshold_v1.json")]
-    [InlineData("expense_employee_v1.json")]
-    [InlineData("hardware_purchase_v1.json")]
+    [InlineData("teo_v1.json")]
+    [InlineData("gee_v1.json")]
+    [InlineData("gev_v1.json")]
+    [InlineData("ape_v1.json")]
+    [InlineData("hwp_v1.json")]
+    [InlineData("itpr_v1.json")]
+    [InlineData("trq_v1.json")]
+    [InlineData("extob_v1.json")]
+    [InlineData("resign_v1.json")]
+    [InlineData("deptx_v1.json")]
     public async Task Sample_specs_with_cel_helpers_validate_cleanly(string fileName)
     {
         var sut = BuildSut();

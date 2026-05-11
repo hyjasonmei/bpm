@@ -446,132 +446,138 @@ public sealed class ProcessRuntimeE2EFixture : IDisposable
         Assert.Equal(InstanceStatus.Completed, instance.Status);
     }
 
-    [Fact] // 12.3 expense small tier — single approver via expr fallback chain
-    public async Task Expense_small_amount_routes_to_manager_then_finance_review()
+    [Fact] // 12.3 TEO small tier — manager approve, gateway skips extra approval, two finance steps
+    public async Task Teo_small_amount_routes_through_manager_then_two_finance_steps()
     {
         var (db, runtime, _) = BuildRuntime();
         using var _db = db;
 
-        // total_amount=5000 → gateway routes straight to finance_review,
-        // skipping approval_primary (the spec's new gateway_threshold node).
+        // total_amount=5000 → gateway_threshold routes straight to task_finance_confirm,
+        // skipping approval_extra. Per workflow.ts TEO has two finance steps (confirm+review).
         var form = JsonDocument.Parse("""
-            {"purpose":"客戶拜訪","destination":"台中","amount":5000,"expense_items":[{"amount":5000}],"total_amount":5000,"receipts":"r.pdf"}
+            {"trq_no":"","destination":"台中","purpose":"客戶拜訪","actual_amount":5000,"total_amount":5000,"expense_breakdown":"hsr 1500\ntaxi 1500\nmeal 2000","receipts":"r.pdf"}
             """).RootElement;
-        var start = await runtime.StartInstanceAsync(new StartInstanceCommand("EXPENSE_WITH_THRESHOLD", form, _wilsonId));
+        var start = await runtime.StartInstanceAsync(new StartInstanceCommand("TEO", form, _wilsonId));
 
         await runtime.SubmitTaskAsync(new SubmitTaskCommand(start.FirstTaskId, _wilsonId, null, null, null));
 
-        // sum < 50000 → gateway sends straight to finance_review, skipping approval_primary.
+        var mgr = await NextOpenTask(start.InstanceId, "approval_manager");
+        Assert.Equal(_yangId, mgr.ActualAssigneeUserId);
+        await runtime.SubmitTaskAsync(new SubmitTaskCommand(mgr.Id, _yangId, null, Decision.Approve, "ok"));
+
+        // sum < 50000 → gateway sends straight to task_finance_confirm, skipping approval_extra.
+        var confirm = await NextOpenTask(start.InstanceId, "task_finance_confirm");
+        Assert.Equal(_jinFinId, confirm.ActualAssigneeUserId);
+        var confirmPatch = JsonDocument.Parse("""{"print_no":"PR-001"}""").RootElement;
+        await runtime.SubmitTaskAsync(new SubmitTaskCommand(confirm.Id, _jinFinId, confirmPatch, null, null));
+
         var review = await NextOpenTask(start.InstanceId, "task_finance_review");
         Assert.Equal(_jinFinId, review.ActualAssigneeUserId);
-        await runtime.SubmitTaskAsync(new SubmitTaskCommand(review.Id, _jinFinId, null, null, null));
+        var reviewPatch = JsonDocument.Parse("""{"paid_at":"2026-05-15"}""").RootElement;
+        await runtime.SubmitTaskAsync(new SubmitTaskCommand(review.Id, _jinFinId, reviewPatch, null, null));
 
         using var read = new AppDbContext(_options);
         var instance = await read.ProcessInstances.FirstAsync(i => i.Id == start.InstanceId);
         Assert.Equal(InstanceStatus.Completed, instance.Status);
     }
 
-    [Fact] // 12.3b expense medium tier — collection mode='any' min_approvals=2
-    public async Task Expense_medium_amount_collection_any_two_of_three_advances()
+    [Fact] // 12.3b TEO over-threshold tier — manager + collection mode='any' min_approvals=2
+    public async Task Teo_over_threshold_extra_approval_any_two_of_three_advances()
     {
         var (db, runtime, _) = BuildRuntime();
         using var _db = db;
 
         var form = JsonDocument.Parse("""
-            {"purpose":"海外研討會","destination":"東京","amount":50000,"expense_items":[{"amount":50000}],"total_amount":50000,"receipts":"r.pdf"}
+            {"trq_no":"","destination":"東京","purpose":"海外研討會","actual_amount":97000,"total_amount":97000,"expense_breakdown":"airfare 50000\nhotel 47000","receipts":"r.pdf"}
             """).RootElement;
-        var start = await runtime.StartInstanceAsync(new StartInstanceCommand("EXPENSE_WITH_THRESHOLD", form, _wilsonId));
+        var start = await runtime.StartInstanceAsync(new StartInstanceCommand("TEO", form, _wilsonId));
         await runtime.SubmitTaskAsync(new SubmitTaskCommand(start.FirstTaskId, _wilsonId, null, null, null));
 
-        // Three approval_primary tasks should spawn — Yang (manager),
-        // Jin (Finance role), Chen (dept head of ENG).
+        var mgr = await NextOpenTask(start.InstanceId, "approval_manager");
+        await runtime.SubmitTaskAsync(new SubmitTaskCommand(mgr.Id, _yangId, null, Decision.Approve, "ok"));
+
+        // Three approval_extra tasks should spawn — Chen (dept head ENG), Jin (Finance), Sandy (CEO).
         using (var read = new AppDbContext(_options))
         {
             var spawned = await read.ProcessTasks
-                .Where(t => t.ProcessInstanceId == start.InstanceId && t.NodeId == "approval_primary"
+                .Where(t => t.ProcessInstanceId == start.InstanceId && t.NodeId == "approval_extra"
                             && t.Status == TaskStatus.Pending)
                 .ToListAsync();
             Assert.Equal(3, spawned.Count);
         }
 
-        // First approval — Yang.
-        var t1 = await NextOpenTaskFor(start.InstanceId, "approval_primary", _yangId);
-        await runtime.SubmitTaskAsync(new SubmitTaskCommand(t1.Id, _yangId, null, Decision.Approve, "ok"));
+        // First approval — Chen (dept head).
+        var t1 = await NextOpenTaskFor(start.InstanceId, "approval_extra", _chenVpId);
+        await runtime.SubmitTaskAsync(new SubmitTaskCommand(t1.Id, _chenVpId, null, Decision.Approve, "ok"));
 
-        // Second approval — Jin. After this one min_approvals=2 should be met,
-        // so the third sibling auto-cancels and the flow advances.
-        var t2 = await NextOpenTaskFor(start.InstanceId, "approval_primary", _jinFinId);
+        // Second approval — Jin (Finance). After this one min_approvals=2 is met,
+        // so the third sibling auto-cancels.
+        var t2 = await NextOpenTaskFor(start.InstanceId, "approval_extra", _jinFinId);
         await runtime.SubmitTaskAsync(new SubmitTaskCommand(t2.Id, _jinFinId, null, Decision.Approve, "ok"));
 
         using var read2 = new AppDbContext(_options);
         var third = await read2.ProcessTasks
-            .Where(t => t.ProcessInstanceId == start.InstanceId && t.NodeId == "approval_primary"
-                        && t.OriginalAssigneeUserId == _chenVpId)
+            .Where(t => t.ProcessInstanceId == start.InstanceId && t.NodeId == "approval_extra"
+                        && t.OriginalAssigneeUserId == _sandyCeoId)
             .FirstAsync();
         Assert.Equal(TaskStatus.Cancelled, third.Status);
 
+        var confirm = await NextOpenTask(start.InstanceId, "task_finance_confirm");
+        var confirmPatch = JsonDocument.Parse("""{"print_no":"PR-002"}""").RootElement;
+        await runtime.SubmitTaskAsync(new SubmitTaskCommand(confirm.Id, _jinFinId, confirmPatch, null, null));
+
         var review = await NextOpenTask(start.InstanceId, "task_finance_review");
-        await runtime.SubmitTaskAsync(new SubmitTaskCommand(review.Id, _jinFinId, null, null, null));
+        var reviewPatch = JsonDocument.Parse("""{"paid_at":"2026-05-20"}""").RootElement;
+        await runtime.SubmitTaskAsync(new SubmitTaskCommand(review.Id, _jinFinId, reviewPatch, null, null));
 
         var instance = await read2.ProcessInstances.AsNoTracking().FirstAsync(i => i.Id == start.InstanceId);
         Assert.Equal(InstanceStatus.Completed, instance.Status);
     }
 
-    [Fact] // 12.3c expense large tier — collection mode='all'
-    public async Task Expense_large_amount_collection_all_three_required()
+    [Fact] // 12.3c TEO extra approval — instance does not advance until 2-of-3 completed
+    public async Task Teo_over_threshold_does_not_advance_until_min_approvals_met()
     {
         var (db, runtime, _) = BuildRuntime();
         using var _db = db;
 
         var form = JsonDocument.Parse("""
-            {"purpose":"美國年會","destination":"舊金山","amount":150000,"expense_items":[{"amount":150000}],"total_amount":150000,"receipts":"r.pdf"}
+            {"trq_no":"","destination":"舊金山","purpose":"美國年會","actual_amount":150000,"total_amount":150000,"expense_breakdown":"airfare 80000\nhotel 70000","receipts":"r.pdf"}
             """).RootElement;
-        var start = await runtime.StartInstanceAsync(new StartInstanceCommand("EXPENSE_WITH_THRESHOLD", form, _wilsonId));
+        var start = await runtime.StartInstanceAsync(new StartInstanceCommand("TEO", form, _wilsonId));
         await runtime.SubmitTaskAsync(new SubmitTaskCommand(start.FirstTaskId, _wilsonId, null, null, null));
 
-        using (var read = new AppDbContext(_options))
-        {
-            var spawned = await read.ProcessTasks
-                .Where(t => t.ProcessInstanceId == start.InstanceId && t.NodeId == "approval_primary"
-                            && t.Status == TaskStatus.Pending)
-                .ToListAsync();
-            // Three actors: dept.head (Chen), CEO (Sandy), Finance (Jin).
-            Assert.Equal(3, spawned.Count);
-        }
+        var mgr = await NextOpenTask(start.InstanceId, "approval_manager");
+        await runtime.SubmitTaskAsync(new SubmitTaskCommand(mgr.Id, _yangId, null, Decision.Approve, null));
 
-        // Approve in any order — instance should NOT advance until all three
-        // are done.
-        var chenT = await NextOpenTaskFor(start.InstanceId, "approval_primary", _chenVpId);
-        await runtime.SubmitTaskAsync(new SubmitTaskCommand(chenT.Id, _chenVpId, null, Decision.Approve, null));
+        // Only one of three extras approves — instance must still be in approval_extra phase.
+        var first = await NextOpenTaskFor(start.InstanceId, "approval_extra", _chenVpId);
+        await runtime.SubmitTaskAsync(new SubmitTaskCommand(first.Id, _chenVpId, null, Decision.Approve, null));
+
         using (var mid = new AppDbContext(_options))
         {
-            var review = await mid.ProcessTasks
-                .Where(t => t.ProcessInstanceId == start.InstanceId && t.NodeId == "task_finance_review")
+            var confirm = await mid.ProcessTasks
+                .Where(t => t.ProcessInstanceId == start.InstanceId && t.NodeId == "task_finance_confirm")
                 .FirstOrDefaultAsync();
-            Assert.Null(review); // not advanced yet
+            Assert.Null(confirm); // not advanced yet — only 1/3 approved, need 2.
         }
-        var sandyT = await NextOpenTaskFor(start.InstanceId, "approval_primary", _sandyCeoId);
-        await runtime.SubmitTaskAsync(new SubmitTaskCommand(sandyT.Id, _sandyCeoId, null, Decision.Approve, null));
-        var jinT = await NextOpenTaskFor(start.InstanceId, "approval_primary", _jinFinId);
-        await runtime.SubmitTaskAsync(new SubmitTaskCommand(jinT.Id, _jinFinId, null, Decision.Approve, null));
-
-        var review2 = await NextOpenTask(start.InstanceId, "task_finance_review");
-        await runtime.SubmitTaskAsync(new SubmitTaskCommand(review2.Id, _jinFinId, null, null, null));
-
-        using var read2 = new AppDbContext(_options);
-        var instance = await read2.ProcessInstances.FirstAsync(i => i.Id == start.InstanceId);
-        Assert.Equal(InstanceStatus.Completed, instance.Status);
     }
 
-    [Fact] // 12.4 all five sample specs parse without errors
+    [Fact] // 12.4 all sample specs parse without errors
     public void All_sample_specs_parse_with_SpecSnapshot()
     {
         foreach (var name in new[] {
             "leave_v1.json",
             "purchase_v1.json",
-            "expense_with_threshold_v1.json",
-            "expense_employee_v1.json",
-            "hardware_purchase_v1.json",
+            "gee_v1.json",
+            "gev_v1.json",
+            "ape_v1.json",
+            "hwp_v1.json",
+            "itpr_v1.json",
+            "trq_v1.json",
+            "teo_v1.json",
+            "extob_v1.json",
+            "resign_v1.json",
+            "deptx_v1.json",
         })
         {
             var path = Path.Combine("/Users/jason/claude/bpm/sample_specs", name);

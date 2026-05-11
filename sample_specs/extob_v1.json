@@ -1,0 +1,149 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "tenant": "acme",
+    "flowName": "外部員工到職",
+    "flowCode": "EXTOB",
+    "flowVersion": 1,
+    "createdAt": "2026-05-11T00:00:00Z",
+    "createdBy": "u_demo",
+    "language": "zh-TW",
+    "notes": "Per workflow.ts EXTOB: manager → hr → close. Manager-initiated (hiring manager submits the onboarding request, HR creates accounts)."
+  },
+  "flow": {
+    "nodes": [
+      { "id": "start_1", "type": "startEvent", "label": "開始" },
+      { "id": "task_submit", "type": "userTask", "label": "用人主管提交" },
+      { "id": "task_hr_account", "type": "userTask", "label": "HR 帳號建立" },
+      { "id": "end_1", "type": "endEvent", "label": "結案" }
+    ],
+    "edges": [
+      { "id": "e1", "source": "start_1", "target": "task_submit" },
+      { "id": "e2", "source": "task_submit", "target": "task_hr_account" },
+      { "id": "e3", "source": "task_hr_account", "target": "end_1" }
+    ]
+  },
+  "userTasks": [
+    {
+      "id": "task_submit",
+      "formCode": "EXTOB_SUBMIT",
+      "fields": [
+        { "id": "first_name", "label": { "zh-TW": "名 (First Name)", "en": "First Name" }, "type": "text", "required": true },
+        { "id": "last_name", "label": { "zh-TW": "姓 (Last Name)", "en": "Last Name" }, "type": "text", "required": true },
+        { "id": "business_title", "label": { "zh-TW": "職稱", "en": "Business Title" }, "type": "text", "required": true },
+        { "id": "company", "label": { "zh-TW": "派遣公司", "en": "Company" }, "type": "text", "required": true },
+        { "id": "onboard_date", "label": { "zh-TW": "起始日期 (到職日)", "en": "Onboard Date" }, "type": "date", "required": true },
+        { "id": "company_email", "label": { "zh-TW": "公司 email", "en": "Corp Email" }, "type": "text", "required": false, "hint": { "zh-TW": "建議格式: ext_xxxx@trend" } },
+        {
+          "id": "department",
+          "label": { "zh-TW": "預定部門", "en": "Department" },
+          "type": "select",
+          "required": true,
+          "options": [
+            { "value": "engineering", "label": "Engineering" },
+            { "value": "operations", "label": "Operations" },
+            { "value": "finance", "label": "Finance" },
+            { "value": "it", "label": "IT" },
+            { "value": "hr", "label": "HR" },
+            { "value": "other", "label": "其他" }
+          ]
+        },
+        { "id": "contract_no", "label": { "zh-TW": "合約編號", "en": "Contract No." }, "type": "text", "required": false },
+        { "id": "contract_expiration", "label": { "zh-TW": "合約到期日", "en": "Contract Expiration" }, "type": "date", "required": false },
+        {
+          "id": "needs_mailbox",
+          "label": { "zh-TW": "需要 Mailbox (Teams, E3 License)", "en": "Mailbox Required" },
+          "type": "select",
+          "required": true,
+          "options": [
+            { "value": "yes", "label": "Yes" },
+            { "value": "no", "label": "No" }
+          ]
+        }
+      ],
+      "permissions": { "submitter": "role:manager", "viewers": ["self", "role:HR", "role:IT"] }
+    },
+    {
+      "id": "task_hr_account",
+      "formCode": "EXTOB_HR_ACCOUNT",
+      "fields": [
+        { "id": "ad_login", "label": { "zh-TW": "AD Login", "en": "AD Login" }, "type": "text", "required": true },
+        { "id": "account_created", "label": { "zh-TW": "帳號建立完成", "en": "Account Created" }, "type": "select", "required": true,
+          "options": [
+            { "value": "yes", "label": "Yes" },
+            { "value": "no", "label": "No" }
+          ] },
+        { "id": "ticket_no", "label": { "zh-TW": "GSA Ticket #", "en": "Ticket #" }, "type": "text", "required": false },
+        { "id": "hr_note", "label": { "zh-TW": "HR 備註" }, "type": "textarea", "required": false }
+      ],
+      "permissions": { "submitter": "role:HR", "viewers": ["role:HR", "self", "role:manager"] }
+    }
+  ],
+  "decisions": [],
+  "approvals": [],
+  "notifications": [
+    {
+      "id": "notify_assign_hr",
+      "trigger": "on_assign",
+      "channel": ["email", "in_app"],
+      "recipients": [{ "type": "role", "code": "HR" }],
+      "template": {
+        "subject": { "zh-TW": "【外部到職待處理】{{newhire.firstName}} {{newhire.lastName}} - {{newhire.onboardDate}}" },
+        "body": { "zh-TW": "用人主管: {{applicant.name}}\n新人: {{newhire.firstName}} {{newhire.lastName}}\n職稱: {{newhire.title}}\n部門: {{newhire.department}}\n到職日: {{newhire.onboardDate}}\n\n請建立帳號: {{caseUrl}}" },
+        "variables": ["applicant.name", "newhire.firstName", "newhire.lastName", "newhire.title", "newhire.department", "newhire.onboardDate", "caseUrl"]
+      }
+    },
+    {
+      "id": "notify_complete",
+      "trigger": "on_complete",
+      "channel": ["email"],
+      "recipients": [{ "type": "submitter" }],
+      "template": {
+        "subject": { "zh-TW": "外部員工到職單已完成" },
+        "body": { "zh-TW": "{{newhire.firstName}} {{newhire.lastName}} 的帳號建立已完成 ({{ad.login}})。" },
+        "variables": ["newhire.firstName", "newhire.lastName", "ad.login"]
+      }
+    }
+  ],
+  "sla": {
+    "perNode": {
+      "task_hr_account": { "duration": "48h", "businessHoursOnly": true, "escalation": { "after": "48h", "action": "notify" } }
+    }
+  },
+  "integrations": {
+    "identityProvider": "csv",
+    "csvSource": { "url": "s3://bpm-tenants/acme/employees-2026-05-11.csv" },
+    "fieldMappings": {
+      "employeeId": "empId",
+      "displayName": "name",
+      "email": "email",
+      "reportsTo": "manager",
+      "department": "department",
+      "title": "title"
+    }
+  },
+  "testCases": [
+    {
+      "id": "tc_happy_extob",
+      "name": "用人主管提交外包工程師 → HR 建帳號 → 結案",
+      "inputs": {
+        "first_name": "Raven",
+        "last_name": "Wang",
+        "business_title": "Cloud Platform Engineer",
+        "company": "廉誠資訊有限公司",
+        "onboard_date": "2026-06-01",
+        "company_email": "ext_ravenw@acme",
+        "department": "engineering",
+        "contract_no": "260517-AP-0001",
+        "contract_expiration": "2027-06-01",
+        "needs_mailbox": "yes"
+      },
+      "expectedTrace": ["start_1", "task_submit", "task_hr_account", "end_1"],
+      "expectedFinalStatus": "Completed",
+      "expectedNotifications": [
+        { "trigger": "on_assign", "recipientCount": 1 },
+        { "trigger": "on_complete", "recipientCount": 1 }
+      ]
+    }
+  ]
+}
