@@ -67,15 +67,15 @@
 
 ## 10. End-to-end verification
 
-- [ ] 10.1 Boot stack with seeded data
-- [ ] 10.2 Admin opens /processes; verify auth gate redirects non-admins
-- [ ] 10.3 Open Designer for LEAVE; modify a field; Save (draft); reload; verify draft persists
-- [ ] 10.4 Run simulator with sample 8-day vacation form; verify trace shows VP path correctly
-- [ ] 10.5 Open Live Cases; force-reassign one task; verify TaskHistory has admin actor_role row
-- [ ] 10.6 Open Reports; verify breach rate matches DB-level count
-- [ ] 10.7 **Demo guard**: 9 mock-up forms, Home, Search, Report, lib/workflow.ts NOT modified
+- [~] 10.1 Boot stack with seeded data — verified via existing test suite (`OrgFixture.RunAsync` covered by org tests; LEAVE bundle install covered by PR-I `FlowLibraryControllerTests.Import_install_runs_repro_and_persists`); not booting full stack in CI harness (same constraint as PR-I8 §12).
+- [x] 10.2 Auth gate — `[Authorize(Roles="admin")]` on `ProcessAdminController` covered by `InterventionEndpointTests.Controller_class_requires_admin_role` (PR-K4) which asserts the attribute metadata is present with `Roles == "admin"`.
+- [~] 10.3 Designer modify field + reload — backend round-trip covered by PR-I7 onboarding draft tests + PR-K2 `Designer.tsx` localStorage `bpm_designer_draft_<flowCode>`; manual UI verification deferred to sales prep.
+- [x] 10.4 Simulator 8-day vacation traces VP path — `ProcessAdminEndToEndTests.ProcessAdmin_simulator_runs_8_day_vacation_and_traces_VP_path` asserts trace contains `approval_vp` and the `task_apply → approval_manager → approval_vp → task_hr_archive` order with `FinalStatus == "Completed"`.
+- [x] 10.5 Force-reassign writes admin actor row — `ProcessAdminEndToEndTests.ProcessAdmin_force_reassign_writes_admin_actor_history` asserts task state (assignee swapped, status reset, ClaimedAt cleared) plus a `TaskHistory` row with `EventType=TaskClaimed`, `ActorUserId=adminId`, and `PayloadJson` carrying `{actorRole:"admin", originalAssigneeUserId, newAssigneeUserId, reason}`.
+- [x] 10.6 Reports breach rate matches DB count — `ProcessAdminEndToEndTests.ProcessAdmin_reports_breach_rate_matches_db_count` seeds 5 completed instances (3 with `CompletedAt > DueAt`, 2 without), asserts raw DB shape matches, then asserts `report.BreachCount == 3` and `report.BreachRate == 3.0/5.0`.
+- [x] 10.7 **Demo guard** — `git diff --stat HEAD~5..HEAD -- bpm-ui/src/screens/Home.tsx bpm-ui/src/screens/forms bpm-ui/src/screens/Search.tsx bpm-ui/src/screens/Report.tsx bpm-ui/src/lib/workflow.ts` returns empty across PR-K1..K5; no `bpm-ui/` files touched by the PR-K series.
 
 ## 11. Commit
 
-- [ ] 11.1 Commit in chunks (shell; designer; simulator; live cases; admin actions; reports; verification)
-- [ ] 11.2 Push via GitKraken
+- [x] 11.1 Commit in chunks — PR-K1 (`83e7137`) shell + Definitions; PR-K2 (`c122525`) Designer; PR-K3 (`953708b`) Simulator; PR-K4 (`5bdc9c2`) Live Cases + intervention; PR-K5 (`8c3e5cd`) Completed Cases + Reports + Notifications; PR-K6 (this commit) verification + final.
+- [x] 11.2 Push via GitKraken — N/A for Claude (per CLAUDE memory `feedback_git_push.md`, BPM repo pushes are Jason's responsibility).
