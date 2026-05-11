@@ -158,3 +158,24 @@ override with `--sample-specs <dir>`.
 routing path in the 11 demo flows. Persona email mapping in
 `appsettings.Development.json` was migrated from `*@bpm.local` →
 `*@acme.test` to match the new fixture.
+
+## All flows real (PR-L1..L6)
+
+Every demo flow listed in `bpm-ui/src/lib/workflow.ts` (`FormCode`) now
+runs through `ProcessRuntime` end-to-end. Three canonical references:
+
+- **`sample_specs/*.json`** — 11 spec files (`leave_v1`, `gee_v1`,
+  `gev_v1`, `ape_v1`, `hwp_v1`, `itpr_v1`, `trq_v1`, `teo_v1`,
+  `extob_v1`, `resign_v1`, `deptx_v1`) — the source of truth for flow
+  shape. `flowCode` matches `FormCode` 1:1.
+- **`tests/Bpm.Tests/Integration/AllFlowsRealE2ETests.cs`** — 22
+  sub-tests (11 flows × happy + reject, with TEO over-threshold and
+  EXTOB no-reject adjustments) drive each spec through `ProcessRuntime`
+  using `SubmitTaskAsAdminAsync`. This is the canonical "is the flow
+  still wired?" gate.
+- **`Bpm.Persistence.Seed.PersonaSeedService`** — the canonical seeded
+  org. Both the dev startup seed and `SeedCli` call it; tests share the
+  same fixture so persona-based assertions stay consistent.
+
+Plan + retro: `docs/all-flows-real-plan.md`. Demo script:
+`docs/all-flows-demo-script.md`.

@@ -46,8 +46,8 @@ MVP 功能範圍：
 商業模式
 第一年導入費（含送幾隻流程）+ 之後每年 30% 導入費 + 顧問點數，大量需求另購點數。多客戶時 Anthropic API 用我們代墊，bill 客戶。Bundle 可由客戶自 host 也可以我們代管。
 
-現在進度 (2026-05-11 晚)
-foundation 三角 + 兩大賣點 + Process Admin 全部 archived。openspec 25 個 active proposal。實作面：
+現在進度 (2026-05-11 晚 — PR-L6 後)
+foundation 三角 + 兩大賣點 + Process Admin + 全部 demo flow 真化（all-flows-real Phase 1）已完。openspec 25 個 active proposal。實作面：
 
 bpm-svc：
 - Foundation: Org/Authz/Sandbox/Auth/HrFlows/Spec(ActorRef)
@@ -55,22 +55,36 @@ bpm-svc：
 - Bundle: BundleBuilder/Parser/Validator + SpecBundle 持久化 + RuntimeLoader（scratch tenant 隔離）+ ReproRunner（含 notification assertions）+ /api/admin/flow-library
 - Sandbox: SandboxClock decorator + capture-only OutboundGate + IResetService（ExecuteDelete 繞過 interceptor）+ persona switch JWT + Mailbox API
 - Process Admin: IProcessSimulator（dry-run）+ admin intervention 4 endpoints + IProcessReportingService（5min cache）+ /api/admin/process-admin
-- 256 tests 全綠
+- All flows real (PR-L1..L6): 11 個 sample_specs/*.json 全對齊 workflow.ts FormCode + AllFlowsRealE2ETests 22 sub-test 涵蓋全 happy/reject path
+- SeedCli console app: `dotnet run --project bpm-svc/src/SeedCli -- reset|seed|status|seed --include-bundles`，PersonaSeedService 13 user / 6 dept / 14 role 一鍵到位
+- 313 tests 全綠 (256 → 313 PR-L 期間 +57)
 
 bpm-ui：
-- 9 個 demo form + Home/Search/Report + RoleSwitcher（含沙箱 persona 模式）+ process API client + SandboxBanner（capture/clock 計數）+ Sandbox Mailbox
+- 11 個 demo form 全部走 ProcessRuntime（PR-L2 dual mode: create + task）
+- Home / Search 接 GET /api/processes/mine + GET /api/tasks/mine 真實 inbox（PR-L3）
+- 3 個新 hook: useFlowSubmit / useFlowTask / useFormRuntime；FormShell ActionBar 內建 Approve/Reject/Return + comment dialog
+- RoleSwitcher（含沙箱 persona 模式）+ process API client + SandboxBanner（capture/clock 計數）+ Sandbox Mailbox
 
 bpm-admin-ui：
 - 9-step onboarding + CoPilotCanvas + ActorRefEditor + ExpressionInput
-- Flow Library（list/detail/import/export/repro）
+- Flow Library（list/detail/import/export/repro；BundleInstaller primitive PR-L4 起 SeedCli / FlowLibraryController 共用）
 - Sandbox Mailbox（Mail/Webhooks/SMS/Clock 4 tabs + 計數 badge）
 - Process Admin Console（Definitions/Designer/Simulator/Live Cases/Completed/Reports/Notifications 7 sections）
 
-當前目標：
-foundation + 兩大賣點 + 監控 UI 都就位。剩下的 25 個 proposal 多為單點增強（SLA timer / outbound webhooks / file storage / soft delete / pdf export / i18n / tenant branding / sso oidc / mcp entra sync 等）。優先排序待 Jason 與夥伴 align。
+Demo guard 解封狀態（Phase 1）：
+- 已解封：bpm-ui `screens/forms/`、`screens/Home.tsx`、`screens/Search.tsx`、`lib/workflow.ts`（lib/workflow.ts FORMS map 留作 label / 中文名 / step list 設定，非流程定義）
+- 仍受保護：bpm-ui `screens/Report.tsx`（等 add-real-reporting）
+
+當前目標 / 下一步：
+**Phase 2 入口：`add-form-runtime-rendering`** — Jason + 夥伴看完 Phase 1 demo 後啟動。完成後 11 個 hand-coded form → `<DynamicForm spec={...} />`，spec 改欄位自動同步、view-only forms 合併、~2000 行 React 縮成 1 component。
+
+Phase 2 之後剩下的 24 個 proposal 多為單點增強（SLA timer / outbound webhooks / file storage / soft delete / pdf export / i18n / tenant branding / sso oidc / mcp entra sync 等）。優先排序待 Jason 與夥伴 align。
 
 已知 follow-up（記在原處 + 各 PR commit message）：
 - Cel.NET 1.0.0 的 sum(list) runtime overload-id dispatch bug — gateway 用 flat field workaround
 - BPMN canvas active-node 高亮、live form preview 在 Designer 裡都還是 placeholder
 - 第一級 NotificationDispatchAudit 表（生產環境通知稽核）尚未建表，目前靠 SandboxCapturedMessages（沙箱模式）涵蓋
 - Reports 用 in-memory percentile 計算（百萬級 instance 後需切到 DB function）
+- HrFlowsController（RESIGN/DEPTX 舊路）與新 spec 並存中，PR-LZ 排程退役（Phase 2 後再決定）
+- bpm-ui / bpm-admin-ui 沒 vitest/jest，前端 form 邏輯靠 tsc + 手動 boot 驗證
+- Home `Activity Feed` / `Reminders` widget 仍 MOCK data（小 demo 標記留著）

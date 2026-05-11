@@ -355,12 +355,61 @@ PR-I8 / PR-J6 的教訓：HTTP middleware 把測試 surface 拉太寬，每次 f
 
 11 個 flow × 2 case (happy + reject)= ~22 個 sub-test。
 
-### PR-L6: 文件 + 收尾
+### PR-L6: 文件 + 收尾 — ✅ DONE 2026-05-11
 
-- `docs/all-flows-demo-script.md`：sales 用的「11 個 flow 都怎麼 demo」一頁式腳本
-- 更新 `bpm-svc/CLAUDE.md`：SeedCli usage
-- 更新根目錄 `CLAUDE.md`「現在進度」
-- 把 `add-form-runtime-rendering` 標為 next-up（Phase 2 入口）
+**狀態：** 完成。文件 PR，純 markdown 變動，無 code 改動。
+
+#### 主要產出
+- `docs/all-flows-demo-script.md` — 新增；sales / 客戶 rep 5 分鐘 demo 用的一頁式腳本（setup commands、11 flow persona table、3-min "everything is real" walk、5-min sandbox UAT walk、before/after 對照）。
+- `docs/all-flows-real-plan.md` — 加 PR-L6 + Phase 1 retro section（本段）。
+- `CLAUDE.md`（root）— 「現在進度」section 改寫成 PR-L1..L6 完成版；列出 demo guard 解封範圍 + Phase 2 入口。
+- `bpm-svc/CLAUDE.md` — 加 "All flows real" 一段（11 spec / AllFlowsRealE2ETests / PersonaSeedService 三條 canonical reference）。
+- `bpm-ui/CLAUDE.md` — 新增；form mode contract、3 個 hook 用法、inbox routing、Phase 1 解封清單。
+- `bpm-admin-ui/CLAUDE.md` — 新增；ProcessAdmin / FlowLibrary / SandboxMailbox 三大 console、BundleInstaller 共用 primitive。
+
+#### 驗證
+- 無 code 變動：`dotnet build bpm-svc/bpm-svc.slnx` 仍 clean。
+- `dotnet test bpm-svc/bpm-svc.slnx` 仍 313/313 全綠。
+- `tsc -p bpm-ui/tsconfig.app.json --noEmit` / `tsc -p bpm-admin-ui/tsconfig.app.json --noEmit` 皆 clean。
+
+---
+
+## Phase 1 retrospective
+
+### 數字
+- **PR 數：** 6（PR-L1 → PR-L6）
+- **Commit 數：** 6（每 PR 一個 commit；無 fixup）
+- **Task 數：** 計畫表列 71，實際完成基本對齊（spec 9 + form 11 + inbox 3 + seedcli 12 + e2e 22 + docs 6 ≈ 63 + 各 PR 內部小調整）。
+- **Test 數：** 256 → 313 全綠（+57：spec 校驗 12、SeedCli 13、AllFlowsRealE2E 22、其他 process query 補強 10）。
+- **新增程式：** 11 個 spec.json、3 個 React hook、SeedCli console app、PersonaSeedService、AllFlowsRealE2ETests，加 BundleInstaller 共用 primitive。
+- **改寫程式：** Home.tsx、Search.tsx、11 個 form components、FormShell ActionBar、ProcessRuntime.ParseSimpleSubmitter（"manager" alias）。
+
+### 哪裡有 deferred 的決定
+- **HrFlowsController 並存（PR-LZ）：** RESIGN / DEPTX 兩條路並行；舊 `HrFlowsController` 不動，新 spec 跑 ProcessRuntime。是否退役留 Phase 2 後決定。
+- **沒引入 JS test framework：** bpm-ui / bpm-admin-ui 都沒 vitest / jest 設定，按指示不引入；前端 form 邏輯靠 tsc + 手動 boot 驗證。Phase 2 form-runtime-rendering 上線時再考慮。
+- **Completed instance 沒 view-only mode：** Search.tsx 的 completed case 不可點。等 add-real-reporting 或新 view-only proposal。
+- **`Report.tsx` 仍 mock：** Demo guard 還在保護；等 add-real-reporting。
+- **Home `Activity Feed` / `Reminders` widget 仍 mock：** 小 `demo` 標記留著，UI 還在但 data 是 MOCK_ACTIVITY / MOCK_REMINDERS。
+- **`MOCK_CASES` 等舊 mock 不刪：** Attendance.tsx / 一些舊截圖 view 仍 import；移除是另一個整理 PR。
+- **lib/workflow.ts FORMS map 保留：** 提供 label / 中文名 / step list 給 stepper 用，是 spec-driven 的 label config。Phase 2 form-runtime-rendering 上線後可砍。
+- **Admin persona Home stat cards 沒 cross-user 計數：** `/api/admin/process-admin/cases/active` 有 admin gate，roll-up 待 add-real-reporting。
+- **SLA timer / advance-time 還沒接到實際 timer 上：** SandboxClock 可推時，但目前沒人讀；SLA timer proposal 在 P1 list。
+- **Cel.NET sum(list) overload-id dispatch bug：** gateway 用 flat field workaround；upstream issue 待解。
+
+### Demo guard — Phase 1 解封範圍
+- **解封：** `bpm-ui/src/screens/forms/`、`bpm-ui/src/screens/Home.tsx`、`bpm-ui/src/screens/Search.tsx`、`bpm-ui/src/lib/workflow.ts`（仍維持 FORMS map 作為 label 設定，不是流程定義）。
+- **仍受保護：** `bpm-ui/src/screens/Report.tsx`（等 add-real-reporting）。
+
+### Phase 2 入口
+**`add-form-runtime-rendering`**（openspec 47 task proposal）— 把 11 個 hand-coded form 替換成 `<DynamicForm spec={...} mode="..." />`。完成後：
+- ~2000 行 React form code 縮成 1 個 component
+- spec 改欄位真正自動同步
+- view-only forms（EXTOBView / ITPRView / TEOView / TRQView）合併
+- bpm-ui FORMS map 可 deprecate
+
+啟動 trigger：Jason + 夥伴看完 Phase 1 demo + 確認方向 → 拉 PR-M 系列。
+
+Proposal: `openspec/changes/add-form-runtime-rendering/`
 
 ---
 
