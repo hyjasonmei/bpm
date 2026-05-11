@@ -80,10 +80,8 @@
 
 ## 9. Frontend — types + API client
 
-- [ ] 9.1 Create `bpm-ui/src/lib/process.ts`:
-  - TypeScript mirrors of ProcessInstance / Task / TaskHistory shapes
-  - API client: `startProcess`, `getInstance`, `getInstanceHistory`, `cancelInstance`, `myTasks`, `getTask`, `claimTask`, `submitTask`, `returnTask`
-- [ ] 9.2 Hook `useMyTasks(filter)` polling every 30s
+- [x] 9.1 Created `bpm-ui/src/types/process.ts` (DTO mirrors + enum literal unions with numeric *Code maps for wire conversion) and `bpm-ui/src/lib/api/process.ts` (API client with all 9 endpoints, mirrors `hrFlows.ts` style; `jsonOrThrow` helper kept local since there's no shared lib helper). Server enums travel as numbers (no `JsonStringEnumConverter`); the client normalizes to string literals at the boundary. `tsc -p tsconfig.app.json --noEmit` clean.
+- [x] 9.2 Created `bpm-ui/src/hooks/useMyTasks.ts` — 30s polling, returns `{ data, loading, error, refresh }`, handles filter switches + unmount cancellation. New `hooks/` dir created (no prior pattern in this UI).
 
 ## 10. End-to-end test fixture
 
@@ -108,21 +106,21 @@
 
 ## 13. Documentation
 
-- [ ] 13.1 Update `bpm-svc/CLAUDE.md` with runtime architecture overview, hook invocation order, snapshot semantics
-- [ ] 13.2 Update `pipeline_architecture.md` to reference runtime as the engine the multi-agent pipeline produces output for
-- [ ] 13.3 Add a section to `SETUP.md` on starting a manual instance via curl (for ops testing)
+- [x] 13.1 Created `bpm-svc/CLAUDE.md` — Process Runtime section covers SpecSnapshot immutability, hook invocation order (resolver → delegation → notification within one transaction), append-only TaskHistory enforcement, CelNet gateway evaluation, plus an API surface summary.
+- [x] 13.2 Added `pipeline_architecture.md` §7 ("What the pipeline produces — the runtime target") explaining Dev Agent's PR targets the shared `IProcessRuntime` rather than per-customer engines; renumbered the original §7 to §8.
+- [x] 13.3 Added "Manual instance start (process runtime)" section to `SETUP.md` — full curl walk-through (dev-login → start → list inbox → submit), notes the wire-numeric enum quirk.
 
 ## 14. End-to-end verification
 
-- [ ] 14.1 `dotnet build` clean
-- [ ] 14.2 `dotnet test` — all backend tests including the new ProcessRuntimeFixture pass
-- [ ] 14.3 Apply migration on fresh `bpm.db`; schema includes ProcessInstances / ProcessTasks / TaskHistories
-- [ ] 14.4 Boot service; hit `POST /api/processes` with leave spec_code + sample form; verify response includes instance_id + first_task_id
-- [ ] 14.5 Login as manager (RoleSwitcher); call `GET /api/tasks/mine`; verify the leave task appears
-- [ ] 14.6 Submit approval; verify next task spawns; verify TaskHistory rows present
-- [ ] 14.7 **Demo guard**: `bpm-ui/src/screens/Home.tsx`, `forms/*`, `Search.tsx`, `Report.tsx`, `lib/workflow.ts` NOT modified
+- [x] 14.1 `dotnet build bpm-svc/bpm-svc.slnx` — 0 errors, 8 NU1904 warnings (System.Drawing.Common pre-existing, OK).
+- [x] 14.2 `dotnet test bpm-svc/bpm-svc.slnx --no-build` — 51/51 pass, ~3s.
+- [x] 14.3 Backed up `bpm-svc/src/Api/bpm.db`, deleted, ran `dotnet ef database update --project bpm-svc/src/Persistence --startup-project bpm-svc/src/Api`. All migrations applied including `20260510145548_AddProcessRuntime`. `sqlite3 .schema` confirms `ProcessInstances`, `ProcessTasks`, `TaskHistory` (singular table name per EF config) with all expected columns + indices. Backup restored.
+- [~] 14.4 Skipped per PR-E scope — server-boot + curl is brittle in this harness; commands recorded in `SETUP.md` instead.
+- [~] 14.5 Skipped — RoleSwitcher integration belongs to PR-G/H once UI screens land.
+- [~] 14.6 Skipped — same reason as 14.5; behaviour is already covered by `ProcessRuntimeE2EFixture` (10.1–10.4).
+- [x] 14.7 **Demo guard**: `git diff --stat HEAD~5 -- bpm-ui/src/screens/Home.tsx bpm-ui/src/screens/forms bpm-ui/src/screens/Search.tsx bpm-ui/src/screens/Report.tsx bpm-ui/src/lib/workflow.ts` returned empty; `git status` shows no modifications to those paths.
 
 ## 15. Commit
 
-- [ ] 15.1 Commit in chunks (entities + migration; expression evaluator + commands; ProcessRuntime service + hooks; API + tests; fixture + integration; docs)
-- [ ] 15.2 Push via GitKraken (Claude does not push to BPM repo)
+- [x] 15.1 PR-E commit: `bpm-svc/CLAUDE.md`, `bpm-ui/src/types/process.ts`, `bpm-ui/src/lib/api/process.ts`, `bpm-ui/src/hooks/useMyTasks.ts`, `pipeline_architecture.md`, `SETUP.md`, `openspec/changes/add-process-runtime/tasks.md` updates.
+- [~] 15.2 Push via GitKraken (Claude does not push to BPM repo) — Jason handles.

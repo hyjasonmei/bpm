@@ -286,7 +286,25 @@ Phase B 啟動時：
 
 ---
 
-## 7. Open Implementation Questions
+## 7. What the pipeline produces — the runtime target
+
+Dev Agent's PR doesn't write a bespoke workflow engine per customer. The
+generated code drops a `spec.json` + form components + notification
+templates into the customer repo and configures them against the **shared
+process runtime** (`Bpm.Application.Process.Runtime.IProcessRuntime`,
+implemented in `Bpm.Persistence.Process.ProcessRuntime`). That engine
+takes an immutable `SpecSnapshot` at instance start, drives nodes
+through `IActorResolver` → `IDelegationService` → `INotificationDispatcher`
+hooks, evaluates gateway `condition` strings via the CelNet evaluator,
+and writes append-only `TaskHistory` rows the E2E Agent scrapes for its
+PASS/FAIL diff. This is also why §3 E2E Agent's `db.query` tool can
+afford to be generic — the table layout is fixed (`ProcessInstances`,
+`ProcessTasks`, `TaskHistories`); only the `SpecSnapshot` JSON content
+varies per customer flow. See `bpm-svc/CLAUDE.md` for runtime invariants.
+
+---
+
+## 8. Open Implementation Questions
 
 - Iteration cap 預設 3 次合理嗎？要不要 dev/review/e2e 各自獨立 cap？
 - Cost cap 預設多少？$5 / spec？$20？

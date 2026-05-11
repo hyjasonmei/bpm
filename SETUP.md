@@ -89,6 +89,53 @@ to keep idempotency (RULE #2) honest.
 
 ---
 
+## Manual instance start (process runtime)
+
+Smoke-test the `add-process-runtime` engine without the UI. All four calls
+hit `bpm-svc` directly; assumes the service is already running on
+`http://localhost:5290` (the `bpm-ui` default base URL) and `BPM_AUTH_MODE=dev`
+so `/api/dev/login` is mounted.
+
+```bash
+# 1) Mint a JWT for the "employee" persona (the dev login picks Wilson by
+#    default; see appsettings.Development.json → "Personas" for the map).
+TOKEN=$(curl -s -X POST http://localhost:5290/api/dev/login \
+  -H 'Content-Type: application/json' \
+  -d '{"persona":"employee"}' | jq -r .token)
+
+# 2) Start a leave instance from the bundled sample spec.
+curl -s -X POST http://localhost:5290/api/processes \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"specCode":"LEAVE","formData":{"days":5,"reason":"family"}}'
+# → { "instanceId": "...", "firstTaskId": "..." }
+
+# 3) Switch persona to the manager and list inbox.
+TOKEN=$(curl -s -X POST http://localhost:5290/api/dev/login \
+  -H 'Content-Type: application/json' \
+  -d '{"persona":"manager"}' | jq -r .token)
+
+curl -s "http://localhost:5290/api/tasks/mine?status=open&limit=50" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 4) Submit the manager-approval task. Replace TASK_ID with an id from (3).
+curl -s -X POST "http://localhost:5290/api/tasks/$TASK_ID/submit" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"decision":"Approve","comment":"ok"}'
+```
+
+Status enums on the wire are **numeric** (server uses default
+System.Text.Json — no `JsonStringEnumConverter`). The TypeScript client at
+`bpm-ui/src/lib/api/process.ts` normalizes them to string literals; raw
+curl users either compare against the integer codes (1=Running,
+2=Completed …) or pipe through `jq` for inspection.
+
+For a full walk-through of node order / hooks / append-only history, see
+`bpm-svc/CLAUDE.md`.
+
+---
+
 ## Notes for new customer onboarding (future)
 
 When `customers/{tenant_code}/` becomes a real workflow (post-Phase A), this
