@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Settings, Users, Sparkles, Shield, Activity, ExternalLink, LogOut, Eye, Library, Mail } from 'lucide-react'
+import { Settings, Users, Sparkles, Shield, Activity, ExternalLink, LogOut, Eye, Library, Mail, Workflow } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { decodeJwt } from '@/lib/jwt'
 import { clearJwt, getJwt } from '@/lib/apiFetch'
@@ -8,6 +8,7 @@ import { useSandboxUnreadCount } from '@/hooks/useSandboxUnreadCount'
 
 export type AdminScreen =
   | { kind: 'onboarding' }
+  | { kind: 'processes' }
   | { kind: 'flow-library' }
   | { kind: 'site-settings' }
   | { kind: 'sandbox-mailbox' }
@@ -24,6 +25,7 @@ interface AdminLayoutProps {
 
 const NAV: Array<{ kind: AdminScreen['kind']; label: string; icon: React.ReactNode }> = [
   { kind: 'onboarding',      label: 'Onboarding',      icon: <Sparkles className="h-4 w-4" /> },
+  { kind: 'processes',       label: 'Process Admin',   icon: <Workflow className="h-4 w-4" /> },
   { kind: 'flow-library',    label: 'Flow Library',    icon: <Library  className="h-4 w-4" /> },
   { kind: 'site-settings',   label: 'Site Settings',   icon: <Settings className="h-4 w-4" /> },
   { kind: 'sandbox-mailbox', label: 'Sandbox Mailbox', icon: <Mail     className="h-4 w-4" /> },

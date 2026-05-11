@@ -4,6 +4,7 @@ import { NoPermission } from '@/components/NoPermission'
 import { apiFetch, getJwt, setJwt } from '@/lib/apiFetch'
 import { decodeJwt, isAdmin } from '@/lib/jwt'
 import { Onboarding } from '@/screens/onboarding/Onboarding'
+import { ProcessAdminShell } from '@/screens/processes/ProcessAdminShell'
 import { FlowLibrary } from '@/screens/FlowLibrary/FlowLibrary'
 import { SiteSettings } from '@/screens/SiteSettings'
 import { UsersRoles } from '@/screens/UsersRoles'
@@ -76,6 +77,7 @@ export default function App() {
   let body: React.ReactNode
   switch (screen.kind) {
     case 'onboarding':    body = <Onboarding onNavigate={setScreen} />; break
+    case 'processes':     body = <ProcessAdminShell />; break
     case 'flow-library':  body = <FlowLibrary />; break
     case 'site-settings':    body = <SiteSettings />; break
     case 'sandbox-mailbox':  body = <SandboxMailbox />; break

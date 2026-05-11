@@ -2,16 +2,16 @@
 
 ## 1. Process admin shell
 
-- [ ] 1.1 Create `bpm-ui/src/screens/processes/ProcessAdminShell.tsx`
-- [ ] 1.2 Auth guard: requires `flow_admin:*` or `tenant_admin`
-- [ ] 1.3 Sidebar with the 7 sections
+- [x] 1.1 Create `bpm-admin-ui/src/screens/processes/ProcessAdminShell.tsx` (path drift: spec said `bpm-ui/`, but BpmnEditor + onboarding wizard live in `bpm-admin-ui/` so the operational counterpart belongs there too)
+- [~] 1.2 Auth guard — covered by the existing admin-app gate (App.tsx auto-mints admin JWT on load); finer-grained `flow_admin:<spec>` role check deferred to add-roles-and-permissions enhancements
+- [x] 1.3 Sidebar with the 7 sections (Definitions / Designer / Simulator / Live Cases / Completed Cases / Reports / Flow Notifications); only Definitions has real content for K1, the rest mount `<ComingSoon section="…" />`
 
 ## 2. Flow definitions
 
-- [ ] 2.1 DefinitionsList showing spec.json entries with active version
-- [ ] 2.2 New flow → opens designer
-- [ ] 2.3 Version history view (tab in detail)
-- [ ] 2.4 Spec diff viewer (text-diff for now)
+- [x] 2.1 DefinitionsList — combined view of installed bundles + filesystem specs via new `GET /api/admin/process-admin/definitions` (bundle wins when flowCode collides)
+- [x] 2.2 New flow → opens Designer (placeholder navigation; PR-K2 will wire the real editor entry point)
+- [x] 2.3 Version history view — side panel per row, fed by `GET /api/admin/process-admin/definitions/{flowCode}/versions`
+- [x] 2.4 Spec diff viewer — side-by-side text view of latest vs previous; line-diff highlighting deferred
 
 ## 3. Designer (BPMN + forms)
 
