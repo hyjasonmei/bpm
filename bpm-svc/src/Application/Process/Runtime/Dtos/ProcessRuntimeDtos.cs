@@ -61,3 +61,34 @@ public sealed record StartProcessRequest(string SpecCode, JsonElement FormData);
 public sealed record CancelProcessRequest(string Reason);
 public sealed record SubmitTaskRequest(JsonElement? FormDataPatch, string? Decision, string? Comment);
 public sealed record ReturnTaskRequest(string Comment);
+
+/// <summary>
+/// PR-K4 §5.1 — admin-wide live monitor row. Joins ProcessInstance against
+/// the User table to surface the initiator's email + the current single
+/// assignee's email when there's exactly one open task. Larger fan-out is
+/// signalled by <see cref="OpenTaskCount"/> &gt; 1 with a null
+/// <see cref="CurrentAssigneeUserId"/>.
+/// </summary>
+public sealed record ActiveCaseDto(
+    Guid Id,
+    string SpecCode,
+    int SpecVersion,
+    Guid InitiatorUserId,
+    string? InitiatorEmail,
+    InstanceStatus Status,
+    DateTime StartedAt,
+    DateTime LastActivityAt,
+    int OpenTaskCount,
+    bool HasBreach,
+    Guid? CurrentAssigneeUserId,
+    string? CurrentAssigneeEmail);
+
+/// <summary>
+/// PR-K4 §5.2 — single-case detail bundle for the LiveCaseDetail screen.
+/// Wraps the existing <see cref="ProcessInstanceDto"/> (header + open
+/// tasks) with the most recent N history entries so one network round-trip
+/// fills the whole drawer.
+/// </summary>
+public sealed record LiveCaseDetailDto(
+    ProcessInstanceDto Instance,
+    IReadOnlyList<TaskHistoryDto> RecentHistory);

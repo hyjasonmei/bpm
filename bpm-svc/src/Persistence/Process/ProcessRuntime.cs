@@ -97,14 +97,20 @@ public sealed class ProcessRuntime(
         return new StartInstanceResult(instance.Id, firstTaskId ?? Guid.Empty);
     }
 
-    public async Task SubmitTaskAsync(SubmitTaskCommand cmd, CancellationToken ct = default)
+    public Task SubmitTaskAsync(SubmitTaskCommand cmd, CancellationToken ct = default)
+        => SubmitTaskCoreAsync(cmd, adminOverride: false, ct);
+
+    public Task SubmitTaskAsAdminAsync(SubmitTaskCommand cmd, CancellationToken ct = default)
+        => SubmitTaskCoreAsync(cmd, adminOverride: true, ct);
+
+    private async Task SubmitTaskCoreAsync(SubmitTaskCommand cmd, bool adminOverride, CancellationToken ct)
     {
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         var task = await db.ProcessTasks.FirstOrDefaultAsync(t => t.Id == cmd.TaskId, ct)
             ?? throw new NotFoundException("ProcessTask", cmd.TaskId);
 
-        if (task.ActualAssigneeUserId != cmd.ActorUserId)
+        if (!adminOverride && task.ActualAssigneeUserId != cmd.ActorUserId)
             throw new ForbiddenException($"actor {cmd.ActorUserId} is not the assignee of task {task.Id}");
         if (task.Status is not (TaskStatus.Pending or TaskStatus.InProgress))
             throw new ConflictException($"task {task.Id} status is {task.Status}, cannot submit");
@@ -310,13 +316,21 @@ public sealed class ProcessRuntime(
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task CancelInstanceAsync(CancelInstanceCommand cmd, CancellationToken ct = default)
+    public Task CancelInstanceAsync(CancelInstanceCommand cmd, CancellationToken ct = default)
+        => CancelInstanceCoreAsync(cmd, adminOverride: false, ct);
+
+    public Task CancelInstanceAsAdminAsync(CancelInstanceCommand cmd, CancellationToken ct = default)
+        => CancelInstanceCoreAsync(cmd, adminOverride: true, ct);
+
+    private async Task CancelInstanceCoreAsync(CancelInstanceCommand cmd, bool adminOverride, CancellationToken ct)
     {
         var instance = await db.ProcessInstances.FirstOrDefaultAsync(i => i.Id == cmd.InstanceId, ct)
             ?? throw new NotFoundException("ProcessInstance", cmd.InstanceId);
 
-        // V1 rule: only initiator may cancel. Tenant-admin override is a TODO.
-        if (instance.InitiatorUserId != cmd.ActorUserId)
+        // V1 rule: only initiator may cancel. Admin override (PR-K4) skips
+        // this gate so a Process Admin can terminate any instance regardless
+        // of who started it.
+        if (!adminOverride && instance.InitiatorUserId != cmd.ActorUserId)
             throw new ForbiddenException($"actor {cmd.ActorUserId} is not the initiator of instance {instance.Id}");
         if (instance.Status != InstanceStatus.Running)
             throw new ConflictException($"instance {instance.Id} status is {instance.Status}");

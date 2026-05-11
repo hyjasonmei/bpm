@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Process.Runtime.Dtos;
 using Bpm.Application.Process.Runtime.Queries;
@@ -13,7 +14,7 @@ namespace Bpm.Persistence.Process;
 /// Read-side projection over <see cref="AppDbContext"/>. Pure queries — no
 /// state mutation, no transactions, no hook dispatch.
 /// </summary>
-public sealed class ProcessQueryService(AppDbContext db) : IProcessQueryService
+public sealed class ProcessQueryService(AppDbContext db, IClock clock) : IProcessQueryService
 {
     private static readonly JsonElement EmptyObject = JsonDocument.Parse("{}").RootElement.Clone();
 
@@ -140,6 +141,136 @@ public sealed class ProcessQueryService(AppDbContext db) : IProcessQueryService
             ParseJson(instance.CurrentFormDataJson),
             instance.SpecCode,
             instance.Id);
+    }
+
+    public async Task<IReadOnlyList<ActiveCaseDto>> GetActiveCasesAsync(
+        string? specCode = null,
+        int? maxAgeDays = null,
+        bool breachOnly = false,
+        int limit = 100,
+        CancellationToken ct = default)
+    {
+        var clamped = Math.Clamp(limit, 1, 500);
+        var now = clock.UtcNow;
+
+        // Active = Running | Errored. Cancelled / Completed live in the
+        // completed-cases query (PR-K5). We project the join client-side
+        // because EF + SQLite needs a tractable shape — we expect the active
+        // set to be small (<a few hundred typically).
+        var instanceQuery = db.ProcessInstances.AsNoTracking()
+            .Where(i => i.Status == InstanceStatus.Running || i.Status == InstanceStatus.Errored);
+
+        if (!string.IsNullOrWhiteSpace(specCode))
+            instanceQuery = instanceQuery.Where(i => i.SpecCode == specCode);
+
+        if (maxAgeDays is int days && days > 0)
+        {
+            var cutoff = now.AddDays(-days);
+            instanceQuery = instanceQuery.Where(i => i.StartedAt >= cutoff);
+        }
+
+        var instances = await instanceQuery
+            .OrderByDescending(i => i.LastActivityAt)
+            .Take(clamped * 2) // over-fetch so breachOnly can filter without an extra round-trip
+            .ToListAsync(ct);
+
+        if (instances.Count == 0)
+            return Array.Empty<ActiveCaseDto>();
+
+        var instanceIds = instances.Select(i => i.Id).ToList();
+        var openTasks = await db.ProcessTasks.AsNoTracking()
+            .Where(t => instanceIds.Contains(t.ProcessInstanceId)
+                        && (t.Status == TaskStatus.Pending || t.Status == TaskStatus.InProgress))
+            .ToListAsync(ct);
+
+        var initiatorIds = instances.Select(i => i.InitiatorUserId).Distinct().ToList();
+        var assigneeIds = openTasks
+            .Select(t => t.ActualAssigneeUserId)
+            .Where(g => g is not null)
+            .Select(g => g!.Value)
+            .Distinct()
+            .ToList();
+        var allUserIds = initiatorIds.Concat(assigneeIds).Distinct().ToList();
+
+        var users = await db.Users.AsNoTracking()
+            .Where(u => allUserIds.Contains(u.Id))
+            .Select(u => new { u.Id, u.Email })
+            .ToListAsync(ct);
+        var userEmails = users.ToDictionary(u => u.Id, u => u.Email);
+
+        var openByInstance = openTasks
+            .GroupBy(t => t.ProcessInstanceId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var rows = new List<ActiveCaseDto>(instances.Count);
+        foreach (var i in instances)
+        {
+            openByInstance.TryGetValue(i.Id, out var open);
+            open ??= new List<ProcessTask>();
+            var openCount = open.Count;
+            var hasBreach = open.Any(t => t.DueAt is DateTime due && due < now);
+            if (breachOnly && !hasBreach) continue;
+
+            Guid? singleAssignee = null;
+            string? singleAssigneeEmail = null;
+            if (openCount == 1 && open[0].ActualAssigneeUserId is Guid uid)
+            {
+                singleAssignee = uid;
+                userEmails.TryGetValue(uid, out singleAssigneeEmail);
+            }
+
+            userEmails.TryGetValue(i.InitiatorUserId, out var initEmail);
+
+            rows.Add(new ActiveCaseDto(
+                Id: i.Id,
+                SpecCode: i.SpecCode,
+                SpecVersion: i.SpecVersion,
+                InitiatorUserId: i.InitiatorUserId,
+                InitiatorEmail: initEmail,
+                Status: i.Status,
+                StartedAt: i.StartedAt,
+                LastActivityAt: i.LastActivityAt,
+                OpenTaskCount: openCount,
+                HasBreach: hasBreach,
+                CurrentAssigneeUserId: singleAssignee,
+                CurrentAssigneeEmail: singleAssigneeEmail));
+
+            if (rows.Count >= clamped) break;
+        }
+
+        return rows;
+    }
+
+    public async Task<LiveCaseDetailDto> GetCaseDetailAsync(
+        Guid instanceId,
+        int historyLimit = 20,
+        CancellationToken ct = default)
+    {
+        var clamped = Math.Clamp(historyLimit, 1, 200);
+
+        var instance = await db.ProcessInstances.AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == instanceId, ct)
+            ?? throw new NotFoundException("ProcessInstance", instanceId);
+
+        var tasks = await db.ProcessTasks.AsNoTracking()
+            .Where(t => t.ProcessInstanceId == instanceId
+                        && (t.Status == TaskStatus.Pending || t.Status == TaskStatus.InProgress))
+            .OrderBy(t => t.CreatedAt)
+            .ToListAsync(ct);
+
+        // Most-recent N. We pull DESC then (after mapping) reverse to ascending
+        // so the UI can render bottom-up newest-first either way; the API
+        // contract states "most recent first" so we keep DESC ordering in the
+        // returned list.
+        var history = await db.TaskHistory.AsNoTracking()
+            .Where(h => h.ProcessInstanceId == instanceId)
+            .OrderByDescending(h => h.CreatedAt).ThenByDescending(h => h.Id)
+            .Take(clamped)
+            .ToListAsync(ct);
+
+        return new LiveCaseDetailDto(
+            ToInstanceDto(instance, tasks),
+            history.Select(ToHistoryDto).ToList());
     }
 
     // ----- mappers -----

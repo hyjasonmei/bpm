@@ -25,7 +25,25 @@ public interface IProcessRuntime
     Task<StartInstanceResult> StartInstanceAsync(StartInstanceCommand cmd, string inlineSpecJson, CancellationToken ct = default);
 
     Task SubmitTaskAsync(SubmitTaskCommand cmd, CancellationToken ct = default);
+
+    /// <summary>
+    /// Admin override variant of <see cref="SubmitTaskAsync"/> — used by
+    /// <see cref="Bpm.Application.Process.Admin.IProcessAdminInterventionService.ForceSubmitAsync"/>.
+    /// Skips the "actor must be the task's assignee" check so an
+    /// authenticated admin can submit on behalf of the assignee. The
+    /// payload pipeline (gateway routing / approval coordination /
+    /// notification dispatch) is identical — only the actor gate moves.
+    /// </summary>
+    Task SubmitTaskAsAdminAsync(SubmitTaskCommand cmd, CancellationToken ct = default);
+
     Task ReturnTaskAsync(ReturnTaskCommand cmd, CancellationToken ct = default);
     Task ClaimTaskAsync(ClaimTaskCommand cmd, CancellationToken ct = default);
     Task CancelInstanceAsync(CancelInstanceCommand cmd, CancellationToken ct = default);
+
+    /// <summary>
+    /// Admin override variant of <see cref="CancelInstanceAsync"/> — used by
+    /// <see cref="Bpm.Application.Process.Admin.IProcessAdminInterventionService.TerminateAsync"/>.
+    /// Skips the initiator-only check.
+    /// </summary>
+    Task CancelInstanceAsAdminAsync(CancelInstanceCommand cmd, CancellationToken ct = default);
 }

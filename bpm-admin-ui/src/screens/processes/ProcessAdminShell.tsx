@@ -21,6 +21,7 @@ import { ComingSoon } from './ComingSoon'
 import { DefinitionsList } from './DefinitionsList'
 import { Designer } from './Designer'
 import { Simulator } from './Simulator'
+import { LiveCases } from './LiveCases'
 
 export type ProcessAdminSection =
   | 'definitions'
@@ -133,12 +134,7 @@ function SectionBody({ section, designerFlowCode, openDesignerFor, onJumpToSimul
     case 'simulator':
       return <Simulator />
     case 'live-cases':
-      return (
-        <ComingSoon
-          section="Live Cases"
-          note="Running ProcessInstances list + detail — ships in PR-K4."
-        />
-      )
+      return <LiveCases />
     case 'completed-cases':
       return (
         <ComingSoon

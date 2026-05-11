@@ -109,7 +109,7 @@ internal sealed class ProcessTestFixture : IDisposable
 
         var runtime = new ProcessRuntime(db, Clock, loader, resolver, delegation, notifier, evaluator,
             NullLogger<ProcessRuntime>.Instance);
-        var query = new ProcessQueryService(db);
+        var query = new ProcessQueryService(db, Clock);
         return (db, runtime, query);
     }
 

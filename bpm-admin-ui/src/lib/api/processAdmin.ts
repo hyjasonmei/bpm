@@ -147,3 +147,143 @@ export async function simulate(req: SimulateRequestPayload): Promise<SimulationR
   })
   return jsonOrThrow<SimulationResultDto>(res)
 }
+
+/* ─── PR-K4: LiveCases monitoring ──────────────────────────────── */
+
+/** Active (Running / Errored) instance row in the LiveCases table. */
+export interface ActiveCaseDto {
+  id: string
+  specCode: string
+  specVersion: number
+  initiatorUserId: string
+  initiatorEmail: string | null
+  status: 'Running' | 'Completed' | 'Cancelled' | 'Errored' | string
+  startedAt: string
+  lastActivityAt: string
+  openTaskCount: number
+  hasBreach: boolean
+  /** Set only when the case has exactly one open task. */
+  currentAssigneeUserId: string | null
+  currentAssigneeEmail: string | null
+}
+
+export interface ProcessTaskDto {
+  id: string
+  nodeId: string
+  nodeKind: string
+  originalAssigneeUserId: string | null
+  actualAssigneeUserId: string | null
+  status: string
+  dueAt: string | null
+  claimedAt: string | null
+  completedAt: string | null
+  decision: string | null
+  comment: string | null
+}
+
+export interface ProcessInstanceDto {
+  id: string
+  specCode: string
+  specVersion: number
+  initiatorUserId: string
+  status: string
+  currentFormData: unknown
+  startedAt: string
+  completedAt: string | null
+  cancelledAt: string | null
+  cancelReason: string | null
+  openTasks: ProcessTaskDto[]
+}
+
+export interface TaskHistoryDto {
+  id: string
+  taskId: string | null
+  eventType: string
+  actorUserId: string | null
+  payload: unknown
+  createdAt: string
+}
+
+export interface LiveCaseDetailDto {
+  instance: ProcessInstanceDto
+  recentHistory: TaskHistoryDto[]
+}
+
+export interface ActiveCasesQuery {
+  specCode?: string | null
+  /** 1 / 7 / 30 / null (= no age filter). */
+  maxAgeDays?: number | null
+  breachOnly?: boolean
+  limit?: number
+}
+
+export async function listActiveCases(q: ActiveCasesQuery = {}): Promise<ActiveCaseDto[]> {
+  const params = new URLSearchParams()
+  if (q.specCode) params.set('specCode', q.specCode)
+  if (q.maxAgeDays != null && q.maxAgeDays > 0) params.set('maxAgeDays', String(q.maxAgeDays))
+  if (q.breachOnly) params.set('breachOnly', 'true')
+  if (q.limit != null && q.limit > 0) params.set('limit', String(q.limit))
+  const qs = params.toString()
+  const res = await apiFetch(
+    `/api/admin/process-admin/cases/active${qs ? `?${qs}` : ''}`,
+  )
+  return jsonOrThrow<ActiveCaseDto[]>(res)
+}
+
+export async function getCaseDetail(instanceId: string): Promise<LiveCaseDetailDto> {
+  const res = await apiFetch(`/api/admin/process-admin/cases/${encodeURIComponent(instanceId)}`)
+  return jsonOrThrow<LiveCaseDetailDto>(res)
+}
+
+/* ─── PR-K4: Admin intervention ───────────────────────────────── */
+
+export interface ForceReassignBody {
+  newAssigneeUserId: string
+  reason: string
+}
+
+export interface ForceReturnBody {
+  targetNodeId: string
+  reason: string
+}
+
+export interface ForceSubmitBody {
+  formDataPatch?: unknown
+  decision?: 'Approve' | 'Reject' | 'Return' | null
+  reason: string
+}
+
+export interface TerminateBody {
+  reason: string
+}
+
+async function postOk(path: string, body: unknown): Promise<void> {
+  const res = await apiFetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`
+    try {
+      const data = await res.json()
+      if (data?.detail) detail = data.detail
+      else if (data?.error) detail = data.error
+      else if (data?.title) detail = data.title
+      else if (data?.errors) detail = JSON.stringify(data.errors)
+    } catch { /* ignore */ }
+    throw new Error(detail)
+  }
+}
+
+export const forceReassign = (taskId: string, body: ForceReassignBody) =>
+  postOk(`/api/admin/process-admin/tasks/${encodeURIComponent(taskId)}/force-reassign`, body)
+
+export const forceReturn = (taskId: string, body: ForceReturnBody) =>
+  postOk(`/api/admin/process-admin/tasks/${encodeURIComponent(taskId)}/force-return`, body)
+
+export const forceSubmit = (taskId: string, body: ForceSubmitBody) =>
+  postOk(`/api/admin/process-admin/tasks/${encodeURIComponent(taskId)}/force-submit`, body)
+
+export const terminateInstance = (instanceId: string, body: TerminateBody) =>
+  postOk(`/api/admin/process-admin/processes/${encodeURIComponent(instanceId)}/terminate`, body)

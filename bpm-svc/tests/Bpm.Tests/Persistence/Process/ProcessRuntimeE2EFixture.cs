@@ -60,6 +60,17 @@ public sealed class ProcessRuntimeE2EFixture : IDisposable
     private readonly Guid _jinFinId   = Guid.NewGuid();
     private readonly Guid _purchaseId = Guid.NewGuid();
 
+    // PR-K4 — exposed for ProcessAdminInterventionTests reuse so the LEAVE
+    // org chart + sample-spec loader wiring stays in one place.
+    internal DbContextOptions<AppDbContext> Options => _options;
+    internal StubClock Clock => _clock;
+    internal Guid WilsonId => _wilsonId;
+    internal Guid YangId => _yangId;
+    internal Guid LinId => _linId;
+    internal Guid MaryId => _maryId;
+    internal (AppDbContext db, ProcessRuntime runtime, RecordingNotificationDispatcher notifier) Build(
+        IDelegationService? delegation = null) => BuildRuntime(delegation);
+
     public ProcessRuntimeE2EFixture()
     {
         _conn = new SqliteConnection("DataSource=:memory:");

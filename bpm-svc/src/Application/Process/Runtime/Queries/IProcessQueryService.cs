@@ -25,4 +25,29 @@ public interface IProcessQueryService
     /// <summary>Single task with merged form snapshot. Auth: assignee OR
     /// initiator.</summary>
     Task<TaskWithFormDto> GetTaskAsync(Guid taskId, Guid requesterUserId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Admin-wide list of active (Running / Errored) process instances with
+    /// the data the LiveCases monitor needs to render its row: initiator,
+    /// open-task fan-out, breach flag, and a single-assignee shortcut when
+    /// there's exactly one open task. No requester check — admin-role gate
+    /// at the controller layer is the auth boundary.
+    /// </summary>
+    Task<IReadOnlyList<ActiveCaseDto>> GetActiveCasesAsync(
+        string? specCode = null,
+        int? maxAgeDays = null,
+        bool breachOnly = false,
+        int limit = 100,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Admin-only single-case bundle: instance header + open tasks +
+    /// most recent <paramref name="historyLimit"/> history entries (newest
+    /// first). Skips the initiator-only check that <see cref="GetInstanceAsync"/>
+    /// applies — admins see everyone's cases.
+    /// </summary>
+    Task<LiveCaseDetailDto> GetCaseDetailAsync(
+        Guid instanceId,
+        int historyLimit = 20,
+        CancellationToken ct = default);
 }

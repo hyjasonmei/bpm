@@ -7,6 +7,7 @@ using Bpm.Application.HrFlows;
 using Bpm.Application.Impersonation;
 using Bpm.Application.Notifications;
 using Bpm.Application.Org;
+using Bpm.Application.Process.Admin;
 using Bpm.Application.Process.Runtime;
 using Bpm.Application.Process.Runtime.Queries;
 using Bpm.Application.Process.Simulator;
@@ -23,6 +24,7 @@ using Bpm.Persistence.Interceptors;
 using Bpm.Persistence.Notifications;
 using Bpm.Persistence.Org;
 using Bpm.Persistence.Process;
+using Bpm.Persistence.Process.Admin;
 using Bpm.Persistence.Process.Simulator;
 using Bpm.Persistence.Sandbox;
 using Bpm.Persistence.Spec;
@@ -87,6 +89,11 @@ public static class DependencyInjection
         services.AddScoped<INotificationDispatcher, SandboxCapturingNotificationDispatcher>();
         services.AddScoped<IProcessRuntime, ProcessRuntime>();
         services.AddScoped<IProcessQueryService, ProcessQueryService>();
+
+        // PR-K4: Process Admin intervention surface — sits beside the runtime
+        // and reuses the same DbContext so admin overrides land in the same
+        // EF unit-of-work as the regular runtime mutations they trigger.
+        services.AddScoped<IProcessAdminInterventionService, ProcessAdminInterventionService>();
 
         // PR-K3: Process Simulator — drives the live runtime against a chosen
         // flow code with delete-on-finally cleanup so simulation leaves no

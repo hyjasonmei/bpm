@@ -32,19 +32,19 @@
 
 ## 5. Live cases
 
-- [ ] 5.1 LiveCasesList with table + filters (spec, age, breach)
-- [ ] 5.2 LiveCaseDetail with flowchart + history feed + open tasks + admin actions
-- [ ] 5.3 Polling 30s list / 15s detail
+- [x] 5.1 LiveCasesList with table + filters (spec, age, breach) — `IProcessQueryService.GetActiveCasesAsync` + `GET /api/admin/process-admin/cases/active` + `LiveCases.tsx`
+- [~] 5.2 LiveCaseDetail with flowchart + history feed + open tasks + admin actions — drawer + recent-history pane + per-task action buttons. Active-node highlighting deferred (BpmnDiagram has no `highlightNodeIds` prop yet); we surface "Currently at: <nodeId>" inline as the brief allowed.
+- [x] 5.3 Polling 30s list / 15s detail — `usePolling` hook, paused on `document.visibilityState === 'hidden'`
 
 ## 6. Admin intervention
 
-- [ ] 6.1 Backend endpoints in `ProcessAdminController.cs`:
-  - `POST /api/admin/tasks/{id}/force-reassign` body `{ newAssigneeUserId, reason }`
-  - `POST /api/admin/tasks/{id}/force-return` body `{ targetNodeId, reason }`
-  - `POST /api/admin/tasks/{id}/force-submit` body `{ formDataPatch?, decision?, reason }`
-  - `POST /api/admin/processes/{id}/terminate` body `{ reason }`
-- [ ] 6.2 Each writes TaskHistory with `ActorUserId = admin user id, actor_role = 'admin'` (extend payload JSON), mandatory reason
-- [ ] 6.3 Frontend modal flows for each action
+- [x] 6.1 Backend endpoints in `ProcessAdminController.cs` (path drift: nested under `/api/admin/process-admin/...` to inherit the existing `[Authorize(Roles="admin")]` controller gate):
+  - `POST /api/admin/process-admin/tasks/{id}/force-reassign` body `{ newAssigneeUserId, reason }`
+  - `POST /api/admin/process-admin/tasks/{id}/force-return` body `{ targetNodeId, reason }`
+  - `POST /api/admin/process-admin/tasks/{id}/force-submit` body `{ formDataPatch?, decision?, reason }`
+  - `POST /api/admin/process-admin/processes/{id}/terminate` body `{ reason }`
+- [x] 6.2 Each writes TaskHistory with `ActorUserId = admin user id` and `actorRole = "admin"` in PayloadJson; mandatory non-whitespace `reason`. Re-uses existing `HistoryEventType` values (TaskClaimed / TaskReturned / TaskSubmitted / InstanceCancelled) — no enum addition needed.
+- [x] 6.3 Frontend modal flows: ReassignModal (user dropdown via `/api/sandbox/personas`) / ReturnModal (node-id dropdown derived from spec snapshot) / SubmitModal (decision + JSON patch) / TerminateModal (TYPE 'TERMINATE' guard).
 
 ## 7. Completed cases
 

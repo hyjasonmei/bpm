@@ -3,7 +3,11 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using Bpm.Api.Admin.ProcessAdmin;
+using Bpm.Application.Process.Admin;
+using Bpm.Application.Process.Runtime.Dtos;
+using Bpm.Application.Process.Runtime.Queries;
 using Bpm.Application.Process.Simulator;
+using Bpm.Domain.Entities.Process;
 using Bpm.Domain.Entities.Spec;
 using Bpm.Persistence;
 using Bpm.Persistence.Interceptors;
@@ -212,7 +216,9 @@ public sealed class ProcessAdminControllerTests : IDisposable
             })
             .Build();
         var controller = new ProcessAdminController(
-            db, config, new ThrowingSimulator(), NullLogger<ProcessAdminController>.Instance);
+            db, config, new ThrowingSimulator(),
+            new ThrowingQueryService(), new ThrowingInterventionService(),
+            NullLogger<ProcessAdminController>.Instance);
         controller.ControllerContext = new ControllerContext { HttpContext = HttpContextFor(AdminId) };
         return controller;
     }
@@ -310,6 +316,40 @@ public sealed class ProcessAdminControllerTests : IDisposable
     {
         public Task<SimulationResult> SimulateAsync(SimulationRequest req, CancellationToken ct = default)
             => throw new InvalidOperationException("ThrowingSimulator: not configured for this test");
+    }
+
+    /// <summary>
+    /// PR-K4: definitions tests don't exercise LiveCases / intervention.
+    /// Throwing stubs make any accidental routing through these surfaces
+    /// loud rather than silently no-op (matching the ThrowingSimulator
+    /// pattern above).
+    /// </summary>
+    private sealed class ThrowingQueryService : IProcessQueryService
+    {
+        public Task<ProcessInstanceDto> GetInstanceAsync(Guid instanceId, Guid requesterUserId, CancellationToken ct = default)
+            => throw new InvalidOperationException("ThrowingQueryService: not configured for this test");
+        public Task<HistoryPage> GetHistoryPageAsync(Guid instanceId, Guid requesterUserId, string? cursor, int limit, CancellationToken ct = default)
+            => throw new InvalidOperationException("ThrowingQueryService: not configured for this test");
+        public Task<IReadOnlyList<ProcessTaskDto>> GetMineAsync(Guid requesterUserId, string status, int limit, CancellationToken ct = default)
+            => throw new InvalidOperationException("ThrowingQueryService: not configured for this test");
+        public Task<TaskWithFormDto> GetTaskAsync(Guid taskId, Guid requesterUserId, CancellationToken ct = default)
+            => throw new InvalidOperationException("ThrowingQueryService: not configured for this test");
+        public Task<IReadOnlyList<ActiveCaseDto>> GetActiveCasesAsync(string? specCode = null, int? maxAgeDays = null, bool breachOnly = false, int limit = 100, CancellationToken ct = default)
+            => throw new InvalidOperationException("ThrowingQueryService: not configured for this test");
+        public Task<LiveCaseDetailDto> GetCaseDetailAsync(Guid instanceId, int historyLimit = 20, CancellationToken ct = default)
+            => throw new InvalidOperationException("ThrowingQueryService: not configured for this test");
+    }
+
+    private sealed class ThrowingInterventionService : IProcessAdminInterventionService
+    {
+        public Task ForceReassignAsync(Guid taskId, Guid newAssigneeUserId, string reason, Guid actorUserId, CancellationToken ct = default)
+            => throw new InvalidOperationException("ThrowingInterventionService: not configured for this test");
+        public Task ForceReturnAsync(Guid taskId, string targetNodeId, string reason, Guid actorUserId, CancellationToken ct = default)
+            => throw new InvalidOperationException("ThrowingInterventionService: not configured for this test");
+        public Task ForceSubmitAsync(Guid taskId, JsonElement? formDataPatch, Decision? decision, string reason, Guid actorUserId, CancellationToken ct = default)
+            => throw new InvalidOperationException("ThrowingInterventionService: not configured for this test");
+        public Task TerminateAsync(Guid instanceId, string reason, Guid actorUserId, CancellationToken ct = default)
+            => throw new InvalidOperationException("ThrowingInterventionService: not configured for this test");
     }
 
     private void WriteFilesystemSpec(string flowCode, int version)

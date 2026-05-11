@@ -1,9 +1,15 @@
 using System.Text.Json;
 using Bpm.Api.Common;
+using Bpm.Application.Common.Exceptions;
+using Bpm.Application.Process.Admin;
+using Bpm.Application.Process.Runtime.Dtos;
+using Bpm.Application.Process.Runtime.Queries;
 using Bpm.Application.Process.Simulator;
 using Bpm.Application.Spec.Bundle;
+using Bpm.Domain.Entities.Process;
 using Bpm.Domain.Entities.Spec;
 using Bpm.Persistence;
+using FluentValidation.Results;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -46,6 +52,8 @@ public sealed class ProcessAdminController(
     AppDbContext db,
     IConfiguration configuration,
     IProcessSimulator simulator,
+    IProcessQueryService queryService,
+    IProcessAdminInterventionService intervention,
     ILogger<ProcessAdminController> logger) : BpmControllerBase
 {
     private const string SourceBundle = "bundle";
@@ -228,6 +236,73 @@ public sealed class ProcessAdminController(
                 InitiatorUserId: req.InitiatorUserId),
             ct);
 
+    /* ── PR-K4 §5.1 — Live Cases monitoring ── */
+
+    /// <summary>
+    /// Active (Running / Errored) process instances for the LiveCases
+    /// monitor table. Filters: <paramref name="specCode"/>, age window
+    /// (<paramref name="maxAgeDays"/> = StartedAt &gt;= now - days),
+    /// <paramref name="breachOnly"/> = restrict to instances with at least
+    /// one open task whose <c>DueAt</c> is in the past.
+    /// </summary>
+    [HttpGet("cases/active")]
+    public Task<IReadOnlyList<ActiveCaseDto>> ListActiveCases(
+        [FromQuery] string? specCode,
+        [FromQuery] int? maxAgeDays,
+        [FromQuery] bool breachOnly,
+        [FromQuery] int limit,
+        CancellationToken ct)
+        => queryService.GetActiveCasesAsync(
+            specCode: string.IsNullOrWhiteSpace(specCode) ? null : specCode,
+            maxAgeDays: maxAgeDays,
+            breachOnly: breachOnly,
+            limit: limit <= 0 ? 100 : limit,
+            ct: ct);
+
+    /// <summary>
+    /// LiveCaseDetail bundle: instance header + open tasks + most recent 20
+    /// history entries in one round-trip. Skips the initiator-only check
+    /// that <c>GET /api/processes/{id}</c> applies — admin-role gate is the
+    /// auth boundary here.
+    /// </summary>
+    [HttpGet("cases/{id:guid}")]
+    public Task<LiveCaseDetailDto> GetCaseDetail(Guid id, CancellationToken ct)
+        => queryService.GetCaseDetailAsync(id, historyLimit: 20, ct);
+
+    /* ── PR-K4 §6.1 — Admin intervention ── */
+
+    [HttpPost("tasks/{id:guid}/force-reassign")]
+    public async Task<IActionResult> ForceReassign(Guid id, [FromBody] ForceReassignRequest req, CancellationToken ct)
+    {
+        var actor = RequireUserId();
+        await intervention.ForceReassignAsync(id, req.NewAssigneeUserId, req.Reason ?? string.Empty, actor, ct);
+        return Ok(new { ok = true });
+    }
+
+    [HttpPost("tasks/{id:guid}/force-return")]
+    public async Task<IActionResult> ForceReturn(Guid id, [FromBody] ForceReturnRequest req, CancellationToken ct)
+    {
+        var actor = RequireUserId();
+        await intervention.ForceReturnAsync(id, req.TargetNodeId ?? string.Empty, req.Reason ?? string.Empty, actor, ct);
+        return Ok(new { ok = true });
+    }
+
+    [HttpPost("tasks/{id:guid}/force-submit")]
+    public async Task<IActionResult> ForceSubmit(Guid id, [FromBody] ForceSubmitRequest req, CancellationToken ct)
+    {
+        var actor = RequireUserId();
+        await intervention.ForceSubmitAsync(id, req.FormDataPatch, req.Decision, req.Reason ?? string.Empty, actor, ct);
+        return Ok(new { ok = true });
+    }
+
+    [HttpPost("processes/{id:guid}/terminate")]
+    public async Task<IActionResult> Terminate(Guid id, [FromBody] TerminateRequest req, CancellationToken ct)
+    {
+        var actor = RequireUserId();
+        await intervention.TerminateAsync(id, req.Reason ?? string.Empty, actor, ct);
+        return Ok(new { ok = true });
+    }
+
     // ===== helpers =====
 
     /// <summary>
@@ -373,3 +448,10 @@ public sealed record SimulateRequest(
     JsonElement FormData,
     SampleOrgSnapshot? SampleOrg,
     Guid? InitiatorUserId);
+
+/* ─── PR-K4 §6.1 — admin intervention request bodies ─── */
+
+public sealed record ForceReassignRequest(Guid NewAssigneeUserId, string? Reason);
+public sealed record ForceReturnRequest(string? TargetNodeId, string? Reason);
+public sealed record ForceSubmitRequest(JsonElement? FormDataPatch, Decision? Decision, string? Reason);
+public sealed record TerminateRequest(string? Reason);
