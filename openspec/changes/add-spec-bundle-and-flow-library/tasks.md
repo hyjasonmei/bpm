@@ -54,15 +54,15 @@
 
 ## 6. Backend — Flow Library REST endpoints
 
-- [ ] 6.1 Create `bpm-svc/src/Api/Admin/FlowLibrary/FlowLibraryEndpoints.cs` with `MapGroup("/api/admin/flow-library")` and an `[Admin]` auth requirement
-- [ ] 6.2 `GET /` — list bundles for tenant: returns `(id, flowCode, flowVersion, status, exportedAt, lastReproCheckAt)[]`
-- [ ] 6.3 `GET /{id}` — bundle metadata + manifest contents (no zip blob)
-- [ ] 6.4 `GET /{id}/export` — stream the zip blob with `Content-Disposition: attachment; filename={flowCode}_v{ver}.zip`
-- [ ] 6.5 `GET /{id}/files/{*path}` — stream a single file extracted from the zip (for the View tab; respects path traversal hardening)
-- [ ] 6.6 `POST /import?mode=install|draft` — multipart `.zip` upload; on `mode=install` triggers parse + validate + load + repro; on `mode=draft` parses, returns DraftSpec hydration payload (no persistence)
-- [ ] 6.7 `POST /{id}/repro-check` — re-run reproducibility on demand; updates `LastReproCheckAt` / `LastReproCheckResultJson`
-- [ ] 6.8 `DELETE /{id}` — soft-delete (set Status = SoftDeleted)
-- [ ] 6.9 Integration test: round-trip — POST import → GET list shows it → GET export downloads identical bytes (manifest checksum equal)
+- [x] 6.1 Create `bpm-svc/src/Api/Admin/FlowLibrary/FlowLibraryController.cs` with `[Route("api/admin/flow-library")]` and `[Authorize(Roles = "admin")]` (controller convention; matches `HrFlowsController` / `RolesAdminController`)
+- [x] 6.2 `GET /` — list bundles for tenant: returns `FlowLibraryItemDto[]` (id, flowCode, flowVersion, status, manifestChecksum, parentManifestChecksum, exportedAt, lastReproCheckAt, lastReproCheckSummary). Excludes SoftDeleted, ordered by ExportedAt DESC
+- [x] 6.3 `GET /{id}` — `FlowLibraryDetailDto` (summary + parsed `BundleManifest` + `ReproReport?`); 404 if not found or SoftDeleted
+- [x] 6.4 `GET /{id}/export` — stream the zip blob with `Content-Disposition: attachment; filename={flowCode}_v{ver}.zip`
+- [x] 6.5 `GET /{id}/files/{*path}` — stream a single file extracted from the zip (for the View tab; path traversal hardening + manifest membership check)
+- [x] 6.6 `POST /import?mode=install|draft` — multipart `.zip` upload; on `mode=install` triggers parse + validate + load + repro (synchronous); on `mode=draft` parses, returns `ImportDraftResult` (no persistence). Idempotent re-import returns 409 with existing id
+- [x] 6.7 `POST /{id}/repro-check` — re-run reproducibility on demand; updates `LastReproCheckAt` / `LastReproCheckResultJson` and Status
+- [x] 6.8 `DELETE /{id}` — soft-delete (set Status = SoftDeleted)
+- [x] 6.9 Integration test: round-trip — POST import → GET list shows it → GET export downloads identical bytes (manifest checksum equal). 15 controller tests under `tests/Bpm.Tests/Api/Admin/FlowLibrary/`
 
 ## 7. Frontend (`bpm-admin-ui`) — Flow Library screen
 
