@@ -144,15 +144,63 @@ public sealed class ProcessRuntime(
             }
         }
 
-        // CollectionMode coordination: if siblings (same NodeId, same instance)
-        // are still Pending/InProgress, do not advance yet.
-        var siblingOpen = await db.ProcessTasks
-            .Where(t => t.ProcessInstanceId == instance.Id && t.NodeId == task.NodeId
-                        && t.Id != task.Id
-                        && (t.Status == TaskStatus.Pending || t.Status == TaskStatus.InProgress))
-            .AnyAsync(ct);
-        if (siblingOpen)
+        // CollectionMode coordination. Default (mode='all') waits for every
+        // sibling at the same NodeId to complete before advancing. mode='any'
+        // with min_approvals=N short-circuits as soon as N approvals land
+        // (and cancels remaining open siblings) — or fails the instance if
+        // accumulating rejects would prevent reaching the threshold.
+        var collectionMode = ParseCollectionMode(task.CandidateSetJson);
+        var siblingsAll = await db.ProcessTasks
+            .Where(t => t.ProcessInstanceId == instance.Id && t.NodeId == task.NodeId)
+            .ToListAsync(ct);
+        var siblingsOpen = siblingsAll.Where(t => t.Id != task.Id
+            && (t.Status == TaskStatus.Pending || t.Status == TaskStatus.InProgress)).ToList();
+
+        if (collectionMode is { Mode: "any" } anyMode)
         {
+            var totalCount = siblingsAll.Count;
+            var approvedCount = siblingsAll.Count(t =>
+                t.Status == TaskStatus.Completed && t.Decision == Decision.Approve);
+            var rejectedCount = siblingsAll.Count(t =>
+                t.Status == TaskStatus.Completed && t.Decision == Decision.Reject);
+            var min = anyMode.Min;
+            if (approvedCount >= min)
+            {
+                // Threshold met — cancel any still-open siblings then advance.
+                foreach (var sib in siblingsOpen)
+                {
+                    sib.Status = TaskStatus.Cancelled;
+                    sib.CompletedAt = now;
+                    WriteHistory(instance.Id, sib.Id, HistoryEventType.TaskSpawned, null,
+                        JsonSerializer.Serialize(new { autoCancelledOnThresholdMet = task.Id }));
+                }
+            }
+            else if (totalCount - rejectedCount < min)
+            {
+                // Cannot reach threshold even if every remaining task approved
+                // → instance errors out.
+                instance.Status = InstanceStatus.Errored;
+                instance.LastError = $"approval threshold {min} unreachable ({rejectedCount}/{totalCount} rejected)";
+                foreach (var sib in siblingsOpen)
+                {
+                    sib.Status = TaskStatus.Cancelled;
+                    sib.CompletedAt = now;
+                }
+                await db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+                return;
+            }
+            else
+            {
+                // Still pending more approvals.
+                await db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+                return;
+            }
+        }
+        else if (siblingsOpen.Count > 0)
+        {
+            // mode='all' (or single-task): wait for siblings to finish.
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
             return;
@@ -474,7 +522,30 @@ public sealed class ProcessRuntime(
         if (success.UserIds.Count == 0)
             throw new ConflictException($"actor resolver returned no users for node '{node.Id}'");
 
-        var candidateJson = JsonSerializer.Serialize(success.UserIds);
+        // For Approval nodes, peek the (possibly conditional) ActorRef to detect
+        // a CollectionActorRef and capture its mode/min_approvals. We embed that
+        // shape into CandidateSetJson so SubmitTaskAsync can implement
+        // mode='any', min_approvals=N early-finish semantics. If no collection
+        // shape is detected we fall back to the legacy `[uid, uid, ...]` array
+        // form (which SubmitTaskAsync still understands as mode='all').
+        var formDataElems = JsonToJsonElementDict(instance.CurrentFormDataJson);
+        var collectionShape = nodeKind == NodeKind.Approval
+            ? PeekCollectionShape(actorRef, formDataElems)
+            : null;
+        string candidateJson;
+        if (collectionShape is { } shape && success.UserIds.Count > 1)
+        {
+            candidateJson = JsonSerializer.Serialize(new
+            {
+                mode = shape.Mode,
+                min = shape.Min,
+                users = success.UserIds.ToArray(),
+            });
+        }
+        else
+        {
+            candidateJson = JsonSerializer.Serialize(success.UserIds);
+        }
         var now = clock.UtcNow;
         Guid? firstTaskId = null;
         var assignees = new HashSet<Guid>();
@@ -589,6 +660,96 @@ public sealed class ProcessRuntime(
         WriteHistory(instance.Id, task.Id, HistoryEventType.TaskSpawned, null,
             JsonSerializer.Serialize(new { nodeId = node.Id, nodeKind = "ServiceTask", placeholder = true }));
         return Task.FromResult<Guid?>(task.Id);
+    }
+
+    /// <summary>
+    /// Walks a (possibly conditional) ActorRef using the current form data and
+    /// reports a <c>(mode, min)</c> shape if the effective resolved branch is
+    /// a <see cref="CollectionActorRef"/>. Used by approval spawn to pick up
+    /// <c>mode='any', min_approvals=N</c> early-finish semantics.
+    /// </summary>
+    private static (string Mode, int Min)? PeekCollectionShape(
+        ActorRef actor, IReadOnlyDictionary<string, JsonElement> formData)
+    {
+        var current = actor;
+        var hops = 0;
+        while (hops++ < 8)
+        {
+            switch (current)
+            {
+                case CollectionActorRef col:
+                    return (col.Mode, col.MinApprovals ?? col.Actors.Count);
+                case ConditionalActorRef cond:
+                    current = EvaluateActorCondition(cond.Condition, formData) ? cond.Then : cond.Else;
+                    break;
+                default:
+                    return null;
+            }
+        }
+        return null;
+    }
+
+    private static bool EvaluateActorCondition(ActorRefCondition cond,
+        IReadOnlyDictionary<string, JsonElement> formData)
+    {
+        if (!formData.TryGetValue(cond.Field, out var lhs)) return false;
+        var rhs = cond.Value;
+        return cond.Op switch
+        {
+            "==" => JsonElementsEqual(lhs, rhs),
+            "!=" => !JsonElementsEqual(lhs, rhs),
+            ">"  => CompareJsonElements(lhs, rhs) > 0,
+            ">=" => CompareJsonElements(lhs, rhs) >= 0,
+            "<"  => CompareJsonElements(lhs, rhs) < 0,
+            "<=" => CompareJsonElements(lhs, rhs) <= 0,
+            _ => false,
+        };
+    }
+
+    private static bool JsonElementsEqual(JsonElement a, JsonElement b)
+    {
+        if (a.ValueKind != b.ValueKind) return false;
+        return a.ValueKind switch
+        {
+            JsonValueKind.Number => a.GetDecimal() == b.GetDecimal(),
+            JsonValueKind.String => a.GetString() == b.GetString(),
+            JsonValueKind.True or JsonValueKind.False => a.GetBoolean() == b.GetBoolean(),
+            _ => a.GetRawText() == b.GetRawText(),
+        };
+    }
+
+    private static int CompareJsonElements(JsonElement a, JsonElement b)
+    {
+        if (a.ValueKind == JsonValueKind.Number && b.ValueKind == JsonValueKind.Number)
+            return a.GetDecimal().CompareTo(b.GetDecimal());
+        if (a.ValueKind == JsonValueKind.String && b.ValueKind == JsonValueKind.String)
+            return string.Compare(a.GetString(), b.GetString(), StringComparison.Ordinal);
+        return 0;
+    }
+
+    /// <summary>
+    /// Parses a CandidateSetJson value to extract the collection mode/min
+    /// embedded by approval spawn. Returns null for the legacy array form
+    /// (which means single-assignee or mode='all').
+    /// </summary>
+    private static (string Mode, int Min)? ParseCollectionMode(string? candidateSetJson)
+    {
+        if (string.IsNullOrWhiteSpace(candidateSetJson)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(candidateSetJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return null;
+            if (!doc.RootElement.TryGetProperty("mode", out var modeEl)
+                || modeEl.ValueKind != JsonValueKind.String) return null;
+            var mode = modeEl.GetString() ?? "all";
+            var min = doc.RootElement.TryGetProperty("min", out var minEl)
+                && minEl.ValueKind == JsonValueKind.Number ? minEl.GetInt32() : 1;
+            return (mode, min);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static ActorRef ParseSimpleSubmitter(string submitter)
