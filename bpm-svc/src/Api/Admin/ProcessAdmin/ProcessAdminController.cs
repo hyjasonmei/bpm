@@ -2,6 +2,7 @@ using System.Text.Json;
 using Bpm.Api.Common;
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Process.Admin;
+using Bpm.Application.Process.Reporting;
 using Bpm.Application.Process.Runtime.Dtos;
 using Bpm.Application.Process.Runtime.Queries;
 using Bpm.Application.Process.Simulator;
@@ -54,6 +55,7 @@ public sealed class ProcessAdminController(
     IProcessSimulator simulator,
     IProcessQueryService queryService,
     IProcessAdminInterventionService intervention,
+    IProcessReportingService reporting,
     ILogger<ProcessAdminController> logger) : BpmControllerBase
 {
     private const string SourceBundle = "bundle";
@@ -301,6 +303,62 @@ public sealed class ProcessAdminController(
         var actor = RequireUserId();
         await intervention.TerminateAsync(id, req.Reason ?? string.Empty, actor, ct);
         return Ok(new { ok = true });
+    }
+
+    /* ── PR-K5 §7.1 — Completed cases ── */
+
+    /// <summary>
+    /// Terminal (Completed / Cancelled) instances for the CompletedCases
+    /// monitor table. Cursor pagination — empty <c>nextCursor</c> means
+    /// the page is the tail.
+    /// </summary>
+    [HttpGet("cases/completed")]
+    public async Task<CompletedCasesPage> ListCompletedCases(
+        [FromQuery] string? specCode,
+        [FromQuery] DateTime? completedAfter,
+        [FromQuery] string? status,
+        [FromQuery] int limit,
+        [FromQuery] string? cursor,
+        CancellationToken ct)
+        => await queryService.GetCompletedCasesAsync(
+            specCode: string.IsNullOrWhiteSpace(specCode) ? null : specCode,
+            completedAfter: completedAfter,
+            status: string.IsNullOrWhiteSpace(status) ? null : status,
+            limit: limit <= 0 ? 100 : limit,
+            cursor: string.IsNullOrWhiteSpace(cursor) ? null : cursor,
+            ct: ct);
+
+    /* ── PR-K5 §8.4 — Reports ── */
+
+    /// <summary>
+    /// Per-spec aggregate dashboard. <paramref name="period"/> accepts
+    /// "7d" / "30d" / "90d" / "all". Cached for 5 minutes by
+    /// <see cref="CachedProcessReportingService"/>.
+    /// </summary>
+    [HttpGet("reports/per-spec")]
+    public async Task<IActionResult> PerSpecReport(
+        [FromQuery] string specCode,
+        [FromQuery] string period = "30d",
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(specCode))
+            return BadRequest(new { error = "specCode required" });
+        if (!TryParsePeriod(period, out var parsed))
+            return BadRequest(new { error = "invalid period (allowed: 7d|30d|90d|all)" });
+        var report = await reporting.GetPerSpecReportAsync(specCode, parsed, ct);
+        return Ok(report);
+    }
+
+    private static bool TryParsePeriod(string raw, out ReportPeriod period)
+    {
+        switch ((raw ?? string.Empty).Trim().ToLowerInvariant())
+        {
+            case "7d":  period = ReportPeriod.Last7Days;  return true;
+            case "30d": period = ReportPeriod.Last30Days; return true;
+            case "90d": period = ReportPeriod.Last90Days; return true;
+            case "all": period = ReportPeriod.AllTime;    return true;
+            default:    period = ReportPeriod.Last30Days; return false;
+        }
     }
 
     // ===== helpers =====

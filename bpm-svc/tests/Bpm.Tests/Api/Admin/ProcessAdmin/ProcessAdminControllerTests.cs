@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Bpm.Api.Admin.ProcessAdmin;
 using Bpm.Application.Process.Admin;
+using Bpm.Application.Process.Reporting;
 using Bpm.Application.Process.Runtime.Dtos;
 using Bpm.Application.Process.Runtime.Queries;
 using Bpm.Application.Process.Simulator;
@@ -218,6 +219,7 @@ public sealed class ProcessAdminControllerTests : IDisposable
         var controller = new ProcessAdminController(
             db, config, new ThrowingSimulator(),
             new ThrowingQueryService(), new ThrowingInterventionService(),
+            new ThrowingReportingService(),
             NullLogger<ProcessAdminController>.Instance);
         controller.ControllerContext = new ControllerContext { HttpContext = HttpContextFor(AdminId) };
         return controller;
@@ -338,6 +340,14 @@ public sealed class ProcessAdminControllerTests : IDisposable
             => throw new InvalidOperationException("ThrowingQueryService: not configured for this test");
         public Task<LiveCaseDetailDto> GetCaseDetailAsync(Guid instanceId, int historyLimit = 20, CancellationToken ct = default)
             => throw new InvalidOperationException("ThrowingQueryService: not configured for this test");
+        public Task<CompletedCasesPage> GetCompletedCasesAsync(string? specCode = null, DateTime? completedAfter = null, string? status = null, int limit = 100, string? cursor = null, CancellationToken ct = default)
+            => throw new InvalidOperationException("ThrowingQueryService: not configured for this test");
+    }
+
+    private sealed class ThrowingReportingService : IProcessReportingService
+    {
+        public Task<PerSpecReport> GetPerSpecReportAsync(string specCode, ReportPeriod period, CancellationToken ct = default)
+            => throw new InvalidOperationException("ThrowingReportingService: not configured for this test");
     }
 
     private sealed class ThrowingInterventionService : IProcessAdminInterventionService

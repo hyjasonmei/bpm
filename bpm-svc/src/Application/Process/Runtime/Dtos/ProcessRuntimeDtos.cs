@@ -92,3 +92,26 @@ public sealed record ActiveCaseDto(
 public sealed record LiveCaseDetailDto(
     ProcessInstanceDto Instance,
     IReadOnlyList<TaskHistoryDto> RecentHistory);
+
+/// <summary>
+/// PR-K5 §7.1 — terminal (Completed / Cancelled) instance row for the
+/// CompletedCases monitor. Includes a derived <see cref="CycleTime"/>
+/// (CompletedAt or CancelledAt minus StartedAt) so the table can render
+/// a friendly "2h 14m" / "3d 5h" without a second pass.
+/// </summary>
+public sealed record CompletedCaseDto(
+    Guid Id,
+    string SpecCode,
+    int SpecVersion,
+    Guid InitiatorUserId,
+    string? InitiatorEmail,
+    InstanceStatus Status,
+    DateTime StartedAt,
+    DateTime? CompletedAt,
+    DateTime? CancelledAt,
+    TimeSpan? CycleTime,
+    string? CancelReason);
+
+public sealed record CompletedCasesPage(
+    IReadOnlyList<CompletedCaseDto> Items,
+    string? NextCursor);

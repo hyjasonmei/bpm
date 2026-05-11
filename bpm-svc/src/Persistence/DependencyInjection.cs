@@ -8,6 +8,7 @@ using Bpm.Application.Impersonation;
 using Bpm.Application.Notifications;
 using Bpm.Application.Org;
 using Bpm.Application.Process.Admin;
+using Bpm.Application.Process.Reporting;
 using Bpm.Application.Process.Runtime;
 using Bpm.Application.Process.Runtime.Queries;
 using Bpm.Application.Process.Simulator;
@@ -25,6 +26,7 @@ using Bpm.Persistence.Notifications;
 using Bpm.Persistence.Org;
 using Bpm.Persistence.Process;
 using Bpm.Persistence.Process.Admin;
+using Bpm.Persistence.Process.Reporting;
 using Bpm.Persistence.Process.Simulator;
 using Bpm.Persistence.Sandbox;
 using Bpm.Persistence.Spec;
@@ -99,6 +101,17 @@ public static class DependencyInjection
         // flow code with delete-on-finally cleanup so simulation leaves no
         // rows behind in any of the runtime tables.
         services.AddScoped<IProcessSimulator, ProcessSimulator>();
+
+        // PR-K5: Reporting service. The cached wrapper sits in front of the
+        // raw aggregator with a 5-min TTL, keyed by tenant + spec + period.
+        // Memory cache is process-local — fine for the in-process runtime
+        // we ship today; once the API runs as multiple instances the cache
+        // becomes per-replica and stale-by-TTL is the (acceptable) outcome.
+        services.AddMemoryCache();
+        services.AddScoped<ProcessReportingService>();
+        services.AddScoped<IProcessReportingService>(sp => new CachedProcessReportingService(
+            (IProcessReportingService)sp.GetRequiredService<ProcessReportingService>(),
+            sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>()));
 
         // Spec Bundle runtime (PR-I4): scratch-tenant seeder + replay runner.
         services.AddScoped<IBundleRuntimeLoader, BundleRuntimeLoader>();

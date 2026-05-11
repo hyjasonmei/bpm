@@ -241,6 +241,141 @@ public sealed class ProcessQueryService(AppDbContext db, IClock clock) : IProces
         return rows;
     }
 
+    public async Task<CompletedCasesPage> GetCompletedCasesAsync(
+        string? specCode = null,
+        DateTime? completedAfter = null,
+        string? status = null,
+        int limit = 100,
+        string? cursor = null,
+        CancellationToken ct = default)
+    {
+        var clamped = Math.Clamp(limit, 1, 500);
+
+        // Status filter: default = both Completed + Cancelled.
+        var normalized = (status ?? string.Empty).ToLowerInvariant();
+        var includeCompleted = normalized != "cancelled";
+        var includeCancelled = normalized != "completed";
+        if (!includeCompleted && !includeCancelled)
+        {
+            // Belt-and-suspenders — current parser can't fall here, but a
+            // future "all=false" misuse would otherwise return an inscrutable
+            // empty list. Restore the default both-status behaviour.
+            includeCompleted = true;
+            includeCancelled = true;
+        }
+
+        var query = db.ProcessInstances.AsNoTracking()
+            .Where(i => i.Status == InstanceStatus.Completed || i.Status == InstanceStatus.Cancelled);
+
+        if (includeCompleted && !includeCancelled)
+            query = query.Where(i => i.Status == InstanceStatus.Completed);
+        else if (!includeCompleted && includeCancelled)
+            query = query.Where(i => i.Status == InstanceStatus.Cancelled);
+
+        if (!string.IsNullOrWhiteSpace(specCode))
+            query = query.Where(i => i.SpecCode == specCode);
+
+        if (completedAfter is DateTime after)
+        {
+            // Apply against whichever terminal timestamp the row carries.
+            var afterUtc = after.Kind switch
+            {
+                DateTimeKind.Utc => after,
+                DateTimeKind.Local => after.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(after, DateTimeKind.Utc),
+            };
+            query = query.Where(i =>
+                (i.CompletedAt != null && i.CompletedAt >= afterUtc) ||
+                (i.CancelledAt != null && i.CancelledAt >= afterUtc));
+        }
+
+        // Cursor encodes (TerminalAt|Id) — descending sort means the cursor
+        // selects rows with TerminalAt < ts OR (TerminalAt == ts AND Id > id).
+        DateTime? cursorTs = null;
+        Guid? cursorId = null;
+        if (!string.IsNullOrWhiteSpace(cursor))
+        {
+            var parts = cursor.Split('|', 2);
+            if (parts.Length != 2
+                || !DateTime.TryParseExact(parts[0], "O", CultureInfo.InvariantCulture,
+                       DateTimeStyles.RoundtripKind, out var parsedTs)
+                || !Guid.TryParse(parts[1], out var parsedId))
+                throw new ConflictException("invalid cursor");
+            cursorTs = parsedTs.Kind switch
+            {
+                DateTimeKind.Utc => parsedTs,
+                DateTimeKind.Local => parsedTs.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(parsedTs, DateTimeKind.Utc),
+            };
+            cursorId = parsedId;
+        }
+
+        // Pull the candidate set (overfetched) and project the terminal
+        // timestamp client-side. EF/SQLite chokes on a per-row CASE inside an
+        // ORDER BY when nullable DateTime is involved, and the terminal-cases
+        // set is bounded enough that this is fine.
+        var candidates = await query.ToListAsync(ct);
+        var ordered = candidates
+            .Select(i => new
+            {
+                Instance = i,
+                TerminalAt = i.CompletedAt ?? i.CancelledAt ?? i.StartedAt,
+            })
+            .OrderByDescending(x => x.TerminalAt).ThenByDescending(x => x.Instance.Id)
+            .ToList();
+
+        if (cursorTs is not null && cursorId is not null)
+        {
+            var ts = cursorTs.Value;
+            var id = cursorId.Value;
+            // Strict tuple "less than" for descending order: (TerminalAt < ts)
+            // OR (TerminalAt == ts AND Id < id).
+            ordered = ordered.Where(x =>
+                x.TerminalAt < ts
+                || (x.TerminalAt == ts && x.Instance.Id.CompareTo(id) < 0))
+                .ToList();
+        }
+
+        var page = ordered.Take(clamped + 1).ToList();
+        string? nextCursor = null;
+        if (page.Count > clamped)
+        {
+            var last = page[clamped - 1];
+            nextCursor = $"{last.TerminalAt.ToString("O", CultureInfo.InvariantCulture)}|{last.Instance.Id}";
+            page = page.Take(clamped).ToList();
+        }
+
+        // Resolve initiator emails in one round-trip.
+        var initiatorIds = page.Select(p => p.Instance.InitiatorUserId).Distinct().ToList();
+        var emails = await db.Users.AsNoTracking()
+            .Where(u => initiatorIds.Contains(u.Id))
+            .Select(u => new { u.Id, u.Email })
+            .ToListAsync(ct);
+        var emailLookup = emails.ToDictionary(u => u.Id, u => u.Email);
+
+        var rows = page.Select(p =>
+        {
+            var i = p.Instance;
+            emailLookup.TryGetValue(i.InitiatorUserId, out var initEmail);
+            DateTime? terminalAt = i.CompletedAt ?? i.CancelledAt;
+            TimeSpan? cycle = terminalAt is DateTime t ? t - i.StartedAt : null;
+            return new CompletedCaseDto(
+                Id: i.Id,
+                SpecCode: i.SpecCode,
+                SpecVersion: i.SpecVersion,
+                InitiatorUserId: i.InitiatorUserId,
+                InitiatorEmail: initEmail,
+                Status: i.Status,
+                StartedAt: i.StartedAt,
+                CompletedAt: i.CompletedAt,
+                CancelledAt: i.CancelledAt,
+                CycleTime: cycle,
+                CancelReason: i.CancelReason);
+        }).ToList();
+
+        return new CompletedCasesPage(rows, nextCursor);
+    }
+
     public async Task<LiveCaseDetailDto> GetCaseDetailAsync(
         Guid instanceId,
         int historyLimit = 20,

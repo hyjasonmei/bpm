@@ -48,22 +48,22 @@
 
 ## 7. Completed cases
 
-- [ ] 7.1 CompletedCasesList with cycle time metrics
-- [ ] 7.2 Filters + pagination
-- [ ] 7.3 PDF export per case (deferred to add-pdf-export proposal — scaffold the button + 'coming soon')
+- [x] 7.1 CompletedCasesList with cycle time metrics — `IProcessQueryService.GetCompletedCasesAsync` + `GET /api/admin/process-admin/cases/completed` + `CompletedCases.tsx`. Cycle time formatted "2h 14m" / "3d 5h" client-side.
+- [x] 7.2 Filters + pagination — spec dropdown, terminal-after date picker, status (completed only / cancelled only / both); cursor pagination via "Load more" using composite `{TerminalAt}|{Id}` cursor (matches history-page pattern).
+- [~] 7.3 PDF export per case (deferred to add-pdf-export proposal) — scaffolded a disabled `<PdfExportButton>` per row with a tooltip pointing at the future proposal.
 
 ## 8. Reports
 
-- [ ] 8.1 Backend `IProcessReportingService` aggregating per-spec stats
-- [ ] 8.2 Caching: 5-min TTL keyed by `{tenant}_{spec}_{period}`
-- [ ] 8.3 Cache invalidation on InstanceCompleted / InstanceCancelled events
-- [ ] 8.4 Endpoints: `GET /api/admin/reports/per-spec?spec_code=&period=30d`
-- [ ] 8.5 ReportsDashboard UI: stat cards + cycle time histogram + bottleneck analysis + per-assignee load
-- [ ] 8.6 CSV / PDF export
+- [x] 8.1 Backend `IProcessReportingService` aggregating per-spec stats — `ProcessReportingService` projects `ProcessInstances` + `ProcessTasks` + `Users` into `PerSpecReport` (totals, percentiles, breach count/rate, bottlenecks, assignee loads, cycle-time histogram). Percentiles computed in-memory via linear interpolation; bounded set sizes (per-spec) make this acceptable for v1.
+- [x] 8.2 Caching: 5-min TTL keyed by `{tenant}_{spec}_{period}` — `CachedProcessReportingService` wraps the inner aggregator with `IMemoryCache` (built-in ASP.NET Core dep, added `Microsoft.Extensions.Caching.Memory` to Persistence.csproj).
+- [~] 8.3 Cache invalidation — TTL-based only for v1. Event-based invalidation deferred until the runtime grows an internal event bus; the 5-min staleness window is acceptable for the dashboard use case (no real-time monitoring expectation; LiveCases is the live view).
+- [x] 8.4 Endpoints: `GET /api/admin/process-admin/reports/per-spec?specCode=&period=` (path drift: nested under the existing `process-admin` controller so the `[Authorize(Roles="admin")]` gate covers it). Period parser accepts `7d`/`30d`/`90d`/`all`; bad values → 400.
+- [x] 8.5 ReportsDashboard UI: stat cards + cycle time histogram + bottleneck analysis + per-assignee load — `Reports.tsx`. Histogram is inline SVG (no chart lib).
+- [~] 8.6 CSV / PDF export — CSV implemented in-browser (one row per metric, three sub-sections). PDF deferred behind the same `add-pdf-export` proposal scaffold.
 
 ## 9. Flow notification audit
 
-- [ ] 9.1 FlowNotificationAudit page filtering NotificationDispatchAudits by spec_code
+- [x] 9.1 FlowNotificationAudit page — `FlowNotifications.tsx` queries `/api/sandbox/captured?channel=` and joins to spec via active+completed case lookups. v1 boundary documented in-page: "currently shows captured notifications from sandbox runs; production notification audit ships in a future change". A first-class `NotificationDispatchAudit` table is deferred to a future proposal coupling notification engine + audit (proposal explicitly does NOT add the table per the K5 brief).
 
 ## 10. End-to-end verification
 

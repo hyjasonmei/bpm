@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Bpm.Api.Admin.ProcessAdmin;
 using Bpm.Application.Process.Admin;
+using Bpm.Application.Process.Reporting;
 using Bpm.Application.Process.Runtime.Dtos;
 using Bpm.Application.Process.Runtime.Queries;
 using Bpm.Application.Process.Simulator;
@@ -158,6 +159,7 @@ public sealed class SimulateEndpointTests : IDisposable
             .Build();
         var controller = new ProcessAdminController(db, config, sim,
             new ThrowingQueryService(), new ThrowingInterventionService(),
+            new ThrowingReportingService(),
             NullLogger<ProcessAdminController>.Instance);
         controller.ControllerContext = new ControllerContext
         {
@@ -200,6 +202,14 @@ public sealed class SimulateEndpointTests : IDisposable
         public Task<IReadOnlyList<ActiveCaseDto>> GetActiveCasesAsync(string? specCode = null, int? maxAgeDays = null, bool breachOnly = false, int limit = 100, CancellationToken ct = default)
             => throw new InvalidOperationException("not configured for this test");
         public Task<LiveCaseDetailDto> GetCaseDetailAsync(Guid instanceId, int historyLimit = 20, CancellationToken ct = default)
+            => throw new InvalidOperationException("not configured for this test");
+        public Task<CompletedCasesPage> GetCompletedCasesAsync(string? specCode = null, DateTime? completedAfter = null, string? status = null, int limit = 100, string? cursor = null, CancellationToken ct = default)
+            => throw new InvalidOperationException("not configured for this test");
+    }
+
+    private sealed class ThrowingReportingService : IProcessReportingService
+    {
+        public Task<PerSpecReport> GetPerSpecReportAsync(string specCode, ReportPeriod period, CancellationToken ct = default)
             => throw new InvalidOperationException("not configured for this test");
     }
 

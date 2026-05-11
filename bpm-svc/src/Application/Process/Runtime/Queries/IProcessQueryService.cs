@@ -50,4 +50,24 @@ public interface IProcessQueryService
         Guid instanceId,
         int historyLimit = 20,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// PR-K5 §7.1 — terminal (Completed / Cancelled) instances for the
+    /// CompletedCases admin table. Cursor pagination uses the same
+    /// <c>{TerminalAt}|{Id}</c> composite cursor pattern as
+    /// <see cref="GetHistoryPageAsync"/> so concurrent terminations sharing
+    /// a millisecond don't drop or duplicate rows.
+    /// </summary>
+    /// <param name="status">
+    /// "completed" → only <see cref="InstanceStatus.Completed"/>;
+    /// "cancelled" → only <see cref="InstanceStatus.Cancelled"/>;
+    /// any other value (incl. null) → both terminal kinds.
+    /// </param>
+    Task<CompletedCasesPage> GetCompletedCasesAsync(
+        string? specCode = null,
+        DateTime? completedAfter = null,
+        string? status = null,
+        int limit = 100,
+        string? cursor = null,
+        CancellationToken ct = default);
 }

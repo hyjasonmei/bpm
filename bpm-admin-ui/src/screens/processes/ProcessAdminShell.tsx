@@ -17,11 +17,13 @@ import {
   FileText, Pencil, Play, Activity, CheckCircle, BarChart, Bell,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
-import { ComingSoon } from './ComingSoon'
 import { DefinitionsList } from './DefinitionsList'
 import { Designer } from './Designer'
 import { Simulator } from './Simulator'
 import { LiveCases } from './LiveCases'
+import { CompletedCases } from './CompletedCases'
+import { Reports } from './Reports'
+import { FlowNotifications } from './FlowNotifications'
 
 export type ProcessAdminSection =
   | 'definitions'
@@ -136,25 +138,10 @@ function SectionBody({ section, designerFlowCode, openDesignerFor, onJumpToSimul
     case 'live-cases':
       return <LiveCases />
     case 'completed-cases':
-      return (
-        <ComingSoon
-          section="Completed Cases"
-          note="Terminal ProcessInstances + cycle-time metrics — ships in PR-K5."
-        />
-      )
+      return <CompletedCases />
     case 'reports':
-      return (
-        <ComingSoon
-          section="Reports"
-          note="Aggregate stats + bottleneck analysis — ships in PR-K5."
-        />
-      )
+      return <Reports />
     case 'flow-notifications':
-      return (
-        <ComingSoon
-          section="Flow Notifications"
-          note="Notification dispatch audit, filterable by spec — ships in PR-K5."
-        />
-      )
+      return <FlowNotifications />
   }
 }

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Bpm.Api.Admin.ProcessAdmin;
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Process.Admin;
+using Bpm.Application.Process.Reporting;
 using Bpm.Application.Process.Runtime.Commands;
 using Bpm.Application.Process.Runtime.Queries;
 using Bpm.Application.Process.Simulator;
@@ -221,6 +222,7 @@ public sealed class InterventionEndpointTests : IDisposable
         var controller = new ProcessAdminController(
             db, config, new ThrowingSimulator(),
             query, intervention,
+            new ThrowingReportingService(),
             NullLogger<ProcessAdminController>.Instance);
         controller.ControllerContext = new ControllerContext { HttpContext = HttpContextFor(AdminId) };
         return controller;
@@ -239,6 +241,12 @@ public sealed class InterventionEndpointTests : IDisposable
     private sealed class ThrowingSimulator : IProcessSimulator
     {
         public Task<SimulationResult> SimulateAsync(SimulationRequest req, CancellationToken ct = default)
+            => throw new InvalidOperationException("not used in intervention tests");
+    }
+
+    private sealed class ThrowingReportingService : IProcessReportingService
+    {
+        public Task<PerSpecReport> GetPerSpecReportAsync(string specCode, ReportPeriod period, CancellationToken ct = default)
             => throw new InvalidOperationException("not used in intervention tests");
     }
 }

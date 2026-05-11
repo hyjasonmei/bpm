@@ -287,3 +287,96 @@ export const forceSubmit = (taskId: string, body: ForceSubmitBody) =>
 
 export const terminateInstance = (instanceId: string, body: TerminateBody) =>
   postOk(`/api/admin/process-admin/processes/${encodeURIComponent(instanceId)}/terminate`, body)
+
+/* ─── PR-K5 §7.1: Completed Cases ──────────────────────────────── */
+
+export interface CompletedCaseDto {
+  id: string
+  specCode: string
+  specVersion: number
+  initiatorUserId: string
+  initiatorEmail: string | null
+  status: 'Completed' | 'Cancelled' | string
+  startedAt: string
+  completedAt: string | null
+  cancelledAt: string | null
+  /** Backend writes this as `00:34:21.5` (TimeSpan). */
+  cycleTime: string | null
+  cancelReason: string | null
+}
+
+export interface CompletedCasesPage {
+  items: CompletedCaseDto[]
+  nextCursor: string | null
+}
+
+export interface CompletedCasesQuery {
+  specCode?: string | null
+  /** Filter to instances with completedAt OR cancelledAt at/after this UTC ISO string. */
+  completedAfter?: string | null
+  /** "completed" / "cancelled" / null (= both). */
+  status?: 'completed' | 'cancelled' | null
+  limit?: number
+  cursor?: string | null
+}
+
+export async function listCompletedCases(q: CompletedCasesQuery = {}): Promise<CompletedCasesPage> {
+  const params = new URLSearchParams()
+  if (q.specCode) params.set('specCode', q.specCode)
+  if (q.completedAfter) params.set('completedAfter', q.completedAfter)
+  if (q.status) params.set('status', q.status)
+  if (q.limit != null && q.limit > 0) params.set('limit', String(q.limit))
+  if (q.cursor) params.set('cursor', q.cursor)
+  const qs = params.toString()
+  const res = await apiFetch(
+    `/api/admin/process-admin/cases/completed${qs ? `?${qs}` : ''}`,
+  )
+  return jsonOrThrow<CompletedCasesPage>(res)
+}
+
+/* ─── PR-K5 §8.4: Reports ──────────────────────────────────────── */
+
+export type ReportPeriodToken = '7d' | '30d' | '90d' | 'all'
+
+export interface NodeBottleneckDto {
+  nodeId: string
+  avgWaitTimeHours: number
+  completedCount: number
+}
+
+export interface AssigneeLoadDto {
+  userId: string
+  email: string | null
+  openTasks: number
+  completedTasks: number
+  avgTaskTimeHours: number
+}
+
+export interface CycleTimeBucketDto {
+  range: string
+  count: number
+}
+
+export interface PerSpecReportDto {
+  specCode: string
+  /** Backend serializes the enum as the int value (Last7Days=7, etc.) by default. */
+  period: number | string
+  totalStarted: number
+  totalCompleted: number
+  totalCancelled: number
+  totalRunning: number
+  avgCycleTimeHours: number
+  p50CycleTimeHours: number
+  p90CycleTimeHours: number
+  breachCount: number
+  breachRate: number
+  bottlenecks: NodeBottleneckDto[]
+  assigneeLoads: AssigneeLoadDto[]
+  cycleTimeHistogram: CycleTimeBucketDto[]
+}
+
+export async function getPerSpecReport(specCode: string, period: ReportPeriodToken = '30d'): Promise<PerSpecReportDto> {
+  const params = new URLSearchParams({ specCode, period })
+  const res = await apiFetch(`/api/admin/process-admin/reports/per-spec?${params}`)
+  return jsonOrThrow<PerSpecReportDto>(res)
+}
