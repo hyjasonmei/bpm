@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\Application\Application.csproj" />
     <ProjectReference Include="..\..\src\Persistence\Persistence.csproj" />
     <ProjectReference Include="..\..\src\Api\Api.csproj" />
+    <ProjectReference Include="..\..\src\SeedCli\SeedCli.csproj" />
   </ItemGroup>
 
 </Project>

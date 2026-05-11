@@ -4,6 +4,7 @@
     <Project Path="src/Application/Application.csproj" />
     <Project Path="src/Domain/Domain.csproj" />
     <Project Path="src/Persistence/Persistence.csproj" />
+    <Project Path="src/SeedCli/SeedCli.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bpm.Tests/Bpm.Tests.csproj" />

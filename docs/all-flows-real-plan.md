@@ -250,7 +250,32 @@ A 在 3 天內可拿出「全部走真 runtime」的 demo；B 等 form-runtime-r
 3. **Admin persona 的 Home stat cards 沒有真正的 cross-user 計數**：今天唯一的 admin 看版是 `/api/admin/process-admin/cases/active`（admin gated）。PR-L3 v1 admin 仍看自己的數據，cross-tenant roll-up 是 add-real-reporting 的事。
 4. **`MOCK_CASES` 不刪**：Attendance.tsx / 一些舊截圖 view 仍 import；移除是另一個整理 PR。
 
-### PR-L4: SeedCli console app
+### PR-L4: SeedCli console app — ✅ DONE 2026-05-11
+
+**狀態：** 完成。新 project `bpm-svc/src/SeedCli/SeedCli.csproj` 提供 `reset / seed / status / help` 四個 command。`PersonaSeedService` 取代舊的 `OrgFixture`（13 users / 6 departments / 全 flow-scoped roles），`Program.cs` startup 與 SeedCli 共用同一份 seed service。
+
+#### 主要產出
+- `bpm-svc/src/Persistence/Seed/PersonaSeedService.cs` — 取代 `OrgFixture`。13 users / 6 departments / 14 roles（含 legacy admin/designer/viewer/hr + 新的 tenant_admin/manager/HR/Finance/IT/Admin/Purchase/VP/CEO/hr_admin/it_admin），所有 step 都 idempotent（natural key: User.Email / Department.Code / Role.Code / (RoleId, PrincipalId)）。
+- `bpm-svc/src/SeedCli/`（含 Commands / Fixtures / Services 子資料夾）— args parsing 走純 `string[]`，沒引入 System.CommandLine。
+- `bpm-svc/src/SeedCli/Services/BundleInstaller.cs` — 共用 install primitive：build → parse → 寫 `SpecBundle{Status=Pending}`，依 `ManifestChecksum` 唯一索引 idempotent。FlowLibraryController.Import 之後若要走「不跑 repro 直接 install」也可以用同一支。
+- `bpm-svc/src/SeedCli/Fixtures/BundleSeedFixture.cs` — 從 seed 出來的 org snapshot 出 `SampleOrgSnapshot`，spec.json 自帶的 `testCases[]` 抽成 `TestCaseSnapshot[]`（兼容 `expectedTrace` / `expectedPath` 兩種命名），對 `sample_specs/*.json` 全部走 install。
+- `Api/appsettings.Development.json` Personas 從 `*@bpm.local` 改為 `*@acme.test`，對齊新 seed。
+- `bpm-svc.slnx` 加入 `SeedCli.csproj`；`bpm-svc/CLAUDE.md` 加 SeedCli usage section。
+
+#### 測試
+- `tests/Bpm.Tests/SeedCli/PersonaSeedServiceTests.cs` — 6 個（13/6 計數、idempotent、manager chain、HR/Finance/IT/Admin/VP/CEO/tenant_admin assignments、department head 設定）。
+- `tests/Bpm.Tests/SeedCli/BundleSeedFixtureTests.cs` — 4 個（全 spec install / rerun no duplicate / row 寫入正確 / 無 user 時 throw）。
+- `tests/Bpm.Tests/SeedCli/ResetCommandTests.cs` — 3 個（既有檔案 reset / 全新檔案 reset / TryExtractSqliteFile 解析）。
+- 全測試 278 → 291 全綠（`dotnet test bpm-svc/bpm-svc.slnx`）。
+
+#### 寫過程的小決策
+1. **Roles 全 RoleScope.System**：spec ActorRef 用 role code 直接查，OrgChartReader 的查詢用 `Scope == System || (Scope == Flow && FlowCode == flowCode)`。System 一份覆蓋全部 flow，比 Flow-scoped 11 個都各 seed 一份簡潔。
+2. **legacy hr / admin / designer / viewer 仍 seed**：`PersonaSwitchTests` 等測試硬編這些 code，刪了會炸。新 13 users 是 superset，舊 role 也指派給對應的新 persona（admin → jason_test+ceo / hr → mary+hr_lead / etc.）。
+3. **不重用 FlowLibraryController.Import**：那條路會跑 repro（slow + brittle），SeedCli 只要「row 寫好 Status=Pending」即可，repro 留給 user 在 Flow Library UI 手動觸發。BundleInstaller 是兩邊未來都能共用的 primitive。
+4. **Program.TryExtractSqliteFile 故意留 public + static**：給 ResetCommandTests 直接驗證 connection string parsing 邏輯，省 helper 重複。
+5. **Bundle 沒有 BPMN xml**：用 placeholder `<bpmn:definitions/>`，等 Phase 2 form-runtime-rendering / canvas redesign 才需要真實 diagram。
+6. **沒 deprecation 期**：直接刪 `OrgFixture.cs` 而非 `[Obsolete]`，consumer 只剩 `Program.cs` 一處（已更新）。`ProcessSimulator.cs` 雖然 mention "OrgFixture" 在 comment 但實際沒 import，更新 comment 不必。
+7. **`appsettings.json`（非 Development）的 connection key 是 `Default`，OrgFixture 之前的 Program.cs 走 `BPM_SEED_ON_STARTUP=true` default → dev**：SeedCli 的 host builder 用 `IConfiguration.GetConnectionString("Default")` 同一條，預設讀 `bpm-svc/src/Api/bpm.db`。
 
 新 project `bpm-svc/src/SeedCli/SeedCli.csproj`（控制台，引用 Persistence + Application）。
 

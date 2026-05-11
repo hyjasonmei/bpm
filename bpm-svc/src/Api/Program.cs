@@ -387,7 +387,7 @@ using (var scope = app.Services.CreateScope())
         var seedOnStartup = (Environment.GetEnvironmentVariable("BPM_SEED_ON_STARTUP")
             ?? (app.Environment.IsDevelopment() ? "true" : "false")).ToLowerInvariant() == "true";
         if (seedOnStartup)
-            await OrgFixture.RunAsync(db, logger);
+            await PersonaSeedService.RunAsync(db, logger);
     }
     catch (Exception ex)
     {

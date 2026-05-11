@@ -121,3 +121,40 @@ ActorRef into a list of concrete user ids using `IOrgChartReader`. Every
 top-level `ResolveAsync` call writes one `ActorResolutionAudit` row with the
 input ref, the resolved user ids, and any error kind — the audit table is
 the runtime-side source of truth for "why did this approver get picked".
+
+## SeedCli console app (PR-L4)
+
+Located at `src/SeedCli/`. Entry: `dotnet run --project bpm-svc/src/SeedCli -- <command>`.
+
+Common workflows:
+
+- Fresh dev environment with full demo state:
+  `dotnet run --project bpm-svc/src/SeedCli -- reset && dotnet run --project bpm-svc/src/SeedCli -- seed --include-bundles`
+- After branch switch (idempotent):
+  `dotnet run --project bpm-svc/src/SeedCli -- seed`
+- Health check:
+  `dotnet run --project bpm-svc/src/SeedCli -- status`
+
+The `seed` command extends what `Program.cs` does at startup when
+`BPM_SEED_ON_STARTUP=true`. Both call `PersonaSeedService.RunAsync` so the
+13-user persona shape (departments, users, roles, role assignments) stays
+consistent regardless of how the DB was bootstrapped.
+
+`--include-bundles` builds & installs every `sample_specs/*.json` as a
+`SpecBundle` row in `Status = Pending`. **Repro is NOT run automatically**
+— it requires sandbox + per-spec test cases that drive the runtime
+end-to-end, which is too slow / brittle for SeedCli. Open Flow Library and
+click "Repro Check" per bundle to verify, or hit
+`POST /api/admin/flow-library/{id}/repro-check` directly.
+
+The CLI reads `bpm-svc/src/Api/appsettings.json` for the SQLite
+connection string (so the dev server and the CLI share one DB) and
+honours a `--connection "Data Source=..."` override for tests / one-off
+inspection. Sample-specs path defaults to `<repo>/sample_specs/` —
+override with `--sample-specs <dir>`.
+
+`PersonaSeedService` (in `Bpm.Persistence.Seed`) replaced the older
+`OrgFixture`. The 13 users + 6 departments + flow-scoped roles cover every
+routing path in the 11 demo flows. Persona email mapping in
+`appsettings.Development.json` was migrated from `*@bpm.local` →
+`*@acme.test` to match the new fixture.
