@@ -2,17 +2,17 @@
 
 ## 1. Domain entities
 
-- [ ] 1.1 Create `bpm-svc/src/Domain/Entities/Sandbox/SandboxCapturedMessage.cs` (inherits AuditableEntity): Id, TenantId, ProcessInstanceId?, TaskId?, Channel (Email/Webhook/Sms enum), IntendedRecipientsJson, Subject?, BodyHtml?, BodyText?, Url?, HeadersJson?, PayloadJson?, EventType?, Body?, CapturedAt, ReadByUserIdsJson, OriginatingNotificationId?, OriginatingWebhookSubscriptionId?, IsFakeOk
+- [x] 1.1 Create `bpm-svc/src/Domain/Entities/Sandbox/SandboxCapturedMessage.cs` (inherits AuditableEntity): Id, TenantCode, ProcessInstanceId?, TaskId?, Channel (Email/Webhook/Sms enum), IntendedRecipientsJson, Subject?, BodyHtml?, BodyText?, Url?, HeadersJson?, PayloadJson?, EventType?, Body?, CapturedAt, ReadByUserIdsJson, OriginatingNotificationId?, OriginatingWebhookSubscriptionId? (PR-J1; IsFakeOk deferred to PR-J2 with the gate change)
 - [ ] 1.2 Extend `Domain/Entities/Sandbox/TenantSettings.cs` with `SandboxClockOffsetSeconds (long)` defaulting to 0
 - [ ] 1.3 Create `Domain/Entities/Sandbox/SandboxClockEvent.cs` audit row: Id, TenantId, ActorUserId, OldOffsetSeconds, NewOffsetSeconds, ChangedAt, Action (Advance|Reset)
 
 ## 2. Persistence — EF configuration + migrations
 
-- [ ] 2.1 Create `Persistence/Configurations/Sandbox/SandboxCapturedMessageConfiguration.cs`: index (TenantId, CapturedAt DESC), (ProcessInstanceId, CapturedAt), (Channel, CapturedAt)
+- [x] 2.1 Create `Persistence/Configurations/Sandbox/SandboxCapturedMessageConfiguration.cs`: indexes `(TenantCode, CapturedAt DESC)`, `(TenantCode, Channel, CapturedAt DESC)`, `(ProcessInstanceId, CapturedAt DESC)`, `(EventType, CapturedAt DESC)` (PR-J1)
 - [ ] 2.2 Create `Persistence/Configurations/Sandbox/SandboxClockEventConfiguration.cs`: index (TenantId, ChangedAt DESC)
-- [ ] 2.3 Add `DbSet<SandboxCapturedMessage>` and `DbSet<SandboxClockEvent>` to `AppDbContext`
-- [ ] 2.4 Generate migration: `dotnet ef migrations add AddSandboxCaptureAndClock`
-- [ ] 2.5 Apply locally; verify schema with `sqlite3 bpm-svc/src/Api/bpm.db .schema "SandboxCapturedMessages"` and similar
+- [x] 2.3 Add `DbSet<SandboxCapturedMessage>` to `AppDbContext` (PR-J1; `SandboxClockEvent` DbSet deferred until §1.3 lands)
+- [x] 2.4 Generate migration: `dotnet ef migrations add AddSandboxCapturedMessages` (PR-J1; clock-event migration follows in a later PR)
+- [x] 2.5 Apply locally; verified schema with `sqlite3 bpm-svc/src/Api/bpm.db ".schema SandboxCapturedMessages"` (PR-J1)
 
 ## 3. IOutboundGate — capture semantics
 
