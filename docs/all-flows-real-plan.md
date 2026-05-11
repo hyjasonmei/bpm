@@ -159,16 +159,60 @@ A 在 3 天內可拿出「全部走真 runtime」的 demo；B 等 form-runtime-r
 
 驗收：每隻 spec 都通過 `BundleReproducibilityRunner`。
 
-### PR-L2: useFlowSubmit hook + task 模式 form
+### PR-L2: useFlowSubmit hook + task 模式 form — ✅ DONE 2026-05-11
 
-新增：
-- `bpm-ui/src/hooks/useFlowSubmit.ts` — `submit(flowCode, formData)` → 起一個 instance
-- `bpm-ui/src/hooks/useFlowTask.ts` — `submitTask(taskId, decision, comment)` → 推進
-- 11 個 form 加 `mode?: 'create' | 'task'` + `taskId?` props
-  - `create` 模式：原本行為 + 提交時打 useFlowSubmit
-  - `task` 模式：fields 變唯讀（從 task.MergedFormData 讀）+ 顯示 Approve/Reject/Return + Comment 區
+**狀態：** 完成。11 個 form 全部支援 `mode?: 'create' | 'task'` + `taskId?` + `onSubmitted?` 三個 runtime props。
 
-替換掉 workflow.ts 裡的 mock `STEP/PERSONA` 切換邏輯（仍保留作為 demo onboarding 提示）。
+#### 新增 hook
+- `bpm-ui/src/hooks/useFlowSubmit.ts` — `submit(specCode, formData)` → 包 `POST /api/processes`，回傳 `{ instanceId, firstTaskId }`，pending/error state 給 UI 用。
+- `bpm-ui/src/hooks/useFlowTask.ts` — 載入 `getTask(id)` snapshot + `submit/return/claim` actions。
+- `bpm-ui/src/hooks/useFormRuntime.tsx` — combined wrapper，每隻 form 用同一個 hook 處理 create vs task mode、toast 顯示、所有 action 包 try/catch + onSubmitted callback。
+
+#### FormShell ActionBar 擴展
+- 新增 `mode?: 'create' | 'task'` prop。
+- 新增 `nodeKind?: NodeKind` prop（task mode 用來決定 Approve/Reject vs Submit）。
+- 新增 `pending?: boolean` 控制 disabled state + spinner。
+- 新增 `onApprove(comment)` / `onReject(comment)` / `onReturnTask(comment)` callbacks。
+- 內建 CommentDialog（用 Textarea + danger/default 按鈕，Reject/Return 強制需要 comment，Approve 為 optional）。
+- create mode 行為完全保留（debug jump-to-step bar 也只在 create mode 顯示）。
+
+#### 11 個 form 改動
+| Form | 主要欄位 → spec field id 對應 |
+|------|------------------------------|
+| LeaveForm | `leave_type, date_range.{start,end}, days, reason` |
+| GEEForm | `category, expense_date, amount, currency, invoice_no, description` (帶 UI category → spec enum 的 mapping helper) |
+| GEVForm | `vendor_name, vendor_tax_id, invoice_no, invoice_date, category, amount, currency, vat_rate, description, invoice_file` |
+| APEForm | `advance_amount, currency, purpose, expected_spend_date, expected_settle_date, charge_dept` |
+| HWPForm | `category, item_name, spec, qty, shipping_loc, purpose, expected_date` (HW_CATS / PURPOSES 字面值 → spec enum mapping) |
+| ITPRView | `category, item_name, vendor_name, spec, estimated_amount, currency`；任務型節點 (`task_it_spec/quote/confirm/finance_po`) 透過 `nodeId` 切換顯示對應的 input panel |
+| TEOView | `trq_no, destination, purpose, travel_dates, actual_amount, total_amount, expense_breakdown, receipts`；任務型 finance_confirm/finance_review 各自 panel |
+| TRQView | `destination, purpose, travel_dates, transport, estimated_amount, needs_pickup, pickup_address`；admin notify task 顯示 `booking_status + admin_note` |
+| EXTOBView | `first_name, last_name, business_title, company, onboard_date, department, needs_mailbox, contract_*`；HR account task 顯示 `ad_login + account_created + ticket_no + hr_note` |
+| ResignForm | task mode 走新 spec runtime 的 `expected_last_day, reason_category, reason_detail, handover_to, handover_items`；create mode 仍走 legacy HrFlowsController（兩條路並存） |
+| DeptxForm | task mode 走新 spec runtime 的 `current_department, target_department, effective_date, reason, salary_impact, new_manager`；create mode 走 legacy HrFlowsController |
+
+#### 4 個原本是純 read-only view 的 form（EXTOBView / ITPRView / TEOView / TRQView）
+- 決定：**直接 promote 為 dual-mode form**（不開新檔案）。理由：原本 view 只是寫死的 closed case 截圖，沒有實質互動價值；換成 spec-driven editable form 同時支援 create + task mode，覆蓋面更廣。命名暫時保留 `*View.tsx` 避免改 import 路徑（PR-L3 整理 inbox 時可以一起改名 → `*Form.tsx`）。
+
+#### App.tsx plumbing
+- `Screen` type 加入可選 `taskId?: string`：`{ kind: 'form'; code: FormCode; taskId?: string }`。
+- App.tsx 對 11 個 form 全部 pass `mode={taskId ? 'task' : 'create'}`、`taskId`、`onSubmitted={() => 回 home}`。
+- 真正的 inbox routing 留給 PR-L3。
+
+#### Demo guard
+- workflow.ts FORMS map 保留（label / 中文名 / step list 給 stepper 用），符合計劃「Don't deprecate workflow.ts FORMS map」。
+- Form 內部的 `STEP/PERSONA` 切換邏輯：create mode 仍可用（debug jump bar）；task mode 隱藏並由 runtime 提供 nodeKind。
+
+#### 測試
+- bpm-ui 沒有 vitest/jest 設定，按指示**不引入新 test framework**。
+- `tsc -p tsconfig.app.json --noEmit` 全綠。
+- `dotnet test bpm-svc.slnx` 仍 275/275 全綠（沒動 backend）。
+
+#### 寫過程的小決策
+1. `useFormRuntime` 改成 `.tsx`（含 FlowToast component），把 toast / error handling 集中在一處，11 個 form 都用同一個 hook 就好。
+2. ResignForm / DeptxForm 在 component entry 早期 `if (mode === 'task') return <TaskMode>`，保留 legacy HrFlowsController 路徑於 create mode，符合「兩條路並存」決策。
+3. GEE/GEV/HWP 的 UI category 字串（`'Internet Access, ADSL'` 等）跟 spec 的 enum (`'business' | 'misc'` 等) 不一致，加 mapping helper 兩邊轉換；React state 維持原樣（不重命名變數）。
+4. `task.task.nodeId` 用來決定多步 task 表單顯示哪一段 panel（ITPRView / TEOView / TRQView / EXTOBView 都這樣處理），避免每個 task 都開一個 component。
 
 ### PR-L3: bpm-ui Inbox 整合
 

@@ -5,7 +5,7 @@ import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { Input, Textarea, Select, Field, InfoBanner } from '@/components/ui/form'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { FormShell } from './FormShell'
+import { FormShell, ActionBar } from './FormShell'
 import { PERSONAS, type PersonaCode } from '@/lib/role'
 import { DEPARTMENTS } from '@/lib/mocks'
 import {
@@ -15,6 +15,7 @@ import {
   HrFlowStatus, HrFlowStep, HrFlowActionType,
   type HrFlowInstanceDto, type HrFlowSummaryDto,
 } from '@/types/hrFlows'
+import { FlowToast, useFormRuntime, type FormRuntimeProps } from '@/hooks/useFormRuntime'
 
 interface DeptxFormFields {
   currentDepartment: string
@@ -23,9 +24,18 @@ interface DeptxFormFields {
   reason: string
 }
 
-interface DeptxFormProps { persona: PersonaCode }
+interface DeptxFormProps extends FormRuntimeProps { persona: PersonaCode }
 
-export function DeptxForm({ persona }: DeptxFormProps) {
+/**
+ * Department transfer flow. Same dual-implementation pattern as ResignForm:
+ * legacy HrFlowsController for create mode, ProcessRuntime via deptx_v1.json
+ * for inbox-driven task mode.
+ */
+export function DeptxForm({ persona, ...rt }: DeptxFormProps) {
+  const runtime = useFormRuntime('DEPTX', rt)
+  if (runtime.mode === 'task') {
+    return <DeptxTaskMode persona={persona} runtime={runtime} />
+  }
   const myDept = PERSONAS[persona].user.dept
   const empty: DeptxFormFields = useMemo(() => ({
     currentDepartment: myDept,
@@ -382,4 +392,51 @@ function stepLabel(s: number): string {
     case HrFlowStep.Closed: return 'Closed'
   }
   return ''
+}
+
+function DeptxTaskMode({ persona, runtime }: {
+  persona: PersonaCode
+  runtime: ReturnType<typeof useFormRuntime>
+}) {
+  const fd = (runtime.task?.mergedFormData ?? {}) as {
+    current_department?: string
+    target_department?: string
+    effective_date?: string
+    reason?: string
+    salary_impact?: string
+    new_manager?: string
+  }
+
+  return (
+    <FormShell code="DEPTX" activeStep={0} setActiveStep={() => {}} persona={persona} copySelector={false} mode="task">
+      <FlowToast message={runtime.toast} />
+      {runtime.taskLoading && <SectionCard><div className="px-4 py-3 text-sm text-ink-muted">Loading task…</div></SectionCard>}
+      {runtime.taskError && <SectionCard><div className="px-4 py-3 text-sm text-danger">Load failed: {runtime.taskError}</div></SectionCard>}
+
+      <SectionCard>
+        <SectionTitle>Department Transfer Detail / 異動資訊</SectionTitle>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-3 p-4">
+          <Field label="Current Department"><Input value={fd.current_department ?? ''} readOnly /></Field>
+          <Field label="Target Department"><Input value={fd.target_department ?? ''} readOnly /></Field>
+          <Field label="Effective Date"><Input value={fd.effective_date ?? ''} readOnly /></Field>
+          <Field label="Salary Impact"><Input value={fd.salary_impact ?? ''} readOnly /></Field>
+          <Field label="New Manager"><Input value={fd.new_manager ?? ''} readOnly /></Field>
+          <div className="col-span-2"><Field label="Reason"><Textarea rows={2} value={fd.reason ?? ''} readOnly /></Field></div>
+        </div>
+      </SectionCard>
+
+      <ActionBar
+        code="DEPTX"
+        activeStep={0}
+        persona={persona}
+        mode="task"
+        nodeKind={runtime.task?.task.nodeKind}
+        pending={runtime.pending}
+        onSubmit={() => { void runtime.submitUserTask() }}
+        onApprove={c => { void runtime.approve(c) }}
+        onReject={c => { void runtime.reject(c) }}
+        onReturnTask={c => { void runtime.returnTask(c) }}
+      />
+    </FormShell>
+  )
 }

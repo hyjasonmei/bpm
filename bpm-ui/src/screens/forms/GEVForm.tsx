@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { cn, fmtNTD, fmtUSD } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { FormShell, ActionBar } from './FormShell'
 import { CHARGE_OPTS, CURRENCIES, GEV_CATS, PAYMENT_TERMS, VAT_RATES } from '@/lib/mocks'
 import type { PersonaCode } from '@/lib/role'
 import { Plus as PlusIcon, Copy as CopyIcon, Trash2 as TrashIcon } from 'lucide-react'
+import { FlowToast, useFormRuntime, type FormRuntimeProps } from '@/hooks/useFormRuntime'
 
 interface GEVLine {
   id: number
@@ -43,13 +44,20 @@ const newInvoice = (): GEVInvoice => ({
   lines: [newLine()],
 })
 
-export function GEVForm({ persona }: { persona: PersonaCode }) {
-  const [activeStep, setActiveStep] = useState(0)
+interface GEVFormProps extends FormRuntimeProps {
+  persona: PersonaCode
+}
+
+export function GEVForm({ persona, ...rt }: GEVFormProps) {
+  const runtime = useFormRuntime('GEV', rt)
+  const isTaskMode = runtime.mode === 'task'
+
   const [vendor, setVendor] = useState('V97162640 - 關貿網路股份有限公司')
   const [isNewVendor, setIsNewVendor] = useState(false)
   const [payTerm, setPayTerm] = useState<string>('Current month')
   const [useContract, setUseContract] = useState(true)
   const [contractNo, setContractNo] = useState('190116-AP-0003')
+  const [vendorTaxId, setVendorTaxId] = useState('')
   const [invoices, setInvoices] = useState<GEVInvoice[]>([{
     id: 1, date: '', no: '', currency: 'NTD', vat: '5%',
     lines: [{
@@ -59,6 +67,40 @@ export function GEVForm({ persona }: { persona: PersonaCode }) {
       category: 'Outside service', description: 'GUI2.0 傳輸服務費用 - May, 2025',
     }],
   }])
+
+  // Hydrate from task snapshot (collapse to first invoice / first line)
+  useEffect(() => {
+    if (!isTaskMode || !runtime.task) return
+    const fd = (runtime.task.mergedFormData ?? {}) as {
+      vendor_name?: string
+      vendor_tax_id?: string
+      invoice_no?: string
+      invoice_date?: string
+      category?: string
+      amount?: number | string
+      currency?: string
+      vat_rate?: string
+      description?: string
+    }
+    if (fd.vendor_name) setVendor(fd.vendor_name)
+    if (fd.vendor_tax_id) setVendorTaxId(fd.vendor_tax_id)
+    setInvoices([{
+      id: 1,
+      date: fd.invoice_date ?? '',
+      no: fd.invoice_no ?? '',
+      currency: fd.currency === 'TWD' ? 'NTD' : (fd.currency ?? 'NTD'),
+      vat: fd.vat_rate ? `${fd.vat_rate}%` : '5%',
+      lines: [{
+        id: 1,
+        chargeTo: 'TWT.1746G - Elton Yang',
+        project: '',
+        recharge: false,
+        amount: fd.amount !== undefined ? String(fd.amount) : '',
+        category: mapCategoryFromSpec(fd.category) ?? 'Outside service',
+        description: fd.description ?? '',
+      }],
+    }])
+  }, [isTaskMode, runtime.task])
 
   const addInv = () => setInvoices(p => [...p, newInvoice()])
   const delInv = (id: number) => { if (invoices.length > 1) setInvoices(p => p.filter(i => i.id !== id)) }
@@ -82,10 +124,30 @@ export function GEVForm({ persona }: { persona: PersonaCode }) {
   const vatAmt = (inv: GEVInvoice) => Math.round(subtotal(inv) * (parseFloat(inv.vat) / 100))
   const invTotal = (inv: GEVInvoice) => subtotal(inv) + vatAmt(inv)
   const grandTotal = invoices.reduce((s, inv) => s + invTotal(inv), 0)
-  const isReadOnly = activeStep > 0
+  const isReadOnly = isTaskMode
+
+  /** Map first invoice/line to spec gev_v1.json fields. */
+  function toSpecPayload() {
+    const inv = invoices[0]
+    const line = inv.lines[0]
+    return {
+      vendor_name: vendor,
+      vendor_tax_id: vendorTaxId || undefined,
+      invoice_no: inv.no,
+      invoice_date: inv.date,
+      category: mapCategoryToSpec(line.category),
+      amount: Number(line.amount || 0),
+      currency: inv.currency === 'NTD' ? 'TWD' : inv.currency,
+      vat_rate: inv.vat.replace('%', ''),
+      description: line.description,
+      invoice_file: 'invoice.pdf',
+    }
+  }
 
   return (
-    <FormShell code="GEV" activeStep={activeStep} setActiveStep={setActiveStep} persona={persona}>
+    <FormShell code="GEV" activeStep={0} setActiveStep={() => {}} persona={persona} mode={runtime.mode}>
+      <FlowToast message={runtime.toast} />
+
       {/* Vendor / Payment block */}
       <SectionCard>
         <div className="grid grid-cols-2 gap-5 p-4">
@@ -248,13 +310,44 @@ export function GEVForm({ persona }: { persona: PersonaCode }) {
         </SectionCard>
       </div>
 
-      <ActionBar code="GEV" activeStep={activeStep} persona={persona}
-        onSubmit={() => setActiveStep(s => s + 1)}
-        onApprove={() => setActiveStep(s => s + 1)}
-        onReject={() => setActiveStep(0)}
+      <ActionBar code="GEV" activeStep={0} persona={persona}
+        mode={runtime.mode}
+        nodeKind={runtime.task?.task.nodeKind}
+        pending={runtime.pending}
+        onSubmit={() => {
+          if (isTaskMode) { void runtime.submitUserTask(); return }
+          const inv = invoices[0]
+          const line = inv.lines[0]
+          if (!inv.no || !inv.date || !Number(line.amount) || !line.description.trim()) {
+            runtime.fireToast('Invoice no, date, amount and description are required.')
+            return
+          }
+          void runtime.submitCreate(toSpecPayload())
+        }}
+        onApprove={c => { void runtime.approve(c) }}
+        onReject={c => { void runtime.reject(c) }}
+        onReturnTask={c => { void runtime.returnTask(c) }}
       />
     </FormShell>
   )
+}
+
+function mapCategoryToSpec(uiCategory: string): string {
+  const lc = uiCategory.toLowerCase()
+  if (lc.includes('outside') || lc.includes('service')) return 'outside_service'
+  if (lc.includes('supplies') || lc.includes('material')) return 'supplies'
+  if (lc.includes('rent')) return 'rental'
+  return 'other'
+}
+
+function mapCategoryFromSpec(specCategory: string | undefined): string | null {
+  if (!specCategory) return null
+  switch (specCategory) {
+    case 'outside_service': return 'Outside service'
+    case 'supplies': return GEV_CATS.find(c => c.toLowerCase().includes('supplies')) ?? GEV_CATS[0]
+    case 'rental': return GEV_CATS.find(c => c.toLowerCase().includes('rent')) ?? GEV_CATS[0]
+    default: return GEV_CATS[GEV_CATS.length - 1]
+  }
 }
 
 function SmallAct({ Icon, label, tone, onClick, disabled }: {

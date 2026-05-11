@@ -1,23 +1,23 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Calendar as CalendarIcon, Paperclip, UserCheck } from 'lucide-react'
 
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { Input, Textarea, Select, Field, InfoBanner } from '@/components/ui/form'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { FormShell, ActionBar } from './FormShell'
-import { FORMS } from '@/lib/workflow'
 import { PERSONAS, type PersonaCode } from '@/lib/role'
 import { MOCK_LEAVE_BALANCES, MOCK_USERS } from '@/lib/mocks'
+import { FlowToast, useFormRuntime, type FormRuntimeProps } from '@/hooks/useFormRuntime'
 
 const LEAVE_TYPES = [
-  { id: 'annual',     en: 'Annual',     zh: '特休' },
-  { id: 'sick',       en: 'Sick',       zh: '病假' },
-  { id: 'personal',   en: 'Personal',   zh: '事假' },
-  { id: 'marriage',   en: 'Marriage',   zh: '婚假' },
-  { id: 'bereavement',en: 'Bereavement',zh: '喪假' },
-  { id: 'maternity',  en: 'Maternity',  zh: '產假' },
-  { id: 'paternity',  en: 'Paternity',  zh: '陪產假' },
-  { id: 'other',      en: 'Other',      zh: '其他' },
+  { id: '特休',  en: 'Annual',     zh: '特休' },
+  { id: '病假',  en: 'Sick',       zh: '病假' },
+  { id: '事假',  en: 'Personal',   zh: '事假' },
+  { id: '婚假',  en: 'Marriage',   zh: '婚假' },
+  { id: '喪假',  en: 'Bereavement',zh: '喪假' },
+  { id: '產假',  en: 'Maternity',  zh: '產假' },
+  { id: '陪產假',en: 'Paternity',  zh: '陪產假' },
+  { id: '公假',  en: 'Other',      zh: '公假' },
 ] as const
 
 const HALF_DAY_OPTS = [
@@ -26,14 +26,16 @@ const HALF_DAY_OPTS = [
   { id: 'pm',   label: 'Half day (PM) / 下午半天' },
 ] as const
 
-interface LeaveFormProps { persona: PersonaCode }
+interface LeaveFormProps extends FormRuntimeProps {
+  persona: PersonaCode
+}
 
-export function LeaveForm({ persona }: LeaveFormProps) {
-  const def = FORMS.LEAVE
-  const [activeStep, setActiveStep] = useState(def.initialActive)
+export function LeaveForm({ persona, ...rt }: LeaveFormProps) {
+  const runtime = useFormRuntime('LEAVE', rt)
+  const isTaskMode = runtime.mode === 'task'
 
-  // Form fields
-  const [leaveType, setLeaveType] = useState<string>('annual')
+  // Form fields (in task mode, populated from runtime.task.mergedFormData and read-only)
+  const [leaveType, setLeaveType] = useState<string>('特休')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
   const [halfDay, setHalfDay] = useState<'full' | 'am' | 'pm'>('full')
@@ -41,41 +43,65 @@ export function LeaveForm({ persona }: LeaveFormProps) {
   const [proxy, setProxy] = useState<string>('')
   const [contact, setContact] = useState('')
 
-  // Manager step fields
+  // Hydrate from runtime task snapshot
+  useEffect(() => {
+    if (!isTaskMode || !runtime.task) return
+    const fd = (runtime.task.mergedFormData ?? {}) as {
+      leave_type?: string
+      date_range?: { start?: string; end?: string }
+      reason?: string
+    }
+    if (fd.leave_type) setLeaveType(fd.leave_type)
+    if (fd.date_range?.start) setStart(fd.date_range.start)
+    if (fd.date_range?.end) setEnd(fd.date_range.end)
+    if (fd.reason) setReason(fd.reason)
+  }, [isTaskMode, runtime.task])
+
+  // Manager step fields (create-mode demo only)
   const [managerComment, setManagerComment] = useState('')
 
-  // Toast / dialog
-  const [toast, setToast] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<null | { title: string; titleZh?: string; description?: string; tone?: 'danger' | 'default'; onConfirm: () => void }>(null)
 
   const totalDays = useMemo(() => calcWorkingDays(start, end, halfDay), [start, end, halfDay])
   const validRange = !start || !end ? null : new Date(start).getTime() <= new Date(end).getTime()
   const days = validRange === false ? null : totalDays
 
-  const fireToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2400) }
+  // Read-only when we're in task mode (the runtime owns the form data) — independent of step
+  const fieldsReadOnly = isTaskMode
 
-  const goNext = () => setActiveStep(s => Math.min(def.steps.length - 1, s + 1))
-  const goReject = () => { fireToast('Returned to applicant — they will revise & re-submit'); setActiveStep(0) }
+  // The legacy demo's per-step active highlight; in task mode we just show step 1 (or
+  // the runtime task's nodeId if it maps cleanly — keep simple for now).
+  const activeStep = isTaskMode ? 0 : 0
+
+  /** Build the JSON payload that matches sample_specs/leave_v1.json field ids. */
+  function toSpecPayload() {
+    return {
+      leave_type: leaveType,
+      date_range: { start, end },
+      days: days ?? 0,
+      reason,
+      // Optional fields — included for downstream use even if spec marks them optional
+      half_day: halfDay,
+      proxy_user: proxy || undefined,
+      contact_during_leave: contact || undefined,
+    }
+  }
 
   return (
-    <FormShell code="LEAVE" activeStep={activeStep} setActiveStep={setActiveStep} persona={persona}>
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-lg bg-slate-800 px-4 py-2.5 text-sm text-white shadow-2xl">
-          {toast}
-        </div>
-      )}
+    <FormShell code="LEAVE" activeStep={activeStep} setActiveStep={() => {}} persona={persona} mode={runtime.mode}>
+      <FlowToast message={runtime.toast} />
 
       {/* APPLY step content (always rendered for visibility — read-only after submit) */}
       <SectionCard>
         <SectionTitle>Leave Detail / 假別資訊</SectionTitle>
         <div className="grid grid-cols-3 gap-4 p-5">
           <Field label="Leave Type / 假別" required>
-            <Select value={leaveType} onChange={e => setLeaveType(e.target.value)} disabled={activeStep > 0}>
+            <Select value={leaveType} onChange={e => setLeaveType(e.target.value)} disabled={fieldsReadOnly}>
               {LEAVE_TYPES.map(t => <option key={t.id} value={t.id}>{t.en} / {t.zh}</option>)}
             </Select>
           </Field>
           <Field label="Half day option / 假時長度">
-            <Select value={halfDay} onChange={e => setHalfDay(e.target.value as 'full' | 'am' | 'pm')} disabled={activeStep > 0}>
+            <Select value={halfDay} onChange={e => setHalfDay(e.target.value as 'full' | 'am' | 'pm')} disabled={fieldsReadOnly}>
               {HALF_DAY_OPTS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
             </Select>
           </Field>
@@ -88,18 +114,18 @@ export function LeaveForm({ persona }: LeaveFormProps) {
           </Field>
           <Field label="Start date / 開始日期" required>
             <div className="relative">
-              <Input type="date" value={start} onChange={e => setStart(e.target.value)} readOnly={activeStep > 0} />
+              <Input type="date" value={start} onChange={e => setStart(e.target.value)} readOnly={fieldsReadOnly} />
               <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
             </div>
           </Field>
           <Field label="End date / 結束日期" required>
             <div className="relative">
-              <Input type="date" value={end} onChange={e => setEnd(e.target.value)} readOnly={activeStep > 0} />
+              <Input type="date" value={end} onChange={e => setEnd(e.target.value)} readOnly={fieldsReadOnly} />
               <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
             </div>
           </Field>
           <Field label="Contact during leave / 假期聯絡方式" hint="Phone, email, or 'unreachable'">
-            <Input value={contact} onChange={e => setContact(e.target.value)} placeholder="e.g. +886 9xx xxx xxx / WeChat: ..." readOnly={activeStep > 0} />
+            <Input value={contact} onChange={e => setContact(e.target.value)} placeholder="e.g. +886 9xx xxx xxx / WeChat: ..." readOnly={fieldsReadOnly} />
           </Field>
         </div>
 
@@ -110,14 +136,14 @@ export function LeaveForm({ persona }: LeaveFormProps) {
               value={reason}
               onChange={e => setReason(e.target.value)}
               placeholder="e.g. 家庭旅遊 / Family trip with kids during school break"
-              readOnly={activeStep > 0}
+              readOnly={fieldsReadOnly}
             />
           </Field>
         </div>
 
         <div className="grid grid-cols-2 gap-4 border-t border-rule px-5 py-4">
           <Field label="Proxy / Delegated approver during leave / 代理人">
-            <Select value={proxy} onChange={e => setProxy(e.target.value)} disabled={activeStep > 0}>
+            <Select value={proxy} onChange={e => setProxy(e.target.value)} disabled={fieldsReadOnly}>
               <option value="">— Select a colleague —</option>
               {MOCK_USERS.filter(u => u.role === 'employee' && u.id !== 'wilson').map(u => (
                 <option key={u.id} value={u.id}>{u.name} — {u.dept.split(' - ')[1] ?? u.dept}</option>
@@ -128,7 +154,7 @@ export function LeaveForm({ persona }: LeaveFormProps) {
             <label className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-dashed border-rule bg-white px-3 text-sm text-ink-muted hover:bg-slate-50">
               <Paperclip className="h-3.5 w-3.5" />
               Click or drop file here (≤ 10MB)
-              <input type="file" className="hidden" disabled={activeStep > 0} />
+              <input type="file" className="hidden" disabled={fieldsReadOnly} />
             </label>
           </Field>
         </div>
@@ -149,8 +175,8 @@ export function LeaveForm({ persona }: LeaveFormProps) {
         </SectionCard>
       )}
 
-      {/* Manager step — comment + decision */}
-      {activeStep === 1 && persona === 'manager' && (
+      {/* Manager step — create-mode demo only (task mode collects comment via ActionBar dialog) */}
+      {!isTaskMode && persona === 'manager' && (
         <SectionCard>
           <SectionTitle>
             <span className="inline-flex items-center gap-2"><UserCheck className="h-4 w-4 text-amber-600" /> Manager Decision / 主管簽核</span>
@@ -158,7 +184,7 @@ export function LeaveForm({ persona }: LeaveFormProps) {
           <div className="space-y-3 p-5">
             <p className="text-sm text-ink-muted">
               Reviewing on behalf of <span className="font-semibold">{PERSONAS.manager.user.name}</span>.
-              You can <strong className="text-good">approve</strong>, <strong className="text-amber-600">return</strong> for revision, or <strong className="text-danger">reject</strong>.
+              In create mode this is a visual mock — the runtime drives real decisions when opened from inbox.
             </p>
             <Field label="Comment to applicant / 簽核意見">
               <Textarea
@@ -172,46 +198,33 @@ export function LeaveForm({ persona }: LeaveFormProps) {
         </SectionCard>
       )}
 
-      {/* HR step */}
-      {activeStep === 2 && persona === 'hr' && (
-        <SectionCard>
-          <SectionTitle>HR Record / 人資登錄</SectionTitle>
-          <div className="space-y-3 p-5">
-            <p className="text-sm text-ink-muted">
-              Manager has approved. Confirm and post to attendance system to deduct from the requestor's balance, then close.
-            </p>
-            <Field label="HR comment / 人資備註">
-              <Textarea rows={2} placeholder="Optional. Internal note for HR archive." />
-            </Field>
-          </div>
-        </SectionCard>
-      )}
-
       {/* Action bar */}
       <ActionBar
         code="LEAVE"
         activeStep={activeStep}
         persona={persona}
+        mode={runtime.mode}
+        nodeKind={runtime.task?.task.nodeKind}
+        pending={runtime.pending}
         onSubmit={() => {
-          if (days === null || !days) { fireToast('Pick a valid date range first.'); return }
-          if (!reason.trim()) { fireToast('Reason is required.'); return }
+          if (isTaskMode) {
+            void runtime.submitUserTask()
+            return
+          }
+          if (days === null || !days) { runtime.fireToast('Pick a valid date range first.'); return }
+          if (!reason.trim()) { runtime.fireToast('Reason is required.'); return }
           setConfirm({
             title: 'Submit leave request?',
             titleZh: '送出請假申請？',
             description: `${days} ${days === 1 ? 'day' : 'days'} of ${LEAVE_TYPES.find(t => t.id === leaveType)?.en} leave will be sent to your manager for approval.`,
             tone: 'default',
-            onConfirm: () => { goNext(); fireToast('Submitted. Awaiting manager approval.') },
+            onConfirm: () => { void runtime.submitCreate(toSpecPayload()) },
           })
         }}
-        onApprove={() => { goNext(); fireToast(activeStep === 1 ? 'Approved. Sent to HR.' : 'Recorded. Case closed.') }}
-        onReject={() => setConfirm({
-          title: activeStep === 1 ? 'Reject this leave?' : 'Reject and return?',
-          titleZh: '退回此申請？',
-          description: 'Applicant will be notified. They can revise and re-submit.',
-          tone: 'danger',
-          onConfirm: () => { goReject() },
-        })}
-        onClose={() => fireToast('Use the Create menu to start a fresh request.')}
+        onApprove={c => { void runtime.approve(c) }}
+        onReject={c => { void runtime.reject(c) }}
+        onReturnTask={c => { void runtime.returnTask(c) }}
+        onClose={() => runtime.fireToast('Use the Create menu to start a fresh request.')}
       />
 
       <ConfirmDialog

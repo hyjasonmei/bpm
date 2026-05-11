@@ -1,119 +1,201 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
-import { StatusBadge, Badge } from '@/components/ui/badge'
-import { ReadonlyField, HistoryLog } from '@/components/ui/readonly'
+import { Input, Select, Textarea, Field } from '@/components/ui/form'
 import { FormShell, ActionBar } from './FormShell'
 import type { PersonaCode } from '@/lib/role'
+import { FlowToast, useFormRuntime, type FormRuntimeProps } from '@/hooks/useFormRuntime'
 
-interface OnboardingTask {
-  task: string
-  details?: string
-  remark?: string
-  status: 'Complete' | 'Pending' | '-'
-  action: string
-  updated: string
+const DEPT_OPTIONS = [
+  { value: 'engineering', label: 'Engineering' },
+  { value: 'operations', label: 'Operations' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'it', label: 'IT' },
+  { value: 'hr', label: 'HR' },
+  { value: 'other', label: '其他' },
+] as const
+
+const MAILBOX_OPTIONS = [
+  { value: 'yes', label: 'Yes' },
+  { value: 'no', label: 'No' },
+] as const
+
+interface EXTOBViewProps extends FormRuntimeProps {
+  persona: PersonaCode
 }
 
-const TASKS: OnboardingTask[] = [
-  { task: 'Employee Account Setup', status: 'Complete', action: 'GSA-135272 Closed', updated: '2023/05/27 11:12 am' },
-  { task: 'Add member into DL', details: 'Member of:\nAll of AMEA Navision Admin', status: 'Complete', action: 'GSA-135275 Closed', updated: '2023/05/17 12:07 pm' },
-  { task: 'Duo', details: 'see details ↗', status: '-', action: '-', updated: '' },
-]
+/**
+ * External onboarding flow. Manager submits a request → HR creates the AD account.
+ * Per docs/all-flows-real-plan.md PR-L2: promoted from a static read-only view to
+ * a dual-mode form that can start a real ProcessRuntime instance (manager) and
+ * be opened by HR in task mode to fill in AD login + ticket details.
+ */
+export function EXTOBView({ persona, ...rt }: EXTOBViewProps) {
+  const runtime = useFormRuntime('EXTOB', rt)
+  const isTaskMode = runtime.mode === 'task'
 
-const HISTORY = [
-  { time: '2023/05/17 12:05 pm', action: 'Complete', by: 'Wilson You', dept: 'TWT.1746G - Corp IS-SaaS & Digital Business', remark: 'Created a New Account' },
-  { time: '2023/05/17 11:56 am', action: 'Submit',   by: 'Wilson You', dept: 'TWT.1746G - Corp IS-SaaS & Digital Business' },
-  { time: '2023/05/17 11:30 am', action: 'Submit',   by: 'Wilson You', dept: 'TWT.1746G - Corp IS-SaaS & Digital Business' },
-]
+  // Submit-step fields (manager-initiated)
+  const [firstName, setFirstName] = useState('Raven')
+  const [lastName, setLastName] = useState('Wang')
+  const [businessTitle, setBusinessTitle] = useState('Cloud Platform Engineer')
+  const [company, setCompany] = useState('廉誠資訊有限公司')
+  const [onboardDate, setOnboardDate] = useState('')
+  const [companyEmail, setCompanyEmail] = useState('ext_ravenw@acme')
+  const [department, setDepartment] = useState('engineering')
+  const [contractNo, setContractNo] = useState('')
+  const [contractExpiration, setContractExpiration] = useState('')
+  const [needsMailbox, setNeedsMailbox] = useState<'yes' | 'no'>('yes')
 
-export function EXTOBView({ persona }: { persona: PersonaCode }) {
-  const [activeStep, setActiveStep] = useState(2) // closed
+  // HR-step fields (account creation)
+  const [adLogin, setAdLogin] = useState('')
+  const [accountCreated, setAccountCreated] = useState<'yes' | 'no'>('yes')
+  const [ticketNo, setTicketNo] = useState('')
+  const [hrNote, setHrNote] = useState('')
+
+  useEffect(() => {
+    if (!isTaskMode || !runtime.task) return
+    const fd = (runtime.task.mergedFormData ?? {}) as Record<string, unknown>
+    if (typeof fd.first_name === 'string') setFirstName(fd.first_name)
+    if (typeof fd.last_name === 'string') setLastName(fd.last_name)
+    if (typeof fd.business_title === 'string') setBusinessTitle(fd.business_title)
+    if (typeof fd.company === 'string') setCompany(fd.company)
+    if (typeof fd.onboard_date === 'string') setOnboardDate(fd.onboard_date)
+    if (typeof fd.company_email === 'string') setCompanyEmail(fd.company_email)
+    if (typeof fd.department === 'string') setDepartment(fd.department)
+    if (typeof fd.contract_no === 'string') setContractNo(fd.contract_no)
+    if (typeof fd.contract_expiration === 'string') setContractExpiration(fd.contract_expiration)
+    if (fd.needs_mailbox === 'yes' || fd.needs_mailbox === 'no') setNeedsMailbox(fd.needs_mailbox)
+    if (typeof fd.ad_login === 'string') setAdLogin(fd.ad_login)
+    if (fd.account_created === 'yes' || fd.account_created === 'no') setAccountCreated(fd.account_created)
+    if (typeof fd.ticket_no === 'string') setTicketNo(fd.ticket_no)
+    if (typeof fd.hr_note === 'string') setHrNote(fd.hr_note)
+  }, [isTaskMode, runtime.task])
+
+  // Are we on the HR account-creation task? (UserTask kind in task mode)
+  const isHrTask = isTaskMode && runtime.task?.task.nodeId === 'task_hr_account'
+  const ro = isTaskMode && !isHrTask
+
+  function toSubmitPayload() {
+    return {
+      first_name: firstName,
+      last_name: lastName,
+      business_title: businessTitle,
+      company,
+      onboard_date: onboardDate,
+      company_email: companyEmail || undefined,
+      department,
+      contract_no: contractNo || undefined,
+      contract_expiration: contractExpiration || undefined,
+      needs_mailbox: needsMailbox,
+    }
+  }
+
+  function toHrAccountPayload() {
+    return {
+      ad_login: adLogin,
+      account_created: accountCreated,
+      ticket_no: ticketNo || undefined,
+      hr_note: hrNote || undefined,
+    }
+  }
 
   return (
-    <FormShell code="EXTOB" activeStep={activeStep} setActiveStep={setActiveStep} persona={persona} copySelector={false}>
-      <SectionCard>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-3 p-4">
-          <ReadonlyField label="Hiring Manager" value="Wilson You" />
-          <ReadonlyField label="Request Date" value="2023/05/17" />
-          <ReadonlyField label="Business Title" value="Cloud Platform Engineer" />
-          <div className="flex flex-col gap-0.5">
-            <div className="text-xs text-ink-muted">Request No.</div>
-            <div className="font-mono text-sm font-semibold text-ink">TW-EXTOB-23-000019</div>
-          </div>
-          <ReadonlyField label="Employee Location" value="APAC" />
-          <div className="flex flex-col gap-0.5">
-            <div className="text-xs text-ink-muted">Status</div>
-            <StatusBadge kind="closed" />
-          </div>
-        </div>
-      </SectionCard>
+    <FormShell code="EXTOB" activeStep={0} setActiveStep={() => {}} persona={persona} copySelector={false} mode={runtime.mode}>
+      <FlowToast message={runtime.toast} />
 
       <SectionCard>
         <SectionTitle>New Hire Info</SectionTitle>
         <div className="grid grid-cols-2 gap-x-8 gap-y-3 p-4">
-          <ReadonlyField label="First Name" value="Raven" />
-          <ReadonlyField label="Onboard Date" value="2023/05/23" />
-          <ReadonlyField label="Middle Name" value="" />
-          <ReadonlyField label="Function" value="" />
-          <ReadonlyField label="Last Name" value="Wang" />
-          <ReadonlyField label="Nationality" value="" />
-          <ReadonlyField label="Domain / Login Name" value="Trend / ext_ravenw" mono />
-          <ReadonlyField label="Require Mailbox (Teams, E3 License)" value="Yes" />
-          <ReadonlyField label="Cost Center" value="TWT.1746G - Corp IS-SaaS & Digital Business" />
+          <Field label="First Name" required>
+            <Input value={firstName} readOnly={ro} onChange={e => setFirstName(e.target.value)} />
+          </Field>
+          <Field label="Last Name" required>
+            <Input value={lastName} readOnly={ro} onChange={e => setLastName(e.target.value)} />
+          </Field>
+          <Field label="Business Title" required>
+            <Input value={businessTitle} readOnly={ro} onChange={e => setBusinessTitle(e.target.value)} />
+          </Field>
+          <Field label="Company / 派遣公司" required>
+            <Input value={company} readOnly={ro} onChange={e => setCompany(e.target.value)} />
+          </Field>
+          <Field label="Onboard Date" required>
+            <Input type="date" value={onboardDate} readOnly={ro} onChange={e => setOnboardDate(e.target.value)} />
+          </Field>
+          <Field label="Department" required>
+            <Select value={department} disabled={ro} onChange={e => setDepartment(e.target.value)}>
+              {DEPT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </Select>
+          </Field>
+          <Field label="Corp Email">
+            <Input value={companyEmail} readOnly={ro} onChange={e => setCompanyEmail(e.target.value)} />
+          </Field>
+          <Field label="Mailbox Required">
+            <Select value={needsMailbox} disabled={ro} onChange={e => setNeedsMailbox(e.target.value as 'yes' | 'no')}>
+              {MAILBOX_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </Select>
+          </Field>
         </div>
       </SectionCard>
 
       <SectionCard>
         <SectionTitle>Contract Info</SectionTitle>
         <div className="grid grid-cols-2 gap-x-8 gap-y-3 p-4">
-          <ReadonlyField label="Contract Number" value="230517-AP-0001" mono />
-          <ReadonlyField label="Contract Party" value="廉誠資訊有限公司" />
-          <ReadonlyField label="Contract Effective Date" value="2023/05/17" />
-          <ReadonlyField label="Account Expiration Date" value="2024/05/16" />
-          <ReadonlyField label="Contract Expiration Date" value="2024/05/23" />
+          <Field label="Contract Number">
+            <Input value={contractNo} readOnly={ro} onChange={e => setContractNo(e.target.value)} />
+          </Field>
+          <Field label="Contract Expiration">
+            <Input type="date" value={contractExpiration} readOnly={ro} onChange={e => setContractExpiration(e.target.value)} />
+          </Field>
         </div>
       </SectionCard>
 
-      <SectionCard>
-        <SectionTitle>Onboarding Tasks</SectionTitle>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-rule bg-slate-50">
-                {['', 'Task', 'Task Details', 'Remark', 'Status', 'Action Remark', 'Last Update Time'].map(h => (
-                  <th key={h} className="px-3 py-2 text-left text-xs font-medium text-ink-muted">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {TASKS.map((t, i) => (
-                <tr key={i} className="border-b border-slate-100">
-                  <td className="px-3 py-2.5">
-                    <input type="checkbox" checked={t.status === 'Complete'} readOnly className="h-4 w-4 accent-blue-600" />
-                  </td>
-                  <td className="px-3 py-2.5 font-medium text-ink">{t.task}</td>
-                  <td className="whitespace-pre-line px-3 py-2.5 text-xs text-ink-muted">{t.details ?? ''}</td>
-                  <td className="px-3 py-2.5 text-xs text-ink-muted">{t.remark ?? ''}</td>
-                  <td className="px-3 py-2.5">
-                    {t.status === 'Complete'
-                      ? <Badge tone="good">Complete</Badge>
-                      : <span className="text-ink-faint">-</span>}
-                  </td>
-                  <td className="px-3 py-2.5 text-xs text-blue-600">{t.action}</td>
-                  <td className="px-3 py-2.5 font-mono text-xs text-ink-muted">{t.updated}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
+      {isHrTask && (
+        <SectionCard>
+          <SectionTitle>HR — Account Creation</SectionTitle>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-3 p-4">
+            <Field label="AD Login" required>
+              <Input value={adLogin} onChange={e => setAdLogin(e.target.value)} placeholder="e.g. ext_ravenw" />
+            </Field>
+            <Field label="Account Created">
+              <Select value={accountCreated} onChange={e => setAccountCreated(e.target.value as 'yes' | 'no')}>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </Select>
+            </Field>
+            <Field label="GSA Ticket #">
+              <Input value={ticketNo} onChange={e => setTicketNo(e.target.value)} />
+            </Field>
+            <div className="col-span-2">
+              <Field label="HR Note">
+                <Textarea rows={2} value={hrNote} onChange={e => setHrNote(e.target.value)} />
+              </Field>
+            </div>
+          </div>
+        </SectionCard>
+      )}
 
-      <HistoryLog rows={HISTORY} />
-
-      <ActionBar code="EXTOB" activeStep={activeStep} persona={persona}
-        onSubmit={() => setActiveStep(s => s + 1)}
-        onApprove={() => setActiveStep(s => s + 1)}
-        onReject={() => setActiveStep(0)}
+      <ActionBar
+        code="EXTOB"
+        activeStep={0}
+        persona={persona}
+        mode={runtime.mode}
+        nodeKind={runtime.task?.task.nodeKind}
+        pending={runtime.pending}
+        onSubmit={() => {
+          if (isHrTask) {
+            if (!adLogin.trim()) { runtime.fireToast('AD Login is required.'); return }
+            void runtime.submitUserTask(toHrAccountPayload())
+            return
+          }
+          if (isTaskMode) { void runtime.submitUserTask(); return }
+          if (!firstName.trim() || !lastName.trim() || !businessTitle.trim() || !company.trim() || !onboardDate) {
+            runtime.fireToast('Name, title, company and onboard date are required.')
+            return
+          }
+          void runtime.submitCreate(toSubmitPayload())
+        }}
+        onApprove={c => { void runtime.approve(c) }}
+        onReject={c => { void runtime.reject(c) }}
+        onReturnTask={c => { void runtime.returnTask(c) }}
       />
     </FormShell>
   )

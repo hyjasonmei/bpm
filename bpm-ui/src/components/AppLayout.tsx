@@ -16,7 +16,12 @@ export type Screen =
   | { kind: 'report' }
   | { kind: 'attendance' }
   | { kind: 'sandbox-mailbox' }
-  | { kind: 'form'; code: FormCode }
+  /**
+   * Form screen. `taskId` makes it a task-mode form (read-only fields, runtime
+   * Approve/Reject/Return); without it the form is in create-mode (default).
+   * PR-L2 wires the prop plumbing; PR-L3 wires inbox click → task screen.
+   */
+  | { kind: 'form'; code: FormCode; taskId?: string }
 
 interface AppLayoutProps {
   screen: Screen

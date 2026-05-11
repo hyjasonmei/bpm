@@ -5,7 +5,7 @@ import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { Input, Textarea, Field, InfoBanner } from '@/components/ui/form'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { FormShell } from './FormShell'
+import { FormShell, ActionBar } from './FormShell'
 import type { PersonaCode } from '@/lib/role'
 import {
   startHrFlow, getHrFlow, approveHrFlow, returnHrFlow, resubmitHrFlow, cancelHrFlow, getMyHrFlowTodos,
@@ -14,6 +14,7 @@ import {
   HrFlowStatus, HrFlowStep, HrFlowActionType,
   type HrFlowInstanceDto, type HrFlowSummaryDto,
 } from '@/types/hrFlows'
+import { FlowToast, useFormRuntime, type FormRuntimeProps } from '@/hooks/useFormRuntime'
 
 interface ResignFormFields {
   expectedLastDay: string
@@ -24,9 +25,23 @@ interface ResignFormFields {
 
 const EMPTY: ResignFormFields = { expectedLastDay: '', reason: '', handover: '', note: '' }
 
-interface ResignFormProps { persona: PersonaCode }
+interface ResignFormProps extends FormRuntimeProps { persona: PersonaCode }
 
-export function ResignForm({ persona }: ResignFormProps) {
+/**
+ * Resignation flow. Phase 1 has TWO backing implementations:
+ *   - Legacy: HrFlowsController (already wired below; default for create mode).
+ *   - New:    ProcessRuntime via sample_specs/resign_v1.json (used when the
+ *             form is opened in task mode from the inbox in PR-L3).
+ *
+ * The two coexist per docs/all-flows-real-plan.md §HrFlows decision deferred.
+ */
+export function ResignForm({ persona, ...rt }: ResignFormProps) {
+  // ── PR-L2: spec-runtime path (only active when mode === 'task') ──────
+  const runtime = useFormRuntime('RESIGN', rt)
+  if (runtime.mode === 'task') {
+    return <ResignTaskMode persona={persona} runtime={runtime} />
+  }
+  // ── Existing HrFlowsController path preserved verbatim below ─────────
   const [instanceId, setInstanceId] = useState<string | null>(null)
   const [instance, setInstance] = useState<HrFlowInstanceDto | null>(null)
   const [fields, setFields] = useState<ResignFormFields>(EMPTY)
@@ -378,4 +393,57 @@ function stepLabel(s: number): string {
     case HrFlowStep.Closed: return 'Closed'
   }
   return ''
+}
+
+/**
+ * Task-mode renderer for the ProcessRuntime path. Reads the merged form
+ * snapshot and exposes Approve / Reject / Return via the standard ActionBar.
+ * No fields are editable: per the spec the apply step's data is read-only by
+ * approvers.
+ */
+function ResignTaskMode({ persona, runtime }: {
+  persona: PersonaCode
+  runtime: ReturnType<typeof useFormRuntime>
+}) {
+  const fd = (runtime.task?.mergedFormData ?? {}) as {
+    expected_last_day?: string
+    reason_category?: string
+    reason_detail?: string
+    handover_to?: string
+    handover_items?: string
+    note?: string
+  }
+
+  return (
+    <FormShell code="RESIGN" activeStep={0} setActiveStep={() => {}} persona={persona} copySelector={false} mode="task">
+      <FlowToast message={runtime.toast} />
+      {runtime.taskLoading && <SectionCard><div className="px-4 py-3 text-sm text-ink-muted">Loading task…</div></SectionCard>}
+      {runtime.taskError && <SectionCard><div className="px-4 py-3 text-sm text-danger">Load failed: {runtime.taskError}</div></SectionCard>}
+
+      <SectionCard>
+        <SectionTitle>Resignation Detail / 離職資訊</SectionTitle>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-3 p-4">
+          <Field label="Expected last day"><Input value={fd.expected_last_day ?? ''} readOnly /></Field>
+          <Field label="Reason"><Input value={fd.reason_category ?? ''} readOnly /></Field>
+          <Field label="Handover to"><Input value={fd.handover_to ?? ''} readOnly /></Field>
+          <div className="col-span-2"><Field label="Reason Detail"><Textarea rows={2} value={fd.reason_detail ?? ''} readOnly /></Field></div>
+          <div className="col-span-2"><Field label="Handover Items"><Textarea rows={2} value={fd.handover_items ?? ''} readOnly /></Field></div>
+          <div className="col-span-2"><Field label="Note"><Textarea rows={2} value={fd.note ?? ''} readOnly /></Field></div>
+        </div>
+      </SectionCard>
+
+      <ActionBar
+        code="RESIGN"
+        activeStep={0}
+        persona={persona}
+        mode="task"
+        nodeKind={runtime.task?.task.nodeKind}
+        pending={runtime.pending}
+        onSubmit={() => { void runtime.submitUserTask() }}
+        onApprove={c => { void runtime.approve(c) }}
+        onReject={c => { void runtime.reject(c) }}
+        onReturnTask={c => { void runtime.returnTask(c) }}
+      />
+    </FormShell>
+  )
 }

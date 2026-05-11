@@ -47,21 +47,29 @@ export default function App() {
     case 'report':     body = <Report />; break
     case 'attendance': body = <Attendance />; break
     case 'sandbox-mailbox': body = <SandboxMailbox />; break
-    case 'form':
+    case 'form': {
+      // PR-L2 plumbing: when the screen carries a taskId we render the form
+      // in task mode (runtime drives Approve/Reject/Return). Without taskId
+      // the form stays in create mode (existing behaviour). PR-L3 will wire
+      // the inbox click → 'form' + taskId; for now this prop is set only by
+      // dev navigation.
+      const formMode = screen.taskId ? 'task' : 'create'
+      const onSubmitted = () => setScreen({ kind: 'home' })
       switch (screen.code) {
-        case 'LEAVE': body = <LeaveForm persona={persona} />; break
-        case 'GEE':   body = <GEEForm persona={persona} />; break
-        case 'GEV':   body = <GEVForm persona={persona} />; break
-        case 'APE':   body = <APEForm persona={persona} />; break
-        case 'HWP':   body = <HWPForm persona={persona} />; break
-        case 'TRQ':   body = <TRQView persona={persona} />; break
-        case 'TEO':   body = <TEOView persona={persona} />; break
-        case 'ITPR':  body = <ITPRView persona={persona} />; break
-        case 'EXTOB': body = <EXTOBView persona={persona} />; break
-        case 'RESIGN': body = <ResignForm persona={persona} />; break
-        case 'DEPTX': body = <DeptxForm persona={persona} />; break
+        case 'LEAVE': body = <LeaveForm persona={persona} mode={formMode} taskId={screen.taskId ?? null} onSubmitted={onSubmitted} />; break
+        case 'GEE':   body = <GEEForm persona={persona} mode={formMode} taskId={screen.taskId ?? null} onSubmitted={onSubmitted} />; break
+        case 'GEV':   body = <GEVForm persona={persona} mode={formMode} taskId={screen.taskId ?? null} onSubmitted={onSubmitted} />; break
+        case 'APE':   body = <APEForm persona={persona} mode={formMode} taskId={screen.taskId ?? null} onSubmitted={onSubmitted} />; break
+        case 'HWP':   body = <HWPForm persona={persona} mode={formMode} taskId={screen.taskId ?? null} onSubmitted={onSubmitted} />; break
+        case 'TRQ':   body = <TRQView persona={persona} mode={formMode} taskId={screen.taskId ?? null} onSubmitted={onSubmitted} />; break
+        case 'TEO':   body = <TEOView persona={persona} mode={formMode} taskId={screen.taskId ?? null} onSubmitted={onSubmitted} />; break
+        case 'ITPR':  body = <ITPRView persona={persona} mode={formMode} taskId={screen.taskId ?? null} onSubmitted={onSubmitted} />; break
+        case 'EXTOB': body = <EXTOBView persona={persona} mode={formMode} taskId={screen.taskId ?? null} onSubmitted={onSubmitted} />; break
+        case 'RESIGN': body = <ResignForm persona={persona} mode={formMode} taskId={screen.taskId ?? null} onSubmitted={onSubmitted} />; break
+        case 'DEPTX': body = <DeptxForm persona={persona} mode={formMode} taskId={screen.taskId ?? null} onSubmitted={onSubmitted} />; break
       }
       break
+    }
   }
 
   return (

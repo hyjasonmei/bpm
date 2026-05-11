@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { Input, Select, FieldLabel } from '@/components/ui/form'
@@ -6,6 +6,7 @@ import { ReadonlyField, UploadZone } from '@/components/ui/readonly'
 import { FormShell, ActionBar } from './FormShell'
 import { CHARGE_OPTS, HW_CATS, SHIPPING_LOCS, PURPOSES } from '@/lib/mocks'
 import { PERSONAS, type PersonaCode } from '@/lib/role'
+import { FlowToast, useFormRuntime, type FormRuntimeProps } from '@/hooks/useFormRuntime'
 
 interface HWItem {
   id: number
@@ -17,8 +18,14 @@ interface HWItem {
 
 const newItem = (): HWItem => ({ id: Date.now() + Math.random(), category: '', item: '', spec: '', qty: 1 })
 
-export function HWPForm({ persona }: { persona: PersonaCode }) {
-  const [activeStep, setActiveStep] = useState(0)
+interface HWPFormProps extends FormRuntimeProps {
+  persona: PersonaCode
+}
+
+export function HWPForm({ persona, ...rt }: HWPFormProps) {
+  const runtime = useFormRuntime('HWP', rt)
+  const isTaskMode = runtime.mode === 'task'
+
   const [items, setItems] = useState<HWItem[]>([{ id: 1, category: '', item: '', spec: '', qty: 1 }])
   const [shippingLoc, setShippingLoc] = useState('')
   const [chargeTo, setChargeTo] = useState('TWT.1746G - Elton Yang')
@@ -27,15 +34,52 @@ export function HWPForm({ persona }: { persona: PersonaCode }) {
   const [expectedDate, setExpectedDate] = useState('')
   const [note, setNote] = useState('')
 
-  const ro = activeStep > 0
+  useEffect(() => {
+    if (!isTaskMode || !runtime.task) return
+    const fd = (runtime.task.mergedFormData ?? {}) as {
+      category?: string
+      item_name?: string
+      spec?: string
+      qty?: number | string
+      shipping_loc?: string
+      purpose?: string
+      expected_date?: string
+    }
+    setItems([{
+      id: 1,
+      category: hwCategoryFromSpec(fd.category) ?? '',
+      item: fd.item_name ?? '',
+      spec: fd.spec ?? '',
+      qty: fd.qty !== undefined ? Number(fd.qty) : 1,
+    }])
+    if (fd.shipping_loc) setShippingLoc(fd.shipping_loc)
+    if (fd.purpose) setPurpose(hwPurposeFromSpec(fd.purpose) ?? fd.purpose)
+    if (fd.expected_date) setExpectedDate(fd.expected_date)
+  }, [isTaskMode, runtime.task])
+
+  const ro = isTaskMode
   const upd = <K extends keyof HWItem>(id: number, f: K, v: HWItem[K]) => setItems(p => p.map(i => i.id === id ? { ...i, [f]: v } : i))
   const add = () => setItems(p => [...p, newItem()])
   const del = (id: number) => { if (items.length > 1) setItems(p => p.filter(i => i.id !== id)) }
 
   const u = PERSONAS[persona].user
 
+  function toSpecPayload() {
+    const first = items[0]
+    return {
+      category: hwCategoryToSpec(first.category),
+      item_name: first.item,
+      spec: first.spec,
+      qty: first.qty,
+      shipping_loc: shippingLoc,
+      purpose: hwPurposeToSpec(purpose),
+      expected_date: expectedDate || undefined,
+    }
+  }
+
   return (
-    <FormShell code="HWP" activeStep={activeStep} setActiveStep={setActiveStep} persona={persona}>
+    <FormShell code="HWP" activeStep={0} setActiveStep={() => {}} persona={persona} mode={runtime.mode}>
+      <FlowToast message={runtime.toast} />
       {/* Hardware items table */}
       <SectionCard>
         <SectionTitle>Hardware Purchase</SectionTitle>
@@ -137,11 +181,65 @@ export function HWPForm({ persona }: { persona: PersonaCode }) {
         <div className="p-4"><UploadZone /></div>
       </SectionCard>
 
-      <ActionBar code="HWP" activeStep={activeStep} persona={persona}
-        onSubmit={() => setActiveStep(s => s + 1)}
-        onApprove={() => setActiveStep(s => s + 1)}
-        onReject={() => setActiveStep(0)}
+      <ActionBar code="HWP" activeStep={0} persona={persona}
+        mode={runtime.mode}
+        nodeKind={runtime.task?.task.nodeKind}
+        pending={runtime.pending}
+        onSubmit={() => {
+          if (isTaskMode) { void runtime.submitUserTask(); return }
+          const first = items[0]
+          if (!first.category || !first.item.trim() || !first.spec.trim() || !shippingLoc || !purpose) {
+            runtime.fireToast('Category, item, spec, shipping location and purpose are required.')
+            return
+          }
+          void runtime.submitCreate(toSpecPayload())
+        }}
+        onApprove={c => { void runtime.approve(c) }}
+        onReject={c => { void runtime.reject(c) }}
+        onReturnTask={c => { void runtime.returnTask(c) }}
       />
     </FormShell>
   )
+}
+
+function hwCategoryToSpec(uiCategory: string): string {
+  const lc = uiCategory.toLowerCase()
+  if (lc.includes('notebook') || lc.includes('laptop')) return 'laptop'
+  if (lc.includes('desktop')) return 'desktop'
+  if (lc.includes('monitor')) return 'monitor'
+  if (lc.includes('peripheral') || lc.includes('keyboard') || lc.includes('mouse')) return 'peripheral'
+  if (lc.includes('server')) return 'server'
+  return 'other'
+}
+
+function hwCategoryFromSpec(specCategory: string | undefined): string | null {
+  if (!specCategory) return null
+  switch (specCategory) {
+    case 'laptop': return HW_CATS.find(c => c.toLowerCase().includes('laptop') || c.toLowerCase().includes('notebook')) ?? HW_CATS[0]
+    case 'desktop': return HW_CATS.find(c => c.toLowerCase().includes('desktop')) ?? HW_CATS[0]
+    case 'monitor': return HW_CATS.find(c => c.toLowerCase().includes('monitor')) ?? HW_CATS[0]
+    case 'peripheral': return HW_CATS.find(c => c.toLowerCase().includes('peripheral')) ?? HW_CATS[0]
+    case 'server': return HW_CATS.find(c => c.toLowerCase().includes('server')) ?? HW_CATS[0]
+    default: return HW_CATS[HW_CATS.length - 1]
+  }
+}
+
+function hwPurposeToSpec(uiPurpose: string): string {
+  const lc = uiPurpose.toLowerCase()
+  if (lc.includes('new') || lc.includes('hire')) return 'new_hire'
+  if (lc.includes('replac')) return 'replacement'
+  if (lc.includes('addition')) return 'additional'
+  if (lc.includes('project')) return 'project'
+  return 'other'
+}
+
+function hwPurposeFromSpec(specPurpose: string | undefined): string | null {
+  if (!specPurpose) return null
+  switch (specPurpose) {
+    case 'new_hire': return PURPOSES.find(p => p.toLowerCase().includes('new')) ?? PURPOSES[0]
+    case 'replacement': return PURPOSES.find(p => p.toLowerCase().includes('replac')) ?? PURPOSES[0]
+    case 'additional': return PURPOSES.find(p => p.toLowerCase().includes('addition')) ?? PURPOSES[0]
+    case 'project': return PURPOSES.find(p => p.toLowerCase().includes('project')) ?? PURPOSES[0]
+    default: return PURPOSES[PURPOSES.length - 1]
+  }
 }

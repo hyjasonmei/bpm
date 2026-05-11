@@ -1,13 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Copy, Trash2, Upload } from 'lucide-react'
 import { cn, NTD_RATE, fmtNTD, fmtUSD } from '@/lib/cn'
 
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { Input, Textarea, Select, Checkbox, FieldLabel, InfoBanner } from '@/components/ui/form'
 import { FormShell, ActionBar } from './FormShell'
-import { FORMS } from '@/lib/workflow'
 import { CHARGE_OPTS, PROJECT_OPTS, CURRENCIES, GEE_CATS } from '@/lib/mocks'
 import type { PersonaCode } from '@/lib/role'
+import { FlowToast, useFormRuntime, type FormRuntimeProps } from '@/hooks/useFormRuntime'
 
 interface GEEItem {
   id: number
@@ -33,12 +33,42 @@ const newItem = (): GEEItem => ({
   description: '',
 })
 
-export function GEEForm({ persona }: { persona: PersonaCode }) {
-  const def = FORMS.GEE
-  const [activeStep, setActiveStep] = useState(def.initialActive)
+interface GEEFormProps extends FormRuntimeProps {
+  persona: PersonaCode
+}
+
+export function GEEForm({ persona, ...rt }: GEEFormProps) {
+  const runtime = useFormRuntime('GEE', rt)
+  const isTaskMode = runtime.mode === 'task'
+
   const [items, setItems] = useState<GEEItem[]>([{
     ...newItem(), id: 1, amount: '779', description: '2025 May, Network fee',
   }])
+
+  // Hydrate first line from runtime task snapshot in task mode
+  useEffect(() => {
+    if (!isTaskMode || !runtime.task) return
+    const fd = (runtime.task.mergedFormData ?? {}) as {
+      category?: string
+      expense_date?: string
+      amount?: number | string
+      currency?: string
+      invoice_no?: string
+      description?: string
+    }
+    setItems([{
+      id: 1,
+      date: fd.expense_date ?? '',
+      invoiceNo: fd.invoice_no ?? '',
+      chargeTo: 'TWT.1746G - Elton Yang',
+      project: 'ISP002 - .Other Expense for Employee',
+      recharge: false,
+      category: mapCategoryFromSpec(fd.category) ?? GEE_CATS[0],
+      currency: fd.currency === 'TWD' ? 'NTD' : (fd.currency ?? 'NTD'),
+      amount: fd.amount !== undefined ? String(fd.amount) : '',
+      description: fd.description ?? '',
+    }])
+  }, [isTaskMode, runtime.task])
 
   const add = () => setItems(p => [...p, newItem()])
   const copy = (id: number) => setItems(p => {
@@ -55,10 +85,25 @@ export function GEEForm({ persona }: { persona: PersonaCode }) {
     return n
   }
   const total = items.reduce((s, i) => s + toNTD(i), 0)
-  const isReadOnly = activeStep > 0
+  const isReadOnly = isTaskMode
+
+  /** Map first item to spec gee_v1.json field ids. */
+  function toSpecPayload() {
+    const first = items[0]
+    return {
+      category: mapCategoryToSpec(first.category),
+      expense_date: first.date,
+      amount: Number(first.amount || 0),
+      currency: first.currency === 'NTD' ? 'TWD' : first.currency,
+      invoice_no: first.invoiceNo || undefined,
+      description: first.description,
+    }
+  }
 
   return (
-    <FormShell code="GEE" activeStep={activeStep} setActiveStep={setActiveStep} persona={persona}>
+    <FormShell code="GEE" activeStep={0} setActiveStep={() => {}} persona={persona} mode={runtime.mode}>
+      <FlowToast message={runtime.toast} />
+
       <InfoBanner>
         <strong>Expense reimbursement application shall be submitted within one month after spending (based on invoice date).</strong>
         <div className="mt-1 text-xs text-amber-700">所有費用依規定需在憑證(發票或收據)所載日期1個月內完成費用申請，逾期依規定將退回不予受理。</div>
@@ -185,14 +230,45 @@ export function GEEForm({ persona }: { persona: PersonaCode }) {
         </SectionCard>
       </div>
 
-      <ActionBar code="GEE" activeStep={activeStep} persona={persona}
-        onSubmit={() => setActiveStep(s => s + 1)}
-        onApprove={() => setActiveStep(s => s + 1)}
-        onReject={() => setActiveStep(0)}
+      <ActionBar code="GEE" activeStep={0} persona={persona}
+        mode={runtime.mode}
+        nodeKind={runtime.task?.task.nodeKind}
+        pending={runtime.pending}
+        onSubmit={() => {
+          if (isTaskMode) { void runtime.submitUserTask(); return }
+          if (!items[0].date || !Number(items[0].amount) || !items[0].description.trim()) {
+            runtime.fireToast('Date, amount and description are required.')
+            return
+          }
+          void runtime.submitCreate(toSpecPayload())
+        }}
+        onApprove={c => { void runtime.approve(c) }}
+        onReject={c => { void runtime.reject(c) }}
+        onReturnTask={c => { void runtime.returnTask(c) }}
         onClose={() => {}}
       />
     </FormShell>
   )
+}
+
+/** Map free-form GEE_CATS UI label to spec category enum. */
+function mapCategoryToSpec(uiCategory: string): string {
+  const lc = uiCategory.toLowerCase()
+  if (lc.includes('travel') || lc.includes('meal') || lc.includes('client')) return 'business'
+  if (lc.includes('equipment') || lc.includes('hardware')) return 'equipment'
+  if (lc.includes('misc') || lc.includes('other') || lc.includes('internet')) return 'misc'
+  return 'other'
+}
+
+/** Reverse: pick a representative UI label for a spec enum value. */
+function mapCategoryFromSpec(specCategory: string | undefined): string | null {
+  if (!specCategory) return null
+  switch (specCategory) {
+    case 'business': return GEE_CATS.find(c => c.toLowerCase().includes('client') || c.toLowerCase().includes('meal')) ?? GEE_CATS[0]
+    case 'equipment': return GEE_CATS.find(c => c.toLowerCase().includes('equipment')) ?? GEE_CATS[0]
+    case 'misc': return GEE_CATS.find(c => c.toLowerCase().includes('internet')) ?? GEE_CATS[0]
+    default: return GEE_CATS[0]
+  }
 }
 
 function RowAction({ Icon, label, tone, onClick, disabled }: {

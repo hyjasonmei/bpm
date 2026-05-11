@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { fmtNTD, fmtUSD, NTD_RATE } from '@/lib/cn'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { Input, Textarea, Select, Checkbox, FieldLabel } from '@/components/ui/form'
@@ -6,9 +6,16 @@ import { UploadZone } from '@/components/ui/readonly'
 import { FormShell, ActionBar } from './FormShell'
 import { CHARGE_OPTS, CURRENCIES } from '@/lib/mocks'
 import type { PersonaCode } from '@/lib/role'
+import { FlowToast, useFormRuntime, type FormRuntimeProps } from '@/hooks/useFormRuntime'
 
-export function APEForm({ persona }: { persona: PersonaCode }) {
-  const [activeStep, setActiveStep] = useState(0)
+interface APEFormProps extends FormRuntimeProps {
+  persona: PersonaCode
+}
+
+export function APEForm({ persona, ...rt }: APEFormProps) {
+  const runtime = useFormRuntime('APE', rt)
+  const isTaskMode = runtime.mode === 'task'
+
   const [receiveDate, setReceiveDate] = useState('')
   const [returnDate, setReturnDate] = useState('')
   const [dept, setDept] = useState('TWT.1746G - Elton Yang')
@@ -18,11 +25,41 @@ export function APEForm({ persona }: { persona: PersonaCode }) {
   const [description, setDescription] = useState('')
   const [note, setNote] = useState('')
 
+  useEffect(() => {
+    if (!isTaskMode || !runtime.task) return
+    const fd = (runtime.task.mergedFormData ?? {}) as {
+      advance_amount?: number | string
+      currency?: string
+      purpose?: string
+      expected_spend_date?: string
+      expected_settle_date?: string
+      charge_dept?: string
+    }
+    if (fd.expected_spend_date) setReceiveDate(fd.expected_spend_date)
+    if (fd.expected_settle_date) setReturnDate(fd.expected_settle_date)
+    if (fd.charge_dept) setDept(fd.charge_dept)
+    if (fd.currency) setCurrency(fd.currency === 'TWD' ? 'NTD' : fd.currency)
+    if (fd.advance_amount !== undefined) setAmount(String(fd.advance_amount))
+    if (fd.purpose) setDescription(fd.purpose)
+  }, [isTaskMode, runtime.task])
+
   const ntdAmt = currency === 'NTD' ? Number(amount || 0) : Number(amount || 0) * NTD_RATE
-  const ro = activeStep > 0
+  const ro = isTaskMode
+
+  function toSpecPayload() {
+    return {
+      advance_amount: Number(amount || 0),
+      currency: currency === 'NTD' ? 'TWD' : currency,
+      purpose: description,
+      expected_spend_date: receiveDate,
+      expected_settle_date: returnDate,
+      charge_dept: dept,
+    }
+  }
 
   return (
-    <FormShell code="APE" activeStep={activeStep} setActiveStep={setActiveStep} persona={persona}>
+    <FormShell code="APE" activeStep={0} setActiveStep={() => {}} persona={persona} mode={runtime.mode}>
+      <FlowToast message={runtime.toast} />
       <SectionCard>
         <div className="space-y-4 p-4">
           <div className="grid grid-cols-2 gap-5">
@@ -92,10 +129,21 @@ export function APEForm({ persona }: { persona: PersonaCode }) {
         </SectionCard>
       </div>
 
-      <ActionBar code="APE" activeStep={activeStep} persona={persona}
-        onSubmit={() => setActiveStep(s => s + 1)}
-        onApprove={() => setActiveStep(s => s + 1)}
-        onReject={() => setActiveStep(0)}
+      <ActionBar code="APE" activeStep={0} persona={persona}
+        mode={runtime.mode}
+        nodeKind={runtime.task?.task.nodeKind}
+        pending={runtime.pending}
+        onSubmit={() => {
+          if (isTaskMode) { void runtime.submitUserTask(); return }
+          if (!Number(amount) || !receiveDate || !returnDate || !description.trim()) {
+            runtime.fireToast('Amount, dates and description are required.')
+            return
+          }
+          void runtime.submitCreate(toSpecPayload())
+        }}
+        onApprove={c => { void runtime.approve(c) }}
+        onReject={c => { void runtime.reject(c) }}
+        onReturnTask={c => { void runtime.returnTask(c) }}
       />
     </FormShell>
   )
