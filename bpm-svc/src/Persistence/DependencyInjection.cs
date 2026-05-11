@@ -2,18 +2,24 @@ using Bpm.Application.Admin;
 using Bpm.Application.Attendance;
 using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Services;
+using Bpm.Application.Delegation;
 using Bpm.Application.HrFlows;
 using Bpm.Application.Impersonation;
+using Bpm.Application.Notifications;
 using Bpm.Application.Org;
+using Bpm.Application.Process.Runtime;
 using Bpm.Application.Sandbox;
 using Bpm.Application.Spec;
 using Bpm.Persistence.Admin;
 using Bpm.Persistence.Attendance;
 using Bpm.Persistence.Common;
+using Bpm.Persistence.Delegation;
 using Bpm.Persistence.HrFlows;
 using Bpm.Persistence.Impersonation;
 using Bpm.Persistence.Interceptors;
+using Bpm.Persistence.Notifications;
 using Bpm.Persistence.Org;
+using Bpm.Persistence.Process;
 using Bpm.Persistence.Sandbox;
 using Bpm.Persistence.Spec;
 using Microsoft.EntityFrameworkCore;
@@ -54,6 +60,13 @@ public static class DependencyInjection
         services.AddScoped<ISandboxService, SandboxService>();
         services.AddScoped<IOutboundGate, OutboundGate>();
         services.AddScoped<IRoleAdminService, RoleAdminService>();
+
+        // Process runtime + collaborator stubs (Delegation / Notifications /
+        // SpecLoader land here so the runtime can compose against real seams).
+        services.AddScoped<ISpecLoader, FileSystemSpecLoader>();
+        services.AddScoped<IDelegationService, StubDelegationService>();
+        services.AddScoped<INotificationDispatcher, LoggingNotificationDispatcher>();
+        services.AddScoped<IProcessRuntime, ProcessRuntime>();
 
         return services;
     }

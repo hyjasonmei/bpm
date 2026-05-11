@@ -38,36 +38,29 @@
 
 ## 5. Application — minimal expression evaluator (until CEL)
 
-- [ ] 5.1 Create `bpm-svc/src/Application/Process/Expressions/IExpressionEvaluator.cs`: `bool Evaluate(string expression, IReadOnlyDictionary<string, JsonElement> context)`
-- [ ] 5.2 Implement `MinimalExpressionEvaluator.cs` supporting: `==`, `!=`, `>`, `>=`, `<`, `<=`, `&&`, `||`, dotted field paths (e.g., `leave.days`), numeric / string literals
-- [ ] 5.3 Reject unsupported expressions (functions, lists, math) with clear error message
-- [ ] 5.4 Unit tests: 12+ scenarios covering equality, comparison, AND/OR, dotted paths, type coercion (string "5" vs number 5), failure on unsupported syntax
-- [ ] 5.5 Document in design.md §10 that this is a placeholder until `add-cel-expressions` lands
+- [~] 5.1 skipped — CelNetExpressionEvaluator covers this; design.md §10 placeholder no longer applies
+- [~] 5.2 skipped — CelNetExpressionEvaluator covers this; design.md §10 placeholder no longer applies
+- [~] 5.3 skipped — CelNetExpressionEvaluator covers this; design.md §10 placeholder no longer applies
+- [~] 5.4 skipped — CelNetExpressionEvaluator covers this; design.md §10 placeholder no longer applies
+- [~] 5.5 skipped — CelNetExpressionEvaluator covers this; design.md §10 placeholder no longer applies
 
 ## 6. Application — ProcessRuntime service
 
-- [ ] 6.1 Create `bpm-svc/src/Application/Process/Runtime/IProcessRuntime.cs` with the five methods from design.md §1
-- [ ] 6.2 Create `ProcessRuntime.cs` implementation
-- [ ] 6.3 Create `bpm-svc/src/Application/Process/Runtime/SpecSnapshot.cs` parsed-spec wrapper (lazy-parsed from JSON for in-memory access during a request)
-- [ ] 6.4 `StartInstanceAsync`:
-  - Load active spec for `cmd.SpecCode` from `specs-incoming/<tenant>/<spec_code>.json` (or future SpecLoader service)
-  - Deep-copy spec to `instance.SpecSnapshotJson`
-  - Validate initial form data against userTasks[0].fields if applicable
-  - Insert ProcessInstance; write `InstanceStarted` history
-  - Dispatch `on_submit` notifications
-  - Spawn first task(s) for the node downstream of StartEvent (handle gateway-as-first-node edge case)
-  - Return new instance id + first task id
-- [ ] 6.5 `SubmitTaskAsync`: per pseudocode in design.md §5 — validate actor, apply patch, write history, advance state machine, dispatch on_assign / on_approve / on_reject notifications, possibly complete instance with on_complete
-- [ ] 6.6 `ReturnTaskAsync`: validate actor + Approval kind; record Return decision; spawn new Task at the previous userTask node; write `TaskReturned` history; dispatch return-related notifications (none defined yet but scaffold the call site)
-- [ ] 6.7 `ClaimTaskAsync`: SQL `UPDATE ... WHERE Id = ? AND Status = 'Pending'`; on success write `TaskClaimed`; for sibling candidate tasks (same NodeId, same instance, Status = Pending), bulk update to Cancelled with auto-cancellation history events
-- [ ] 6.8 `CancelInstanceAsync`: validate actor (initiator or tenant_admin); set Cancelled + CancelReason; cascade-cancel all open tasks; write `InstanceCancelled` history; dispatch cancellation notification (if spec has one defined)
+- [x] 6.1 Created `bpm-svc/src/Application/Process/Runtime/IProcessRuntime.cs` (5 methods)
+- [x] 6.2 Created `ProcessRuntime` implementation in `bpm-svc/src/Persistence/Process/ProcessRuntime.cs` (Persistence layer because it needs `AppDbContext`)
+- [x] 6.3 Created `SpecSnapshot` lazy view in `bpm-svc/src/Application/Process/Runtime/SpecSnapshot.cs`
+- [x] 6.4 `StartInstanceAsync` — loads spec via `ISpecLoader`, snapshots JSON, inserts instance, writes `InstanceStarted`, spawns first task downstream of StartEvent (handles gateway-first / endEvent-first), dispatches `on_submit`
+- [x] 6.5 `SubmitTaskAsync` — opens transaction, validates actor + status, applies patch (shallow merge), writes `TaskSubmitted` + `ApprovalApproved`/`ApprovalRejected` as appropriate, advances; sibling-aware (collection mode v1 = wait for all)
+- [x] 6.6 `ReturnTaskAsync` — Approval-only, walks predecessor edges back to nearest userTask, spawns task there, writes `TaskReturned`
+- [x] 6.7 `ClaimTaskAsync` — atomic `ExecuteUpdateAsync` (Pending→InProgress); auto-cancels sibling pool tasks; writes `TaskClaimed`
+- [x] 6.8 `CancelInstanceAsync` — initiator-only (admin override TODO), cascade-cancels open tasks, writes `InstanceCancelled`
 
 ## 7. Hook integration
 
-- [ ] 7.1 In `ProcessRuntime`, inject `IActorResolver`, `IDelegationService`, `INotificationDispatcher`
-- [ ] 7.2 On task spawn: call resolver per-node assignee/approver; expand to one Task per candidate; for each call delegation; record DelegationApplied history if transformed
-- [ ] 7.3 On state events: build `NotificationContext` from current instance state (initiator, current_approver, current_assignee, form_data) and dispatch matching notifications
-- [ ] 7.4 Notification dispatch is in-transaction (insert NotificationDelivery rows, audit row) — channel adapters do NOT run synchronously; worker picks up async
+- [x] 7.1 `ProcessRuntime` ctor injects `IActorResolver`, `IDelegationService`, `INotificationDispatcher`, `IExpressionEvaluator`, `ISpecLoader`
+- [x] 7.2 Per-spawn: resolver call → expand candidates → one Task per candidate → delegation per candidate → `DelegationApplied` history when transformed
+- [x] 7.3 `NotificationContext` record carries (instance, spec, initiator, formData, approvers, assignees); dispatched at `on_submit` / `on_assign` / `on_complete` / `on_cancel`
+- [x] 7.4 Dispatch is invoked inside the same `SaveChangesAsync` transaction; v1 dispatcher is a `LoggingNotificationDispatcher` stub (`add-notification-engine` will replace with NotificationDelivery rows)
 
 ## 8. API endpoints
 
