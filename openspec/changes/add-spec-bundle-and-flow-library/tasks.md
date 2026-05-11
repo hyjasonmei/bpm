@@ -10,15 +10,15 @@
 
 ## 2. Backend — BundleBuilder (export)
 
-- [ ] 2.1 Create `bpm-svc/src/Application/Spec/Bundle/IBundleBuilder.cs` interface: `Task<byte[]> BuildAsync(BundleBuildRequest req, CancellationToken ct)`
-- [ ] 2.2 Create `BundleBuildRequest.cs` record: `DraftSpecJson (JsonElement)`, `BpmnXml (string)`, `SampleOrg (SampleOrgSnapshot)`, `TestCases (IReadOnlyList<TestCaseSnapshot>)`, `IncludeAssets (bool)`, `IncludeChatSnapshots (bool)`
-- [ ] 2.3 Implement `BundleBuilder.cs`: write each file into a `ZipArchive`, compute sha256 per file, populate manifest, emit zip bytes
-- [ ] 2.4 Implement `SpecMdRenderer.cs`: turn `spec.json` into a human-readable markdown overview (sections: meta / flow nodes / userTasks / decisions / approvers / notifications / sla / actors)
-- [ ] 2.5 Implement `WalkthroughRenderer.cs`: emit a step-by-step happy-path narration generated from the spec's first test-case
-- [ ] 2.6 Implement `ChangelogRenderer.cs`: when `req.ParentBundle` is supplied, diff against parent and emit a markdown changelog (added nodes, removed nodes, changed forms, etc.)
-- [ ] 2.7 Implement `BundleBuildValidator.cs`: enforces `sample-org.json` present and non-empty, ≥1 test-case, total size ≤ 25MB, individual asset ≤ 5MB; throws `BundleBuildException` with errors[]
-- [ ] 2.8 Register all in `bpm-svc/src/Application/DependencyInjection.cs`
-- [ ] 2.9 Unit test: build a bundle from a known DraftSpec → assert manifest has correct file list, every entry has matching sha256, zip is valid via roundtrip
+- [x] 2.1 Create `bpm-svc/src/Application/Spec/Bundle/IBundleBuilder.cs` interface: `Task<byte[]> BuildAsync(BundleBuildRequest req, CancellationToken ct)`
+- [x] 2.2 Create `BundleBuildRequest.cs` record: `DraftSpecJson (JsonElement)`, `BpmnXml (string)`, `SampleOrg (SampleOrgSnapshot)`, `TestCases (IReadOnlyList<TestCaseSnapshot>)`, `IncludeAssets (bool)`, `IncludeChatSnapshots (bool)` (also added `ParentSpecJson?` + `SourceInstanceId`; PR-I3 will hand `ParentBundle` zip extraction here once the parser exists)
+- [x] 2.3 Implement `BundleBuilder.cs`: write each file into a `ZipArchive`, compute sha256 per file, populate manifest, emit zip bytes
+- [x] 2.4 Implement `SpecMdRenderer.cs`: turn `spec.json` into a human-readable markdown overview (sections: meta / flow nodes / userTasks / decisions / approvers / notifications / sla / actors)
+- [x] 2.5 Implement `WalkthroughRenderer.cs`: emit a step-by-step happy-path narration generated from the spec's first test-case
+- [x] 2.6 Implement `ChangelogRenderer.cs`: when parent spec is supplied, diff against parent and emit a markdown changelog (added nodes, removed nodes, changed forms, etc.) — takes `parentSpec` JsonElement directly; zip-extraction wiring deferred to PR-I3
+- [x] 2.7 Implement `BundleBuildValidator.cs`: enforces `sample-org.json` present and non-empty, ≥1 test-case; throws `BundleBuildException` with errors[] (per-asset / total-bundle size limits deferred until assets pipeline lands in §7)
+- [x] 2.8 Register all in `bpm-svc/src/Application/DependencyInjection.cs`
+- [x] 2.9 Unit test: build a bundle from a known DraftSpec → assert manifest has correct file list, every entry has matching sha256, zip is valid via roundtrip (`BundleBuilderTests` + renderer tests, 12 new tests; total 72 → 84 green)
 
 ## 3. Backend — BundleParser + BundleValidator
 
