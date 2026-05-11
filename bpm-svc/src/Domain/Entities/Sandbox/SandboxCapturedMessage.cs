@@ -4,9 +4,9 @@ namespace Bpm.Domain.Entities.Sandbox;
 
 /// <summary>
 /// One row per outbound notification / webhook / SMS captured by the sandbox
-/// when sandbox mode is on. Replaces the (deprecating) subject-only
-/// <see cref="SandboxRedirect"/> log so the Mailbox UI can render the full
-/// payload an end-user would have received in production.
+/// when sandbox mode is on. Replaces the legacy subject-only
+/// <c>SandboxRedirect</c> log (removed in PR-J6) so the Mailbox UI can render
+/// the full payload an end-user would have received in production.
 /// </summary>
 /// <remarks>
 /// JSON columns are plain TEXT (no SQLite-specific json_extract) — see the

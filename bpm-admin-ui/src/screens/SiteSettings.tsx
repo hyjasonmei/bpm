@@ -4,12 +4,11 @@ import { Button } from '@/components/ui/button'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { Input, Textarea, Field } from '@/components/ui/form'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { getSandboxStatus, setSandboxStatus, getSandboxRedirects } from '@/lib/api/sandbox'
-import { SandboxAction, SandboxChannel, type SandboxRedirectDto, type SandboxStatusDto } from '@/types/sandbox'
+import { getSandboxStatus, setSandboxStatus } from '@/lib/api/sandbox'
+import type { SandboxStatusDto } from '@/types/sandbox'
 
 export function SiteSettings() {
   const [status, setStatus] = useState<SandboxStatusDto | null>(null)
-  const [redirects, setRedirects] = useState<SandboxRedirectDto[]>([])
   const [emailRecipients, setEmailRecipients] = useState('')
   const [webhookUrl, setWebhookUrl] = useState('')
   const [smsRecipients, setSmsRecipients] = useState('')
@@ -22,9 +21,8 @@ export function SiteSettings() {
 
   async function refresh() {
     try {
-      const [s, r] = await Promise.all([getSandboxStatus(), getSandboxRedirects(30)])
+      const s = await getSandboxStatus()
       setStatus(s)
-      setRedirects(r)
       setEmailRecipients((s.config?.emailRecipients ?? []).join('\n'))
       setWebhookUrl(s.config?.webhookUrl ?? '')
       setSmsRecipients((s.config?.smsRecipients ?? []).join('\n'))
@@ -143,35 +141,10 @@ export function SiteSettings() {
       </SectionCard>
 
       <SectionCard>
-        <SectionTitle>Recent redirects (last 30 days)</SectionTitle>
-        {redirects.length === 0 ? (
-          <div className="px-5 py-6 text-sm text-ink-muted">No redirects yet. They will appear here when sandbox attribution is exercised by the notification engine.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-rule bg-slate-50 text-[11px] uppercase tracking-wider text-ink-muted">
-                <tr>
-                  <th className="px-4 py-2 text-left">When</th>
-                  <th className="px-4 py-2 text-left">Channel</th>
-                  <th className="px-4 py-2 text-left">Action</th>
-                  <th className="px-4 py-2 text-left">Original → Redirected</th>
-                  <th className="px-4 py-2 text-left">Sample</th>
-                </tr>
-              </thead>
-              <tbody>
-                {redirects.map(r => (
-                  <tr key={r.id} className="border-b border-rule last:border-b-0">
-                    <td className="px-4 py-2 font-mono text-xs">{new Date(r.dispatchedAt).toLocaleString()}</td>
-                    <td className="px-4 py-2">{channelLabel(r.channel)}</td>
-                    <td className={`px-4 py-2 ${r.action === SandboxAction.Dropped ? 'text-danger' : 'text-ink'}`}>{r.action === SandboxAction.Dropped ? 'Dropped' : 'Redirected'}</td>
-                    <td className="px-4 py-2 text-xs">{r.originalTargets.join(', ')} → {r.redirectedTargets.length === 0 ? '—' : r.redirectedTargets.join(', ')}</td>
-                    <td className="px-4 py-2 text-xs text-ink-muted">{r.sampleSubject}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <SectionTitle>Captured outbound traffic</SectionTitle>
+        <div className="px-5 py-6 text-sm text-ink-muted">
+          When sandbox is on, every outbound email / webhook / SMS is captured into the Sandbox Mailbox screen — open it from the left nav to inspect full payloads, filter by channel, and mark messages as read.
+        </div>
       </SectionCard>
 
       <ConfirmDialog
@@ -185,13 +158,4 @@ export function SiteSettings() {
       />
     </div>
   )
-}
-
-function channelLabel(c: number): string {
-  switch (c) {
-    case SandboxChannel.Email: return 'Email'
-    case SandboxChannel.Webhook: return 'Webhook'
-    case SandboxChannel.Sms: return 'SMS'
-  }
-  return '?'
 }

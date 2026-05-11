@@ -13,11 +13,10 @@ using Xunit;
 namespace Bpm.Tests.Persistence.Sandbox;
 
 /// <summary>
-/// Behavioural coverage for the PR-J2 evolution of <see cref="OutboundGate"/>:
-/// when sandbox mode is on, the default outcome is <c>Captured</c> (a row in
-/// <see cref="SandboxCapturedMessage"/> with the full payload). The legacy
-/// rewrite/drop path is kept as opt-in via
-/// <see cref="SandboxConfigDto.LegacyRewriteEnabled"/>.
+/// Behavioural coverage for <see cref="OutboundGate"/>: when sandbox mode is on,
+/// the only outcome is <c>Captured</c> (a row in <see cref="SandboxCapturedMessage"/>
+/// with the full payload). The legacy "rewrite to alt recipients / drop" path
+/// was removed in PR-J6 — capture-only is now the contract.
 /// </summary>
 public sealed class OutboundGateCaptureTests : IDisposable
 {
@@ -105,7 +104,6 @@ public sealed class OutboundGateCaptureTests : IDisposable
 
         await using var verify = NewCtx();
         Assert.False(await verify.SandboxCapturedMessages.AnyAsync());
-        Assert.False(await verify.SandboxRedirects.AnyAsync());
     }
 
     [Fact]
@@ -138,7 +136,6 @@ public sealed class OutboundGateCaptureTests : IDisposable
         var recipients = JsonSerializer.Deserialize<List<string>>(row.IntendedRecipientsJson)!;
         Assert.Equal(new[] { "wilson@example.com", "manager@example.com", "hr@example.com" }, recipients);
         Assert.Equal(_clock.UtcNow, row.CapturedAt);
-        Assert.False(await verify.SandboxRedirects.AnyAsync()); // No legacy audit row in default mode.
     }
 
     [Fact]
@@ -189,93 +186,6 @@ public sealed class OutboundGateCaptureTests : IDisposable
         Assert.Equal(msg.Body, row.Body);
         var recipients = JsonSerializer.Deserialize<List<string>>(row.IntendedRecipientsJson)!;
         Assert.Equal(new[] { "+886912345678", "+886987654321" }, recipients);
-    }
-
-    [Fact]
-    public async Task Legacy_rewrite_email_returns_rewrote_and_still_writes_capture_row()
-    {
-        await SetSandboxAsync(enabled: true, config: new SandboxConfigDto(
-            EmailRecipients: new[] { "tester@example.com" },
-            WebhookUrl: null,
-            SmsRecipients: null,
-            LegacyRewriteEnabled: true));
-
-        await using var db = NewCtx();
-        var gate = new OutboundGate(db, _clock);
-        var msg = SampleEmail();
-
-        var outcome = await gate.ApplyAsync(msg);
-
-        Assert.True(outcome.Rewritten);
-        Assert.False(outcome.Captured);
-        Assert.NotNull(outcome.Message);
-        Assert.Equal(new[] { "tester@example.com" }, outcome.Message!.To);
-        Assert.Contains("[SANDBOX MODE]", outcome.Message.BodyText);
-
-        await using var verify = NewCtx();
-        // Capture row is written even in legacy mode so the Mailbox UI stays consistent.
-        var capture = await verify.SandboxCapturedMessages.SingleAsync();
-        Assert.Equal(SandboxChannel.Email, capture.Channel);
-        Assert.Equal(msg.Subject, capture.Subject);
-        // Original (pre-rewrite) recipients are what the Mailbox displays.
-        var recipients = JsonSerializer.Deserialize<List<string>>(capture.IntendedRecipientsJson)!;
-        Assert.Equal(new[] { "wilson@example.com", "manager@example.com", "hr@example.com" }, recipients);
-        // Legacy audit row also present.
-        var redirect = await verify.SandboxRedirects.SingleAsync();
-        Assert.Equal(SandboxAction.Redirected, redirect.Action);
-    }
-
-    [Fact]
-    public async Task Legacy_rewrite_email_with_no_alt_recipients_drops_but_capture_still_written()
-    {
-        await SetSandboxAsync(enabled: true, config: new SandboxConfigDto(
-            EmailRecipients: null,
-            WebhookUrl: null,
-            SmsRecipients: null,
-            LegacyRewriteEnabled: true));
-
-        await using var db = NewCtx();
-        var gate = new OutboundGate(db, _clock);
-        var msg = SampleEmail();
-
-        var outcome = await gate.ApplyAsync(msg);
-
-        Assert.True(outcome.Dropped);
-        Assert.False(outcome.Captured);
-        Assert.False(outcome.Rewritten);
-
-        await using var verify = NewCtx();
-        // Capture row STILL written so the Mailbox doesn't lose record of the dropped message.
-        var capture = await verify.SandboxCapturedMessages.SingleAsync();
-        Assert.Equal(msg.Subject, capture.Subject);
-        var redirect = await verify.SandboxRedirects.SingleAsync();
-        Assert.Equal(SandboxAction.Dropped, redirect.Action);
-    }
-
-    [Fact]
-    public async Task Legacy_rewrite_webhook_returns_rewrote_and_still_captures()
-    {
-        await SetSandboxAsync(enabled: true, config: new SandboxConfigDto(
-            EmailRecipients: null,
-            WebhookUrl: "https://sandbox.example.com/hooks",
-            SmsRecipients: null,
-            LegacyRewriteEnabled: true));
-
-        await using var db = NewCtx();
-        var gate = new OutboundGate(db, _clock);
-        var msg = SampleWebhook();
-
-        var outcome = await gate.ApplyAsync(msg);
-
-        Assert.True(outcome.Rewritten);
-        Assert.Equal("https://sandbox.example.com/hooks", outcome.Message!.Url);
-        Assert.Equal(msg.Url, outcome.Message.Headers["X-BPM-Sandbox-Original-Url"]);
-
-        await using var verify = NewCtx();
-        var capture = await verify.SandboxCapturedMessages.SingleAsync();
-        // Capture sees the ORIGINAL url, not the rewritten one.
-        Assert.Equal(msg.Url, capture.Url);
-        Assert.Equal(msg.PayloadJson, capture.PayloadJson);
     }
 
     [Fact]

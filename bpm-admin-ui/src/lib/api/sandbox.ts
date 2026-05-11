@@ -1,7 +1,6 @@
 import { apiFetch } from '@/lib/apiFetch'
 import type {
   SandboxConfigDto,
-  SandboxRedirectDto,
   SandboxStatusDto,
   CapturedMessageSummaryDto,
   CapturedMessageDetailDto,
@@ -37,11 +36,6 @@ export async function setSandboxStatus(enabled: boolean, config: SandboxConfigDt
     body: JSON.stringify({ enabled, config }),
   })
   return jsonOrThrow<SandboxStatusDto>(res)
-}
-
-export async function getSandboxRedirects(days = 30): Promise<SandboxRedirectDto[]> {
-  const res = await apiFetch(`/api/sandbox/redirects?days=${days}`)
-  return jsonOrThrow<SandboxRedirectDto[]>(res)
 }
 
 /* ─── PR-J5: Mailbox / Clock / Personas ─────────────────────────── */

@@ -36,7 +36,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ImpersonationSession> ImpersonationSessions => Set<ImpersonationSession>();
 
     public DbSet<TenantSettings> TenantSettings => Set<TenantSettings>();
-    public DbSet<SandboxRedirect> SandboxRedirects => Set<SandboxRedirect>();
     public DbSet<SandboxCapturedMessage> SandboxCapturedMessages => Set<SandboxCapturedMessage>();
 
     public DbSet<RoleAssignmentChange> RoleAssignmentChanges => Set<RoleAssignmentChange>();

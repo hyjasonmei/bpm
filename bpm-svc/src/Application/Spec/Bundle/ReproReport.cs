@@ -18,10 +18,33 @@ public enum ReproStatus { Pass, Fail }
 /// <c>TaskHistory.TaskSpawned</c> rows. <see cref="Diff"/> is non-null
 /// when the two lists differ — formatted as a single string for direct
 /// surfacing in the UI / API response.
+///
+/// <para>
+/// PR-J6 §11.4: <see cref="NotificationAssertions"/> /
+/// <see cref="WebhookAssertions"/> carry the per-case sandbox-capture
+/// assertion outcomes. Both are nullable — null means the test case
+/// declared no expectations of that kind, an empty list means it
+/// declared expectations but none were emitted (which is itself a
+/// failure surfaced as an assertion entry with <c>Passed = false</c>).
+/// </para>
 /// </summary>
 public sealed record CaseResult(
     string CaseId,
     ReproStatus Status,
     IReadOnlyList<string> ExpectedTrace,
     IReadOnlyList<string> ActualTrace,
-    string? Diff);
+    string? Diff,
+    IReadOnlyList<NotificationAssertion>? NotificationAssertions = null,
+    IReadOnlyList<WebhookAssertion>? WebhookAssertions = null);
+
+/// <summary>
+/// One ExpectedNotification ↔ captured-message assertion. <see cref="Expected"/>
+/// is the human-readable rendering of the test-case template (subject
+/// substring + notification id + recipient list); <see cref="Actual"/> is the
+/// best matching captured message's identifier (or <c>"(none)"</c> when no
+/// candidate row was found). <see cref="Diff"/> is null on pass.
+/// </summary>
+public sealed record NotificationAssertion(string? Expected, string? Actual, bool Passed, string? Diff);
+
+/// <summary>One ExpectedWebhook ↔ captured-message assertion (mirror of <see cref="NotificationAssertion"/>).</summary>
+public sealed record WebhookAssertion(string? Expected, string? Actual, bool Passed, string? Diff);

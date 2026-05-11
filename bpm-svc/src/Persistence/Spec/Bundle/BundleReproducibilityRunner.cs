@@ -1,8 +1,10 @@
 using System.Text;
+using System.Text.Json;
 using Bpm.Application.Process.Runtime;
 using Bpm.Application.Process.Runtime.Commands;
 using Bpm.Application.Spec.Bundle;
 using Bpm.Domain.Entities.Process;
+using Bpm.Domain.Entities.Sandbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TaskStatus = Bpm.Domain.Entities.Process.TaskStatus;
@@ -30,6 +32,15 @@ namespace Bpm.Persistence.Spec.Bundle;
 /// semantics. Reject-paths are out of scope until a richer test-case
 /// schema lands.
 /// </para>
+///
+/// <para>
+/// PR-J6 §11.2: at <see cref="RunAsync"/> entry we flip the default
+/// tenant's <c>SandboxMode</c> on and reset the clock offset to zero so
+/// every notification fired by the runtime is captured into
+/// <c>SandboxCapturedMessages</c> by <c>SandboxCapturingNotificationDispatcher</c>.
+/// The previous sandbox state is restored in a finally — repro must not
+/// leak sandbox-on into a host that wasn't already in sandbox.
+/// </para>
 /// </summary>
 public sealed class BundleReproducibilityRunner(
     AppDbContext db,
@@ -37,6 +48,7 @@ public sealed class BundleReproducibilityRunner(
     ILogger<BundleReproducibilityRunner> logger) : IBundleReproducibilityRunner
 {
     private const int MaxStepsPerCase = 64;
+    private const string DefaultTenant = "default";
 
     public async Task<ReproReport> RunAsync(
         LoadedBundleHandle handle,
@@ -46,19 +58,52 @@ public sealed class BundleReproducibilityRunner(
         ArgumentNullException.ThrowIfNull(handle);
         ArgumentNullException.ThrowIfNull(cases);
 
-        var results = new List<CaseResult>(cases.Count);
-        var anyFailed = false;
+        var (prevSandboxOn, prevOffsetSeconds, prevConfigJson) = await CaptureSandboxStateAsync(ct);
+        await SetSandboxStateAsync(enabled: true, offsetSeconds: 0, configJson: prevConfigJson, ct);
 
-        foreach (var tc in cases)
+        try
         {
-            var caseResult = await RunOneAsync(handle, tc, ct);
-            results.Add(caseResult);
-            if (caseResult.Status == ReproStatus.Fail) anyFailed = true;
-        }
+            var results = new List<CaseResult>(cases.Count);
+            var anyFailed = false;
 
-        return new ReproReport(
-            anyFailed ? ReproStatus.Fail : ReproStatus.Pass,
-            results);
+            foreach (var tc in cases)
+            {
+                var caseResult = await RunOneAsync(handle, tc, ct);
+                results.Add(caseResult);
+                if (caseResult.Status == ReproStatus.Fail) anyFailed = true;
+            }
+
+            return new ReproReport(
+                anyFailed ? ReproStatus.Fail : ReproStatus.Pass,
+                results);
+        }
+        finally
+        {
+            await SetSandboxStateAsync(prevSandboxOn, prevOffsetSeconds, prevConfigJson, CancellationToken.None);
+        }
+    }
+
+    private async Task<(bool SandboxOn, long OffsetSeconds, string? ConfigJson)> CaptureSandboxStateAsync(CancellationToken ct)
+    {
+        var existing = await db.TenantSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantCode == DefaultTenant, ct);
+        if (existing is null) return (false, 0, null);
+        return (existing.SandboxMode, existing.SandboxClockOffsetSeconds, existing.SandboxConfigJson);
+    }
+
+    private async Task SetSandboxStateAsync(bool enabled, long offsetSeconds, string? configJson, CancellationToken ct)
+    {
+        var row = await db.TenantSettings.FirstOrDefaultAsync(s => s.TenantCode == DefaultTenant, ct);
+        if (row is null)
+        {
+            row = new TenantSettings { TenantCode = DefaultTenant };
+            db.TenantSettings.Add(row);
+        }
+        row.SandboxMode = enabled;
+        row.SandboxClockOffsetSeconds = offsetSeconds;
+        row.SandboxConfigJson = configJson;
+        await db.SaveChangesAsync(ct);
     }
 
     private async Task<CaseResult> RunOneAsync(LoadedBundleHandle handle, TestCaseSnapshot tc, CancellationToken ct)
@@ -106,19 +151,174 @@ public sealed class BundleReproducibilityRunner(
                 logger.LogWarning(ex, "Repro case {Case} failed at task {Task} (node {Node})",
                     tc.Id, nextTask.Id, nextTask.NodeId);
                 var partial = await ExtractActualTraceAsync(instanceId, ct);
+                var partialNotifs = await BuildNotificationAssertionsAsync(instanceId, tc, ct);
+                var partialHooks = await BuildWebhookAssertionsAsync(instanceId, tc, ct);
                 return new CaseResult(tc.Id, ReproStatus.Fail, tc.ExpectedTrace, partial,
-                    $"submit failed at node {nextTask.NodeId}: {ex.Message}");
+                    $"submit failed at node {nextTask.NodeId}: {ex.Message}",
+                    partialNotifs, partialHooks);
             }
         }
 
         var actualTrace = await ExtractActualTraceAsync(instanceId, ct);
         var diff = ComputeDiff(tc.ExpectedTrace, actualTrace);
+        var notifAssertions = await BuildNotificationAssertionsAsync(instanceId, tc, ct);
+        var webhookAssertions = await BuildWebhookAssertionsAsync(instanceId, tc, ct);
+
+        var traceFailed = diff is not null;
+        var notifFailed = notifAssertions is not null && notifAssertions.Any(a => !a.Passed);
+        var webhookFailed = webhookAssertions is not null && webhookAssertions.Any(a => !a.Passed);
+
         return new CaseResult(
             tc.Id,
-            diff is null ? ReproStatus.Pass : ReproStatus.Fail,
+            (traceFailed || notifFailed || webhookFailed) ? ReproStatus.Fail : ReproStatus.Pass,
             tc.ExpectedTrace,
             actualTrace,
-            diff);
+            diff,
+            notifAssertions,
+            webhookAssertions);
+    }
+
+    /// <summary>
+    /// PR-J6 §11.3: build one <see cref="NotificationAssertion"/> per
+    /// expected entry by scanning <c>SandboxCapturedMessages</c> for the
+    /// instance. Missing expectations turn into a Failed assertion with a
+    /// "(none)" actual; matched ones surface the captured row's id.
+    /// Unexpected captures are NOT flagged — bundles can declare a subset.
+    /// </summary>
+    private async Task<IReadOnlyList<NotificationAssertion>?> BuildNotificationAssertionsAsync(
+        Guid instanceId, TestCaseSnapshot tc, CancellationToken ct)
+    {
+        if (tc.ExpectedNotifications is null) return null;
+
+        var captures = await db.SandboxCapturedMessages
+            .AsNoTracking()
+            .Where(m => m.ProcessInstanceId == instanceId
+                        && m.Channel == SandboxChannel.Email)
+            .OrderBy(m => m.CapturedAt)
+            .Select(m => new
+            {
+                m.Id,
+                m.Subject,
+                m.OriginatingNotificationId,
+                m.IntendedRecipientsJson,
+            })
+            .ToListAsync(ct);
+
+        var results = new List<NotificationAssertion>(tc.ExpectedNotifications.Count);
+        foreach (var expected in tc.ExpectedNotifications)
+        {
+            var expectedDescription = DescribeExpected(expected);
+            var match = captures.FirstOrDefault(c =>
+                MatchesNotification(c.Subject, c.OriginatingNotificationId,
+                    DeserializeRecipients(c.IntendedRecipientsJson), expected));
+
+            if (match is null)
+            {
+                results.Add(new NotificationAssertion(
+                    Expected: expectedDescription,
+                    Actual: "(none)",
+                    Passed: false,
+                    Diff: $"no captured email matched: expected {expectedDescription}; saw {captures.Count} email(s)"));
+            }
+            else
+            {
+                results.Add(new NotificationAssertion(
+                    Expected: expectedDescription,
+                    Actual: $"{match.OriginatingNotificationId ?? "?"} :: {match.Subject ?? ""}",
+                    Passed: true,
+                    Diff: null));
+            }
+        }
+        return results;
+    }
+
+    private async Task<IReadOnlyList<WebhookAssertion>?> BuildWebhookAssertionsAsync(
+        Guid instanceId, TestCaseSnapshot tc, CancellationToken ct)
+    {
+        if (tc.ExpectedWebhooks is null) return null;
+
+        var captures = await db.SandboxCapturedMessages
+            .AsNoTracking()
+            .Where(m => m.ProcessInstanceId == instanceId
+                        && m.Channel == SandboxChannel.Webhook)
+            .OrderBy(m => m.CapturedAt)
+            .Select(m => new
+            {
+                m.Id,
+                m.EventType,
+                m.OriginatingWebhookSubscriptionId,
+            })
+            .ToListAsync(ct);
+
+        var results = new List<WebhookAssertion>(tc.ExpectedWebhooks.Count);
+        foreach (var expected in tc.ExpectedWebhooks)
+        {
+            var expectedDescription = $"subId={expected.SubscriptionId ?? "(any)"} eventType={expected.EventType ?? "(any)"}";
+            var match = captures.FirstOrDefault(c =>
+                (expected.SubscriptionId is null || c.OriginatingWebhookSubscriptionId == expected.SubscriptionId)
+                && (expected.EventType is null || c.EventType == expected.EventType));
+
+            if (match is null)
+            {
+                results.Add(new WebhookAssertion(
+                    Expected: expectedDescription,
+                    Actual: "(none)",
+                    Passed: false,
+                    Diff: $"no captured webhook matched: expected {expectedDescription}; saw {captures.Count} webhook(s)"));
+            }
+            else
+            {
+                results.Add(new WebhookAssertion(
+                    Expected: expectedDescription,
+                    Actual: $"subId={match.OriginatingWebhookSubscriptionId ?? "?"} eventType={match.EventType ?? "?"}",
+                    Passed: true,
+                    Diff: null));
+            }
+        }
+        return results;
+    }
+
+    private static string DescribeExpected(ExpectedNotification expected)
+    {
+        var parts = new List<string>(3);
+        if (!string.IsNullOrEmpty(expected.NotificationId)) parts.Add($"id={expected.NotificationId}");
+        if (!string.IsNullOrEmpty(expected.SubjectContains)) parts.Add($"subjectContains=\"{expected.SubjectContains}\"");
+        if (expected.RecipientUserEmails is { Count: > 0 } recip) parts.Add($"recipients=[{string.Join(",", recip)}]");
+        return parts.Count == 0 ? "(any)" : string.Join(" ", parts);
+    }
+
+    private static bool MatchesNotification(string? subject, string? originatingNotificationId,
+        IReadOnlyList<string> recipients, ExpectedNotification expected)
+    {
+        if (!string.IsNullOrEmpty(expected.NotificationId)
+            && !string.Equals(originatingNotificationId, expected.NotificationId, StringComparison.Ordinal))
+            return false;
+        if (!string.IsNullOrEmpty(expected.SubjectContains)
+            && (subject is null || !subject.Contains(expected.SubjectContains, StringComparison.Ordinal)))
+            return false;
+        if (expected.RecipientUserEmails is { Count: > 0 } expectedRecipients)
+        {
+            // String-array containment only (PR-J6 §11.3 [~]). Real org
+            // resolution lands when the notification engine arrives.
+            foreach (var r in expectedRecipients)
+            {
+                if (!recipients.Contains(r, StringComparer.Ordinal)) return false;
+            }
+        }
+        return true;
+    }
+
+    private static IReadOnlyList<string> DeserializeRecipients(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return Array.Empty<string>();
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+        }
+        catch (JsonException)
+        {
+            return Array.Empty<string>();
+        }
     }
 
     /// <summary>

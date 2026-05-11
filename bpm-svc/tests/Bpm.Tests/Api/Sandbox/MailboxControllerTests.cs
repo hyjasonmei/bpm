@@ -388,8 +388,6 @@ public sealed class MailboxControllerTests : IDisposable
             => throw new NotSupportedException();
         public Task<SandboxStatusDto> SetStatusAsync(UpdateSandboxRequest req, Guid actorUserId, CancellationToken ct = default)
             => throw new NotSupportedException();
-        public Task<IReadOnlyList<SandboxRedirectDto>> GetRedirectsAsync(int days, CancellationToken ct = default)
-            => throw new NotSupportedException();
     }
 
     private sealed class TestEnv : IHostEnvironment

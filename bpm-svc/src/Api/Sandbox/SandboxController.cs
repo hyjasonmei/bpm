@@ -47,11 +47,6 @@ public sealed class SandboxController(
             && (raw.Equals("true", StringComparison.OrdinalIgnoreCase) || raw == "1");
     }
 
-    [HttpGet("redirects")]
-    [Authorize(Roles = "admin")]
-    public async Task<IReadOnlyList<SandboxRedirectDto>> Redirects([FromQuery] int days = 30, CancellationToken ct = default)
-        => await service.GetRedirectsAsync(days, ct);
-
     // ===== PR-J3 §4.4 — Sandbox clock advance/reset =====
 
     /// <summary>Open to any authenticated user; returns 0 offset when sandbox is off.</summary>

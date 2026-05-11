@@ -37,24 +37,6 @@ public sealed class SandboxService(AppDbContext db, ILogger<SandboxService> logg
         return ToStatus(settings);
     }
 
-    public async Task<IReadOnlyList<SandboxRedirectDto>> GetRedirectsAsync(int days, CancellationToken ct = default)
-    {
-        if (days < 1) days = 1;
-        if (days > 90) days = 90;
-        var since = DateTime.UtcNow.AddDays(-days);
-        var rows = await db.SandboxRedirects.AsNoTracking()
-            .Where(r => r.TenantCode == DefaultTenant && r.DispatchedAt >= since)
-            .OrderByDescending(r => r.DispatchedAt)
-            .Take(500)
-            .ToListAsync(ct);
-
-        return rows.Select(r => new SandboxRedirectDto(
-            r.Id, r.Channel, r.Action,
-            JsonSerializer.Deserialize<List<string>>(r.OriginalTargetsJson) ?? new(),
-            JsonSerializer.Deserialize<List<string>>(r.RedirectedTargetsJson) ?? new(),
-            r.SampleSubject, r.DispatchedAt)).ToList();
-    }
-
     private async Task<TenantSettings> GetOrCreateAsync(CancellationToken ct)
     {
         var s = await db.TenantSettings.FirstOrDefaultAsync(x => x.TenantCode == DefaultTenant, ct);

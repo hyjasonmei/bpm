@@ -291,8 +291,6 @@ public sealed class SandboxClockControllerTests : IDisposable
         public Task<SandboxStatusDto> SetStatusAsync(
             UpdateSandboxRequest req, Guid actorUserId, CancellationToken ct = default)
             => throw new NotSupportedException("clock-only test fixture");
-        public Task<IReadOnlyList<SandboxRedirectDto>> GetRedirectsAsync(int days, CancellationToken ct = default)
-            => throw new NotSupportedException("clock-only test fixture");
     }
 
     private sealed class ThrowingResetService : IResetService

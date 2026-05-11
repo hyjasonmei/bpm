@@ -108,3 +108,30 @@ The system SHALL set `manifest.parent = null` for a freshly designed flow with n
 - **GIVEN** bundle X exists with `manifestChecksum = "abc123"`
 - **WHEN** a user imports X as draft, edits one form field, and re-exports
 - **THEN** the new bundle Y has `manifest.parent = "abc123"`
+
+## MODIFIED Requirements
+
+### Requirement: Bundle MUST contain spec.json, bpmn.xml, spec.md, sample-org.json, and at least one test-case
+
+The system SHALL refuse to build a bundle that does not include all of: `spec.json`, `bpmn.xml`, `spec.md`, `sample-org.json`, and at least one entry under `test-cases/`. These files are the floor for reproducibility — without them a clean target instance cannot render the same forms (`spec.json`, `bpmn.xml`), explain itself to a human (`spec.md`), resolve any ActorRef (`sample-org.json`), or be checked for behavioral equality (`test-cases/`).
+
+#### ExpectedNotifications / ExpectedWebhooks (optional)
+
+Each entry under `test-cases/{id}.json` MAY include two optional arrays — `expectedNotifications[]` and `expectedWebhooks[]` — that the reproducibility runner asserts against rows in `SandboxCapturedMessages` after the case completes.
+
+- `expectedNotifications[i].notificationId` (string|null) — when set, MUST equal `OriginatingNotificationId` on the captured row (exact match).
+- `expectedNotifications[i].subjectContains` (string|null) — when set, MUST be a case-sensitive substring of the captured email's `Subject`.
+- `expectedNotifications[i].recipientUserEmails` (string[]|null) — when set, every entry MUST appear (string-array containment, no org-graph resolution) in the captured row's `IntendedRecipientsJson` array.
+- `expectedWebhooks[i].subscriptionId` (string|null) — when set, MUST equal `OriginatingWebhookSubscriptionId` (exact match).
+- `expectedWebhooks[i].eventType` (string|null) — when set, MUST equal the captured `EventType` (exact match).
+- `expectedWebhooks[i].payloadSchema` (object|null) — reserved for a future structural-diff implementation; loaders MUST accept and forward but SHOULD NOT fail when the field is present.
+
+A case fails when any expected entry has no matching captured row. Bundles without these fields run unchanged (null = no assertion).
+
+#### Scenario: Notification assertion missing surfaces case failure
+
+- **GIVEN** a bundle whose only test case sets `expectedNotifications: [{ subjectContains: "永遠不會出現的字串" }]`
+- **WHEN** `BundleReproducibilityRunner.RunAsync` executes the case against the live runtime
+- **THEN** the case's `NotificationAssertions[0].Passed` is false
+- **AND** the case's `Status` is `Fail`
+- **AND** the report's `OverallStatus` is `Fail`

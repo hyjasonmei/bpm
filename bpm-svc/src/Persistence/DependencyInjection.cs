@@ -77,7 +77,12 @@ public static class DependencyInjection
         // SpecLoader land here so the runtime can compose against real seams).
         services.AddScoped<ISpecLoader, FileSystemSpecLoader>();
         services.AddScoped<IDelegationService, StubDelegationService>();
-        services.AddScoped<INotificationDispatcher, LoggingNotificationDispatcher>();
+        // PR-J6 §11.6: SandboxCapturingNotificationDispatcher writes to
+        // SandboxCapturedMessages when sandbox is on, falls through to logging
+        // when off. Replaces LoggingNotificationDispatcher as the production
+        // wiring; the logging class is kept around for tests / other callers
+        // that want the no-side-effects stub.
+        services.AddScoped<INotificationDispatcher, SandboxCapturingNotificationDispatcher>();
         services.AddScoped<IProcessRuntime, ProcessRuntime>();
         services.AddScoped<IProcessQueryService, ProcessQueryService>();
 
