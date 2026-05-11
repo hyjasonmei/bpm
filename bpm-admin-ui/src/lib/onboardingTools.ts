@@ -168,9 +168,9 @@ const decisionsTool: StepToolBinding = {
 // spec_schema.md §2.10). The schema is recursive: conditional.then/else
 // and collection.actors[*] both reference actorRef, plus any actorRef may
 // carry one fallback. Depth limits (conditional ≤ 3, fallback ≤ 1) are
-// validated server-side at /api/spec — keeping the schema permissive here
-// avoids ballooning the input_schema and works around tool input validation
-// that doesn't enforce $ref recursion depth.
+// validated server-side at /api/admin/flow-library/build — keeping the
+// schema permissive here avoids ballooning the input_schema and works
+// around tool input validation that doesn't enforce $ref recursion depth.
 const ACTOR_REF_DEFS = {
   actorRef: {
     oneOf: [

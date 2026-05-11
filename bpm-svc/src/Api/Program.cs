@@ -1,11 +1,9 @@
-using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Bpm.Api.Auth;
 using Bpm.Api.Common;
 using Bpm.Application;
 using Bpm.Application.Common.Abstractions;
-using Bpm.Application.Spec;
 using Bpm.Persistence;
 using Bpm.Persistence.Seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -160,7 +158,7 @@ if (authMode != "disabled")
     });
 }
 
-// Auth gate for legacy minimal-API endpoints (/api/spec, /api/chat, etc.) —
+// Auth gate for legacy minimal-API endpoints (/api/chat, /api/spec-extract) —
 // MVC controllers with [Authorize] are handled by the framework above; the
 // minimal-API routes below need the gate inline.
 async Task<bool> RequireAuth(HttpContext ctx)
@@ -198,63 +196,12 @@ app.MapGet("/health", async (AppDbContext db, IAiBackend ai) =>
     }
 });
 
-// Wizard hand-off: receive a completed spec.json from the front-end and
-// drop it under {Spec:IncomingFolder}/{tenant}/{ts}-{flowCode}.json so a
-// human (Jason) or a watcher can pick it up and feed prompt_template_v1 to
-// Claude Code. Phase A is intentionally a file drop — Phase B will swap
-// this for a job queue / pipeline trigger.
-app.MapPost("/api/spec", async (HttpContext ctx, IClock clock, ISpecImportService importer, CancellationToken ct) =>
-{
-    if (!await RequireAuth(ctx)) return Results.Empty;
-
-    using var reader = new StreamReader(ctx.Request.Body);
-    var json = await reader.ReadToEndAsync(ct);
-
-    if (string.IsNullOrWhiteSpace(json))
-        return Results.BadRequest(new { error = "Empty request body" });
-
-    JsonDocument doc;
-    try { doc = JsonDocument.Parse(json); }
-    catch (JsonException ex) { return Results.BadRequest(new { error = "Invalid JSON", detail = ex.Message }); }
-
-    using (doc)
-    {
-        if (!doc.RootElement.TryGetProperty("meta", out var meta))
-            return Results.BadRequest(new { error = "Missing spec.meta" });
-
-        var tenant = meta.TryGetProperty("tenant", out var t) ? t.GetString() : null;
-        var flowCode = meta.TryGetProperty("flowCode", out var f) ? f.GetString() : null;
-        if (string.IsNullOrWhiteSpace(tenant) || string.IsNullOrWhiteSpace(flowCode))
-            return Results.BadRequest(new { error = "spec.meta.tenant and spec.meta.flowCode are required" });
-
-        // Expression validation pass — gateways + form fields. See SpecImportService.
-        // Runs before the file write so an invalid spec never lands on disk.
-        var validation = await importer.ValidateAsync(json, ct);
-        if (!validation.Valid)
-        {
-            return Results.BadRequest(new
-            {
-                error = "spec_validation_failed",
-                errors = validation.Errors,
-            });
-        }
-
-        var safeTenant = string.Concat(tenant.Where(c => char.IsLetterOrDigit(c) || c is '-' or '_'));
-        var safeFlow = string.Concat(flowCode.Where(c => char.IsLetterOrDigit(c) || c is '-' or '_'));
-        var now = clock.UtcNow;
-        var ts = now.ToString("yyyyMMddTHHmmssZ");
-        var trackingId = $"{safeTenant}-{safeFlow}-{ts}";
-
-        var rootFolder = SpecRoot(app);
-        var folder = Path.Combine(rootFolder, safeTenant);
-        Directory.CreateDirectory(folder);
-        var fullPath = Path.Combine(folder, $"{ts}-{safeFlow}.json");
-        await File.WriteAllTextAsync(fullPath, json, ct);
-
-        app.Logger.LogInformation("Spec received: tracking={Tracking} path={Path} bytes={Bytes}", trackingId, fullPath, json.Length);
-        return Results.Ok(new { trackingId, path = fullPath, receivedAt = now });
-    }
-});
+// Wizard hand-off used to be a file drop (POST /api/spec → {tenant}/{ts}-{flow}.json
+// for a human + Claude Code pipeline to pick up). PR-I8 retired that path —
+// the wizard now ships the completed design as a Spec Bundle (zip) saved to
+// the customer's Flow Library via POST /api/admin/flow-library/build, and
+// the runtime loads it inline via the bundle reproducibility runner. The
+// pipeline-as-deliverable model becomes Phase B if/when codegen is needed.
 
 // CoPilot chat — routes to whichever IAiBackend is registered (cli or api).
 app.MapPost("/api/chat", async (HttpContext ctx, IAiBackend ai, CancellationToken ct) =>
@@ -422,58 +369,6 @@ app.MapPost("/api/spec-extract", async (HttpContext ctx, IAiBackend ai, Cancella
     }
 });
 
-// Reveal a previously-submitted spec in Finder (macOS only). Front-end posts
-// the path it got back from /api/spec; we sandbox it to the configured root
-// and shell out to `open -R`. Linux/Windows would need xdg-open / explorer
-// equivalents — not needed for current dev environment.
-app.MapPost("/api/spec/reveal", async (HttpContext ctx) =>
-{
-    if (!await RequireAuth(ctx)) return Results.Empty;
-
-    using var reader = new StreamReader(ctx.Request.Body);
-    var body = await reader.ReadToEndAsync();
-    JsonDocument doc;
-    try { doc = JsonDocument.Parse(body); }
-    catch (JsonException ex) { return Results.BadRequest(new { error = "Invalid JSON", detail = ex.Message }); }
-
-    using (doc)
-    {
-        if (!doc.RootElement.TryGetProperty("path", out var pathEl) || pathEl.ValueKind != JsonValueKind.String)
-            return Results.BadRequest(new { error = "Missing 'path' string" });
-
-        var requested = pathEl.GetString()!;
-        var rootFull = Path.GetFullPath(SpecRoot(app));
-        string requestedFull;
-        try { requestedFull = Path.GetFullPath(requested); }
-        catch (Exception ex) { return Results.BadRequest(new { error = "Invalid path", detail = ex.Message }); }
-
-        // Containment check — refuse anything outside the configured spec root
-        // so a malicious / buggy client can't ask us to reveal /etc/passwd.
-        var sep = Path.DirectorySeparatorChar;
-        if (requestedFull != rootFull && !requestedFull.StartsWith(rootFull + sep, StringComparison.Ordinal))
-            return Results.BadRequest(new { error = "Path is outside the configured spec root", root = rootFull });
-
-        if (!File.Exists(requestedFull) && !Directory.Exists(requestedFull))
-            return Results.NotFound(new { error = "Path does not exist", path = requestedFull });
-
-        if (!OperatingSystem.IsMacOS())
-            return Results.Json(new { error = "Reveal is only implemented for macOS" }, statusCode: 501);
-
-        try
-        {
-            var psi = new ProcessStartInfo("open") { UseShellExecute = false };
-            psi.ArgumentList.Add("-R");
-            psi.ArgumentList.Add(requestedFull);
-            using var proc = Process.Start(psi);
-            return Results.NoContent();
-        }
-        catch (Exception ex)
-        {
-            return Results.Problem($"Failed to spawn `open -R`: {ex.Message}");
-        }
-    }
-});
-
 // Apply EF migrations and (optionally) seed the org fixture at startup.
 // Seed runs only when BPM_SEED_ON_STARTUP=true (default in dev) so prod
 // boots can't accidentally write fixture data into a real DB.
@@ -496,16 +391,3 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
-
-// Spec root resolution shared by /api/spec (write) and /api/spec/reveal (read).
-// Resolves Spec:IncomingFolder against ContentRootPath (bpm-svc/src/Api/) so
-// `dotnet run`'s cwd-in-bin doesn't make the path relative to the build output.
-static string SpecRoot(WebApplication app)
-{
-    var configured = app.Configuration["Spec:IncomingFolder"];
-    if (string.IsNullOrWhiteSpace(configured))
-        return Path.Combine(app.Environment.ContentRootPath, "incoming");
-    if (Path.IsPathRooted(configured))
-        return configured;
-    return Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, configured));
-}

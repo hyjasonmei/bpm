@@ -106,13 +106,13 @@
 
 ## 11. Cleanup of deferred Claude Code pipeline references
 
-- [ ] 11.1 Remove the legacy `/api/spec` and `/api/spec/reveal` endpoints from `bpm-svc/src/Api/Program.cs` (after one release deprecation window)
-- [ ] 11.2 Remove `bpm-svc/src/Api/incoming/` directory writes; delete leftover tracking-id files
-- [ ] 11.3 Update `inovation_idea.md` §3.4 / §9 to reflect that Phase A's deliverable is "bundle in customer's Flow Library", NOT "Claude Code pipeline" (pipeline becomes Phase B)
+- [x] 11.1 (PR-I8) Removed `/api/spec` + `/api/spec/reveal` minimal-API routes from `Program.cs`; dropped the now-orphaned `SpecRoot()` helper, `System.Diagnostics` / `Bpm.Application.Spec` usings, and the auth-gate comment naming the retired routes. `ISpecImportService` registration kept (BundleValidator may consume it). Pre-flight grep confirmed no test referenced `POST /api/spec`
+- [x] 11.2 (PR-I8) Deleted `bpm-svc/src/Api/incoming/` (only file was a stale `acme/20260503T142914Z-LEAVE.json` tracking-id artefact); removed `Spec:IncomingFolder` setting from `appsettings.json`
+- [x] 11.3 (PR-I8) Rewrote `inovation_idea.md` §3.4 to declare "Phase A deliverable = spec bundle (zip) saved to Flow Library; runtime consumes inline; codegen pipeline deferred to Phase B" and updated the §9 Phase A bullet list to match. Surgical edits — rest of doc untouched
 - [x] 11.4 Remove "AI Onboarding" subtitle text in `Onboarding.tsx` mentioning "spec 自動送至後台 Claude Code 部署管線" — replaced with "9 個 step 把流程規格談清楚，最後產生可攜帶的 spec bundle，存到 Flow Library。"
 
 ## 12. End-to-end acceptance test
 
-- [ ] 12.1 Write `bpm-svc/test/Integration/BundleE2ETests.cs` — boot two SQLite databases (`bpmA.db`, `bpmB.db`) in the same test process; instance A designs LEAVE via direct API calls; instance A exports bundle; instance B imports bundle; instance B runs the bundled test-case; assert final ProcessInstance.SpecSnapshotJson + node trace equal between A and B
-- [ ] 12.2 Add the test to CI as a separate suite (it boots two contexts, slower than unit tests)
-- [ ] 12.3 Document the demo script in `docs/spec-bundle-demo.md`: how to manually reproduce instance A → instance B flow during sales demos
+- [x] 12.1 (PR-I8) `tests/Bpm.Tests/Integration/BundleE2ETests.cs` — `Bundle_round_trips_between_two_instances` boots two independent in-memory SQLite contexts (no `Cache=Shared`), builds the LEAVE bundle on instance A via `BundleTestFactory`, parses + validates + loads + repro-runs on instance B (clean DB), then drives the same test-case on A through the same `BundleRuntimeLoader` + `IProcessRuntime` path. Asserts: B's repro report = `Pass`; A's `SpecSnapshotJson` (re-serialized) byte-equal to bundle's `spec.json`; A's reconstructed node trace equal to B's `ActualTrace` AND to the bundle's `ExpectedTrace`. 123 → 124 tests, all green
+- [x] 12.2 (PR-I8) Tagged `BundleE2ETests` with `[Trait("category", "integration")]` and an XML-doc note "Integration: boots two SQLite contexts. Slower than unit tests." CI exclusion wiring deferred since no CI config is checked in yet — once a `.runsettings` / GitHub Actions workflow lands, filter via `--filter "category!=integration"` for fast runs and `category=integration` for the slower suite
+- [x] 12.3 (PR-I8) `docs/spec-bundle-demo.md` — 84-line sales-demo script: two-pane bpm-svc setup (`bpm-A.db` / `bpm-B.db`), six-step walkthrough (design on A → save → export → import on B → repro PASS → optional real run), talking points, troubleshooting, pointer back to `BundleE2ETests`

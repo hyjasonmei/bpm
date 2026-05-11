@@ -145,32 +145,17 @@
 - Prompt 穩定（每次餵 Claude Code 的 context 一樣，產出可預期）
 - 跨客戶可累積：第 5 個客戶要請假，spec 結構一樣，prompt template 直接重用
 
-### 3.4 Claude Code prompt 結構（POC level）
+### 3.4 Phase A 實際 deliverable：Spec Bundle（不是 codegen）
 
-```
-You are generating production C# .NET code for a single-tenant
-workflow engine site for customer "{tenant}".
+**重要修正（2026-05）**：Phase A 的 deliverable 已從「Claude Code 產生的 C# / React 程式碼」改成「**spec bundle (zip) 存到客戶的 Flow Library**」。流程引擎是同一份 production runtime，所有客戶共用，bundle 只描述「這個流程要怎麼跑」（spec.json + bpmn.xml + forms + sample-org + test-cases），由 runtime 直接吃。
 
-Spec (single source of truth):
-{full JSON spec}
+理由：
+- runtime 已自建完成（add-process-runtime / IProcessRuntime + SpecSnapshot），不需要每客戶 codegen
+- bundle 是 portable artifact——客戶可以 export / re-import，跨 instance 完全 reproducible（PR-I8 的 acceptance test 證明）
+- onboarding → bundle 路徑是純資料 transform，沒有人類 review bottleneck
+- 真正需要 codegen 的場景（特殊 widget / 客製 logic）延到 Phase B / D
 
-Generate, in this order:
-1. Domain layer: {Flow}Workflow.cs (state machine)
-2. EF migration: add {flow}_cases table
-3. API: {Flow}Controller.cs + DTOs (MediatR commands/queries)
-4. UI: forms/{Flow}Form.tsx
-5. Notification templates
-
-Conventions (per CLAUDE.md):
-- Clean Architecture: Domain / Application / Persistence / Api
-- MediatR for command/query
-- EF Core, SQLite for POC
-- React 18 + Tailwind + shadcn
-- Use existing UI primitives in components/ui
-- BPMN visualization via bpmn-js
-```
-
-prompt template 本身會迭代——前 1-3 個客戶我們會發現哪些 convention 沒講清楚，把它寫進 template。
+Phase A 的 GO LIVE step 因此產的是 zip，不是 PR。Claude Code pipeline（dev agent / review agent / E2E agent）保留為 Phase B 規劃，待真有 codegen 需求時再啟用。
 
 ### 3.5 部署：每客戶一個 site
 
@@ -342,16 +327,16 @@ GO LIVE 不是「立刻上線」，是「spec 提交給後台」——後台 Jas
 ## 9. MVP 切點
 
 ```
-Phase A（6-8 週）：9 step UI + 人工 Claude Code pipeline
+Phase A（6-8 週）：9 step UI + Spec Bundle → 共用 runtime
 - 1 個流程（請假），完整 9 step
-- Spec exporter → JSON
-- Claude Code prompt template v1
+- Spec exporter → spec bundle (zip) 存到客戶的 Flow Library
+- runtime 直接吃 bundle（共用 IProcessRuntime + SpecSnapshot），不 codegen
 - 1-3 個友善客戶用真實流程跑
 - 我們手動上線、手動維運
 - 沒 MCP，approvers 寫死或手動匯入
-- 目標：證明「客戶 9 step → 隔天收到能用的系統」夠 wow
+- 目標：證明「客戶 9 step → 同一天 bundle 上線跑」夠 wow
 
-Phase B（2-3 個月）：Multi-agent dev pipeline + MCP
+Phase B（2-3 個月）：Multi-agent dev pipeline + MCP（codegen 才啟用）
 - 我們公司一台 always-on 機器跑 spec poller
 - 客戶送 spec → 自動觸發 pipeline：
   - **Dev Agent**（Claude Code CLI）讀 spec → 寫 code → 開 PR
