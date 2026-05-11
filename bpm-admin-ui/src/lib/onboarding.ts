@@ -43,6 +43,8 @@ export interface FormField {
   required: boolean
   options?: { value: string; label: string }[]
   conditional?: string
+  /** CEL boolean over (siblings + `value`); see spec_schema.md §2.3. */
+  validator?: string
   hint?: { 'zh-TW': string; en?: string }
   default?: unknown
   derivedFrom?: string

@@ -1,4 +1,5 @@
-import { Field, Input, Select, Checkbox } from '@/components/ui/form'
+import { Field, Select, Checkbox } from '@/components/ui/form'
+import { ExpressionInput } from '@/components/wizard/ExpressionInput'
 import type { DraftSpec, Decision, DecisionBranch } from '@/lib/onboarding'
 
 export function StepDecisions({ draft, setDraft }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void }) {
@@ -103,11 +104,13 @@ export function StepDecisions({ draft, setDraft }: { draft: DraftSpec; setDraft:
                             <span className="font-medium">{targetNode?.label ?? edge.target}</span>
                           </p>
                         </div>
-                        <Field label={`Condition${decision.type === 'exclusive' ? '' : ' (parallel/inclusive 仍要寫，便於 BPMN 標註)'}`}>
-                          <Input
-                            placeholder="e.g. amount >= 10000"
+                        <Field label={`條件 / Condition${decision.type === 'exclusive' ? '' : ' (parallel/inclusive 仍要寫，便於 BPMN 標註)'}`}>
+                          <ExpressionInput
                             value={branch.condition}
-                            onChange={e => updateBranch({ ...branch, condition: e.target.value })}
+                            onChange={v => updateBranch({ ...branch, condition: v })}
+                            shape="boolean"
+                            placeholder="amount >= 10000"
+                            testId={`expr-gateway-${decision.id}-${edge.id}`}
                           />
                         </Field>
                         <Checkbox

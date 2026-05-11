@@ -13,15 +13,18 @@
     "nodes": [
       { "id": "start_1", "type": "startEvent", "label": "開始" },
       { "id": "task_submit", "type": "userTask", "label": "員工提交費用單" },
+      { "id": "gateway_threshold", "type": "gateway", "label": "明細總額 ≥ 5 萬？" },
       { "id": "approval_primary", "type": "approval", "label": "金額分流核准" },
       { "id": "task_finance_review", "type": "userTask", "label": "財務複核" },
       { "id": "end_1", "type": "endEvent", "label": "完成" }
     ],
     "edges": [
       { "id": "e1", "source": "start_1", "target": "task_submit" },
-      { "id": "e2", "source": "task_submit", "target": "approval_primary" },
-      { "id": "e3", "source": "approval_primary", "target": "task_finance_review" },
-      { "id": "e4", "source": "task_finance_review", "target": "end_1" }
+      { "id": "e2", "source": "task_submit", "target": "gateway_threshold" },
+      { "id": "e3a", "source": "gateway_threshold", "target": "approval_primary", "condition": "total_amount >= 50000", "label": "5 萬以上走核准" },
+      { "id": "e3b", "source": "gateway_threshold", "target": "task_finance_review", "condition": "total_amount < 50000", "isDefault": true, "label": "5 萬以下直接複核" },
+      { "id": "e4", "source": "approval_primary", "target": "task_finance_review" },
+      { "id": "e5", "source": "task_finance_review", "target": "end_1" }
     ]
   },
   "userTasks": [
@@ -31,7 +34,9 @@
       "fields": [
         { "id": "purpose", "label": { "zh-TW": "出差目的", "en": "Purpose" }, "type": "textarea", "required": true },
         { "id": "destination", "label": { "zh-TW": "目的地" }, "type": "text", "required": true },
+        { "id": "expense_items", "label": { "zh-TW": "費用明細" }, "type": "textarea", "required": true, "hint": { "zh-TW": "每行一筆 (品項, 金額)；後台會展成 [{ amount }] 結構" } },
         { "id": "amount", "label": { "zh-TW": "金額 (NTD)", "en": "Amount" }, "type": "number", "required": true },
+        { "id": "total_amount", "label": { "zh-TW": "明細總額" }, "type": "derived", "required": false, "derivedFrom": "sum(expense_items.amount)" },
         { "id": "receipts", "label": { "zh-TW": "收據" }, "type": "file", "required": true }
       ],
       "permissions": { "submitter": "self", "viewers": ["self", "manager", "role:Finance"] }
@@ -45,7 +50,16 @@
       "permissions": { "submitter": "role:Finance", "viewers": ["role:Finance", "self"] }
     }
   ],
-  "decisions": [],
+  "decisions": [
+    {
+      "id": "gateway_threshold",
+      "type": "exclusive",
+      "branches": [
+        { "edgeId": "e3a", "condition": "total_amount >= 50000" },
+        { "edgeId": "e3b", "condition": "total_amount < 50000", "isDefault": true }
+      ]
+    }
+  ],
   "approvals": [
     {
       "id": "approval_primary",

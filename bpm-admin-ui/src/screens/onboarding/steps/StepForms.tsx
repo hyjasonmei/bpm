@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Field, Input, Select, Checkbox } from '@/components/ui/form'
+import { ExpressionInput } from '@/components/wizard/ExpressionInput'
 import type { DraftSpec, FormField, UserTask, FieldType } from '@/lib/onboarding'
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
@@ -187,26 +188,75 @@ function FieldEditor({ field, onChange, onRemove }: {
           onChange={e => onChange({ ...field, required: e.target.checked })}
           label="Required"
         />
-        {field.conditional !== undefined && (
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-ink-muted">Conditional:</span>
-            <Input
-              className="h-7 w-64 font-mono text-[11px]"
-              value={field.conditional}
-              onChange={e => onChange({ ...field, conditional: e.target.value })}
-              placeholder="leave_type === '病假'"
-            />
-          </div>
-        )}
         {field.conditional === undefined && (
           <button
             onClick={() => onChange({ ...field, conditional: '' })}
             className="text-[11px] text-blue-600 hover:underline"
           >
-            + Add conditional
+            + 顯示條件 (Conditional)
+          </button>
+        )}
+        {field.validator === undefined && (
+          <button
+            onClick={() => onChange({ ...field, validator: '' })}
+            className="text-[11px] text-blue-600 hover:underline"
+          >
+            + 驗證規則 (Validator)
+          </button>
+        )}
+        {field.type === 'derived' && field.derivedFrom === undefined && (
+          <button
+            onClick={() => onChange({ ...field, derivedFrom: '' })}
+            className="text-[11px] text-blue-600 hover:underline"
+          >
+            + 計算公式 (Derived from)
           </button>
         )}
       </div>
+
+      {/* Inline CEL-expression editors with live validation chips. */}
+      {field.conditional !== undefined && (
+        <ExpressionRow
+          label="顯示條件 (Conditional)"
+          shape="boolean"
+          value={field.conditional}
+          onChange={v => onChange({ ...field, conditional: v })}
+          onRemove={() => {
+            const { conditional: _drop, ...rest } = field
+            onChange(rest as FormField)
+          }}
+          placeholder="leave_type == '病假' || leave_type == '公假'"
+          testId={`expr-conditional-${field.id}`}
+        />
+      )}
+      {field.validator !== undefined && (
+        <ExpressionRow
+          label="驗證規則 (Validator) — 可用 value 代表本欄位值"
+          shape="boolean"
+          value={field.validator}
+          onChange={v => onChange({ ...field, validator: v })}
+          onRemove={() => {
+            const { validator: _drop, ...rest } = field
+            onChange(rest as FormField)
+          }}
+          placeholder="value > 0 && value <= 10000000"
+          testId={`expr-validator-${field.id}`}
+        />
+      )}
+      {field.type === 'derived' && field.derivedFrom !== undefined && (
+        <ExpressionRow
+          label="計算公式 (Derived from)"
+          shape="any"
+          value={field.derivedFrom}
+          onChange={v => onChange({ ...field, derivedFrom: v })}
+          onRemove={() => {
+            const { derivedFrom: _drop, ...rest } = field
+            onChange(rest as FormField)
+          }}
+          placeholder="businessDaysBetween(date_range.start, date_range.end)"
+          testId={`expr-derived-${field.id}`}
+        />
+      )}
 
       {field.type === 'select' && (
         <div className="pt-1">
@@ -241,6 +291,52 @@ function FieldEditor({ field, onChange, onRemove }: {
       {field.hint?.['zh-TW'] && (
         <p className="text-[11px] italic text-ink-faint">Hint: {field.hint['zh-TW']}</p>
       )}
+    </div>
+  )
+}
+
+/**
+ * One row inside the FieldEditor for a single CEL expression
+ * (conditional / validator / derivedFrom). Renders the bilingual label, the
+ * inline ExpressionInput (which carries the ✓ / ✗ chip), and a remove button
+ * that pops the field off so the user can return to "no expression set".
+ */
+function ExpressionRow({
+  label,
+  shape,
+  value,
+  onChange,
+  onRemove,
+  placeholder,
+  testId,
+}: {
+  label: string
+  shape: 'boolean' | 'any'
+  value: string
+  onChange: (next: string) => void
+  onRemove: () => void
+  placeholder?: string
+  testId?: string
+}) {
+  return (
+    <div className="rounded border border-rule bg-white p-2">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[11px] font-medium text-ink-muted">{label}</span>
+        <button
+          onClick={onRemove}
+          className="text-[10px] text-ink-faint hover:text-danger"
+          title="Remove expression"
+        >
+          移除
+        </button>
+      </div>
+      <ExpressionInput
+        value={value}
+        onChange={onChange}
+        shape={shape}
+        placeholder={placeholder}
+        testId={testId}
+      />
     </div>
   )
 }

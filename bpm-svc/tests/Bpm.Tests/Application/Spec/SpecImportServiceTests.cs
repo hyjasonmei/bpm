@@ -27,6 +27,22 @@ public sealed class SpecImportServiceTests
         Assert.Empty(result.Errors);
     }
 
+    [Theory]
+    [InlineData("expense_with_threshold_v1.json")]
+    [InlineData("expense_employee_v1.json")]
+    [InlineData("hardware_purchase_v1.json")]
+    public async Task Sample_specs_with_cel_helpers_validate_cleanly(string fileName)
+    {
+        var sut = BuildSut();
+        var json = await File.ReadAllTextAsync($"/Users/jason/claude/bpm/sample_specs/{fileName}");
+
+        var result = await sut.ValidateAsync(json);
+
+        Assert.True(result.Valid,
+            $"{fileName} should validate cleanly. Errors: " +
+            string.Join(" | ", result.Errors.Select(e => $"{e.Location}: {e.Message}")));
+    }
+
     [Fact]
     public async Task Broken_gateway_condition_surfaces_location_and_parse_message()
     {

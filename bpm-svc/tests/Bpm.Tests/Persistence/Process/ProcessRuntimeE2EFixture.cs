@@ -441,18 +441,16 @@ public sealed class ProcessRuntimeE2EFixture : IDisposable
         var (db, runtime, _) = BuildRuntime();
         using var _db = db;
 
+        // total_amount=5000 → gateway routes straight to finance_review,
+        // skipping approval_primary (the spec's new gateway_threshold node).
         var form = JsonDocument.Parse("""
-            {"purpose":"客戶拜訪","destination":"台中","amount":5000,"receipts":"r.pdf"}
+            {"purpose":"客戶拜訪","destination":"台中","amount":5000,"expense_items":[{"amount":5000}],"total_amount":5000,"receipts":"r.pdf"}
             """).RootElement;
         var start = await runtime.StartInstanceAsync(new StartInstanceCommand("EXPENSE_WITH_THRESHOLD", form, _wilsonId));
 
         await runtime.SubmitTaskAsync(new SubmitTaskCommand(start.FirstTaskId, _wilsonId, null, null, null));
 
-        // amount < 30000 → expr submitter.manager → Yang.
-        var approval = await NextOpenTask(start.InstanceId, "approval_primary");
-        Assert.Equal(_yangId, approval.ActualAssigneeUserId);
-        await runtime.SubmitTaskAsync(new SubmitTaskCommand(approval.Id, _yangId, null, Decision.Approve, null));
-
+        // sum < 50000 → gateway sends straight to finance_review, skipping approval_primary.
         var review = await NextOpenTask(start.InstanceId, "task_finance_review");
         Assert.Equal(_jinFinId, review.ActualAssigneeUserId);
         await runtime.SubmitTaskAsync(new SubmitTaskCommand(review.Id, _jinFinId, null, null, null));
@@ -469,7 +467,7 @@ public sealed class ProcessRuntimeE2EFixture : IDisposable
         using var _db = db;
 
         var form = JsonDocument.Parse("""
-            {"purpose":"海外研討會","destination":"東京","amount":50000,"receipts":"r.pdf"}
+            {"purpose":"海外研討會","destination":"東京","amount":50000,"expense_items":[{"amount":50000}],"total_amount":50000,"receipts":"r.pdf"}
             """).RootElement;
         var start = await runtime.StartInstanceAsync(new StartInstanceCommand("EXPENSE_WITH_THRESHOLD", form, _wilsonId));
         await runtime.SubmitTaskAsync(new SubmitTaskCommand(start.FirstTaskId, _wilsonId, null, null, null));
@@ -515,7 +513,7 @@ public sealed class ProcessRuntimeE2EFixture : IDisposable
         using var _db = db;
 
         var form = JsonDocument.Parse("""
-            {"purpose":"美國年會","destination":"舊金山","amount":150000,"receipts":"r.pdf"}
+            {"purpose":"美國年會","destination":"舊金山","amount":150000,"expense_items":[{"amount":150000}],"total_amount":150000,"receipts":"r.pdf"}
             """).RootElement;
         var start = await runtime.StartInstanceAsync(new StartInstanceCommand("EXPENSE_WITH_THRESHOLD", form, _wilsonId));
         await runtime.SubmitTaskAsync(new SubmitTaskCommand(start.FirstTaskId, _wilsonId, null, null, null));
@@ -554,10 +552,16 @@ public sealed class ProcessRuntimeE2EFixture : IDisposable
         Assert.Equal(InstanceStatus.Completed, instance.Status);
     }
 
-    [Fact] // 12.4 all three sample specs parse without errors
+    [Fact] // 12.4 all five sample specs parse without errors
     public void All_sample_specs_parse_with_SpecSnapshot()
     {
-        foreach (var name in new[] { "leave_v1.json", "purchase_v1.json", "expense_with_threshold_v1.json" })
+        foreach (var name in new[] {
+            "leave_v1.json",
+            "purchase_v1.json",
+            "expense_with_threshold_v1.json",
+            "expense_employee_v1.json",
+            "hardware_purchase_v1.json",
+        })
         {
             var path = Path.Combine("/Users/jason/claude/bpm/sample_specs", name);
             var json = File.ReadAllText(path);

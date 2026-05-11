@@ -142,6 +142,86 @@ sigil syntax):
 - For tests, use `user`-typed ActorRefs against fixture user IDs from the
   org seed (`bpm-svc/src/Persistence/Seed/OrgFixture.cs`).
 
+## CEL EXPRESSIONS
+
+Anywhere a spec field carries a small business rule — gateway
+`branches[].condition`, form field `conditional` / `validator` / `derivedFrom`
+— the value is a **CEL expression** (Cel.NET 1.0.0 wrapper, `bpm-cel-v1`
+subset). Never emit a JS expression (`leave_type === '病假'` or `&&`-style
+JS comments are not CEL). Never emit a `// TODO: define logic` placeholder
+or any other "to be filled later" sentinel — leave the field absent if it's
+optional, or set the actor block to `{ "type": "user", "id": "unresolved" }`
+when an approver can't be resolved at generation time.
+
+### Grammar overview
+
+Standard CEL operators and types:
+- Arithmetic: `+ - * / %`
+- Comparison: `== != < <= > >=`
+- Logical: `&& || !`
+- Membership: `'病假' in ['病假','公假']` and `xs.exists(x, x > 0)`
+- String literals: single OR double quotes (prefer `'` for consistency)
+- Numbers: integer literals stay int (`5`), `5.0` is double
+- Member access: `date_range.start`, `submitter.department.head.name`
+- Conditional ternary: `a ? b : c`
+
+### Available helpers (registered in BpmCelLibrary)
+
+| Helper | Signature | Notes |
+| --- | --- | --- |
+| `now()` | → timestamp | UTC instant from injected IClock |
+| `today()` | → timestamp | midnight Asia/Taipei, returned as UTC instant |
+| `daysBetween(t1, t2)` | (timestamp, timestamp) → int | natural days |
+| `businessDaysBetween(t1, t2)` | (timestamp, timestamp) → int | v1 stub returns natural days; will swap to calendar-aware in `add-calendar-and-business-hours` |
+| `sum(xs)` | (list(int) \| list(double)) → int \| double | typed list overloads only — `sum(xs.map(x, x.field))` is NOT supported in v1 (Cel.NET typed-overload limitation; use a derived `total` form field that materializes the sum upstream) |
+| `lower(s) / upper(s)` | (string) → string | locale-invariant |
+| Standard CEL: `size(x)`, `string(x)`, `int(x)`, `double(x)`, `bool(x)`, `s.matches(re)`, `s.startsWith(p)`, `s.endsWith(p)`, `s.contains(p)`, `xs.all(...)`, `xs.exists(...)` | | covered natively by Cel.NET |
+
+### Worked examples
+
+```jsonc
+// 1. Gateway condition — business-day threshold
+"condition": "days >= 7"
+
+// 2. Field conditional — show cert only for sick/public leave
+"conditional": "leave_type == '病假' || leave_type == '公假'"
+
+// 3. Field validator — `value` is the field's own value reference (only
+//    valid inside `validator`)
+"validator": "value >= 0 && value <= 365"
+
+// 4. Derived field — compute days from a date range
+"derivedFrom": "businessDaysBetween(date_range.start, date_range.end)"
+
+// 5. Gateway condition — sum of itemised amounts (use a derived field
+//    `total_amount` upstream; v1 sum() can't traverse list(map))
+"condition": "total_amount >= 50000"
+
+// 6. Conditional with multiple constraints
+"conditional": "total_amount > 100000 && category == 'capex'"
+
+// 7. String match for routing
+"condition": "lower(category) in ['it', 'capex']"
+
+// 8. Compose: derived line total per row, top-level grand total
+"derivedFrom": "qty * unit_price"      // per-row
+"derivedFrom": "sum(hw_items.line_total)"   // top-level (note: typed list)
+```
+
+### Anti-patterns (do not emit)
+
+- `===` / `!==` — these are JavaScript, not CEL. Use `==` / `!=`.
+- `// TODO: define logic` placeholders — either omit the optional field or
+  emit an `unresolved` ActorRef so the spec validator surfaces a clean error
+  rather than silently passing junk through to the runtime.
+- Member access into a list-of-maps without `.map(x, ...)` (e.g.
+  `expense_items.amount`) — works in the spec validator (stub data is
+  permissive) but fails at runtime. Materialize a sum into a top-level
+  derived field instead.
+- Free identifiers not declared as a sibling field, top-level form key, or
+  `value`/`submitter`/`instance` — the spec validator rejects these at
+  load time with `undeclared reference to 'x'`.
+
 ## TECH STACK & CONVENTIONS
 
 Backend (C# .NET 10, per bpm/CLAUDE.md):
