@@ -71,3 +71,53 @@ duplicate or skip rows. Default page size 50.
 - `POST /api/tasks/{id}/claim` — atomic Pending→InProgress
 - `POST /api/tasks/{id}/submit` — `{ formDataPatch?, decision?, comment? }`
 - `POST /api/tasks/{id}/return` — Approval-only, walks back to nearest userTask
+
+## Auth — JWT + dev-login + org seed (`add-actor-and-org-model`)
+
+The API is gated by JWT bearer (HS256). The mode is selected by
+`BPM_AUTH_MODE`:
+
+| Value      | Behaviour                                                        |
+|------------|------------------------------------------------------------------|
+| `dev`      | JWT validated locally; `/api/dev/login` mints persona JWTs       |
+| `prod`     | JWT validated locally; `/api/dev/login` is **not** registered    |
+| `disabled` | No auth middleware; all endpoints anonymous (legacy demo bypass) |
+
+Default is `dev` so the wizard's `RoleSwitcher` works zero-click. The signing
+secret comes from `BPM_JWT_SECRET` and **must be ≥ 32 bytes** — `Program.cs`
+fails fast at startup if it isn't.
+
+### Persona mapping
+
+`appsettings.Development.json` → `Personas` maps the six demo roles onto
+seed-fixture user emails (employee/manager/finance/it/hr/admin). The wizard's
+`RoleSwitcher` POSTs `/api/dev/login` with a `personaCode`; the
+`PersonaLoginService` looks up the seed user and `JwtTokenService` mints a
+token with `sub`, `persona_code`, `tenant_id`, `roles`, and `exp` claims.
+
+### Seed fixture
+
+`Bpm.Persistence.Seed.OrgFixture.RunAsync` creates ~10 users, 3 departments
+(2-level tree), 2 groups, the system roles (admin/designer/viewer), and the
+`RoleAssignment` rows that wire each persona to its role(s). It is
+**idempotent** — keyed on `User.Email` uniqueness, so re-running on top of an
+existing DB is safe.
+
+When `BPM_SEED_ON_STARTUP=true` (default in dev), the seed runs automatically
+after EF migrations apply. Production boots leave it off so fixture data
+never lands in a real DB.
+
+### ActorRef + ActorResolver
+
+Spec `approver` / `recipients` fields use a typed discriminated union
+(`Bpm.Domain.Spec.ActorRef`) covering six shapes: `expr` / `role` / `group`
+/ `user` / `conditional` / `collection` (see `spec_schema.md` §2.10).
+`ActorRefValidator` is wired into `SpecImportService` so importing a spec
+with an off-whitelist path or malformed conditional fails the import with a
+clean error.
+
+`ActorResolver` (used inside `ProcessRuntime` task spawning) walks each
+ActorRef into a list of concrete user ids using `IOrgChartReader`. Every
+top-level `ResolveAsync` call writes one `ActorResolutionAudit` row with the
+input ref, the resolved user ids, and any error kind — the audit table is
+the runtime-side source of truth for "why did this approver get picked".

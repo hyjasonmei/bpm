@@ -89,6 +89,28 @@ to keep idempotency (RULE #2) honest.
 
 ---
 
+## bpm-svc environment variables
+
+The service reads these at startup. Defaults are tuned for local dev — set
+them explicitly when shipping anywhere else.
+
+| Var                     | Default | Notes                                                                                                                          |
+|-------------------------|---------|--------------------------------------------------------------------------------------------------------------------------------|
+| `BPM_AUTH_MODE`         | `dev`   | `dev` = JWT + `/api/dev/login`; `prod` = JWT only; `disabled` = anonymous (legacy demo).                                       |
+| `BPM_JWT_SECRET`        | —       | **Required when auth mode != `disabled`.** HS256 signing key. Must be ≥ 32 bytes — `Program.cs` fails fast otherwise.          |
+| `BPM_SEED_ON_STARTUP`   | `true`  | When `true`, runs `OrgFixture` after EF migrations to seed the persona users + roles. Set `false` in prod.                     |
+| `BPM_AI_BACKEND`        | `cli`   | `cli` reuses Jason's Claude Code subscription; `api` uses `ANTHROPIC_API_KEY`. Switch to `api` for cloud / service deployments. |
+| `Spec__IncomingFolder`  | —       | Where the wizard hand-off drops `spec.json`. Resolved against `ContentRootPath` if relative.                                   |
+
+For local dev a 32-byte hex string is plenty:
+
+```bash
+export BPM_JWT_SECRET=$(openssl rand -hex 32)
+export BPM_AUTH_MODE=dev
+```
+
+---
+
 ## Manual instance start (process runtime)
 
 Smoke-test the `add-process-runtime` engine without the UI. All four calls
