@@ -9,6 +9,7 @@ import { SiteSettings } from '@/screens/SiteSettings'
 import { UsersRoles } from '@/screens/UsersRoles'
 import { Impersonation } from '@/screens/Impersonation'
 import { AuditLogs } from '@/screens/AuditLogs'
+import { SandboxMailbox } from '@/screens/sandbox/SandboxMailbox'
 
 const SCREEN_KEY = 'bpm_admin_screen'
 type GateState = 'pending' | 'authorized' | 'forbidden'
@@ -76,10 +77,11 @@ export default function App() {
   switch (screen.kind) {
     case 'onboarding':    body = <Onboarding onNavigate={setScreen} />; break
     case 'flow-library':  body = <FlowLibrary />; break
-    case 'site-settings': body = <SiteSettings />; break
-    case 'users-roles':   body = <UsersRoles />; break
-    case 'impersonation': body = <Impersonation />; break
-    case 'audit':         body = <AuditLogs />; break
+    case 'site-settings':    body = <SiteSettings />; break
+    case 'sandbox-mailbox':  body = <SandboxMailbox />; break
+    case 'users-roles':      body = <UsersRoles />; break
+    case 'impersonation':    body = <Impersonation />; break
+    case 'audit':            body = <AuditLogs />; break
   }
 
   return (

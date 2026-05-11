@@ -27,8 +27,25 @@ public sealed class SandboxController(
 
     [HttpPut("status")]
     [Authorize(Roles = "admin")]
-    public async Task<SandboxStatusDto> SetStatus([FromBody] UpdateSandboxRequest req, CancellationToken ct)
-        => await service.SetStatusAsync(req, RequireUserId(), ct);
+    public async Task<IActionResult> SetStatus([FromBody] UpdateSandboxRequest req, CancellationToken ct)
+    {
+        // PR-J5 §12.4: defense-in-depth for prod deploys — when the operator
+        // sets BPM_SANDBOX_TOGGLE_DISABLED=true, no one (not even admin) can
+        // flip sandbox on/off via the API. Useful when sandbox state is
+        // managed out-of-band (CD pipeline / config-management) and the
+        // self-serve toggle would be a liability.
+        if (IsToggleDisabledByEnv())
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "sandbox_toggle_disabled" });
+        var result = await service.SetStatusAsync(req, RequireUserId(), ct);
+        return Ok(result);
+    }
+
+    private static bool IsToggleDisabledByEnv()
+    {
+        var raw = Environment.GetEnvironmentVariable("BPM_SANDBOX_TOGGLE_DISABLED");
+        return !string.IsNullOrEmpty(raw)
+            && (raw.Equals("true", StringComparison.OrdinalIgnoreCase) || raw == "1");
+    }
 
     [HttpGet("redirects")]
     [Authorize(Roles = "admin")]
@@ -121,6 +138,32 @@ public sealed class SandboxController(
             persona = new { id = persona.Id, email = persona.Email, fullName = persona.FullName, roles = roleCodes },
             actualActor = new { id = actor, email = actorEmail },
         });
+    }
+
+    /// <summary>
+    /// PR-J5 §10.1: list users available as sandbox personas for the
+    /// RoleSwitcher dropdown in bpm-ui. Open to any authenticated user
+    /// because the read carries no privilege — the actual act-as is gated
+    /// by <c>POST /api/sandbox/persona</c> (admin + sandbox-on). Returns
+    /// silent empty list when sandbox is off so the dropdown can poll
+    /// without a 403 noise.
+    /// </summary>
+    [HttpGet("personas")]
+    public async Task<IReadOnlyList<SandboxPersonaDto>> ListPersonas(CancellationToken ct)
+    {
+        var clock = await clockService.GetAsync(ct);
+        if (!clock.SandboxOn) return Array.Empty<SandboxPersonaDto>();
+
+        var rows = await (
+            from u in db.Users.AsNoTracking()
+            where u.IsActive
+            join d in db.Departments.AsNoTracking() on u.DepartmentId equals d.Id into dj
+            from d in dj.DefaultIfEmpty()
+            orderby u.FullName
+            select new SandboxPersonaDto(u.Id, u.Email, u.FullName, d != null ? d.Name : null)
+        ).Take(200).ToListAsync(ct);
+
+        return rows;
     }
 
     // ===== PR-J4 §7 — Mailbox API =====

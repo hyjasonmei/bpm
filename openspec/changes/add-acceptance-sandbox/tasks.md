@@ -75,22 +75,23 @@
 
 ## 9. Frontend (`bpm-admin-ui`) — Sandbox Mailbox screen
 
-- [ ] 9.1 Add `sandbox-mailbox` to `AdminScreen` union in `components/AdminLayout.tsx`; nav entry with `Mail` icon
-- [ ] 9.2 Create `screens/sandbox/SandboxMailbox.tsx` with tabs: Mail / Webhooks / SMS / Clock
-- [ ] 9.3 Mail tab: list of captured emails (recipient filter, unread-only toggle, clear-all action); click row → modal with rendered HTML body + headers + intended recipients + originating notification deep-link
-- [ ] 9.4 Webhooks tab: list of captured deliveries (filter by event type or subscription); click row → modal with URL / headers / pretty-printed payload + "Fake 200 OK" badge
-- [ ] 9.5 SMS tab: same shape as Mail (low priority — placeholder UI is fine for v1)
-- [ ] 9.6 Clock tab: current real time / sandbox time / offset display; quick-advance buttons (+1h / +1d / +1w / +1mo); precise input form; reset button; recent advance/reset audit log
-- [ ] 9.7 Add captured-count badge to AdminLayout's existing nav next to "Sandbox Mailbox" entry — polls `/api/sandbox/captured/unread-count` every 10s when sandbox on
-- [ ] 9.8 Update `components/SandboxBanner.tsx` in `bpm-admin-ui` to show "captured: N mail / M webhook / clock +Xd Yh" live counter
+- [x] 9.1 Added `sandbox-mailbox` to `AdminScreen` union in `components/AdminLayout.tsx`; nav entry uses `Mail` icon, slotted between Site Settings and Users & Roles. (PR-J5)
+- [x] 9.2 Created `screens/sandbox/SandboxMailbox.tsx` with sidebar tabs Mail / Webhooks / SMS / Clock following the BundleDetail (PR-I6) tab convention. (PR-J5)
+- [x] 9.3 Mail tab: list (CapturedAt relative + Subject + unread dot), unread-only toggle, free-text filter (subject/event substring — recipient dropdown deferred since recipients live on the detail row, not the summary), refresh, mark-all-as-read; click row opens a modal with sandboxed HTML body + intended recipients + originating notification id (deep-link is text-only per the prompt). (PR-J5)
+- [x] 9.4 Webhooks tab: same scaffold, columns are Event type + Subject; modal shows URL / headers / pretty-printed JSON payload + "Fake 200 OK" badge + originating subscription id. (PR-J5)
+- [x] 9.5 SMS tab: minimal v1 placeholder — same shape, single Body column. (PR-J5)
+- [x] 9.6 Clock tab: real / sandbox / offset display, quick-advance buttons (+1h / +1d / +1w / +1mo), precise days/hours/minutes/seconds form, reset button (with confirm). (PR-J5)
+- [~] 9.6 audit-log sub-bullet: `(no audit log in v1)` text rendered in the Reset card — mirrors §4.8 / §5.3 deferral. (PR-J5)
+- [x] 9.7 Captured-count badge wired via new `hooks/useSandboxUnreadCount.ts` — polls `/api/sandbox/captured/unread-count` every 10s when sandbox is on, renders as a rose-500 pill on the Sandbox Mailbox nav entry. (PR-J5)
+- [x] 9.8 `SandboxBanner` in `bpm-admin-ui` now polls captured + clock every 10s and renders `SANDBOX MODE ACTIVE — captured: N mail / M webhook · clock +Xd Yh`. (PR-J5)
 
 ## 10. Frontend (`bpm-ui`) — RoleSwitcher sandbox mode + banner
 
-- [ ] 10.1 Update `bpm-ui/src/components/RoleSwitcher.tsx`: when sandbox is on (poll `/api/sandbox/status`), fetch sample-org users from currently-installed bundle (or from `/api/sandbox/personas`) and list as switchable options instead of hard-coded admin/manager/employee
-- [ ] 10.2 On select: `POST /api/sandbox/persona` with chosen userId; replace stored JWT; refetch app state
-- [ ] 10.3 Show "now acting as <persona name> (sandbox)" pill in top bar
-- [ ] 10.4 Update `bpm-ui/src/components/SandboxBanner.tsx` to mirror the admin banner's captured-count + clock-offset display
-- [ ] 10.5 New `Sandbox Mailbox` link in end-user nav (visible only when sandbox on) — opens read-only mailbox view (no admin actions)
+- [x] 10.1 `bpm-ui/src/components/RoleSwitcher.tsx` polls `/api/sandbox/status` on mount + on dropdown open; when on, fetches `/api/sandbox/personas` (new admin-controller endpoint) and renders them under a "Sandbox personas" divider below the original PERSONAS list. (PR-J5)
+- [x] 10.2 On select: `POST /api/sandbox/persona`, `setJwt(token)`, then `window.location.reload()` so all screens (Home / NotificationsMenu / etc.) refetch under the new persona — `useActivePersona` only handles the dev-login persona codes, not arbitrary user ids. (PR-J5)
+- [x] 10.3 "Acting as <persona> (sandbox)" amber pill rendered next to the persona dropdown trigger when the JWT carries `sandbox_actor=true`. New `isSandboxActor` helper in `lib/jwt.ts`. (PR-J5)
+- [x] 10.4 `bpm-ui/src/components/SandboxBanner.tsx` mirrors the admin banner — same captured/clock poller, same string format. (PR-J5)
+- [x] 10.5 New `screens/SandboxMailbox.tsx` (read-only) wired into `App.tsx` + `AppLayout.tsx`. Nav entry only visible when `sandboxOn` (polled every 30s). (PR-J5)
 
 ## 11. Bundle integration (couples with `add-spec-bundle-and-flow-library`)
 
@@ -103,11 +104,11 @@
 
 ## 12. SandboxBanner everywhere + audit hardening
 
-- [ ] 12.1 Audit log entry on every sandbox toggle (already in `ISandboxService.SetStatusAsync` — verify presence)
-- [ ] 12.2 Audit log entry on every sandbox persona issuance (recorded by JwtTokenService)
-- [ ] 12.3 Audit log entry on every reset (instance / all) — already covered by §5.3 above
-- [ ] 12.4 Add `BPM_SANDBOX_TOGGLE_DISABLED=true` env var support in `Api/Program.cs`: when true, `PUT /api/sandbox/status` returns 403 (defense in depth for prod deploys)
-- [ ] 12.5 Document in `docs/sandbox-acceptance-loop.md`: the demo path (toggle on → install bundle → submit → advance time → check mailbox → switch persona → approve → reset)
+- [x] 12.1 `SandboxService.SetStatusAsync` previously had no audit/log line — added Info-level log capturing previous→next + actor + tenant + timestamp. Dedicated audit table still skipped per §4.8 deferral. (PR-J5)
+- [x] 12.2 `JwtTokenService.IssueSandboxPersonaToken` now logs an Info line on every issuance with actor email/id + persona email/id + roles + expiry (had no logger injected before — added optional `ILogger<JwtTokenService>` param defaulting to `NullLogger` so test ctors stay source-compatible). (PR-J5)
+- [x] 12.3 `ResetService` Info-level logs already present from PR-J4 §5.3 — verified by reading `ResetInstanceAsync` / `ResetAllAsync`. (PR-J5)
+- [x] 12.4 `BPM_SANDBOX_TOGGLE_DISABLED=true` env var honored in `SandboxController.SetStatus`: returns 403 `{ error: "sandbox_toggle_disabled" }` before delegating to `ISandboxService`. Wired inline in the controller (not as middleware) so the existing `[Authorize(Roles="admin")]` runs first and the unauthorized-vs-toggle-disabled distinction stays clean. (PR-J5)
+- [x] 12.5 `docs/sandbox-acceptance-loop.md` (79 lines) walks the demo: toggle on → install bundle → submit → advance time → check mailbox → switch persona → approve → reset. (PR-J5)
 
 ## 13. Cleanup of legacy `SandboxRedirect`
 

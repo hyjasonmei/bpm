@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Check, Loader2, AlertCircle, ExternalLink, Eye } from 'lucide-react'
+import { ChevronDown, Check, Loader2, AlertCircle, ExternalLink, Eye, FlaskConical } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { PERSONAS, type PersonaCode, type Persona } from '@/lib/role'
-import { decodeJwt, isAdmin } from '@/lib/jwt'
-import { getJwt } from '@/lib/apiFetch'
+import { decodeJwt, isAdmin, isSandboxActor } from '@/lib/jwt'
+import { getJwt, setJwt } from '@/lib/apiFetch'
 import { isImpersonating } from '@/lib/impersonationToken'
 import { ImpersonationModal } from '@/components/ImpersonationModal'
+import { getSandboxStatus, listSandboxPersonas, switchSandboxPersona } from '@/lib/api/sandbox'
+import type { SandboxPersonaDto } from '@/types/sandbox'
 
 export interface RoleSwitcherProps {
   active: PersonaCode
@@ -18,7 +20,34 @@ export interface RoleSwitcherProps {
 export function RoleSwitcher({ active, onChange, pending = false, error = null, authedFullName = null }: RoleSwitcherProps) {
   const [open, setOpen] = useState(false)
   const [impersonateOpen, setImpersonateOpen] = useState(false)
+  const [sandboxOn, setSandboxOn] = useState(false)
+  const [sandboxPersonas, setSandboxPersonas] = useState<SandboxPersonaDto[]>([])
+  const [sandboxBusy, setSandboxBusy] = useState(false)
+  const [sandboxError, setSandboxError] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+
+  // Detect sandbox status on mount (and when the dropdown opens, so a fresh
+  // toggle from another tab is reflected without a hard reload).
+  useEffect(() => {
+    let cancelled = false
+    async function tick() {
+      try {
+        const status = await getSandboxStatus()
+        if (cancelled) return
+        setSandboxOn(status.enabled)
+        if (status.enabled) {
+          const list = await listSandboxPersonas()
+          if (!cancelled) setSandboxPersonas(list)
+        } else {
+          setSandboxPersonas([])
+        }
+      } catch {
+        // best-effort; sandbox UI degrades to original PERSONAS list on failure
+      }
+    }
+    void tick()
+    return () => { cancelled = true }
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -37,10 +66,40 @@ export function RoleSwitcher({ active, onChange, pending = false, error = null, 
   const current = PERSONAS[active]
   const all = Object.values(PERSONAS) as Persona[]
   const jwt = getJwt()
-  const callerIsAdmin = jwt ? isAdmin(decodeJwt(jwt)) : false
+  const decoded = jwt ? decodeJwt(jwt) : null
+  const callerIsAdmin = isAdmin(decoded)
+  const isSandboxPersona = isSandboxActor(decoded)
+  const sandboxPersonaName = isSandboxPersona ? (decoded?.full_name ?? decoded?.email ?? null) : null
+
+  async function handleSandboxPersonaSelect(p: SandboxPersonaDto) {
+    setSandboxBusy(true)
+    setSandboxError(null)
+    try {
+      const res = await switchSandboxPersona(p.id)
+      setJwt(res.token)
+      setOpen(false)
+      // Reload so all screens (Home, NotificationsMenu, etc.) refetch under
+      // the new persona. Same pattern useActivePersona doesn't cover because
+      // it works on persona codes, not arbitrary user ids.
+      window.location.reload()
+    } catch (e) {
+      setSandboxError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSandboxBusy(false)
+    }
+  }
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative flex items-center gap-2">
+      {sandboxPersonaName && (
+        <span
+          title="Acting as a sandbox persona — every action is logged with your real admin id"
+          className="hidden md:inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider text-white"
+        >
+          <FlaskConical className="h-3 w-3" />
+          Acting as {sandboxPersonaName} (sandbox)
+        </span>
+      )}
       <button
         onClick={() => setOpen(o => !o)}
         className={cn(
@@ -95,6 +154,40 @@ export function RoleSwitcher({ active, onChange, pending = false, error = null, 
               )
             })}
           </div>
+
+          {sandboxOn && sandboxPersonas.length > 0 && (
+            <div className="border-t border-rule">
+              <div className="bg-amber-50/60 px-4 py-2 text-[10.5px] font-semibold uppercase tracking-wider text-amber-900">
+                Sandbox personas — act-as via /api/sandbox/persona
+              </div>
+              <div className="max-h-60 overflow-y-auto p-1">
+                {sandboxPersonas.map(p => (
+                  <button
+                    key={p.id}
+                    disabled={sandboxBusy}
+                    onClick={() => handleSandboxPersonaSelect(p)}
+                    className="flex w-full items-start gap-3 rounded-md px-3 py-2 text-left hover:bg-amber-50/40 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <FlaskConical className="mt-0.5 h-4 w-4 text-amber-700 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-semibold text-ink truncate">{p.fullName}</span>
+                        <span className="text-[10.5px] text-amber-700 font-medium">(sandbox)</span>
+                      </div>
+                      <p className="text-[11px] leading-snug text-ink-muted truncate">{p.email}</p>
+                      {p.departmentName && <p className="text-[10.5px] leading-snug text-ink-faint truncate">{p.departmentName}</p>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {sandboxError && (
+                <div className="border-t border-rule bg-rose-50 px-4 py-2 text-[11px] text-rose-700">
+                  Sandbox switch failed: {sandboxError}
+                </div>
+              )}
+            </div>
+          )}
+
           {callerIsAdmin && !isImpersonating() && (
             <button
               onClick={() => { setOpen(false); setImpersonateOpen(true) }}

@@ -16,6 +16,7 @@ import { ITPRView } from '@/screens/forms/ITPRView'
 import { EXTOBView } from '@/screens/forms/EXTOBView'
 import { ResignForm } from '@/screens/forms/ResignForm'
 import { DeptxForm } from '@/screens/forms/DeptxForm'
+import { SandboxMailbox } from '@/screens/SandboxMailbox'
 
 const SCREEN_KEY = 'bpm_screen'
 
@@ -45,6 +46,7 @@ export default function App() {
     case 'search':     body = <Search />; break
     case 'report':     body = <Report />; break
     case 'attendance': body = <Attendance />; break
+    case 'sandbox-mailbox': body = <SandboxMailbox />; break
     case 'form':
       switch (screen.code) {
         case 'LEAVE': body = <LeaveForm persona={persona} />; break

@@ -7,6 +7,16 @@ export interface DecodedJwt {
   exp?: number
   impersonated_by?: string
   imp_session_id?: string
+  /** PR-J5 §10: present on tokens minted by POST /api/sandbox/persona. */
+  sandbox_actor?: string | boolean
+  actual_actor_id?: string
+  actual_actor_email?: string
+}
+
+/** PR-J5 §10.3: drives the "now acting as <X> (sandbox)" pill. */
+export function isSandboxActor(d: DecodedJwt | null): boolean {
+  if (!d?.sandbox_actor) return false
+  return d.sandbox_actor === true || String(d.sandbox_actor).toLowerCase() === 'true'
 }
 
 export function decodeJwt(token: string): DecodedJwt | null {

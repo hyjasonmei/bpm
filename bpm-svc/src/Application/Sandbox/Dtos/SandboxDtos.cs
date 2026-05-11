@@ -47,3 +47,16 @@ public sealed record SandboxRedirectDto(
     IReadOnlyList<string> RedirectedTargets,
     string? SampleSubject,
     DateTime DispatchedAt);
+
+/// <summary>
+/// PR-J5 §10.1: surfaced for the bpm-ui RoleSwitcher's "sandbox personas"
+/// dropdown. Any authenticated user can list personas — the act-as POST
+/// (<see cref="SwitchPersonaRequest"/>) still requires admin role and a
+/// sandbox-on tenant. Department name is denormalised here so the dropdown
+/// can render without a second round-trip.
+/// </summary>
+public sealed record SandboxPersonaDto(
+    Guid Id,
+    string Email,
+    string FullName,
+    string? DepartmentName);

@@ -2,12 +2,16 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Bpm.Domain.Entities.Org;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Bpm.Api.Auth;
 
-public sealed class JwtTokenService(JwtOptions options, IHostEnvironment env)
+public sealed class JwtTokenService(JwtOptions options, IHostEnvironment env, ILogger<JwtTokenService>? logger = null)
 {
+    private readonly ILogger<JwtTokenService> _log = logger ?? NullLogger<JwtTokenService>.Instance;
+
     public (string Token, DateTime ExpiresAt) Mint(User user, string personaCode, IEnumerable<string> systemRoleCodes)
     {
         var now = DateTime.UtcNow;
@@ -83,6 +87,14 @@ public sealed class JwtTokenService(JwtOptions options, IHostEnvironment env)
             notBefore: now,
             expires: expires,
             signingCredentials: creds);
+
+        // PR-J5 §12.2: every persona-token issuance logged at Info — gives the
+        // ops grep trail for "who acted as whom" without a dedicated audit
+        // table (mirrors the SandboxClockEvent / ResetEvent decision in §4.8).
+        _log.LogInformation(
+            "Sandbox persona token issued: actor={ActorEmail}({ActorId}) → persona={PersonaEmail}({PersonaId}) roles=[{Roles}] expires={Expires:o}",
+            actualActorEmail, actualActorUserId, personaEmail, personaUserId,
+            string.Join(",", personaRoles), expires);
 
         return (new JwtSecurityTokenHandler().WriteToken(token), expires);
     }

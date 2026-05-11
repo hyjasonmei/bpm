@@ -3,10 +3,11 @@ using Bpm.Application.Sandbox;
 using Bpm.Application.Sandbox.Dtos;
 using Bpm.Domain.Entities.Sandbox;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Bpm.Persistence.Sandbox;
 
-public sealed class SandboxService(AppDbContext db) : ISandboxService
+public sealed class SandboxService(AppDbContext db, ILogger<SandboxService> logger) : ISandboxService
 {
     private const string DefaultTenant = "default";
 
@@ -19,6 +20,7 @@ public sealed class SandboxService(AppDbContext db) : ISandboxService
     public async Task<SandboxStatusDto> SetStatusAsync(UpdateSandboxRequest req, Guid actorUserId, CancellationToken ct = default)
     {
         var settings = await GetOrCreateAsync(ct);
+        var previous = settings.SandboxMode;
         settings.SandboxMode = req.Enabled;
         settings.SandboxConfigJson = req.Config is null
             ? null
@@ -26,6 +28,12 @@ public sealed class SandboxService(AppDbContext db) : ISandboxService
         settings.SandboxLastToggledAt = DateTime.UtcNow;
         settings.SandboxLastToggledByUserId = actorUserId;
         await db.SaveChangesAsync(ct);
+        // PR-J5 §12.1: audit row table is intentionally skipped (mirrors §4.8
+        // clock-event decision); Info-level log carries actor + transition so
+        // grep / log-aggregator captures the story.
+        logger.LogInformation(
+            "Sandbox toggle {Previous} → {Next} by {Actor} on tenant {Tenant} at {At:o}",
+            previous, req.Enabled, actorUserId, settings.TenantCode, settings.SandboxLastToggledAt);
         return ToStatus(settings);
     }
 

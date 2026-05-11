@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Plus, Search, FileText, BarChart3, Home, ChevronDown, Clock } from 'lucide-react'
+import { Plus, Search, FileText, BarChart3, Home, ChevronDown, Clock, FlaskConical } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { RoleSwitcher } from '@/components/RoleSwitcher'
 import { ImpersonationBanner } from '@/components/ImpersonationBanner'
@@ -8,12 +8,14 @@ import { NotificationsMenu } from '@/components/NotificationsMenu'
 import { HelpReportMenu } from '@/components/HelpReportMenu'
 import type { PersonaCode } from '@/lib/role'
 import { FORMS, type FormCode } from '@/lib/workflow'
+import { getSandboxStatus } from '@/lib/api/sandbox'
 
 export type Screen =
   | { kind: 'home' }
   | { kind: 'search' }
   | { kind: 'report' }
   | { kind: 'attendance' }
+  | { kind: 'sandbox-mailbox' }
   | { kind: 'form'; code: FormCode }
 
 interface AppLayoutProps {
@@ -37,6 +39,22 @@ const FORM_GROUPS: Array<{ group: string; items: { id: FormCode; label: string }
 export function AppLayout({ screen, setScreen, persona, setPersona, authedFullName = null, authPending = false, authError = null, children }: AppLayoutProps) {
   const [createOpen, setCreateOpen] = React.useState(false)
   const createRef = React.useRef<HTMLDivElement>(null)
+  const [sandboxOn, setSandboxOn] = React.useState(false)
+
+  // PR-J5 §10.5: Sandbox Mailbox link only visible when sandbox is on. Poll
+  // every 30s so a toggle in admin-ui surfaces here without a hard reload.
+  React.useEffect(() => {
+    let cancelled = false
+    async function tick() {
+      try {
+        const s = await getSandboxStatus()
+        if (!cancelled) setSandboxOn(s.enabled)
+      } catch { /* swallow */ }
+    }
+    void tick()
+    const handle = window.setInterval(tick, 30_000)
+    return () => { cancelled = true; window.clearInterval(handle) }
+  }, [])
 
   React.useEffect(() => {
     if (!createOpen) return
@@ -105,6 +123,15 @@ export function AppLayout({ screen, setScreen, persona, setPersona, authedFullNa
 
           {/* Right side */}
           <div className="ml-auto flex items-center gap-1">
+            {sandboxOn && (
+              <NavBtn
+                active={screen.kind === 'sandbox-mailbox'}
+                onClick={() => setScreen({ kind: 'sandbox-mailbox' })}
+                icon={<FlaskConical className="h-4 w-4" />}
+              >
+                Sandbox
+              </NavBtn>
+            )}
             <NavBtn active={screen.kind === 'attendance'} onClick={() => setScreen({ kind: 'attendance' })} icon={<Clock className="h-4 w-4" />}>Attendance</NavBtn>
             <NotificationsMenu />
             <HelpReportMenu />
