@@ -342,6 +342,8 @@ public sealed class ProcessAdminControllerTests : IDisposable
             => throw new InvalidOperationException("ThrowingQueryService: not configured for this test");
         public Task<CompletedCasesPage> GetCompletedCasesAsync(string? specCode = null, DateTime? completedAfter = null, string? status = null, int limit = 100, string? cursor = null, CancellationToken ct = default)
             => throw new InvalidOperationException("ThrowingQueryService: not configured for this test");
+        public Task<IReadOnlyList<MyInstanceSummaryDto>> GetMyInstancesAsync(Guid initiatorUserId, string status, int limit, CancellationToken ct = default)
+            => throw new InvalidOperationException("ThrowingQueryService: not configured for this test");
     }
 
     private sealed class ThrowingReportingService : IProcessReportingService

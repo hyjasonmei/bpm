@@ -214,11 +214,41 @@ A 在 3 天內可拿出「全部走真 runtime」的 demo；B 等 form-runtime-r
 3. GEE/GEV/HWP 的 UI category 字串（`'Internet Access, ADSL'` 等）跟 spec 的 enum (`'business' | 'misc'` 等) 不一致，加 mapping helper 兩邊轉換；React state 維持原樣（不重命名變數）。
 4. `task.task.nodeId` 用來決定多步 task 表單顯示哪一段 panel（ITPRView / TEOView / TRQView / EXTOBView 都這樣處理），避免每個 task 都開一個 component。
 
-### PR-L3: bpm-ui Inbox 整合
+### PR-L3: bpm-ui Inbox 整合 — ✅ DONE 2026-05-11
 
-- 改 `Home.tsx`：從 mock list 變成讀 `useMyTasks()`
-- 點 task → 自動 route 到對應 FormCode 的 form 並進 task 模式
-- Search.tsx 從 mock 改打 `/api/processes` query（先用簡單 filter，real-search 是另一個 proposal）
+**狀態：** 完成。Home + Search 改吃真實 runtime 資料；inbox 點 task 直接帶 `taskId` 進 form task 模式。
+
+#### Backend
+- 新 endpoint `GET /api/processes/mine?status=active|completed|all&limit=N` — 回 `MyInstanceSummaryDto[]`（id / specCode / specVersion / status / startedAt / completedAt / lastActivityAt / openTaskCount / currentNodeLabel）。
+- `IProcessQueryService.GetMyInstancesAsync(initiatorUserId, status, limit, ct)` — order by `LastActivityAt DESC`，clamp limit 1–200。`currentNodeLabel` 透過 `SpecSnapshot.GetNode(openTask[0].nodeId)?.Label` 取得（per-row 解一次 JsonDocument，list 規模有限可接受）。
+- `ProcessTaskDto` 加上 `SpecCode` 欄位（從 `instance.SpecCode` 帶過來）— 讓 inbox 點擊不需再 fetch instance。`GetMineAsync` 多打一次 `db.ProcessInstances.Where(i => instanceIds.Contains(i.Id)).Select(i => new { Id, SpecCode })` 組成 dictionary。
+- 3 個 stub `ThrowingQueryService`（ProcessAdmin / Reports / Simulate endpoint tests）補上新介面實作。
+- 3 個新 controller test：`Mine_returns_only_caller_initiated_instances` / `Mine_status_filter_completed_excludes_running` / `Mine_invalid_status_throws_conflict`。
+- `dotnet test bpm-svc.slnx` 275 → 278 全綠。
+
+#### Frontend
+- `bpm-ui/src/types/process.ts` 加 `MyInstanceSummaryDto` interface + `ProcessTaskDto.specCode: string`。
+- `bpm-ui/src/lib/api/process.ts` 加 `myInstances(status, limit)` client function（含 enum 反序列化 boundary normalisation）。
+- `bpm-ui/src/hooks/useMyInstances.ts` 新 hook（mirror `useMyTasks` lifecycle，30s polling、cancel guard、refresh()）。
+- `Home.tsx` 完全 rewire：
+  - `Pending Action` table 改吃 `useMyTasks('open')`，row 點擊用 `task.specCode` 直接 `setScreen({ kind: 'form', code, taskId: task.id })`。
+  - `My Recent Cases` table 改吃 `useMyInstances('all')`。
+  - StatCards 改用真實 inbox 計數 + my-instances 衍生（active / completed / cancelled / total）；persona 別固定的「Approved Today / Closed Today / Onboardings 30d」等 scoreboard 數字今天 API surface 沒給，標 demo 後續 add-real-reporting 補（PR-L3 v1 寫死為 0 / 移除）。
+  - Activity Feed + Reminders 兩個 panel 標記 `demo` 小標，data 暫留 `MOCK_ACTIVITY` / `MOCK_REMINDERS`。
+- `Search.tsx` 完全 rewire：
+  - Filter 改 backend status (`Running|Completed|Cancelled|Errored`) + FormCode + 日期範圍 + keyword（match case id / spec code / current node label）。
+  - Search button 改成 Refresh — 沒 cross-user search endpoint，client-side filter 已足。
+  - Results table 顯示 case id 前 8 位 / type / current step label / started / last activity / open tasks / status badge。
+  - SearchModal 同步改吃 `useMyInstances`。
+- `App.tsx` 完全沒改 — PR-L2 的 `Screen.taskId` plumbing 已就位，這次只是真的帶 taskId 進來。
+- `lib/mocks.ts` 保留：`MOCK_ACTIVITY` / `MOCK_REMINDERS` 還在用，其他 `MOCK_CASES` / `MOCK_USERS` / `MOCK_LEAVE_BALANCES` 等保留給 Attendance / Sandbox / 即將砍的 demo flow 用，PR-L3 不刪。
+- `tsc -p tsconfig.app.json --noEmit` 全綠。
+
+#### 寫過程的小決策
+1. **`ProcessTaskDto.SpecCode` 實作策略**：原本想加在 `ProcessTask` entity 上但會牽動 migration；改成在 mapper 邊 join 邊組（mapper signature 變 `ToTaskDto(ProcessTask, string specCode)`）。`ToInstanceDto` 已有 instance object 可直接傳，`GetTaskAsync` 也已 fetch instance；只有 `GetMineAsync` 多一次 dictionary lookup。3 個 internal call site 改完即可，沒有外部 caller。
+2. **Completed instance click-through**：spec 提到 v1 不做 view-only mode，Search.tsx 現在 completed case 不可點。等 add-real-reporting 或新的 view-only proposal。
+3. **Admin persona 的 Home stat cards 沒有真正的 cross-user 計數**：今天唯一的 admin 看版是 `/api/admin/process-admin/cases/active`（admin gated）。PR-L3 v1 admin 仍看自己的數據，cross-tenant roll-up 是 add-real-reporting 的事。
+4. **`MOCK_CASES` 不刪**：Attendance.tsx / 一些舊截圖 view 仍 import；移除是另一個整理 PR。
 
 ### PR-L4: SeedCli console app
 

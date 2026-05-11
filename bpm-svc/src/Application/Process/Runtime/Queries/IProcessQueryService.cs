@@ -70,4 +70,18 @@ public interface IProcessQueryService
         int limit = 100,
         string? cursor = null,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// PR-L3 — list instances initiated by the requester. Powers the Home
+    /// "My recent cases" panel + the Search screen's user-scoped query.
+    /// </summary>
+    /// <param name="status">
+    /// "active" → Running / Errored; "completed" → Completed / Cancelled;
+    /// "all" (default) → no status filter.
+    /// </param>
+    Task<IReadOnlyList<MyInstanceSummaryDto>> GetMyInstancesAsync(
+        Guid initiatorUserId,
+        string status,
+        int limit,
+        CancellationToken ct = default);
 }

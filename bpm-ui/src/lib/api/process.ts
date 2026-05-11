@@ -4,6 +4,7 @@ import type {
   HistoryEventType,
   HistoryPage,
   InstanceStatus,
+  MyInstanceSummaryDto,
   NodeKind,
   ProcessInstanceDto,
   ProcessTaskDto,
@@ -212,4 +213,31 @@ export async function returnTask(id: string, comment: string): Promise<void> {
     body: JSON.stringify({ comment }),
   })
   await voidOrThrow(res)
+}
+
+interface RawMyInstanceSummaryDto extends Omit<MyInstanceSummaryDto, 'status'> {
+  status: InstanceStatus | number
+}
+function normMyInstance(raw: RawMyInstanceSummaryDto): MyInstanceSummaryDto {
+  return { ...raw, status: normInstanceStatus(raw.status) }
+}
+
+/**
+ * PR-L3: instances initiated by the calling user. Powers the Home
+ * "My recent cases" panel + the Search screen's user-scoped query.
+ *
+ * status:
+ *   'active'    → Running / Errored
+ *   'completed' → Completed / Cancelled
+ *   'all'       → no status filter (default)
+ */
+export async function myInstances(
+  status: 'active' | 'completed' | 'all' = 'all',
+  limit = 50,
+): Promise<MyInstanceSummaryDto[]> {
+  const qs = new URLSearchParams({ status })
+  qs.set('limit', String(limit))
+  const res = await apiFetch(`/api/processes/mine?${qs.toString()}`)
+  const raw = await jsonOrThrow<RawMyInstanceSummaryDto[]>(res)
+  return raw.map(normMyInstance)
 }

@@ -32,7 +32,11 @@ public sealed record ProcessTaskDto(
     DateTime? ClaimedAt,
     DateTime? CompletedAt,
     Decision? Decision,
-    string? Comment);
+    string? Comment,
+    // PR-L3: surface the owning instance's spec code so the UI inbox can
+    // route a task click straight to the matching FormCode without an extra
+    // GetInstance round-trip.
+    string SpecCode);
 
 public sealed record TaskHistoryDto(
     Guid Id,
@@ -115,3 +119,22 @@ public sealed record CompletedCaseDto(
 public sealed record CompletedCasesPage(
     IReadOnlyList<CompletedCaseDto> Items,
     string? NextCursor);
+
+/// <summary>
+/// PR-L3 — initiator-scoped instance summary for the Home / Search "my cases"
+/// list. Trimmed-down sibling of <see cref="ActiveCaseDto"/>: no breach flag /
+/// assignee join (those are admin-board concerns), but adds
+/// <see cref="CompletedAt"/> and <see cref="CurrentNodeLabel"/> so the UI can
+/// render a status timeline + "where is my case sitting now" hint without
+/// loading the full instance.
+/// </summary>
+public sealed record MyInstanceSummaryDto(
+    Guid Id,
+    string SpecCode,
+    int SpecVersion,
+    InstanceStatus Status,
+    DateTime StartedAt,
+    DateTime? CompletedAt,
+    DateTime LastActivityAt,
+    int OpenTaskCount,
+    string? CurrentNodeLabel);

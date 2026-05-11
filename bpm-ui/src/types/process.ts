@@ -125,6 +125,9 @@ export interface ProcessTaskDto {
   completedAt: string | null
   decision: Decision | null
   comment: string | null
+  // PR-L3: owning instance's spec code, surfaced so the inbox can route a
+  // task click to the matching FormCode without a per-row instance fetch.
+  specCode: string
 }
 
 export interface ProcessInstanceDto {
@@ -163,4 +166,19 @@ export interface TaskWithFormDto {
   mergedFormData: unknown
   specCode: string
   instanceId: string
+}
+
+// PR-L3: trimmed-down sibling of ProcessInstanceDto for the Home "My
+// recent cases" panel + the Search screen's user-scoped query. Mirrors
+// Bpm.Application.Process.Runtime.Dtos.MyInstanceSummaryDto.
+export interface MyInstanceSummaryDto {
+  id: string
+  specCode: string
+  specVersion: number
+  status: InstanceStatus
+  startedAt: string
+  completedAt: string | null
+  lastActivityAt: string
+  openTaskCount: number
+  currentNodeLabel: string | null
 }

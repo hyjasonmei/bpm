@@ -45,6 +45,21 @@ public sealed class ProcessController(
         CancellationToken ct)
         => await query.GetHistoryPageAsync(id, RequireUserId(), cursor, limit <= 0 ? 50 : limit, ct);
 
+    /// <summary>
+    /// PR-L3 — instances initiated by the calling user. Powers the Home
+    /// "My recent cases" panel + the Search screen's user-scoped query.
+    /// </summary>
+    [HttpGet("mine")]
+    public async Task<IReadOnlyList<MyInstanceSummaryDto>> Mine(
+        [FromQuery] string? status,
+        [FromQuery] int limit,
+        CancellationToken ct)
+        => await query.GetMyInstancesAsync(
+            RequireUserId(),
+            status ?? "all",
+            limit <= 0 ? 50 : limit,
+            ct);
+
     [HttpPost("{id:guid}/cancel")]
     public async Task<IActionResult> Cancel(Guid id, [FromBody] CancelProcessRequest req, CancellationToken ct)
     {

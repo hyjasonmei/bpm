@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Exceptions;
+using Bpm.Application.Process.Runtime;
 using Bpm.Application.Process.Runtime.Dtos;
 using Bpm.Application.Process.Runtime.Queries;
 using Bpm.Domain.Entities.Process;
@@ -119,7 +120,20 @@ public sealed class ProcessQueryService(AppDbContext db, IClock clock) : IProces
             .Take(clamped)
             .ToListAsync(ct);
 
-        return rows.Select(ToTaskDto).ToList();
+        if (rows.Count == 0) return Array.Empty<ProcessTaskDto>();
+
+        // PR-L3: ProcessTaskDto carries SpecCode so the inbox can route a click
+        // to the matching FormCode without a per-row instance fetch. Pull the
+        // distinct instance ids in one round-trip.
+        var instanceIds = rows.Select(t => t.ProcessInstanceId).Distinct().ToList();
+        var specByInstance = await db.ProcessInstances.AsNoTracking()
+            .Where(i => instanceIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.SpecCode })
+            .ToDictionaryAsync(x => x.Id, x => x.SpecCode, ct);
+
+        return rows
+            .Select(t => ToTaskDto(t, specByInstance.TryGetValue(t.ProcessInstanceId, out var sc) ? sc : string.Empty))
+            .ToList();
     }
 
     public async Task<TaskWithFormDto> GetTaskAsync(Guid taskId, Guid requesterUserId, CancellationToken ct = default)
@@ -137,7 +151,7 @@ public sealed class ProcessQueryService(AppDbContext db, IClock clock) : IProces
             throw new ForbiddenException($"user {requesterUserId} cannot read task {taskId}");
 
         return new TaskWithFormDto(
-            ToTaskDto(task),
+            ToTaskDto(task, instance.SpecCode),
             ParseJson(instance.CurrentFormDataJson),
             instance.SpecCode,
             instance.Id);
@@ -376,6 +390,85 @@ public sealed class ProcessQueryService(AppDbContext db, IClock clock) : IProces
         return new CompletedCasesPage(rows, nextCursor);
     }
 
+    public async Task<IReadOnlyList<MyInstanceSummaryDto>> GetMyInstancesAsync(
+        Guid initiatorUserId,
+        string status,
+        int limit,
+        CancellationToken ct = default)
+    {
+        var clamped = Math.Clamp(limit, 1, 200);
+
+        var query = db.ProcessInstances.AsNoTracking()
+            .Where(i => i.InitiatorUserId == initiatorUserId);
+
+        var normalized = (status ?? "all").ToLowerInvariant();
+        query = normalized switch
+        {
+            "active" => query.Where(i => i.Status == InstanceStatus.Running || i.Status == InstanceStatus.Errored),
+            "completed" => query.Where(i => i.Status == InstanceStatus.Completed || i.Status == InstanceStatus.Cancelled),
+            "all" => query,
+            _ => throw new ConflictException($"unsupported status filter '{status}' (allowed: active|completed|all)"),
+        };
+
+        var instances = await query
+            .OrderByDescending(i => i.LastActivityAt)
+            .Take(clamped)
+            .ToListAsync(ct);
+
+        if (instances.Count == 0) return Array.Empty<MyInstanceSummaryDto>();
+
+        // Open-task counts in one round-trip; attach to the matching instance.
+        var instanceIds = instances.Select(i => i.Id).ToList();
+        var openTasks = await db.ProcessTasks.AsNoTracking()
+            .Where(t => instanceIds.Contains(t.ProcessInstanceId)
+                        && (t.Status == TaskStatus.Pending || t.Status == TaskStatus.InProgress))
+            .Select(t => new { t.ProcessInstanceId, t.NodeId, t.CreatedAt })
+            .ToListAsync(ct);
+
+        var openByInstance = openTasks
+            .GroupBy(t => t.ProcessInstanceId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.CreatedAt).ToList());
+
+        var rows = new List<MyInstanceSummaryDto>(instances.Count);
+        foreach (var i in instances)
+        {
+            openByInstance.TryGetValue(i.Id, out var open);
+            open ??= [];
+            string? currentNodeLabel = null;
+            // Best-effort: parse the spec snapshot once per instance and look
+            // up the first open task's node label. SpecSnapshot is cheap (one
+            // JsonDocument.Parse per call), and the v1 inbox row is the only
+            // place we surface "where is this case sitting".
+            if (open.Count > 0 && !string.IsNullOrWhiteSpace(i.SpecSnapshotJson))
+            {
+                try
+                {
+                    using var snap = new SpecSnapshot(i.SpecSnapshotJson);
+                    var node = snap.GetNode(open[0].NodeId);
+                    currentNodeLabel = node?.Label;
+                }
+                catch
+                {
+                    // Spec snapshot parse fail → leave label null. Don't fail
+                    // the whole list because one row's snapshot is malformed.
+                }
+            }
+
+            rows.Add(new MyInstanceSummaryDto(
+                Id: i.Id,
+                SpecCode: i.SpecCode,
+                SpecVersion: i.SpecVersion,
+                Status: i.Status,
+                StartedAt: i.StartedAt,
+                CompletedAt: i.CompletedAt,
+                LastActivityAt: i.LastActivityAt,
+                OpenTaskCount: open.Count,
+                CurrentNodeLabel: currentNodeLabel));
+        }
+
+        return rows;
+    }
+
     public async Task<LiveCaseDetailDto> GetCaseDetailAsync(
         Guid instanceId,
         int historyLimit = 20,
@@ -413,11 +506,11 @@ public sealed class ProcessQueryService(AppDbContext db, IClock clock) : IProces
     internal static ProcessInstanceDto ToInstanceDto(ProcessInstance i, IReadOnlyList<ProcessTask> tasks) => new(
         i.Id, i.SpecCode, i.SpecVersion, i.InitiatorUserId, i.Status,
         ParseJson(i.CurrentFormDataJson), i.StartedAt, i.CompletedAt, i.CancelledAt, i.CancelReason,
-        tasks.Select(ToTaskDto).ToList());
+        tasks.Select(t => ToTaskDto(t, i.SpecCode)).ToList());
 
-    internal static ProcessTaskDto ToTaskDto(ProcessTask t) => new(
+    internal static ProcessTaskDto ToTaskDto(ProcessTask t, string specCode) => new(
         t.Id, t.NodeId, t.NodeKind, t.OriginalAssigneeUserId, t.ActualAssigneeUserId,
-        t.Status, t.DueAt, t.ClaimedAt, t.CompletedAt, t.Decision, t.Comment);
+        t.Status, t.DueAt, t.ClaimedAt, t.CompletedAt, t.Decision, t.Comment, specCode);
 
     internal static TaskHistoryDto ToHistoryDto(TaskHistory h) => new(
         h.Id, h.TaskId, h.EventType, h.ActorUserId, ParseJson(h.PayloadJson), h.CreatedAt);

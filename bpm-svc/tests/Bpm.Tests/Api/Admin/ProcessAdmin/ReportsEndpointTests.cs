@@ -159,6 +159,8 @@ public sealed class ReportsEndpointTests : IDisposable
             => throw new InvalidOperationException("not used");
         public Task<CompletedCasesPage> GetCompletedCasesAsync(string? specCode = null, DateTime? completedAfter = null, string? status = null, int limit = 100, string? cursor = null, CancellationToken ct = default)
             => throw new InvalidOperationException("not used");
+        public Task<IReadOnlyList<MyInstanceSummaryDto>> GetMyInstancesAsync(Guid initiatorUserId, string status, int limit, CancellationToken ct = default)
+            => throw new InvalidOperationException("not used");
     }
 
     private sealed class ThrowingInterventionService : IProcessAdminInterventionService
