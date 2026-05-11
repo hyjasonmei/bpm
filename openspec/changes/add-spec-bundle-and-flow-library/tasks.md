@@ -2,11 +2,11 @@
 
 ## 1. Bundle format — schema definition
 
-- [ ] 1.1 Document the bundle layout in `openspec/changes/add-spec-bundle-and-flow-library/specs/bpm-spec-bundle/spec.md` (already drafted as part of this change; verify file paths and required vs optional members during review)
-- [ ] 1.2 Create `bpm-svc/src/Domain/Spec/Bundle/BundleManifest.cs` — records: `BundleSchemaVersion (int)`, `FlowCode (string)`, `FlowVersion (int)`, `ExportedAt (DateTimeOffset)`, `SourceInstanceId (string)`, `Parent (string?)`, `Files (IReadOnlyList<BundleFileEntry>)`
-- [ ] 1.3 Create `BundleFileEntry.cs`: `Path (string)`, `Sha256 (string)`, `SizeBytes (long)`, `Kind (BundleFileKind)`
-- [ ] 1.4 Create `BundleFileKind.cs` enum: `Manifest, Spec, BpmnXml, SpecMd, Readme, Walkthrough, Changelog, Form, Notification, Sla, Actors, SampleOrg, TestCase, Asset, Other`
-- [ ] 1.5 Create `BundleSchemaVersion.cs` static class with `Current = 1` constant — referenced everywhere instead of magic number
+- [x] 1.1 Document the bundle layout in `openspec/changes/add-spec-bundle-and-flow-library/specs/bpm-spec-bundle/spec.md` (already drafted as part of this change; verify file paths and required vs optional members during review)
+- [x] 1.2 Create `bpm-svc/src/Domain/Spec/Bundle/BundleManifest.cs` — records: `BundleSchemaVersion (int)`, `FlowCode (string)`, `FlowVersion (int)`, `ExportedAt (DateTimeOffset)`, `SourceInstanceId (string)`, `Parent (string?)`, `Files (IReadOnlyList<BundleFileEntry>)`
+- [x] 1.3 Create `BundleFileEntry.cs`: `Path (string)`, `Sha256 (string)`, `SizeBytes (long)`, `Kind (BundleFileKind)`
+- [x] 1.4 Create `BundleFileKind.cs` enum: `Manifest, Spec, BpmnXml, SpecMd, Readme, Walkthrough, Changelog, Form, Notification, Sla, Actors, SampleOrg, TestCase, Asset, Other`
+- [x] 1.5 Create `BundleSchemaVersion.cs` static class with `Current = 1` constant — referenced everywhere instead of magic number
 
 ## 2. Backend — BundleBuilder (export)
 
