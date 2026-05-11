@@ -46,14 +46,31 @@ MVP 功能範圍：
 商業模式
 第一年導入費（含送幾隻流程）+ 之後每年 30% 導入費 + 顧問點數，大量需求另購點數。多客戶時 Anthropic API 用我們代墊，bill 客戶。Bundle 可由客戶自 host 也可以我們代管。
 
-現在進度 (2026-05-11)
-foundation 三角全部 archived (add-process-runtime / add-actor-and-org-model / add-cel-expressions)。openspec 28 個 active proposal。實作面：bpm-svc 已有 Org/Authz/Sandbox/Auth/HrFlows/Spec(ActorRef)/ProcessRuntime(IProcessRuntime+SpecSnapshot+CelNet 引擎) 全套，67 tests 全綠；bpm-ui 9 個 demo form + Home/Search/Report + process API client + RoleSwitcher；bpm-admin-ui 9-step onboarding + CoPilotCanvas + ActorRefEditor + ExpressionInput + 5 個 admin screen。
+現在進度 (2026-05-11 晚)
+foundation 三角 + 兩大賣點 + Process Admin 全部 archived。openspec 25 個 active proposal。實作面：
 
-當前目標 (P0 候選)
-foundation 已就位，可平行展開後續 proposal。建議優先：
-- add-spec-bundle-and-flow-library（賣點 1：AI onboarding 產 zip）
-- add-acceptance-sandbox（賣點 2：無痛驗收）
-- add-process-admin-ui（runtime 上線後監控 UI）
+bpm-svc：
+- Foundation: Org/Authz/Sandbox/Auth/HrFlows/Spec(ActorRef)
+- Runtime: ProcessRuntime(IProcessRuntime+SpecSnapshot+CelNet 引擎) + REST API
+- Bundle: BundleBuilder/Parser/Validator + SpecBundle 持久化 + RuntimeLoader（scratch tenant 隔離）+ ReproRunner（含 notification assertions）+ /api/admin/flow-library
+- Sandbox: SandboxClock decorator + capture-only OutboundGate + IResetService（ExecuteDelete 繞過 interceptor）+ persona switch JWT + Mailbox API
+- Process Admin: IProcessSimulator（dry-run）+ admin intervention 4 endpoints + IProcessReportingService（5min cache）+ /api/admin/process-admin
+- 256 tests 全綠
 
-已知 follow-up：
-- Cel.NET 1.0.0 的 sum(list) runtime overload-id dispatch bug — 目前 gateway 用 flat field workaround，sum 留 derivedFrom（schema validator 覆蓋）。v1.5 處理。
+bpm-ui：
+- 9 個 demo form + Home/Search/Report + RoleSwitcher（含沙箱 persona 模式）+ process API client + SandboxBanner（capture/clock 計數）+ Sandbox Mailbox
+
+bpm-admin-ui：
+- 9-step onboarding + CoPilotCanvas + ActorRefEditor + ExpressionInput
+- Flow Library（list/detail/import/export/repro）
+- Sandbox Mailbox（Mail/Webhooks/SMS/Clock 4 tabs + 計數 badge）
+- Process Admin Console（Definitions/Designer/Simulator/Live Cases/Completed/Reports/Notifications 7 sections）
+
+當前目標：
+foundation + 兩大賣點 + 監控 UI 都就位。剩下的 25 個 proposal 多為單點增強（SLA timer / outbound webhooks / file storage / soft delete / pdf export / i18n / tenant branding / sso oidc / mcp entra sync 等）。優先排序待 Jason 與夥伴 align。
+
+已知 follow-up（記在原處 + 各 PR commit message）：
+- Cel.NET 1.0.0 的 sum(list) runtime overload-id dispatch bug — gateway 用 flat field workaround
+- BPMN canvas active-node 高亮、live form preview 在 Designer 裡都還是 placeholder
+- 第一級 NotificationDispatchAudit 表（生產環境通知稽核）尚未建表，目前靠 SandboxCapturedMessages（沙箱模式）涵蓋
+- Reports 用 in-memory percentile 計算（百萬級 instance 後需切到 DB function）
