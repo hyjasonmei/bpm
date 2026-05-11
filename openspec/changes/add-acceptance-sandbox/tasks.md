@@ -16,15 +16,13 @@
 
 ## 3. IOutboundGate — capture semantics
 
-- [ ] 3.1 Add `Captured` factory method on `GateOutcome<T>`: `public static GateOutcome<T> Captured(T msg) => new(msg, Dropped: false, Rewritten: false) { IsCaptured = true }`; add `IsCaptured` (bool) and `IsFakeOk` (bool) flags
-- [ ] 3.2 Create `Application/Sandbox/ISandboxCaptureRecorder.cs`: `Task RecordEmailAsync(EmailMessage, ProcessContext?, CancellationToken)`, `Task RecordWebhookAsync(WebhookDelivery, ...)`, `Task RecordSmsAsync(SmsMessage, ...)`
-- [ ] 3.3 Create `ProcessContext.cs` record: `Guid? ProcessInstanceId`, `Guid? TaskId`, `Guid[] IntendedRecipientUserIds`, `string? OriginatingNotificationId`, `Guid? OriginatingWebhookSubscriptionId`
-- [ ] 3.4 Implement `SandboxCaptureRecorder.cs`: writes `SandboxCapturedMessage` row, populates IntendedRecipientsJson from ProcessContext, sets IsFakeOk for webhooks
-- [ ] 3.5 Update existing `IOutboundGate` implementation in `Application/Sandbox/`: when `_sandboxStatus.IsActive`, call recorder first, then return `Captured(msg)` instead of `Rewrote` / `DropMessage` as default
-- [ ] 3.6 Keep legacy `Rewrote`-to-fallback as opt-in via `TenantSettings.SandboxConfigJson.LegacyRewriteEnabled` flag (default false)
-- [ ] 3.7 Audit: add SaveChanges interceptor entry for `SandboxCapturedMessage` writes — they already audit via AuditableEntity, just verify CreatedBy / TenantId populated correctly
-- [ ] 3.8 Unit test: gate in sandbox mode → Captured outcome with FakeOk for webhook, recorder called once with full payload
-- [ ] 3.9 Unit test: gate in non-sandbox mode → recorder NOT called, real-mode logic unchanged
+- [x] 3.1 Evolved `GateOutcome<T>` (PR-J2): added `Captured` (bool) + `CapturedMessageId` (Guid?) fields and `Capture(Guid id)` factory. Naming: chose `Capture` (verb) over `Captured_` to keep it idiomatic; `Captured` is the boolean flag on the record. The `IsFakeOk` flag was folded into `Captured` itself — xmldoc on `GateOutcome` makes the fake-200-OK contract explicit so consumers don't need a second flag.
+- [x] 3.2-3.4 Capture writes happen inside `OutboundGate` directly (PR-J2). The dedicated `ISandboxCaptureRecorder` + `ProcessContext` extraction was deferred — instead, the originating-context fields (`OriginatingNotificationId`, `OriginatingWebhookSubscriptionId`, `ProcessInstanceId`, `TaskId`) were added as optional parameters on `EmailMessage`/`WebhookDelivery`/`SmsMessage` records. Future callers populate them; existing callers compile unchanged. Cleaner than threading a `ProcessContext` through every dispatcher signature.
+- [x] 3.5 `OutboundGate` default path captures (PR-J2): writes a `SandboxCapturedMessage` row with full Subject/BodyHtml/BodyText (or Url/Headers/Payload, or Body) + IntendedRecipientsJson, returns `Capture(id)`.
+- [x] 3.6 Legacy rewrite kept behind `SandboxConfigDto.LegacyRewriteEnabled` (default false) (PR-J2). When true, the gate ALSO writes the new capture row so the Mailbox stays consistent regardless of mode.
+- [x] 3.7 Audit/AuditableEntity behaviour verified — `SandboxCapturedMessage` inherits `AuditableEntity` so the existing `AuditSaveChangesInterceptor` populates `CreatedAt`/`CreatedBy` automatically (covered by the round-trip tests added in PR-J1).
+- [x] 3.8 Unit tests added: `OutboundGateCaptureTests` covers Email/Webhook/SMS capture in default sandbox mode, including correct `Captured = true` + `CapturedMessageId` round-trip and full payload persistence.
+- [x] 3.9 Unit tests added: sandbox-off PassThrough verified (no capture row, no audit row); legacy-mode rewrite + drop both verified to ALWAYS write a capture row alongside their legacy outcome.
 
 ## 4. Sandbox-aware IClock
 
