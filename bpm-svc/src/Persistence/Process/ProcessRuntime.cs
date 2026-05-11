@@ -789,7 +789,16 @@ public sealed class ProcessRuntime(
             var code = submitter[5..];
             return new RoleActorRef(code);
         }
-        throw new NotImplementedException($"submitter '{submitter}' not yet supported (v1 supports 'self' / 'submitter' / 'role:X')");
+        // PR-L5 — bare `manager` shorthand resolves to the initiator's direct
+        // line manager via the same `submitter.manager` expression the approval
+        // path already supports. Used by HWP / ITPR `task_confirm` so the
+        // confirm + approve pair both land on the same person without forcing
+        // spec authors to spell out an ExprActorRef block.
+        if (submitter == "manager")
+        {
+            return new ExprActorRef("submitter.manager");
+        }
+        throw new NotImplementedException($"submitter '{submitter}' not yet supported (v1 supports 'self' / 'submitter' / 'manager' / 'role:X')");
     }
 
     private static string? FindPreviousUserTask(SpecSnapshot snapshot, string nodeId)

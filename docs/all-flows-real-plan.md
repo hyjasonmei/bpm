@@ -303,7 +303,46 @@ commands:
 - 可整合到 GitHub Actions / Docker entrypoint
 - Jason / 夥伴在新環境 1 個 command 就有可 demo state
 
-### PR-L5: E2E 大驗收測試
+### PR-L5: E2E 大驗收測試 — ✅ DONE 2026-05-11
+
+**狀態：** 完成。`AllFlowsRealE2ETests` 22 個 sub-test 全部通過，全測試 291 → 313 全綠。
+
+#### 主要產出
+- `bpm-svc/tests/Bpm.Tests/Integration/AllFlowsRealE2ETests.cs` — 單一 fixture (in-memory SQLite + `PersonaSeedService` + 真實 `FileSystemSpecLoader`)；22 個 `[Fact]` 標 `[Trait("category","integration")]` + `[Trait("flow", "<CODE>")]`，跟 `BundleE2ETests` / `SandboxAcceptanceLoopTests` 同 convention。
+- `bpm-svc/src/Persistence/Process/ProcessRuntime.cs::ParseSimpleSubmitter` — 加上 `submitter == "manager"` 解析為 `ExprActorRef("submitter.manager")`。HWP/ITPR 的 `task_confirm` userTask 之前 spec 寫 `submitter: "manager"`（v1 runtime 只認 `self`/`submitter`/`role:X`，會 throw NotImplementedException），這條路是 PR-L1 spec 上線時就埋的雷，PR-L5 第一次跑到才暴出來。直接擴 runtime 比改 spec 更乾淨（spec 表達意圖正確，runtime 該支援這個常用 alias）。
+
+#### 測試覆蓋
+| Flow   | Happy | Reject | 備註 |
+|--------|-------|--------|------|
+| LEAVE  | ✓     | ✓      | 5 天特休 → manager → HR 備案 |
+| GEE    | ✓     | ✓      | manager → finance(confirm) → finance(review) |
+| GEV    | ✓     | ✓      | 同 GEE |
+| APE    | ✓     | ✓      | 同 GEE |
+| HWP    | ✓     | ✓      | 7 步 (apply/it_spec/quote/confirm/approve/po) |
+| ITPR   | ✓     | ✓      | 同 HWP |
+| TRQ    | ✓     | ✓      | manager → admin notify |
+| TEO    | ✓ × 2 | ✓      | under-threshold (skip extra) + over-threshold (any 2/3 collection) |
+| EXTOB  | ✓     | —      | submitter = role:manager → HR 帳號（無 approval node） |
+| RESIGN | ✓     | ✓      | manager → HR |
+| DEPTX  | ✓     | ✓      | 同 RESIGN |
+
+合計 22 sub-tests = 11 × 2 + 1 (TEO 多一個 happy) − 1 (EXTOB 沒 reject)。
+
+#### 假設與約束
+1. **用 `SubmitTaskAsAdminAsync` 推進每個 task**：避開「actor 必須是 task assignee」的 gate，省去在每個 test 起 persona JWT。Runtime 的 ActualAssigneeUserId / 通知 dispatch / collection 累計邏輯與正常 path 一致，只有 auth gate 移除。
+2. **用 `FileSystemSpecLoader` 直接讀 `sample_specs/*.json`**：不走 inline-spec 路徑，跟 `BPM_SEED_ON_STARTUP=true` 啟動的 Api 行為一致。
+3. **`SandboxCapturingNotificationDispatcher` + 開 sandbox**：assert `SandboxCapturedMessages.Count > 0` 確認 on_assign / on_complete 有實際走過 OutboundGate（不只是 dispatcher stub）。
+4. **TEO over-threshold**：runtime 的 collection mode='any' min_approvals=2 邏輯（PR-D 已驗證）會在第 2 個 approve 後自動 cancel 第 3 個 sibling，DriveToCompletionAsync 的「拿任一 open task → submit」helper 因此自然走通。
+5. **Reject path assert `InstanceStatus.Errored` + `HistoryEventType.ApprovalRejected`**：對應 design.md §12 「approval rejected → instance Errored」。
+
+#### 過程中發現的 issue
+- **HWP / ITPR `task_confirm` submitter = "manager"** — runtime ParseSimpleSubmitter 的 whitelist 沒這個 alias。修法見上。已加註解說明 alias → ExprActorRef 對應。
+- 沒其他 spec 失敗。LEAVE / GEE / GEV / APE / TRQ / TEO（兩個 happy + 一 reject）/ EXTOB / RESIGN / DEPTX 全部一次跑通。
+
+#### 為什麼不用 WebApplicationFactory
+PR-I8 / PR-J6 的教訓：HTTP middleware 把測試 surface 拉太寬，每次 framework 升級都會碎。直接組 ProcessRuntime + ProcessQueryService 跑同一條 service code path，覆蓋面跟透過 controller 一樣，但更穩。
+
+### PR-L5 原始任務描述（保留作為 reference）
 
 `bpm-svc/tests/Bpm.Tests/Integration/AllFlowsRealE2ETests.cs`：
 
