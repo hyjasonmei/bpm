@@ -69,6 +69,8 @@ public static class DependencyInjection
         services.AddScoped<ISandboxService, SandboxService>();
         services.AddScoped<ISandboxClockService, SandboxClockService>();
         services.AddScoped<IOutboundGate, OutboundGate>();
+        services.AddScoped<IResetService, ResetService>();
+        services.AddScoped<IMailboxService, MailboxService>();
         services.AddScoped<IRoleAdminService, RoleAdminService>();
 
         // Process runtime + collaborator stubs (Delegation / Notifications /

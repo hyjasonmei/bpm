@@ -1,4 +1,5 @@
 using Bpm.Application.Common.Abstractions;
+using Bpm.Application.Common.Services;
 using Bpm.Domain.Common;
 using Bpm.Domain.Entities.HrFlows;
 using Bpm.Domain.Entities.Process;
@@ -8,8 +9,17 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Bpm.Persistence.Interceptors;
 
-public sealed class AuditSaveChangesInterceptor(IClock clock, ICurrentUser currentUser) : SaveChangesInterceptor
+public sealed class AuditSaveChangesInterceptor(
+    IClock clock,
+    ICurrentUser currentUser,
+    ISandboxActorContext? sandboxActor = null) : SaveChangesInterceptor
 {
+    // PR-J4 §6.5: when no ISandboxActorContext is supplied (e.g. test
+    // fixtures, background jobs), fall back to the all-null system impl so
+    // the stamping branch below cleanly skips. Keeps the existing
+    // 2-arg ctor call sites in tests source-compatible.
+    private readonly ISandboxActorContext _sandboxActor = sandboxActor ?? new SystemSandboxActor();
+
     public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
     {
         ApplyAudit(eventData.Context);
@@ -68,6 +78,27 @@ public sealed class AuditSaveChangesInterceptor(IClock clock, ICurrentUser curre
             {
                 if (entry.State == EntityState.Added && entry.Entity.ImpersonatedByUserId is null)
                     entry.Entity.ImpersonatedByUserId = impId;
+            }
+        }
+
+        // PR-J4 §6.5: stamp SandboxActualActor on ProcessTask + TaskHistory
+        // when the request is acting through a sandbox-persona token. Both
+        // entities already have the nullable Guid column (declared in PR-B,
+        // see ProcessTask.cs / TaskHistory.cs), so no migration is needed.
+        // We only stamp if the field hasn't already been set explicitly by
+        // the runtime — that gives the runtime an escape hatch to override
+        // (e.g. background-resumption code paths).
+        if (_sandboxActor.IsSandboxActor && _sandboxActor.ActualActorUserId is { } actualId)
+        {
+            foreach (EntityEntry<ProcessTask> entry in context.ChangeTracker.Entries<ProcessTask>())
+            {
+                if (entry.State == EntityState.Added && entry.Entity.SandboxActualActor is null)
+                    entry.Entity.SandboxActualActor = actualId;
+            }
+            foreach (EntityEntry<TaskHistory> entry in context.ChangeTracker.Entries<TaskHistory>())
+            {
+                if (entry.State == EntityState.Added && entry.Entity.SandboxActualActor is null)
+                    entry.Entity.SandboxActualActor = actualId;
             }
         }
     }

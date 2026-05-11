@@ -16,6 +16,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpContextAccessor();
 builder.Services.RemoveAll<ICurrentUser>();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+// PR-J4 §6: replace the default no-op SystemSandboxActor with an
+// HttpContext-backed reader so audit interceptor sees actual_actor_id /
+// sandbox_actor JWT claims.
+builder.Services.RemoveAll<ISandboxActorContext>();
+builder.Services.AddScoped<ISandboxActorContext, HttpContextSandboxActor>();
 
 builder.Services.AddApplication();
 builder.Services.AddPersistence(builder.Configuration);

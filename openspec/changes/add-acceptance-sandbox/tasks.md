@@ -38,39 +38,39 @@
 
 ## 5. Sandbox state reset
 
-- [ ] 5.1 Add `IResetService.ResetInstanceAsync(Guid instanceId, Guid actor, CancellationToken)` to `Application/Sandbox/`: hard-deletes ProcessInstance + ProcessTasks + TaskHistory + SandboxCapturedMessages for that instance; refuses if sandbox is OFF
-- [ ] 5.2 Add `IResetService.ResetAllAsync(Guid actor, CancellationToken)`: hard-deletes ALL ProcessInstances, ProcessTasks, TaskHistory, SandboxCapturedMessages, SandboxClockEvents for current tenant; refuses if sandbox is OFF; refuses if non-admin
-- [ ] 5.3 Both methods write a `SandboxClockEvent`-style audit (or extend audit with ResetPerformed event type) for the reset itself
-- [ ] 5.4 Integration test: submit instance, capture some mail, reset instance → verify all related rows gone, sandbox toggle still on, other instances untouched
-- [ ] 5.5 Integration test: ResetAllAsync wipes everything but spec / org / bundle data is preserved
+- [x] 5.1 `IResetService.ResetInstanceAsync` lives in `Application/Sandbox/IResetService.cs` (PR-J4); impl in `Persistence/Sandbox/ResetService.cs` uses `ExecuteDeleteAsync` so the append-only TaskHistory guard is bypassed without needing an `IResetContext` flag — pure EF, Postgres-portable.
+- [x] 5.2 `ResetAllAsync` deletes all default-tenant ProcessInstances/Tasks/History/CapturedMessages and resets the clock offset to 0 (sandbox-on toggle preserved). Admin-only enforced at the controller via `[Authorize(Roles = "admin")]`. (PR-J4)
+- [~] 5.3 Audit row deferred for v1, mirroring §4.8's clock-audit decision — Info-level log only (`logger.LogInformation` in `ResetService`). SandboxClockEvent / ResetEvent table will land if/when an auditor asks. (PR-J4)
+- [x] 5.4 `ResetServiceTests.ResetInstanceAsync_does_not_touch_other_instances` covers the per-instance scoping invariant; `ResetServiceTests.ResetInstanceAsync_deletes_all_related_rows_and_returns_counts` proves the TaskHistory rows actually disappear (the interceptor-bypass sanity check the prompt asked for). (PR-J4)
+- [x] 5.5 `ResetServiceTests.ResetAllAsync_does_not_delete_specs_or_tenant_settings_row` covers preservation; `ResetAllAsync_wipes_all_default_tenant_rows_and_resets_clock_offset` covers the wipe + offset-reset. (PR-J4)
 
 ## 6. Sandbox persona switch
 
-- [ ] 6.1 Add `POST /api/sandbox/persona` endpoint in `Api/Sandbox/SandboxController.cs`; body `{ userId: Guid }`; auth `[Authorize(Roles = "admin")]`; refuses 400 if sandbox OFF; returns new JWT
-- [ ] 6.2 Extend `JwtTokenService` with `IssueSandboxPersonaTokenAsync(Guid personaUserId, Guid actualActorUserId, CancellationToken)`: builds JWT with `sub` = persona id, `actual_actor_id` claim = real tester id, `sandbox_actor` = true claim
-- [ ] 6.3 Create `Application/Common/Abstractions/ISandboxActorContext.cs`: `Guid? ActualActorUserId { get; }`; populated by middleware reading `actual_actor_id` claim
-- [ ] 6.4 Implement `Api/Common/SandboxActorContextMiddleware.cs` reading the claim into request scope
-- [ ] 6.5 Extend `AuditSaveChangesInterceptor`: when writing audit rows in sandbox mode, also persist `SandboxActualActor` (Guid?) field; nullable because non-sandbox writes won't have it
-- [ ] 6.6 Add `SandboxActualActor` (Guid?) column to relevant audit tables (TaskHistory, AuditEvent if present); migration
-- [ ] 6.7 Unit test: persona endpoint refuses when sandbox off (400)
-- [ ] 6.8 Integration test: admin switches to Mary persona, submits a task → TaskHistory row has `ActorUserId = Mary`, `SandboxActualActor = admin`
+- [x] 6.1 `POST /api/sandbox/persona` added to `SandboxController` (PR-J4): admin-only, refuses 400 with `{ error: "sandbox_off" }` if sandbox off, 404 if user missing, returns `{ token, expiresAt, persona, actualActor }`.
+- [x] 6.2 `JwtTokenService.IssueSandboxPersonaToken` mints an 8h token with `sub = personaUserId`, `actual_actor_id`, `actual_actor_email`, `sandbox_actor=true`, plus the persona's role codes. Sync (no async needed — DB lookup happens in the controller). (PR-J4)
+- [x] 6.3 `ISandboxActorContext` lives in `Application/Common/Abstractions`; `SystemSandboxActor` is the no-op default registered via `AddApplication`. (PR-J4)
+- [~] 6.4 Resolved via DI rather than middleware: `Api/Common/HttpContextSandboxActor` reads claims through `IHttpContextAccessor` and is registered in `Program.cs`. Middleware would buy nothing here — the existing `HttpContextCurrentUser` follows the same pattern. (PR-J4)
+- [x] 6.5 `AuditSaveChangesInterceptor` extended to take an optional `ISandboxActorContext`; when `IsSandboxActor` it stamps `SandboxActualActor` on every newly-inserted ProcessTask + TaskHistory. Existing 2-arg ctor calls in tests stay source-compatible (default falls back to `SystemSandboxActor`). (PR-J4)
+- [~] 6.6 No migration needed: `SandboxActualActor` (Guid?) was already declared on `ProcessTask.cs` and `TaskHistory.cs` in PR-B (verified by reading both files). (PR-J4)
+- [x] 6.7 `PersonaSwitchTests.SwitchPersona_when_sandbox_off_returns_400_sandbox_off`. (PR-J4)
+- [x] 6.8 `SandboxActorStampingTests` covers the audit stamping invariant directly against the interceptor (3 tests: stamps on ProcessTask insert, stamps on TaskHistory insert, leaves null when not in sandbox-actor mode). End-to-end "admin → Mary submits → TaskHistory row" wiring will land with the SLA / runtime-uses-IClock work; the interceptor logic itself is now proven. (PR-J4)
 
 ## 7. Mailbox API
 
-- [ ] 7.1 `GET /api/sandbox/captured?channel=email|webhook|sms&recipientUserId=&processInstanceId=&unread=` — list with filters
-- [ ] 7.2 `GET /api/sandbox/captured/{id}` — full payload (HTML body, headers, JSON, etc.)
-- [ ] 7.3 `POST /api/sandbox/captured/{id}/read` — mark as read by current user (appends to ReadByUserIdsJson)
-- [ ] 7.4 `GET /api/sandbox/captured/unread-count?byChannel=true` — count summary, used by SandboxBanner counter
-- [ ] 7.5 All endpoints `[Authorize]`; refuse if sandbox off (so unread-count returns 0 in prod, no DB hit)
-- [ ] 7.6 Add `SandboxConfigDto.CaptureRetentionDays` (default 30); daily cron deletes captured rows older than retention
+- [x] 7.1 `GET /api/sandbox/captured` with `channel` / `recipientUserId` / `processInstanceId` / `unread` / `limit` (max 200, default 50) implemented in `SandboxController.ListCaptured`. JSON-text filter uses `EF.Functions.Like` on `IntendedRecipientsJson` / `ReadByUserIdsJson` so the same query compiles on SQLite + Postgres (no `json_extract`). v1 acceptable; real JSON-aware filter lives in `add-real-search`. (PR-J4)
+- [x] 7.2 `GET /api/sandbox/captured/{id:guid}` returns `CapturedMessageDetailDto` with all body / headers / payload fields surfaced. (PR-J4)
+- [x] 7.3 `POST /api/sandbox/captured/{id:guid}/read` — idempotent append to `ReadByUserIdsJson`; returns `{ id, readByMe: true }`. (PR-J4)
+- [x] 7.4 `GET /api/sandbox/captured/unread-count` returns `{ total, byChannel: { Email, Webhook, Sms } }`. (PR-J4)
+- [x] 7.5 List + get + mark-read endpoints return 403 `{ error: "sandbox_off" }` when sandbox off; unread-count returns silent zero counts WITHOUT a DB hit (per the §7 spec). (PR-J4)
+- [~] 7.6 `SandboxConfigDto.CaptureRetentionDays` field added (default 30). The daily cron worker is deferred until `add-sla-timer-escalation` lands (no scheduled-job infra in v1). (PR-J4)
 
 ## 8. Clock + reset API
 
 - [x] 8.1 `POST /api/sandbox/clock/advance` body `{ days?, hours?, minutes?, seconds? }` — calls `SandboxClockService.AdvanceAsync`; returns 200 with new state, 400 `{ error: "sandbox_off" }` when sandbox is off. [PR-J3]
 - [x] 8.2 `POST /api/sandbox/clock/reset` — clears offset to 0; same 400 path when off. [PR-J3]
 - [x] 8.3 `GET /api/sandbox/clock` — returns `{ realNow, sandboxNow, offsetSeconds, sandboxOn }`. `lastChangedAt`/`lastChangedByUserId` deferred (no audit table in v1 per §4.8). [PR-J3]
-- [ ] 8.4 `POST /api/sandbox/reset/instance/{id}` — calls `IResetService.ResetInstanceAsync`
-- [ ] 8.5 `POST /api/sandbox/reset/all` — calls `ResetAllAsync`; admin-only
+- [x] 8.4 `POST /api/sandbox/reset/instance/{id:guid}` admin-only — returns `ResetSummary { InstancesDeleted, TasksDeleted, HistoryRowsDeleted, CapturedMessagesDeleted }`; 400 sandbox_off path covered. (PR-J4)
+- [x] 8.5 `POST /api/sandbox/reset/all` admin-only — returns `ResetSummary`; clock offset reset + sandbox toggle preserved. (PR-J4)
 - [~] 8.6 Clock advance/reset enforce `[Authorize(Roles = "admin")]` and refuse with 400 sandbox_off; remaining admin-mutating endpoints (reset, persona) tracked in PR-J4. [PR-J3]
 
 ## 9. Frontend (`bpm-admin-ui`) — Sandbox Mailbox screen

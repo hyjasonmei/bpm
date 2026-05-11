@@ -74,7 +74,17 @@ public sealed class SandboxClockControllerTests : IDisposable
             effective,
             new NoOpScheduledJobKicker(),
             NullLogger<SandboxClockService>.Instance);
-        var controller = new SandboxController(new ThrowingSandboxService(), clockService);
+        // Reset / mailbox / jwt aren't exercised by the clock-only tests, but
+        // the constructor demands them now (PR-J4) — pass throwing stubs.
+        var controller = new SandboxController(
+            new ThrowingSandboxService(),
+            clockService,
+            new ThrowingResetService(),
+            new ThrowingMailboxService(),
+            db,
+            new Bpm.Api.Auth.JwtTokenService(
+                new Bpm.Api.Auth.JwtOptions { Secret = "x".PadRight(64, 'x') },
+                new TestEnv()));
         controller.ControllerContext = new ControllerContext { HttpContext = HttpContextFor(AdminId) };
         return controller;
     }
@@ -283,5 +293,33 @@ public sealed class SandboxClockControllerTests : IDisposable
             => throw new NotSupportedException("clock-only test fixture");
         public Task<IReadOnlyList<SandboxRedirectDto>> GetRedirectsAsync(int days, CancellationToken ct = default)
             => throw new NotSupportedException("clock-only test fixture");
+    }
+
+    private sealed class ThrowingResetService : IResetService
+    {
+        public Task<ResetSummary> ResetInstanceAsync(Guid instanceId, Guid actorUserId, CancellationToken ct = default)
+            => throw new NotSupportedException("clock-only test fixture");
+        public Task<ResetSummary> ResetAllAsync(Guid actorUserId, CancellationToken ct = default)
+            => throw new NotSupportedException("clock-only test fixture");
+    }
+
+    private sealed class ThrowingMailboxService : IMailboxService
+    {
+        public Task<IReadOnlyList<CapturedMessageSummaryDto>> ListAsync(Guid currentUserId, SandboxChannel? channel, Guid? recipientUserIdHint, Guid? processInstanceId, bool unreadOnly, int limit, CancellationToken ct = default)
+            => throw new NotSupportedException("clock-only test fixture");
+        public Task<CapturedMessageDetailDto?> GetAsync(Guid id, Guid currentUserId, CancellationToken ct = default)
+            => throw new NotSupportedException("clock-only test fixture");
+        public Task<bool> MarkReadAsync(Guid id, Guid currentUserId, CancellationToken ct = default)
+            => throw new NotSupportedException("clock-only test fixture");
+        public Task<UnreadCountDto> UnreadCountAsync(Guid currentUserId, CancellationToken ct = default)
+            => throw new NotSupportedException("clock-only test fixture");
+    }
+
+    private sealed class TestEnv : Microsoft.Extensions.Hosting.IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = "Development";
+        public string ApplicationName { get; set; } = "test";
+        public string ContentRootPath { get; set; } = "";
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = null!;
     }
 }

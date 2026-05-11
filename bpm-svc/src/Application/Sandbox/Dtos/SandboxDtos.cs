@@ -18,11 +18,16 @@ namespace Bpm.Application.Sandbox.Dtos;
 /// PR-J0 behavior — rewrite to alt recipients (or drop when empty) AND write
 /// the legacy <c>SandboxRedirect</c> audit row. A capture row is still written
 /// either way so the Mailbox UI is consistent. Defaults to false.</param>
+/// <param name="CaptureRetentionDays">PR-J4 §7.6: how many days of captured
+/// messages the cron job will keep before hard-deleting. Defaults to 30. The
+/// cron itself is deferred — this field is wired into the DTO now so config
+/// is forward-compatible when the SLA-timer/escalation PR adds the worker.</param>
 public sealed record SandboxConfigDto(
     IReadOnlyList<string>? EmailRecipients,
     string? WebhookUrl,
     IReadOnlyList<string>? SmsRecipients,
-    bool LegacyRewriteEnabled = false);
+    bool LegacyRewriteEnabled = false,
+    int CaptureRetentionDays = 30);
 
 public sealed record SandboxStatusDto(
     bool Enabled,
