@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using Bpm.Api.Admin.ProcessAdmin;
+using Bpm.Application.Process.Simulator;
 using Bpm.Domain.Entities.Spec;
 using Bpm.Persistence;
 using Bpm.Persistence.Interceptors;
@@ -211,7 +212,7 @@ public sealed class ProcessAdminControllerTests : IDisposable
             })
             .Build();
         var controller = new ProcessAdminController(
-            db, config, NullLogger<ProcessAdminController>.Instance);
+            db, config, new ThrowingSimulator(), NullLogger<ProcessAdminController>.Instance);
         controller.ControllerContext = new ControllerContext { HttpContext = HttpContextFor(AdminId) };
         return controller;
     }
@@ -297,6 +298,18 @@ public sealed class ProcessAdminControllerTests : IDisposable
             Status = status,
         });
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// The existing controller tests don't exercise <c>POST /simulate</c>
+    /// (those are covered by <c>SimulateEndpointTests</c>). Inject a stub
+    /// that throws if called so a regression accidentally routing through
+    /// the simulator is loud, not silently no-op.
+    /// </summary>
+    private sealed class ThrowingSimulator : IProcessSimulator
+    {
+        public Task<SimulationResult> SimulateAsync(SimulationRequest req, CancellationToken ct = default)
+            => throw new InvalidOperationException("ThrowingSimulator: not configured for this test");
     }
 
     private void WriteFilesystemSpec(string flowCode, int version)

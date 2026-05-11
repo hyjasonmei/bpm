@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Bpm.Api.Common;
+using Bpm.Application.Process.Simulator;
+using Bpm.Application.Spec.Bundle;
 using Bpm.Domain.Entities.Spec;
 using Bpm.Persistence;
 using Microsoft.AspNetCore.Authorization;
@@ -43,6 +45,7 @@ namespace Bpm.Api.Admin.ProcessAdmin;
 public sealed class ProcessAdminController(
     AppDbContext db,
     IConfiguration configuration,
+    IProcessSimulator simulator,
     ILogger<ProcessAdminController> logger) : BpmControllerBase
 {
     private const string SourceBundle = "bundle";
@@ -202,6 +205,29 @@ public sealed class ProcessAdminController(
             .ToList();
     }
 
+    /// <summary>
+    /// Process Simulator (PR-K3 §4.3) — drives the chosen flow forward
+    /// against a sample form payload without persisting any
+    /// ProcessInstance / ProcessTask / TaskHistory rows. Notifications that
+    /// would have been dispatched are surfaced in the response.
+    ///
+    /// <para>
+    /// Returns HTTP 200 even on simulation failure — a flow that doesn't
+    /// exist or that errors mid-run is still a successful API call from
+    /// the simulator's perspective. The caller inspects
+    /// <see cref="SimulationResult.Success"/> to branch the UI.
+    /// </para>
+    /// </summary>
+    [HttpPost("simulate")]
+    public Task<SimulationResult> Simulate([FromBody] SimulateRequest req, CancellationToken ct)
+        => simulator.SimulateAsync(
+            new SimulationRequest(
+                FlowCode: req.FlowCode,
+                FormData: req.FormData,
+                SampleOrg: req.SampleOrg,
+                InitiatorUserId: req.InitiatorUserId),
+            ct);
+
     // ===== helpers =====
 
     /// <summary>
@@ -336,3 +362,14 @@ public sealed record FlowVersionDto(
     DateTime ExportedAt,
     SpecBundleStatus Status,
     DateTime? LastReproCheckAt);
+
+/// <summary>
+/// Simulator request body. Mirrors <see cref="SimulationRequest"/>; the
+/// dedicated DTO keeps the controller's public surface from leaking the
+/// Application layer's record into the model-binding pipeline.
+/// </summary>
+public sealed record SimulateRequest(
+    string FlowCode,
+    JsonElement FormData,
+    SampleOrgSnapshot? SampleOrg,
+    Guid? InitiatorUserId);

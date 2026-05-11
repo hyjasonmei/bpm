@@ -24,11 +24,11 @@
 
 ## 4. Simulator
 
-- [ ] 4.1 Backend: `IProcessSimulator.SimulateAsync(specCode, formData, sampleUsers)` returning a trace
-- [ ] 4.2 Dry-mode: wrap DB ops in always-rollback transaction; in-memory dispatcher / file storage
-- [ ] 4.3 Endpoint `POST /api/admin/simulate` admin-only
-- [ ] 4.4 SimulatorScreen UI: input form (DynamicForm against start userTask) + trace visualizer
-- [ ] 4.5 Trace visualization: each node colored by outcome (success / failure / no-recipients)
+- [x] 4.1 Backend: `IProcessSimulator.SimulateAsync(SimulationRequest)` returning a `SimulationResult` with trace + notifications + final form/status. Records: `SimulationRequest` (FlowCode + FormData + optional SampleOrg/InitiatorUserId), `SimulationStep` (NodeId / NodeKind / Outcome ∈ {auto-advanced, completed, spawned, errored} / ResolvedAssigneeUserId / AssigneeName / Decision / Notes), `SimulationNotification`.
+- [~] 4.2 Dry-mode: **delete-on-finally** (not always-rollback transaction). Picked the cleanup approach because `ProcessRuntime.SubmitTaskAsync` opens its own per-call EF transaction inside; with the simulator running its own AppDbContext separately from the runtime's they're on different SQLite connections, so an outer rollback can't undo the inner commit. Cleanup-by-instance-id is one ExecuteDelete per table (SandboxCapturedMessages → TaskHistory → ProcessTasks → ProcessInstances) and matches the BundleRuntimeLoader scratch-tenant-cleanup pattern. Sandbox-on toggle wraps the call (same pattern as PR-J6 §11.2) so notifications flow into SandboxCapturedMessages without requiring caller toggle; previous SandboxMode is restored in the finally.
+- [x] 4.3 Endpoint `POST /api/admin/process-admin/simulate` (path drift: nested under `process-admin` rather than top-level `/api/admin/simulate` so the existing `[Authorize(Roles="admin")]` controller-level gate covers it; the endpoint stays a thin pass-through). Returns 200 with `SimulationResult.Success=false` on simulation error per the API design.
+- [~] 4.4 SimulatorScreen UI: flow dropdown + initiator dropdown (sandbox personas) + JSON textarea ("Form data (JSON)") + Run button. DynamicForm reuse deferred — DynamicForm lives in `bpm-ui` and the demo guard forbids cross-package import. Marked in the screen header as a future enhancement.
+- [~] 4.5 Trace visualization: row-level coloring v1 (green=completed, gray=auto-advanced, amber=spawned/open-at-end, red=errored), plus an outcome badge per row. Canvas-overlay highlighting on the BPMN editor deferred — that requires extending `BpmnEditor` with a status overlay prop.
 
 ## 5. Live cases
 

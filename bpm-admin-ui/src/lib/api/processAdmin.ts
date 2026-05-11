@@ -85,3 +85,65 @@ export async function getSpecJson(flowCode: string, tenantCode: string = 'defaul
   }
   return await res.text()
 }
+
+/* ─── PR-K3: Process Simulator ─────────────────────────────────── */
+
+/**
+ * One row in the simulator's trace. `outcome` is one of
+ *   - `auto-advanced` (synthetic node — start / gateway / notify / end)
+ *   - `completed`     (task auto-submitted by the simulator)
+ *   - `spawned`       (task open at simulation end)
+ *   - `errored`       (submission failed; trace stops here)
+ *
+ * The UI colours the row by outcome — see `Simulator.tsx`.
+ */
+export interface SimulationStepDto {
+  nodeId: string
+  nodeKind: string
+  outcome: 'auto-advanced' | 'completed' | 'spawned' | 'errored' | string
+  resolvedAssigneeUserId: string | null
+  assigneeName: string | null
+  decision: string | null
+  notes: string | null
+}
+
+export interface SimulationNotificationDto {
+  notificationId: string
+  trigger: string
+  subject: string
+  recipients: string[]
+}
+
+export interface SimulationResultDto {
+  success: boolean
+  /** Populated when `success === false`. */
+  error: string | null
+  trace: SimulationStepDto[]
+  notifications: SimulationNotificationDto[]
+  /** Final form data after the simulation; null when start failed. */
+  finalFormData: unknown
+  /** "Completed" / "Cancelled" / "Errored" / "Running"; null when start failed. */
+  finalStatus: string | null
+}
+
+export interface SimulateRequestPayload {
+  flowCode: string
+  formData: unknown
+  /** Reserved — no UI yet (v1 simulates against the live org chart). */
+  sampleOrg?: null
+  initiatorUserId?: string | null
+}
+
+export async function simulate(req: SimulateRequestPayload): Promise<SimulationResultDto> {
+  const res = await apiFetch('/api/admin/process-admin/simulate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      flowCode: req.flowCode,
+      formData: req.formData,
+      sampleOrg: req.sampleOrg ?? null,
+      initiatorUserId: req.initiatorUserId ?? null,
+    }),
+  })
+  return jsonOrThrow<SimulationResultDto>(res)
+}

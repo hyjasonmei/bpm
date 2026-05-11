@@ -9,6 +9,7 @@ using Bpm.Application.Notifications;
 using Bpm.Application.Org;
 using Bpm.Application.Process.Runtime;
 using Bpm.Application.Process.Runtime.Queries;
+using Bpm.Application.Process.Simulator;
 using Bpm.Application.Sandbox;
 using Bpm.Application.Spec;
 using Bpm.Application.Spec.Bundle;
@@ -22,6 +23,7 @@ using Bpm.Persistence.Interceptors;
 using Bpm.Persistence.Notifications;
 using Bpm.Persistence.Org;
 using Bpm.Persistence.Process;
+using Bpm.Persistence.Process.Simulator;
 using Bpm.Persistence.Sandbox;
 using Bpm.Persistence.Spec;
 using Bpm.Persistence.Spec.Bundle;
@@ -85,6 +87,11 @@ public static class DependencyInjection
         services.AddScoped<INotificationDispatcher, SandboxCapturingNotificationDispatcher>();
         services.AddScoped<IProcessRuntime, ProcessRuntime>();
         services.AddScoped<IProcessQueryService, ProcessQueryService>();
+
+        // PR-K3: Process Simulator — drives the live runtime against a chosen
+        // flow code with delete-on-finally cleanup so simulation leaves no
+        // rows behind in any of the runtime tables.
+        services.AddScoped<IProcessSimulator, ProcessSimulator>();
 
         // Spec Bundle runtime (PR-I4): scratch-tenant seeder + replay runner.
         services.AddScoped<IBundleRuntimeLoader, BundleRuntimeLoader>();
