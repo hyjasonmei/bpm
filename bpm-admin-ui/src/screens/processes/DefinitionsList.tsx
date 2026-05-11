@@ -24,7 +24,12 @@ import type { FlowDefinitionDto, FlowVersionDto } from '@/lib/api/processAdmin'
 import { getBundleFileText } from '@/lib/api/flowLibrary'
 
 interface DefinitionsListProps {
-  onOpenDesigner: () => void
+  /**
+   * Open the Designer for an existing flow (pass its flowCode) or for a
+   * brand-new flow (pass null). The shell stashes the value and switches
+   * to the designer section in one shot.
+   */
+  onOpenDesigner: (flowCode: string | null) => void
 }
 
 export function DefinitionsList({ onOpenDesigner }: DefinitionsListProps) {
@@ -58,7 +63,7 @@ export function DefinitionsList({ onOpenDesigner }: DefinitionsListProps) {
           <FileText className="h-5 w-5 text-ink-muted" />
           <h2 className="text-lg font-semibold text-ink">Definitions</h2>
         </div>
-        <Button variant="primary" onClick={onOpenDesigner} title="Open the Designer to author a new flow">
+        <Button variant="primary" onClick={() => onOpenDesigner(null)} title="Open the Designer to author a new flow">
           <Plus className="h-4 w-4" /> New Flow
         </Button>
       </div>
@@ -171,7 +176,7 @@ function Section<T>({ title, subtitle, icon, empty, rows, renderRow }: SectionPr
 
 interface DefinitionRowProps {
   def: FlowDefinitionDto
-  onOpenDesigner: () => void
+  onOpenDesigner: (flowCode: string) => void
   onViewVersions: () => void
   onViewSpec?: () => void
   onDiff?: () => void
@@ -199,7 +204,7 @@ function DefinitionRow({ def, onOpenDesigner, onViewVersions, onViewSpec, onDiff
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
-        <Button variant="outline" size="xs" onClick={onOpenDesigner}>
+        <Button variant="outline" size="xs" onClick={() => onOpenDesigner(def.flowCode)}>
           <Pencil className="h-3.5 w-3.5" /> Open in Designer
         </Button>
         <Button variant="outline" size="xs" onClick={onViewVersions}>

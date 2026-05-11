@@ -15,11 +15,12 @@
 
 ## 3. Designer (BPMN + forms)
 
-- [ ] 3.1 Create `Designer.tsx` with three panes (tree / canvas / detail)
-- [ ] 3.2 Embed `BpmnEditor` (existing component); extend with selection events feeding the right pane
-- [ ] 3.3 Right-pane router: based on selected node type, mount StepForms / StepApprovers / StepNotify / StepDecisions / StepSla
-- [ ] 3.4 Top toolbar: Save (creates draft) / Publish (new version) / Preview / Simulate
-- [ ] 3.5 Optimistic concurrency: PUT carries version; UI handles 409 conflict gracefully
+- [x] 3.1 Create `Designer.tsx` with three panes (tree / canvas / detail) — `bpm-admin-ui/src/screens/processes/Designer.tsx` (path drift `bpm-ui` → `bpm-admin-ui`, same as §1.1)
+- [x] 3.2 Embed `BpmnEditor`; extended with `onSelect` (subscribes to bpmn-js `selection.changed` on the eventBus) + `selectedId` (tree → canvas bridge via `selection.select` on the SelectionService)
+- [~] 3.3 Right-pane router mounts StepForms / StepApprovers / StepNotify / StepDecisions / StepSla (Option B per task brief — Step* mount unfiltered; per-node `focusNodeId` enhancement deferred to keep the 5-step prop surface stable). startEvent / endEvent / serviceTask get inline messages.
+- [~] 3.4 Top toolbar Save / Publish / Preview / Simulate. Save persists per-flowCode to localStorage (`bpm_designer_draft_<flowCode>`). Publish runs `POST /api/admin/flow-library/build` and surfaces the new bundle id. Preview = spec.json text preview (live form preview deferred — `DynamicForm` lives in `bpm-ui` and the demo guard forbids cross-package import). Simulate = jump to PR-K3 section.
+- [x] 3.5 Optimistic concurrency: checksum-idempotent publish + pre-publish `listVersions` check warns when a newer bundle landed since hydration. No in-place edit so no real 409 path; documented in Designer header.
+- [x] 3.6 Backend: `GET /api/admin/process-admin/definitions/{flowCode}/spec` returns raw spec.json — bundle blob first, then filesystem fallback. 5 controller tests added (was 193 → 198).
 
 ## 4. Simulator
 

@@ -62,3 +62,26 @@ export async function listVersions(flowCode: string, tenantCode: string = 'defau
   )
   return jsonOrThrow<FlowVersionDto[]>(res)
 }
+
+/**
+ * Raw spec.json text for a flowCode (PR-K2 §3.6 — Designer load path).
+ * Backend prefers the latest non-deleted bundle; falls back to the
+ * filesystem spec under SampleSpecsDir. Returns the spec verbatim.
+ */
+export async function getSpecJson(flowCode: string, tenantCode: string = 'default'): Promise<string> {
+  const res = await apiFetch(
+    `/api/admin/process-admin/definitions/${encodeURIComponent(flowCode)}/spec`
+      + `?tenantCode=${encodeURIComponent(tenantCode)}`,
+  )
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`
+    try {
+      const body = await res.json()
+      if (body?.error) detail = body.error
+      else if (body?.detail) detail = body.detail
+      else if (body?.title) detail = body.title
+    } catch { /* ignore */ }
+    throw new Error(detail)
+  }
+  return await res.text()
+}

@@ -99,6 +99,78 @@ public sealed class ProcessAdminController(
     }
 
     /// <summary>
+    /// Raw <c>spec.json</c> text for a flowCode (PR-K2 §3.6 — Designer load
+    /// path). For filesystem-only definitions there's no bundle blob to read
+    /// from; the Designer needs the spec contents to hydrate a DraftSpec.
+    /// Resolution order matches what an admin would expect on the
+    /// Definitions list:
+    /// <list type="number">
+    ///   <item><description>Latest non-deleted bundle for the flowCode →
+    ///   the bundle's <c>spec.json</c> from inside the zip.</description></item>
+    ///   <item><description>If no bundle, fall back to the filesystem spec
+    ///   under <c>SampleSpecsDir</c>.</description></item>
+    /// </list>
+    /// Returns the spec text as <c>application/json</c>. The content is
+    /// the spec file verbatim — no transformation. Wizard-side parsing /
+    /// migration (`migrateDraft`) handles shape drift.
+    /// </summary>
+    [HttpGet("definitions/{flowCode}/spec")]
+    public async Task<IActionResult> GetSpec(
+        string flowCode,
+        [FromQuery] string? tenantCode,
+        CancellationToken ct)
+    {
+        var tc = string.IsNullOrWhiteSpace(tenantCode) ? "default" : tenantCode!;
+        if (string.IsNullOrWhiteSpace(flowCode)) return NotFound(new { error = "flowCode required" });
+
+        // Bundle path: latest version wins.
+        var bundleRows = await db.SpecBundles
+            .AsNoTracking()
+            .Where(b => b.TenantCode == tc
+                        && b.FlowCode == flowCode
+                        && b.Status != SpecBundleStatus.SoftDeleted)
+            .ToListAsync(ct);
+        var latest = bundleRows
+            .OrderByDescending(b => b.FlowVersion)
+            .FirstOrDefault();
+        if (latest is not null)
+        {
+            string? specText = TryReadSpecJsonFromZip(latest.ZipBlob);
+            if (specText is not null)
+            {
+                return Content(specText, "application/json");
+            }
+            // Bundle exists but the zip is missing spec.json — surface as 500
+            // because the import path validates this; reaching here means the
+            // row was stored corrupt.
+            logger.LogError("ProcessAdmin: bundle {Id} for flow {Code} has no spec.json entry",
+                latest.Id, flowCode);
+            return StatusCode(500, new { error = "bundle is missing spec.json" });
+        }
+
+        // Filesystem fallback.
+        var dir = ResolveSampleSpecsDir();
+        if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+        {
+            // FileSystemSpecLoader convention: <code_lowered>_v1.json. We
+            // pick the highest-numbered version on disk so the Designer
+            // hydrates the latest filesystem variant — matches what
+            // ListDefinitions surfaces.
+            var pattern = $"{flowCode.ToLowerInvariant()}_v*.json";
+            var match = Directory.EnumerateFiles(dir, pattern)
+                .OrderByDescending(p => p, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+            if (match is not null)
+            {
+                var text = await System.IO.File.ReadAllTextAsync(match, ct);
+                return Content(text, "application/json");
+            }
+        }
+
+        return NotFound(new { error = $"no spec found for flowCode '{flowCode}'" });
+    }
+
+    /// <summary>
     /// All bundle versions for a flowCode, newest first. Filesystem-only
     /// flows return an empty list — versioning lives in the bundle store.
     /// </summary>
@@ -204,6 +276,24 @@ public sealed class ProcessAdminController(
 
         return Path.GetFullPath(
             Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "sample_specs"));
+    }
+
+    /// <summary>
+    /// Pull <c>spec.json</c> text out of a SpecBundle zip blob without
+    /// invoking the BundleParser (which would also validate sample-org /
+    /// test-cases and add a non-trivial cost). The Designer just needs the
+    /// raw spec; per-file extraction is exact + cheap.
+    /// </summary>
+    private static string? TryReadSpecJsonFromZip(byte[] zipBlob)
+    {
+        if (zipBlob is null || zipBlob.Length == 0) return null;
+        using var ms = new MemoryStream(zipBlob, writable: false);
+        using var archive = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Read, leaveOpen: false);
+        var entry = archive.GetEntry("spec.json");
+        if (entry is null) return null;
+        using var es = entry.Open();
+        using var reader = new StreamReader(es);
+        return reader.ReadToEnd();
     }
 
     private static DateTime? TryReadExportedAt(string manifestJson)

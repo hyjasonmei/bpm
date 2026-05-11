@@ -1,4 +1,6 @@
+using System.IO.Compression;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using Bpm.Api.Admin.ProcessAdmin;
 using Bpm.Domain.Entities.Spec;
@@ -139,6 +141,64 @@ public sealed class ProcessAdminControllerTests : IDisposable
         Assert.Equal(1, only.FlowVersion);
     }
 
+    /* ── PR-K2 §3.6 — GetSpec ── */
+
+    [Fact]
+    public async Task GetSpec_returns_filesystem_spec_when_no_bundle()
+    {
+        WriteFilesystemSpec("PURCHASE", 1);
+
+        var action = await BuildController().GetSpec("PURCHASE", tenantCode: null, default);
+        var content = Assert.IsType<ContentResult>(action);
+        Assert.Equal("application/json", content.ContentType);
+        Assert.Contains("\"flowCode\":\"PURCHASE\"", content.Content);
+    }
+
+    [Fact]
+    public async Task GetSpec_prefers_bundle_over_filesystem()
+    {
+        // Write a fs spec with v=1 and a bundle with v=2 carrying a marker
+        // payload; the controller must return the bundle's spec.
+        WriteFilesystemSpec("LEAVE", 1);
+        const string bundleSpec = "{\"meta\":{\"flowCode\":\"LEAVE\",\"flowVersion\":2,\"marker\":\"from-bundle\"}}";
+        await SeedBundleWithSpecAsync("LEAVE", 2, SpecBundleStatus.Installed, bundleSpec);
+
+        var action = await BuildController().GetSpec("LEAVE", tenantCode: null, default);
+        var content = Assert.IsType<ContentResult>(action);
+        Assert.Contains("from-bundle", content.Content);
+    }
+
+    [Fact]
+    public async Task GetSpec_picks_latest_bundle_version()
+    {
+        await SeedBundleWithSpecAsync("LEAVE", 1, SpecBundleStatus.Installed, "{\"meta\":{\"flowVersion\":1,\"tag\":\"v1\"}}");
+        await SeedBundleWithSpecAsync("LEAVE", 2, SpecBundleStatus.Installed, "{\"meta\":{\"flowVersion\":2,\"tag\":\"v2\"}}");
+        await SeedBundleWithSpecAsync("LEAVE", 3, SpecBundleStatus.Pending, "{\"meta\":{\"flowVersion\":3,\"tag\":\"v3\"}}");
+
+        var action = await BuildController().GetSpec("LEAVE", tenantCode: null, default);
+        var content = Assert.IsType<ContentResult>(action);
+        Assert.Contains("\"tag\":\"v3\"", content.Content);
+    }
+
+    [Fact]
+    public async Task GetSpec_excludes_soft_deleted_bundles_falling_through_to_filesystem()
+    {
+        WriteFilesystemSpec("LEAVE", 1);
+        await SeedBundleWithSpecAsync("LEAVE", 5, SpecBundleStatus.SoftDeleted, "{\"meta\":{\"tag\":\"deleted\"}}");
+
+        var action = await BuildController().GetSpec("LEAVE", tenantCode: null, default);
+        var content = Assert.IsType<ContentResult>(action);
+        Assert.Contains("\"flowCode\":\"LEAVE\"", content.Content);
+        Assert.DoesNotContain("deleted", content.Content);
+    }
+
+    [Fact]
+    public async Task GetSpec_returns_404_when_unknown()
+    {
+        var action = await BuildController().GetSpec("DOES_NOT_EXIST", tenantCode: null, default);
+        Assert.IsType<NotFoundObjectResult>(action);
+    }
+
     // ===== harness =====
 
     private ProcessAdminController BuildController()
@@ -191,6 +251,49 @@ public sealed class ProcessAdminControllerTests : IDisposable
             ManifestChecksum = checksum,
             ManifestJson = manifestJson,
             ZipBlob = Array.Empty<byte>(),
+            Status = status,
+        });
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Seed a bundle row whose ZipBlob contains a real <c>spec.json</c>
+    /// entry. We construct the zip inline (a single text file) instead of
+    /// invoking the full BundleBuilder — the controller only reads
+    /// spec.json so a hand-rolled archive is the cheapest valid fixture.
+    /// </summary>
+    private async Task SeedBundleWithSpecAsync(string flowCode, int version, SpecBundleStatus status, string specJson)
+    {
+        await using var db = new AppDbContext(_options);
+        byte[] zip;
+        using (var ms = new MemoryStream())
+        {
+            using (var archive = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                var entry = archive.CreateEntry("spec.json");
+                using var es = entry.Open();
+                es.Write(Encoding.UTF8.GetBytes(specJson));
+            }
+            zip = ms.ToArray();
+        }
+        var manifestJson = JsonSerializer.Serialize(new
+        {
+            bundleSchemaVersion = 1,
+            flowCode,
+            flowVersion = version,
+            exportedAt = DateTime.UtcNow.AddMinutes(-version).ToString("o"),
+            sourceInstanceId = "default",
+            files = Array.Empty<object>(),
+        });
+        db.SpecBundles.Add(new SpecBundle
+        {
+            Id = Guid.NewGuid(),
+            TenantCode = "default",
+            FlowCode = flowCode,
+            FlowVersion = version,
+            ManifestChecksum = $"SHA-{flowCode}-V{version}-{Guid.NewGuid():N}",
+            ManifestJson = manifestJson,
+            ZipBlob = zip,
             Status = status,
         });
         await db.SaveChangesAsync();

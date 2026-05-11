@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/cn'
 import { ComingSoon } from './ComingSoon'
 import { DefinitionsList } from './DefinitionsList'
+import { Designer } from './Designer'
 
 export type ProcessAdminSection =
   | 'definitions'
@@ -58,6 +59,15 @@ interface ProcessAdminShellProps {
 
 export function ProcessAdminShell({ initialSection }: ProcessAdminShellProps = {}) {
   const [section, setSection] = useState<ProcessAdminSection>(initialSection ?? 'definitions')
+  // Designer subject — DefinitionsList sets this when the user clicks
+  // "Open in Designer" / "+ New Flow"; null means the next Designer mount
+  // starts with EMPTY_DRAFT.
+  const [designerFlowCode, setDesignerFlowCode] = useState<string | null>(null)
+
+  const openDesignerFor = (flowCode: string | null) => {
+    setDesignerFlowCode(flowCode)
+    setSection('designer')
+  }
 
   return (
     <div className="space-y-4">
@@ -91,7 +101,9 @@ export function ProcessAdminShell({ initialSection }: ProcessAdminShellProps = {
         <main className="min-w-0 flex-1">
           <SectionBody
             section={section}
-            onJumpToDesigner={() => setSection('designer')}
+            designerFlowCode={designerFlowCode}
+            openDesignerFor={openDesignerFor}
+            onJumpToSimulator={() => setSection('simulator')}
           />
         </main>
       </div>
@@ -101,18 +113,20 @@ export function ProcessAdminShell({ initialSection }: ProcessAdminShellProps = {
 
 interface SectionBodyProps {
   section: ProcessAdminSection
-  onJumpToDesigner: () => void
+  designerFlowCode: string | null
+  openDesignerFor: (flowCode: string | null) => void
+  onJumpToSimulator: () => void
 }
 
-function SectionBody({ section, onJumpToDesigner }: SectionBodyProps) {
+function SectionBody({ section, designerFlowCode, openDesignerFor, onJumpToSimulator }: SectionBodyProps) {
   switch (section) {
     case 'definitions':
-      return <DefinitionsList onOpenDesigner={onJumpToDesigner} />
+      return <DefinitionsList onOpenDesigner={openDesignerFor} />
     case 'designer':
       return (
-        <ComingSoon
-          section="Designer"
-          note="BPMN + form editor — ships in PR-K2 (add-process-admin-ui §3)."
+        <Designer
+          flowCode={designerFlowCode}
+          onJumpToSimulator={onJumpToSimulator}
         />
       )
     case 'simulator':
