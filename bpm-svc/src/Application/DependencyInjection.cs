@@ -39,6 +39,12 @@ public static class DependencyInjection
         services.AddSingleton<BundleBuildValidator>();
         services.AddScoped<IBundleBuilder, BundleBuilder>();
 
+        // Bundle import pipeline (PR-I3). Parser is Scoped because it logs
+        // per-bundle (Info-level entry list); validator is pure and stateless
+        // so it lives as a Singleton.
+        services.AddScoped<IBundleParser, BundleParser>();
+        services.AddSingleton<IBundleValidator, BundleValidator>();
+
         return services;
     }
 }

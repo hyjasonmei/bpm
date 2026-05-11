@@ -22,14 +22,14 @@
 
 ## 3. Backend — BundleParser + BundleValidator
 
-- [ ] 3.1 Create `IBundleParser.cs`: `Task<ParsedBundle> ParseAsync(Stream zip, CancellationToken ct)`
-- [ ] 3.2 Implement `BundleParser.cs`: open zip, read and verify manifest first, then load each listed file according to its `Kind`, verify sha256 matches manifest entry; ignore unlisted files (forward-compat)
-- [ ] 3.3 Reject `bundleSchemaVersion > BundleSchemaVersion.Current` with `BundleParseException("unknown schema version {v}")`
-- [ ] 3.4 Create `IBundleValidator.cs`: `BundleValidationResult Validate(ParsedBundle b)`
-- [ ] 3.5 Implement `BundleValidator.cs`: every `actorRef` in spec.json resolves to a path/role/group/user that exists in actors.json AND sample-org.json; every userTask in spec.json has a `forms/{userTaskId}.json`; every test-case references node ids that exist in spec.json
-- [ ] 3.6 Unit test: tampered file (bytes don't match sha256) → parse throws
-- [ ] 3.7 Unit test: spec references actor "submitter.manager.manager.manager.manager" but sample-org has only 2 levels → validator returns error
-- [ ] 3.8 Unit test: forward-compat — bundle with extra unknown file under `policies/` → parser succeeds, ignored file logged at Info level
+- [x] 3.1 Create `IBundleParser.cs`: `Task<ParsedBundle> ParseAsync(Stream zip, CancellationToken ct)`
+- [x] 3.2 Implement `BundleParser.cs`: open zip, read and verify manifest first, then load each listed file according to its `Kind`, verify sha256 matches manifest entry; ignore unlisted files (forward-compat)
+- [x] 3.3 Reject `bundleSchemaVersion > BundleSchemaVersion.Current` with `BundleParseException("unknown schema version {v}")`
+- [x] 3.4 Create `IBundleValidator.cs`: `BundleValidationResult Validate(ParsedBundle b)`
+- [x] 3.5 Implement `BundleValidator.cs`: every `actorRef` in spec.json resolves to a path/role/group/user that exists in actors.json AND sample-org.json; every userTask in spec.json has a `forms/{userTaskId}.json`; every test-case references node ids that exist in spec.json (v1: expr paths checked against `ActorPathWhitelist`; depth-resolution against the org tree deferred to PR-I5 repro runner)
+- [x] 3.6 Unit test: tampered file (bytes don't match sha256) → parse throws
+- [x] 3.7 Unit test: spec references actor "submitter.manager.manager.manager.manager" but sample-org has only 2 levels → validator returns error (`EXPR_PATH_OFF_WHITELIST`)
+- [x] 3.8 Unit test: forward-compat — bundle with extra unknown file under `policies/` → parser succeeds, ignored file logged at Info level
 
 ## 4. Backend — Bundle persistence (`SpecBundle` entity)
 
