@@ -1,6 +1,7 @@
 using Bpm.Application.Common.Abstractions;
 using Bpm.Domain.Common;
 using Bpm.Domain.Entities.HrFlows;
+using Bpm.Domain.Entities.Process;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -51,6 +52,13 @@ public sealed class AuditSaveChangesInterceptor(IClock clock, ICurrentUser curre
             if (entry.State is EntityState.Modified or EntityState.Deleted)
                 throw new InvalidOperationException(
                     $"HrFlowAction is append-only: {entry.State} is not permitted (Id={entry.Entity.Id}).");
+        }
+
+        foreach (EntityEntry<TaskHistory> entry in context.ChangeTracker.Entries<TaskHistory>())
+        {
+            if (entry.State is EntityState.Modified or EntityState.Deleted)
+                throw new InvalidOperationException(
+                    $"TaskHistory is append-only: {entry.State} is not permitted (Id={entry.Entity.Id}).");
         }
 
         // Stamp ImpersonatedByUserId onto IImpersonable entities at insert time.

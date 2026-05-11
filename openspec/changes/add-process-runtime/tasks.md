@@ -22,19 +22,19 @@
 
 ## 3. Append-only enforcement for TaskHistory
 
-- [ ] 3.1 Extend `AuditSaveChangesInterceptor` (or create `TaskHistoryAppendOnlyInterceptor`) to inspect ChangeTracker entries; throw `InvalidOperationException` if any TaskHistory entity has EntityState.Modified or Deleted
-- [ ] 3.2 Register interceptor in `Persistence/DependencyInjection.cs`
-- [ ] 3.3 Integration test: load a TaskHistory row, modify a field, call SaveChanges → expect exception
-- [ ] 3.4 Integration test: attempt `Remove` on TaskHistory → expect exception
+- [x] 3.1 Extend `AuditSaveChangesInterceptor` (or create `TaskHistoryAppendOnlyInterceptor`) to inspect ChangeTracker entries; throw `InvalidOperationException` if any TaskHistory entity has EntityState.Modified or Deleted
+- [x] 3.2 Register interceptor in `Persistence/DependencyInjection.cs`
+- [x] 3.3 Integration test: load a TaskHistory row, modify a field, call SaveChanges → expect exception
+- [x] 3.4 Integration test: attempt `Remove` on TaskHistory → expect exception
 
 ## 4. Application — runtime command records + validators
 
-- [ ] 4.1 Create `bpm-svc/src/Application/Process/Runtime/Commands/StartInstanceCommand.cs`: SpecCode (string), FormData (JsonElement), InitiatorUserId (Guid)
-- [ ] 4.2 Create `SubmitTaskCommand.cs`: TaskId, ActorUserId, FormDataPatch (JsonElement?), Decision (Decision?), Comment (string?)
-- [ ] 4.3 Create `ReturnTaskCommand.cs`: TaskId, ActorUserId, Comment (string, required)
-- [ ] 4.4 Create `ClaimTaskCommand.cs`: TaskId, ActorUserId
-- [ ] 4.5 Create `CancelInstanceCommand.cs`: InstanceId, ActorUserId, Reason (string)
-- [ ] 4.6 FluentValidation validators for each: required fields non-empty, comment max 2000 chars, ReturnTask requires non-empty comment
+- [x] 4.1 Create `bpm-svc/src/Application/Process/Runtime/Commands/StartInstanceCommand.cs`: SpecCode (string), FormData (JsonElement), InitiatorUserId (Guid)
+- [x] 4.2 Create `SubmitTaskCommand.cs`: TaskId, ActorUserId, FormDataPatch (JsonElement?), Decision (Decision?), Comment (string?)
+- [x] 4.3 Create `ReturnTaskCommand.cs`: TaskId, ActorUserId, Comment (string, required)
+- [x] 4.4 Create `ClaimTaskCommand.cs`: TaskId, ActorUserId
+- [x] 4.5 Create `CancelInstanceCommand.cs`: InstanceId, ActorUserId, Reason (string)
+- [x] 4.6 FluentValidation validators for each: required fields non-empty, comment max 2000 chars, ReturnTask requires non-empty comment
 
 ## 5. Application — minimal expression evaluator (until CEL)
 
