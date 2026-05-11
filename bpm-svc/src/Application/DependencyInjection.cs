@@ -1,6 +1,7 @@
 using System.Reflection;
 using FluentValidation;
 using Bpm.Application.Common.Behaviors;
+using Bpm.Application.Spec;
 using Bpm.Application.Spec.Expressions;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +26,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IExpressionEvaluator, CelNetExpressionEvaluator>();
         services.AddSingleton<BpmCelV1Validator>();
+        services.AddScoped<ISpecImportService, SpecImportService>();
 
         return services;
     }

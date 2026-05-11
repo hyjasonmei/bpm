@@ -5,6 +5,7 @@ using Bpm.Api.Auth;
 using Bpm.Api.Common;
 using Bpm.Application;
 using Bpm.Application.Common.Abstractions;
+using Bpm.Application.Spec;
 using Bpm.Persistence;
 using Bpm.Persistence.Seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -202,12 +203,12 @@ app.MapGet("/health", async (AppDbContext db, IAiBackend ai) =>
 // human (Jason) or a watcher can pick it up and feed prompt_template_v1 to
 // Claude Code. Phase A is intentionally a file drop — Phase B will swap
 // this for a job queue / pipeline trigger.
-app.MapPost("/api/spec", async (HttpContext ctx, IClock clock) =>
+app.MapPost("/api/spec", async (HttpContext ctx, IClock clock, ISpecImportService importer, CancellationToken ct) =>
 {
     if (!await RequireAuth(ctx)) return Results.Empty;
 
     using var reader = new StreamReader(ctx.Request.Body);
-    var json = await reader.ReadToEndAsync();
+    var json = await reader.ReadToEndAsync(ct);
 
     if (string.IsNullOrWhiteSpace(json))
         return Results.BadRequest(new { error = "Empty request body" });
@@ -226,6 +227,18 @@ app.MapPost("/api/spec", async (HttpContext ctx, IClock clock) =>
         if (string.IsNullOrWhiteSpace(tenant) || string.IsNullOrWhiteSpace(flowCode))
             return Results.BadRequest(new { error = "spec.meta.tenant and spec.meta.flowCode are required" });
 
+        // Expression validation pass — gateways + form fields. See SpecImportService.
+        // Runs before the file write so an invalid spec never lands on disk.
+        var validation = await importer.ValidateAsync(json, ct);
+        if (!validation.Valid)
+        {
+            return Results.BadRequest(new
+            {
+                error = "spec_validation_failed",
+                errors = validation.Errors,
+            });
+        }
+
         var safeTenant = string.Concat(tenant.Where(c => char.IsLetterOrDigit(c) || c is '-' or '_'));
         var safeFlow = string.Concat(flowCode.Where(c => char.IsLetterOrDigit(c) || c is '-' or '_'));
         var now = clock.UtcNow;
@@ -236,7 +249,7 @@ app.MapPost("/api/spec", async (HttpContext ctx, IClock clock) =>
         var folder = Path.Combine(rootFolder, safeTenant);
         Directory.CreateDirectory(folder);
         var fullPath = Path.Combine(folder, $"{ts}-{safeFlow}.json");
-        await File.WriteAllTextAsync(fullPath, json);
+        await File.WriteAllTextAsync(fullPath, json, ct);
 
         app.Logger.LogInformation("Spec received: tracking={Tracking} path={Path} bytes={Bytes}", trackingId, fullPath, json.Length);
         return Results.Ok(new { trackingId, path = fullPath, receivedAt = now });

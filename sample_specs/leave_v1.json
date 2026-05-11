@@ -66,7 +66,7 @@
           "label": { "zh-TW": "證明文件" },
           "type": "file",
           "required": true,
-          "conditional": "leave_type === '病假' || leave_type === '公假'"
+          "conditional": "leave_type == '病假' || leave_type == '公假'"
         }
       ],
       "permissions": {
