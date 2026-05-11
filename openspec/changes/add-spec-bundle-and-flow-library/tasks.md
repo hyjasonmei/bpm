@@ -33,24 +33,24 @@
 
 ## 4. Backend — Bundle persistence (`SpecBundle` entity)
 
-- [ ] 4.1 Create `bpm-svc/src/Domain/Entities/Spec/SpecBundle.cs` (inherits AuditableEntity): `Id (Guid)`, `TenantId (Guid)`, `FlowCode (string)`, `FlowVersion (int)`, `ManifestChecksum (string)`, `ParentManifestChecksum (string?)`, `ManifestJson (text)`, `ZipBlob (byte[])`, `Status (SpecBundleStatus)`, `LastReproCheckAt (DateTimeOffset?)`, `LastReproCheckResultJson (text?)`
-- [ ] 4.2 Create `SpecBundleStatus.cs` enum: `Draft, Pending, Installed, InstalledUnverified, Failed, SoftDeleted`
-- [ ] 4.3 Create `Persistence/Configurations/Spec/SpecBundleConfiguration.cs`: index `(TenantId, FlowCode, FlowVersion DESC)`, `(ManifestChecksum)` unique, `(Status)`
-- [ ] 4.4 Add `DbSet<SpecBundle> SpecBundles` to `AppDbContext`
-- [ ] 4.5 EF migration: `dotnet ef migrations add AddSpecBundles -p bpm-svc/src/Persistence -s bpm-svc/src/Api`
-- [ ] 4.6 Apply locally; `sqlite3 bpm-svc/src/Api/bpm.db .schema "SpecBundles"` to verify
+- [x] 4.1 Create `bpm-svc/src/Domain/Entities/Spec/SpecBundle.cs` (inherits AuditableEntity): `Id (Guid)`, `TenantCode (string)` (matches the rest of the codebase — `TenantId Guid` would have been an island), `FlowCode (string)`, `FlowVersion (int)`, `ManifestChecksum (string)`, `ParentManifestChecksum (string?)`, `ManifestJson (text)`, `ZipBlob (byte[])`, `Status (SpecBundleStatus)`, `LastReproCheckAt (DateTime?)`, `LastReproCheckResultJson (text?)`
+- [x] 4.2 Create `SpecBundleStatus.cs` enum: `Draft, Pending, Installed, InstalledUnverified, Failed, SoftDeleted`
+- [x] 4.3 Create `Persistence/Configurations/Spec/SpecBundleConfiguration.cs`: index `(TenantCode, FlowCode, FlowVersion DESC)` via per-column `IsDescending(false, false, true)`, `(ManifestChecksum)` unique, `(Status)`
+- [x] 4.4 Add `DbSet<SpecBundle> SpecBundles` to `AppDbContext`
+- [x] 4.5 EF migration: `dotnet ef migrations add AddSpecBundles -p bpm-svc/src/Persistence -s bpm-svc/src/Api`
+- [x] 4.6 Apply locally; `sqlite3 bpm-svc/src/Api/bpm.db .schema "SpecBundles"` to verify
 
 ## 5. Backend — Runtime loader (`bpm-spec-reproducibility`)
 
-- [ ] 5.1 Create `IBundleRuntimeLoader.cs`: `Task<LoadedBundleHandle> LoadAsync(ParsedBundle b, CancellationToken ct)`
-- [ ] 5.2 Create `LoadedBundleHandle.cs` record: `ScratchTenantId (Guid)`, `RegisteredSpecCode (string)`, `SeededUserCount (int)`, `Disposable cleanup`
-- [ ] 5.3 Implement `BundleRuntimeLoader.cs`: create scratch tenant `repro-{flowCode}-{checksumShort}`; insert sample-org.json users/groups/depts under that tenant id; register spec.json with the runtime spec store; return handle
-- [ ] 5.4 Implement scratch-tenant cleanup hook (on handle dispose, delete the tenant + all data); guard against deleting non-scratch tenants by name prefix check
-- [ ] 5.5 Create `IBundleReproducibilityRunner.cs`: `Task<ReproReport> RunAsync(LoadedBundleHandle h, IReadOnlyList<TestCaseSnapshot> cases, CancellationToken ct)`
-- [ ] 5.6 Create `ReproReport.cs`: `OverallStatus (Pass|Fail)`, `Cases (IReadOnlyList<CaseResult>)`; `CaseResult`: `CaseId`, `Status`, `ExpectedTrace`, `ActualTrace`, `Diff (string?)`
-- [ ] 5.7 Implement `BundleReproducibilityRunner.cs`: per case → `IProcessRuntime.StartInstanceAsync` (from `add-process-runtime`); drive it by feeding test-case form data; collect node trace from TaskHistory; assert trace equality (timestamp-stripped, assignee-id-stripped); produce diff
-- [ ] 5.8 Integration test: build a known LEAVE bundle → load via runtime loader → run repro → expect `OverallStatus = Pass`
-- [ ] 5.9 Integration test: tamper test-case's `expectedTrace` to insert an extra node → expect `OverallStatus = Fail` with diff highlighting the spurious node
+- [x] 5.1 Create `IBundleRuntimeLoader.cs`: `Task<LoadedBundleHandle> LoadAsync(ParsedBundle b, CancellationToken ct)`
+- [x] 5.2 Create `LoadedBundleHandle.cs` (sealed class, IAsyncDisposable): `ScratchTenantCode (string)` (org tables aren't tenant-scoped today; the loader namespaces by rewriting `User.Email` to `{scratch}__{email}` and tracking ids), `RegisteredSpecCode (string)`, `SeededUserCount (int)`, `SpecJson (string)` (raw spec text for inline-spec runtime overload), `InitiatorUserId (Guid)` (picks the first sample-org user with a non-null Manager so submitter.manager resolves), and a `Func<ValueTask>? OnDispose` cleanup hook
+- [x] 5.3 Implement `BundleRuntimeLoader.cs`: derive scratch tenant code `repro-{flowCode}-{checksumShort}`; idempotent (second load short-circuits); seed Departments → Users → Groups + GroupMembers; resolve roles by code (synthesize Flow-scoped Role rows tagged with bundle's FlowCode when missing); seed RoleAssignments; spec.json is NOT registered with `ISpecLoader` — the runtime takes it inline via the new `IProcessRuntime.StartInstanceAsync(cmd, inlineSpecJson, ct)` overload
+- [x] 5.4 Implement scratch-tenant cleanup hook: process-side (TaskHistory / ProcessTasks / ProcessInstances) deleted by `TenantCode` filter via ExecuteDelete; org-side (TPT-mapped Principals) deleted via tracked-entity RemoveRange after clearing self-referencing FKs; synthesized Role rows dropped last; defensive `AssertScratchTenant` helper refuses any tenant code that doesn't start with `repro-`
+- [x] 5.5 Create `IBundleReproducibilityRunner.cs`: `Task<ReproReport> RunAsync(LoadedBundleHandle h, IReadOnlyList<TestCaseSnapshot> cases, CancellationToken ct)`
+- [x] 5.6 Create `ReproReport.cs`: `OverallStatus (Pass|Fail)`, `Cases (IReadOnlyList<CaseResult>)`; `CaseResult`: `CaseId`, `Status`, `ExpectedTrace`, `ActualTrace`, `Diff (string?)`
+- [x] 5.7 Implement `BundleReproducibilityRunner.cs`: per case → `IProcessRuntime.StartInstanceAsync(cmd, inlineSpecJson, ct)` (the new overload added to `IProcessRuntime` — kept the existing `(cmd, ct)` overload so PR-C's controllers don't need to change); drive forward by polling open tasks, defaulting Approve for `NodeKind.Approval` and no-decision for UserTask; build the actual trace by reconstructing the linear path from the spec's flow graph using TaskSpawned + GatewayEvaluated events as the touched-node set (sidesteps the in-flight history-row CreatedAt-tie-breaker problem flagged in `add-process-runtime`'s E2E fixture); diff is a single string `expected: [...]\nactual: [...]`
+- [x] 5.8 Integration test: build a known LEAVE bundle → load via runtime loader → run repro → expect `OverallStatus = Pass`
+- [x] 5.9 Integration test: tamper test-case's `expectedTrace` to insert an extra node → expect `OverallStatus = Fail` with diff highlighting the spurious node
 
 ## 6. Backend — Flow Library REST endpoints
 

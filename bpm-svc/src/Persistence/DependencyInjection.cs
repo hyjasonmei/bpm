@@ -11,6 +11,7 @@ using Bpm.Application.Process.Runtime;
 using Bpm.Application.Process.Runtime.Queries;
 using Bpm.Application.Sandbox;
 using Bpm.Application.Spec;
+using Bpm.Application.Spec.Bundle;
 using Bpm.Persistence.Admin;
 using Bpm.Persistence.Attendance;
 using Bpm.Persistence.Common;
@@ -23,6 +24,7 @@ using Bpm.Persistence.Org;
 using Bpm.Persistence.Process;
 using Bpm.Persistence.Sandbox;
 using Bpm.Persistence.Spec;
+using Bpm.Persistence.Spec.Bundle;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -69,6 +71,10 @@ public static class DependencyInjection
         services.AddScoped<INotificationDispatcher, LoggingNotificationDispatcher>();
         services.AddScoped<IProcessRuntime, ProcessRuntime>();
         services.AddScoped<IProcessQueryService, ProcessQueryService>();
+
+        // Spec Bundle runtime (PR-I4): scratch-tenant seeder + replay runner.
+        services.AddScoped<IBundleRuntimeLoader, BundleRuntimeLoader>();
+        services.AddScoped<IBundleReproducibilityRunner, BundleReproducibilityRunner>();
 
         return services;
     }

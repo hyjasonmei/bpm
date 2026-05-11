@@ -31,9 +31,25 @@ public sealed class ProcessRuntime(
 {
     private const string DefaultTenant = "default";
 
-    public async Task<StartInstanceResult> StartInstanceAsync(StartInstanceCommand cmd, CancellationToken ct = default)
+    public Task<StartInstanceResult> StartInstanceAsync(StartInstanceCommand cmd, CancellationToken ct = default)
+        => StartInstanceCoreAsync(cmd, inlineSpecJson: null, ct);
+
+    public Task<StartInstanceResult> StartInstanceAsync(StartInstanceCommand cmd, string inlineSpecJson, CancellationToken ct = default)
     {
-        var json = await specLoader.LoadAsync(DefaultTenant, cmd.SpecCode, ct)
+        ArgumentException.ThrowIfNullOrWhiteSpace(inlineSpecJson);
+        return StartInstanceCoreAsync(cmd, inlineSpecJson, ct);
+    }
+
+    private async Task<StartInstanceResult> StartInstanceCoreAsync(
+        StartInstanceCommand cmd, string? inlineSpecJson, CancellationToken ct)
+    {
+        // Inline-spec path bypasses ISpecLoader so the bundle reproducibility
+        // runner can replay a spec that isn't (yet) registered with the live
+        // loader. Behaviour from this point on is identical to the
+        // loader-driven path — the runtime never touches ISpecLoader after
+        // the snapshot is captured into ProcessInstance.SpecSnapshotJson.
+        var json = inlineSpecJson
+            ?? await specLoader.LoadAsync(DefaultTenant, cmd.SpecCode, ct)
             ?? throw new NotFoundException("Spec", cmd.SpecCode);
 
         using var snapshot = new SpecSnapshot(json);
