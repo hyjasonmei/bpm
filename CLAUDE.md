@@ -46,11 +46,14 @@ MVP 功能範圍：
 商業模式
 第一年導入費（含送幾隻流程）+ 之後每年 30% 導入費 + 顧問點數，大量需求另購點數。多客戶時 Anthropic API 用我們代墊，bill 客戶。Bundle 可由客戶自 host 也可以我們代管。
 
-現在進度 (2026-05-10)
-openspec 32 個 active proposal（含 add-spec-bundle-and-flow-library + add-acceptance-sandbox 兩個本日新加），實作面：bpm-svc 已有 Org/Authz/Sandbox/Auth/HrFlows/Spec(ActorRef) 全套，bpm-ui 9 個 demo form + Home/Search/Report，bpm-admin-ui 9-step onboarding + CoPilotCanvas + 5 個 admin screen。
+現在進度 (2026-05-11)
+foundation 三角全部 archived (add-process-runtime / add-actor-and-org-model / add-cel-expressions)。openspec 28 個 active proposal。實作面：bpm-svc 已有 Org/Authz/Sandbox/Auth/HrFlows/Spec(ActorRef)/ProcessRuntime(IProcessRuntime+SpecSnapshot+CelNet 引擎) 全套，67 tests 全綠；bpm-ui 9 個 demo form + Home/Search/Report + process API client + RoleSwitcher；bpm-admin-ui 9-step onboarding + CoPilotCanvas + ActorRefEditor + ExpressionInput + 5 個 admin screen。
 
-當前目標 (foundation 三角，P0)
-1. add-process-runtime — 建 ProcessInstance / Task / TaskHistory 真正能跑 case
-2. add-actor-and-org-model — 已 80% 寫完，補 spec + extension 收尾
-3. add-cel-expressions — 用 Cel.NET 1.0.0 (NuGet) 實作 IExpressionEvaluator + bpm-cel-v1 subset validator
-   三個一起做 4-8 週，後續 10+ proposal 可併行展開
+當前目標 (P0 候選)
+foundation 已就位，可平行展開後續 proposal。建議優先：
+- add-spec-bundle-and-flow-library（賣點 1：AI onboarding 產 zip）
+- add-acceptance-sandbox（賣點 2：無痛驗收）
+- add-process-admin-ui（runtime 上線後監控 UI）
+
+已知 follow-up：
+- Cel.NET 1.0.0 的 sum(list) runtime overload-id dispatch bug — 目前 gateway 用 flat field workaround，sum 留 derivedFrom（schema validator 覆蓋）。v1.5 處理。
