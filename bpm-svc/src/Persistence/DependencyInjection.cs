@@ -51,9 +51,19 @@ public static class DependencyInjection
         services.AddScoped<IScheduledJobKicker, NoOpScheduledJobKicker>();
         services.TryAddScoped<ICurrentUser, SystemCurrentUser>();
 
-        services.AddScoped<AuditSaveChangesInterceptor>();
+        // Bypass SandboxClock decorator here — SandboxClock depends on
+        // AppDbContext, and AppDbContext resolves this interceptor via its
+        // options factory, which would form a construction-time cycle.
+        // Audit timestamps use wall-clock; sandbox-shifted time still applies
+        // to app-level CreatedAt that goes through IClock at the service layer.
+        services.AddScoped<AuditSaveChangesInterceptor>(sp =>
+            new AuditSaveChangesInterceptor(
+                sp.GetRequiredService<SystemClock>(),
+                sp.GetRequiredService<ICurrentUser>(),
+                sp.GetService<ISandboxActorContext>()));
 
         var connectionString = configuration.GetConnectionString("Default") ?? "Data Source=bpm.db";
+        connectionString = DbPathResolver.Normalize(connectionString);
 
         services.AddDbContext<AppDbContext>((sp, options) =>
         {

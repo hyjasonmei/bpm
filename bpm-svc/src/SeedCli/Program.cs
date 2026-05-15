@@ -44,6 +44,7 @@ public static class Program
         }
 
         var connStr = configuration.GetConnectionString("Default") ?? "Data Source=bpm.db";
+        connStr = Bpm.Persistence.DbPathResolver.Normalize(connStr);
 
         // Hand-roll just the DI we need (AppDbContext + audit interceptor +
         // bundle build/parse pipeline). This intentionally avoids
