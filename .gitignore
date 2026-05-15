@@ -11,3 +11,9 @@ specs-incoming/
 Thumbs.db
 
 bpm-admin-ui/node_modules/
+
+# Local launcher output (launch.sh writes BE/FE logs + verify screenshots here)
+.launch-logs/
+
+# Claude Code per-project local settings
+.claude/settings.local.json
