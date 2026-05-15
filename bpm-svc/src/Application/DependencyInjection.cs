@@ -38,7 +38,7 @@ public static class DependencyInjection
         // must also be Scoped — Singleton would capture a stale clock and
         // fail DI scope validation in Development.
         services.AddScoped<IExpressionEvaluator, CelNetExpressionEvaluator>();
-        services.AddSingleton<BpmCelV1Validator>();
+        services.AddScoped<BpmCelV1Validator>();
         services.AddScoped<ISpecImportService, SpecImportService>();
 
         // Bundle export pipeline (PR-I2). Renderers + validator are pure
