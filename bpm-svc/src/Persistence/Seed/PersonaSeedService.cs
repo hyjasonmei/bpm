@@ -161,6 +161,8 @@ public static class PersonaSeedService
         // green by re-using the new seed's superset of role assignments.
         new("admin",         "jason_test@acme.test"),
         new("admin",         "ceo@acme.test"),
+        new("admin",         "pat@acme.test"),         // demo admin persona
+        new("admin",         "admin_lead@acme.test"),
         new("designer",      "yang@acme.test"),
         new("designer",      "lin@acme.test"),
         new("designer",      "jason_test@acme.test"),

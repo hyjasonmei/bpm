@@ -29,5 +29,5 @@ export function jwtRoles(d: DecodedJwt | null): string[] {
 }
 
 export function isAdmin(d: DecodedJwt | null): boolean {
-  return jwtRoles(d).includes('admin')
+  return jwtRoles(d).some(r => r.toLowerCase() === 'admin')
 }
