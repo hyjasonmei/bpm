@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Plus, Search, FileText, BarChart3, Home, ChevronDown, Clock, FlaskConical } from 'lucide-react'
+import { Plus, Search, BarChart3, Home, ChevronDown, Clock, FlaskConical } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { RoleSwitcher } from '@/components/RoleSwitcher'
 import { ImpersonationBanner } from '@/components/ImpersonationBanner'
@@ -12,6 +12,7 @@ import { getSandboxStatus } from '@/lib/api/sandbox'
 
 export type Screen =
   | { kind: 'home' }
+  | { kind: 'create' }
   | { kind: 'search' }
   | { kind: 'report' }
   | { kind: 'attendance' }
@@ -34,7 +35,7 @@ interface AppLayoutProps {
   children: React.ReactNode
 }
 
-const FORM_GROUPS: Array<{ group: string; items: { id: FormCode; label: string }[] }> = [
+export const FORM_GROUPS: Array<{ group: string; items: { id: FormCode; label: string }[] }> = [
   { group: 'HR', items: [{ id: 'LEAVE', label: 'Leave Request (請假)' }, { id: 'EXTOB', label: 'External Onboarding' }, { id: 'RESIGN', label: 'Resignation (離職申請)' }, { id: 'DEPTX', label: 'Department Transfer (部門異動)' }] },
   { group: 'Expense', items: [{ id: 'GEE', label: 'Employee Expense (GEE)' }, { id: 'GEV', label: 'Vendor Expense (GEV)' }, { id: 'APE', label: 'Advance Payment (APE)' }] },
   { group: 'Travel', items: [{ id: 'TRQ', label: 'Travel Request (TRQ)' }, { id: 'TEO', label: 'Travel Expense (TEO)' }] },
@@ -42,8 +43,6 @@ const FORM_GROUPS: Array<{ group: string; items: { id: FormCode; label: string }
 ]
 
 export function AppLayout({ screen, setScreen, persona, setPersona, authedFullName = null, authPending = false, authError = null, children }: AppLayoutProps) {
-  const [createOpen, setCreateOpen] = React.useState(false)
-  const createRef = React.useRef<HTMLDivElement>(null)
   const [sandboxOn, setSandboxOn] = React.useState(false)
 
   // PR-J5 §10.5: Sandbox Mailbox link only visible when sandbox is on. Poll
@@ -61,15 +60,6 @@ export function AppLayout({ screen, setScreen, persona, setPersona, authedFullNa
     return () => { cancelled = true; window.clearInterval(handle) }
   }, [])
 
-  React.useEffect(() => {
-    if (!createOpen) return
-    const onDocClick = (e: MouseEvent) => {
-      if (createRef.current && !createRef.current.contains(e.target as Node)) setCreateOpen(false)
-    }
-    document.addEventListener('mousedown', onDocClick)
-    return () => document.removeEventListener('mousedown', onDocClick)
-  }, [createOpen])
-
   return (
     <div className="min-h-screen bg-bg">
       <SandboxBanner />
@@ -86,43 +76,8 @@ export function AppLayout({ screen, setScreen, persona, setPersona, authedFullNa
           {/* Nav */}
           <div className="flex items-center gap-0.5">
             <NavBtn active={screen.kind === 'home'} onClick={() => setScreen({ kind: 'home' })} icon={<Home className="h-4 w-4" />}>Home</NavBtn>
-
-            {/* Create dropdown */}
-            <div ref={createRef} className="relative">
-              <NavBtn
-                active={createOpen}
-                onClick={() => setCreateOpen(o => !o)}
-                icon={<Plus className="h-4 w-4" />}
-                hasChevron
-              >
-                Create
-              </NavBtn>
-              {createOpen && (
-                <div className="absolute left-0 top-full z-40 mt-1 w-60 overflow-hidden rounded-lg border border-rule bg-white py-1 text-ink shadow-xl">
-                  {FORM_GROUPS.map(g => (
-                    <div key={g.group}>
-                      <div className="bg-slate-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                        {g.group}
-                      </div>
-                      {g.items.map(item => (
-                        <button
-                          key={item.id}
-                          onClick={() => { setScreen({ kind: 'form', code: item.id }); setCreateOpen(false) }}
-                          className="block w-full px-4 py-2 text-left text-sm text-ink-muted transition-colors hover:bg-blue-50 hover:text-blue-700"
-                        >
-                          <span className="font-mono text-[10.5px] text-ink-faint mr-2">{item.id}</span>
-                          {item.label}
-                          {item.id === 'LEAVE' && <span className="ml-2 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">NEW</span>}
-                        </button>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
+            <NavBtn active={screen.kind === 'create'} onClick={() => setScreen({ kind: 'create' })} icon={<Plus className="h-4 w-4" />}>Create</NavBtn>
             <NavBtn active={screen.kind === 'search'} onClick={() => setScreen({ kind: 'search' })} icon={<Search className="h-4 w-4" />}>Search</NavBtn>
-            <NavBtn icon={<FileText className="h-4 w-4" />} onClick={() => alert('User Guide — placeholder')}>User Guide</NavBtn>
             <NavBtn active={screen.kind === 'report'} onClick={() => setScreen({ kind: 'report' })} icon={<BarChart3 className="h-4 w-4" />}>Report</NavBtn>
           </div>
 

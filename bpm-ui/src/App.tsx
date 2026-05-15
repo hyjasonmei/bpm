@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AppLayout, type Screen } from '@/components/AppLayout'
 import { useActivePersona } from '@/lib/role'
 import { Home } from '@/screens/Home'
+import { CreateIndex } from '@/screens/CreateIndex'
 import { Search } from '@/screens/Search'
 import { Report } from '@/screens/Report'
 import { Attendance } from '@/screens/Attendance'
@@ -43,6 +44,7 @@ export default function App() {
   let body: React.ReactNode
   switch (screen.kind) {
     case 'home':       body = <Home persona={persona} setScreen={setScreen} />; break
+    case 'create':     body = <CreateIndex setScreen={setScreen} />; break
     case 'search':     body = <Search />; break
     case 'report':     body = <Report />; break
     case 'attendance': body = <Attendance />; break

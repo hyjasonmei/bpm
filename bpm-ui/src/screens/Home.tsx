@@ -1,13 +1,13 @@
 import {
   Plus, FileText, Plane, Send, Laptop, DollarSign, Building2,
-  Check, AlertCircle, Inbox, Pencil, Calendar, ExternalLink,
+  Check, AlertCircle, Inbox, Pencil, Calendar,
   Briefcase,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { StatusBadge, TypeChip, type StatusKind } from '@/components/ui/badge'
-import { MOCK_ACTIVITY, MOCK_REMINDERS } from '@/lib/mocks'
+import { MOCK_ACTIVITY } from '@/lib/mocks'
 import { PERSONAS, type PersonaCode } from '@/lib/role'
 import type { Screen } from '@/components/AppLayout'
 import { FORMS, type FormCode } from '@/lib/workflow'
@@ -33,13 +33,6 @@ const ICON_FOR_ACTIVITY = {
   closed:    { Icon: Check,       color: 'text-good',    bg: 'bg-green-50' },
   created:   { Icon: FileText,    color: 'text-slate-500', bg: 'bg-slate-100' },
   rejected:  { Icon: AlertCircle, color: 'text-red-600',  bg: 'bg-red-50'   },
-} as const
-
-const ICON_FOR_REMINDER = {
-  draft:    { Icon: Pencil,      color: 'text-slate-500', bg: 'bg-slate-100' },
-  return:   { Icon: Calendar,    color: 'text-amber-600', bg: 'bg-amber-50' },
-  travel:   { Icon: Plane,       color: 'text-blue-600',  bg: 'bg-blue-50' },
-  contract: { Icon: AlertCircle, color: 'text-amber-600', bg: 'bg-amber-50' },
 } as const
 
 interface HomeProps {
@@ -88,7 +81,6 @@ export function Home({ persona, setScreen }: HomeProps) {
         <div className="min-w-0 space-y-4">
           <QuickActionsPanel setScreen={setScreen} />
           <ActivityFeedPanel />
-          <RemindersPanel />
         </div>
       </div>
     </div>
@@ -169,18 +161,7 @@ function StatCards({ persona, inboxCount, myCases }: { persona: PersonaCode; inb
 }
 
 function StatCard({ title, value, tone, Icon, sub }: { title: string; value: number; tone: string; Icon: React.ComponentType<{ className?: string }>; sub?: string }) {
-  const ring = {
-    amber:  'border-amber-200 bg-amber-50/30',
-    blue:   'border-blue-200 bg-blue-50/30',
-    green:  'border-green-200 bg-green-50/30',
-    slate:  'border-slate-200',
-    violet: 'border-violet-200 bg-violet-50/30',
-    cyan:   'border-cyan-200 bg-cyan-50/30',
-    orange: 'border-orange-200 bg-orange-50/30',
-    red:    'border-red-200 bg-red-50/30',
-  }[tone] ?? 'border-slate-200'
-
-  const text = {
+  const iconColor = {
     amber:  'text-amber-700',
     blue:   'text-blue-700',
     green:  'text-green-700',
@@ -192,14 +173,14 @@ function StatCard({ title, value, tone, Icon, sub }: { title: string; value: num
   }[tone] ?? 'text-slate-700'
 
   return (
-    <div className={cn('flex items-center gap-3 rounded-lg border bg-card px-4 py-3', ring)}>
-      <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-md', text, 'bg-white')}>
+    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-card px-4 py-3">
+      <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-50', iconColor)}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted truncate">{title}</div>
         <div className="flex items-baseline gap-1.5">
-          <span className={cn('text-2xl font-bold tabular', text)}>{value}</span>
+          <span className="text-2xl font-bold tabular text-ink">{value}</span>
           {sub && <span className="text-[10.5px] text-ink-faint truncate">{sub}</span>}
         </div>
       </div>
@@ -344,7 +325,7 @@ function QuickActionsPanel({ setScreen }: { setScreen: (s: Screen) => void }) {
         ))}
       </div>
       <div className="border-t border-rule px-3 py-2 text-center">
-        <button className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
+        <button onClick={() => setScreen({ kind: 'create' })} className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
           <Plus className="h-3 w-3" /> Browse all forms
         </button>
       </div>
@@ -367,34 +348,6 @@ function ActivityFeedPanel() {
               <div className="min-w-0 flex-1 text-xs">
                 <p className="text-ink"><span className="font-medium">{a.msg}</span> <span className="font-mono text-[10.5px] text-ink-muted">{a.doc}</span></p>
                 <p className="mt-0.5 text-[10.5px] text-ink-faint">{a.time}</p>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </SectionCard>
-  )
-}
-
-function RemindersPanel() {
-  return (
-    <SectionCard>
-      <SectionTitle right={<span className="text-[10.5px] uppercase tracking-wider text-ink-faint">demo</span>}>Reminders</SectionTitle>
-      <div className="divide-y divide-slate-100">
-        {MOCK_REMINDERS.map((r, i) => {
-          const meta = ICON_FOR_REMINDER[r.type]
-          return (
-            <div key={i} className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-slate-50/60">
-              <span className={cn('mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full', meta.bg, meta.color)}>
-                <meta.Icon className="h-3 w-3" strokeWidth={2.5} />
-              </span>
-              <div className="min-w-0 flex-1 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-ink">{r.label}</span>
-                  <span className="font-mono text-[10.5px] text-ink-muted">{r.doc}</span>
-                  <ExternalLink className="ml-auto h-3 w-3 text-ink-faint" />
-                </div>
-                <p className="mt-0.5 text-[10.5px] text-ink-faint">{r.detail}</p>
               </div>
             </div>
           )
