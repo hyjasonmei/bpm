@@ -1,34 +1,24 @@
-import { useEffect, useState } from 'react'
-import { ArrowLeft, ChefHat, Sparkles } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { ArrowLeft, ChefHat, RefreshCw, Sparkles } from 'lucide-react'
+import { cn } from '@/lib/cn'
 import { Onboarding } from '@/screens/onboarding/Onboarding'
 import type { AdminScreen } from '@/components/AdminLayout'
 import { apiFetch, getJwt, setJwt } from '@/lib/apiFetch'
+import { type FlowState, type FlowSummary, listFlows } from '@/flowcook/api/flows'
 
 type Mode = 'list' | 'wizard'
 
 /**
  * AI Kitchen — entry page for the flow-design experience.
  *
- * Phase A (this iteration):
- *   - List view shows an empty state + "Cook new flow" CTA.
- *   - Wizard view directly mounts the legacy `<Onboarding />` 9-step
- *     experience (chat + canvas + bundle export against bpm-svc).
- *
- * Phase B (later, per flowcook-step3):
- *   - Wire to an admin-svc lifecycle API (FlowDraft / FlowVersion) so the
- *     list shows real "cooked" flows by state.
- *   - Author the four new step3 stages (TRIGGER&ACCESS / VARIABLES /
- *     INTEGRATIONS / TRANSLATION) and switch the bundle producer to
- *     admin-svc.
+ * Phase A: list + Cook new flow CTA + legacy wizard mount.
+ * Phase B1 (this commit): list now fetches GET /api/flows from
+ * bpm-admin-svc lifecycle BE. Wizard still backs to localStorage —
+ * wiring the wizard to draft persistence is Phase B2.
  */
 export function AiKitchenPage() {
   const [mode, setMode] = useState<Mode>('list')
 
-  // Wizard talks to bpm-svc directly via `apiFetch`, which uses a JWT
-  // bearer from localStorage. The legacy AdminLayout used to auto-mint
-  // this on entry; under flowcook we do the same here so the wizard can
-  // hit /api/chat / /api/admin/flow-library / /api/spec-extract without
-  // a 401.
   useEffect(() => {
     if (mode !== 'wizard') return
     let cancelled = false
@@ -44,7 +34,7 @@ export function AiKitchenPage() {
           const data = await res.json()
           setJwt(data.token)
         }
-      } catch { /* the wizard will surface a clearer error if calls fail */ }
+      } catch { /* swallow — wizard will surface a clearer error */ }
     }
     void ensureBpmSvcJwt()
     return () => { cancelled = true }
@@ -76,54 +66,125 @@ export function AiKitchenPage() {
 }
 
 function onNavigateAdapter(setMode: (m: Mode) => void) {
-  // Wizard's legacy `onNavigate` calls were aimed at sibling Admin
-  // screens (`flow-library`, etc.). Under flowcook the closest match is
-  // "back to the kitchen list" — accept anything and drop back there.
   return (_s: AdminScreen) => setMode('list')
 }
 
 function CookedFlowsList({ onCookNew }: { onCookNew: () => void }) {
+  const [flows, setFlows] = useState<FlowSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      setFlows(await listFlows())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load flows')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { void refresh() }, [refresh])
+
   return (
     <div className="grid h-full grid-cols-12 gap-6">
-      {/* Left — the kitchen pass; empty until lifecycle BE lands */}
       <section className="col-span-8 flex min-h-0 flex-col rounded-lg border border-rule bg-card shadow-sm">
         <header className="flex items-center justify-between border-b border-rule px-5 py-3">
           <div className="flex items-baseline gap-3">
             <h2 className="text-base font-semibold text-ink">Cooked flows</h2>
-            <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">0 on the line</span>
+            <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
+              {loading ? '…' : `${flows.length} on the line`}
+            </span>
           </div>
-          <button
-            onClick={onCookNew}
-            data-testid="cook-new-flow"
-            className="inline-flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary/90"
-          >
-            <ChefHat className="h-3.5 w-3.5" />
-            Cook new flow
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void refresh()}
+              disabled={loading}
+              title="Refresh"
+              className="flex h-7 w-7 items-center justify-center rounded border border-rule bg-card text-ink-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
+            </button>
+            <button
+              onClick={onCookNew}
+              data-testid="cook-new-flow"
+              className="inline-flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary/90"
+            >
+              <ChefHat className="h-3.5 w-3.5" />
+              Cook new flow
+            </button>
+          </div>
         </header>
 
-        <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <ChefHat className="h-7 w-7" />
+        {error && (
+          <div className="border-b border-danger/30 bg-danger/5 px-5 py-2 text-xs text-danger">
+            {error}
           </div>
-          <h3 className="text-base font-semibold text-ink">No flows cooked yet</h3>
-          <p className="mt-2 max-w-sm text-sm text-ink-muted">
-            Start by cooking a new flow. The 9-step kitchen walks you through
-            source, structure, forms, decisions, approvers, notify, SLA, test,
-            and go-live — chat on the left, canvas on the right — and produces
-            a portable spec bundle.
-          </p>
-          <button
-            onClick={onCookNew}
-            className="mt-6 inline-flex items-center gap-1.5 rounded bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
-          >
-            <ChefHat className="h-4 w-4" />
-            Cook new flow
-          </button>
-        </div>
+        )}
+
+        {loading && flows.length === 0 && (
+          <div className="flex flex-1 items-center justify-center text-sm text-ink-muted">
+            Loading…
+          </div>
+        )}
+
+        {!loading && flows.length === 0 && !error && (
+          <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <ChefHat className="h-7 w-7" />
+            </div>
+            <h3 className="text-base font-semibold text-ink">No flows cooked yet</h3>
+            <p className="mt-2 max-w-sm text-sm text-ink-muted">
+              Start by cooking a new flow. The 9-step kitchen walks you through
+              source, structure, forms, decisions, approvers, notify, SLA, test,
+              and go-live — chat on the left, canvas on the right — and produces
+              a portable spec bundle.
+            </p>
+            <button
+              onClick={onCookNew}
+              className="mt-6 inline-flex items-center gap-1.5 rounded bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
+            >
+              <ChefHat className="h-4 w-4" />
+              Cook new flow
+            </button>
+          </div>
+        )}
+
+        {flows.length > 0 && (
+          <div className="flex-1 overflow-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 border-b border-rule bg-label-bg text-left font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
+                <tr>
+                  <th className="px-5 py-2 font-normal">Flow</th>
+                  <th className="px-3 py-2 font-normal">Version</th>
+                  <th className="px-3 py-2 font-normal">State</th>
+                  <th className="px-3 py-2 font-normal">Updated</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-rule">
+                {flows.map((f) => (
+                  <tr key={f.id} className="hover:bg-bg">
+                    <td className="px-5 py-3">
+                      <div className="font-medium text-ink">{f.displayName}</div>
+                      <div className="mt-0.5 font-mono text-[11px] text-ink-muted">{f.flowCode}</div>
+                    </td>
+                    <td className="px-3 py-3 font-mono text-xs text-ink-muted">v{f.version}</td>
+                    <td className="px-3 py-3">
+                      <StatePill state={f.state} />
+                    </td>
+                    <td className="px-3 py-3 font-mono text-[11px] text-ink-muted">
+                      {formatDate(f.updatedAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
-      {/* Right — kitchen brief / context strip */}
       <aside className="col-span-4 flex min-h-0 flex-col gap-4">
         <div className="rounded-lg border border-rule bg-card p-5 shadow-sm">
           <div className="mb-2 flex items-center gap-2">
@@ -165,13 +226,40 @@ function CookedFlowsList({ onCookNew }: { onCookNew: () => void }) {
             phase status
           </div>
           <p className="text-xs leading-relaxed text-ink-muted">
-            Lifecycle persistence (drafts, versions, on-hold callbacks from
-            chef) lands in a later step — for now bundles are produced
-            client-side per session and saved to the Flow Library on
-            bpm-svc.
+            Lifecycle now persisted in admin-svc — list reads
+            <code className="mx-1 font-mono text-[11px]">GET /api/flows</code>.
+            Wiring the wizard to write draft spec back per step lands in the
+            next sub-phase; for now the wizard still saves locally and exports
+            bundles to bpm-svc's Flow Library.
           </p>
         </div>
       </aside>
     </div>
   )
+}
+
+const STATE_TONE: Record<FlowState, string> = {
+  Draft:     'bg-ink-muted/15 text-ink-muted',
+  Submitted: 'bg-primary/10 text-primary',
+  Cooking:   'bg-accent/15 text-accent',
+  OnHold:    'bg-warn/15 text-warn',
+  Committed: 'bg-good/10 text-good',
+  Approved:  'bg-good/15 text-good',
+  Rejected:  'bg-danger/10 text-danger',
+}
+
+function StatePill({ state }: { state: FlowState }) {
+  return (
+    <span className={cn(
+      'inline-block rounded-full px-2 py-0.5 font-mono text-[10px] tracking-[0.12em] uppercase',
+      STATE_TONE[state],
+    )}>
+      {state.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()}
+    </span>
+  )
+}
+
+function formatDate(s: string): string {
+  try { return new Date(s).toISOString().slice(0, 16).replace('T', ' ') }
+  catch { return s }
 }

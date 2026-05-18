@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using Bpm.Admin.Domain.Audit;
 using Bpm.Admin.Domain.Auth;
 using Bpm.Admin.Domain.Delegations;
+using Bpm.Admin.Domain.Flows;
 using Bpm.Admin.Domain.Principals;
 using Bpm.Admin.Domain.Roles;
 using Bpm.Admin.Domain.SoftDelete;
@@ -25,6 +26,7 @@ public class AdminDbContext : DbContext
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<UserCredential> UserCredentials => Set<UserCredential>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
+    public DbSet<Flow> Flows => Set<Flow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -102,6 +104,18 @@ public class AdminDbContext : DbContext
                     if (entry.State == EntityState.Added && pr.AssignedAt == default)
                     {
                         pr.AssignedAt = now;
+                    }
+                    break;
+
+                case Flow flow:
+                    if (entry.State == EntityState.Added)
+                    {
+                        if (flow.CreatedAt == default) flow.CreatedAt = now;
+                        if (flow.UpdatedAt == default) flow.UpdatedAt = now;
+                    }
+                    else if (entry.State == EntityState.Modified)
+                    {
+                        flow.UpdatedAt = now;
                     }
                     break;
             }
