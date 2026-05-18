@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, ChefHat } from 'lucide-react'
 import { useAuth } from '@/flowcook/auth/useAuth'
 
 export function LoginPage() {
@@ -27,8 +27,8 @@ export function LoginPage() {
       {/* decorative left panel — dark navy, matches bpm-ui top header */}
       <aside className="relative hidden w-1/2 flex-col justify-between bg-header p-10 text-white lg:flex">
         <div className="relative z-10 flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-red-500 text-[10.5px] font-bold tracking-wider text-white">
-            BPM
+          <div className="flex h-8 w-8 items-center justify-center rounded bg-red-500 text-white">
+            <ChefHat className="h-4 w-4" />
           </div>
           <span className="text-sm font-bold tracking-wide">
             flowcook · admin
@@ -63,8 +63,8 @@ export function LoginPage() {
           className="relative w-full max-w-sm rounded-lg border border-rule bg-card p-8 shadow-sm"
         >
           <div className="mb-6 flex items-center gap-2 lg:hidden">
-            <div className="flex h-7 w-7 items-center justify-center rounded bg-red-500 text-[10px] font-bold tracking-wider text-white">
-              BPM
+            <div className="flex h-7 w-7 items-center justify-center rounded bg-red-500 text-white">
+              <ChefHat className="h-3.5 w-3.5" />
             </div>
             <span className="text-sm font-bold tracking-wide text-ink">
               flowcook · admin

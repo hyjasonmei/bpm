@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Bpm.Admin.Api.Controllers;
 
 public record SetDeptParentRequest(Guid? ParentDeptId);
+public record DeptParentDto(Guid DeptId, Guid? ParentDeptId);
 
 [ApiController]
 [Route("api/principals/{deptId:guid}/parent")]
@@ -19,6 +20,16 @@ public class DeptParentsController : ControllerBase
     {
         _db = db;
         _audit = audit;
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<DeptParentDto>> Get(Guid deptId, CancellationToken ct)
+    {
+        var row = await _db.DeptParents
+            .Where(dp => dp.DeptId == deptId)
+            .Select(dp => new DeptParentDto(dp.DeptId, dp.ParentDeptId))
+            .FirstOrDefaultAsync(ct);
+        return row ?? new DeptParentDto(deptId, null);
     }
 
     [HttpPut]

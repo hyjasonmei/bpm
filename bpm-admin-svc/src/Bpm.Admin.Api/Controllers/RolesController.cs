@@ -56,5 +56,67 @@ public class RolesController : ControllerBase
         return Created($"/api/roles/{role.Id}", ToDto(role));
     }
 
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<RoleDto>> Update(Guid id, [FromBody] UpdateRoleRequest req, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.Name)) return BadRequest("Name is required.");
+
+        var role = await _db.Roles.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (role is null) return NotFound();
+        if (role.IsSystem) return Conflict("System roles cannot be renamed.");
+
+        if (!string.Equals(role.Name, req.Name, StringComparison.Ordinal)
+            && await _db.Roles.AnyAsync(r => r.Id != id && r.Name == req.Name, ct))
+        {
+            return Conflict("Role with this name already exists.");
+        }
+
+        var before = ToDto(role);
+        role.Name = req.Name;
+        role.Description = req.Description;
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(
+            actionType: "updated",
+            targetType: "role",
+            targetId: role.Id.ToString(),
+            actorUserId: null,
+            actorPrincipalId: null,
+            before: before,
+            after: ToDto(role),
+            ct: ct);
+
+        return Ok(ToDto(role));
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        var role = await _db.Roles.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (role is null) return NotFound();
+        if (role.IsSystem) return Conflict("System roles cannot be deleted.");
+
+        var assignedCount = await _db.PrincipalRoles.CountAsync(pr => pr.RoleId == id, ct);
+        if (assignedCount > 0)
+        {
+            return Conflict($"Role is assigned to {assignedCount} principal(s). Revoke assignments first.");
+        }
+
+        var before = ToDto(role);
+        _db.Roles.Remove(role);
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(
+            actionType: "deleted",
+            targetType: "role",
+            targetId: id.ToString(),
+            actorUserId: null,
+            actorPrincipalId: null,
+            before: before,
+            ct: ct);
+
+        return NoContent();
+    }
+
     private static RoleDto ToDto(Role r) => new(r.Id, r.Name, r.IsSystem, r.Description);
 }

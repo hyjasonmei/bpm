@@ -98,8 +98,8 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
         {/* brand */}
         <div className="border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded bg-red-500 text-[10.5px] font-bold tracking-wider text-white">
-              BPM
+            <div className="flex h-8 w-8 items-center justify-center rounded bg-red-500 text-white">
+              <ChefHat className="h-4 w-4" />
             </div>
             <div>
               <div className="text-sm font-bold tracking-wide leading-none">
