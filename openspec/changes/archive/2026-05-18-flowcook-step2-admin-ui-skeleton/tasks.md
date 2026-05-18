@@ -19,9 +19,9 @@
 - [x] 3.1 Principal list table with filter by `type` (user / dept / group) — `UserRolePage`
 - [x] 3.2 Principal detail panel (id / email / active / created / effective roles / delegations)
 - [x] 3.3 Create / soft-delete principals (basic create-via-prompt + delete-with-confirm; richer modal UI is incremental)
-- [ ] 3.4 UserDept / DeptParent / GroupMember editors as sub-tabs — **deferred** (read-only relationships visible via list filter + selected dept's metadata; full editing UI tracked as follow-up)
-- [ ] 3.5 Role list + assignment UI with inherit checkbox — **deferred** (effective roles shown read-only on user detail; full assignment UI tracked as follow-up)
-- [ ] 3.6 Delegation list + create / cancel — **partial** (read-only list on user detail done; create/cancel UI tracked as follow-up)
+- [x] 3.4 UserDept / DeptParent / GroupMember editors — landed as per-type editor sections on `PrincipalDetail` (Dept memberships with primary-star toggle for users; Parent dept picker for depts; Members editor accepting user/dept/group for groups)
+- [x] 3.5 Role list + assignment UI with inherit checkbox — Roles tab provides role CRUD (system roles read-only); PrincipalDetail "Role assignments" section provides Assign / Revoke / inheritToMembers pill
+- [x] 3.6 Delegation list + create / cancel — inline "New delegation" form (target picker + datetime window + reason) and per-row Cancel on PrincipalDetail
 
 ## 4. Sandbox / Audit / Site Setting placeholder pages
 
@@ -40,10 +40,16 @@
 - [x] 6.2 Snapshot the new nav structure — saved to `.docs/flowcook-doc/step2-userrole-alice.png` and `step2-ai-kitchen-placeholder.png`
 - [x] 6.3 Confirm legacy pages no longer in primary nav — confirmed; legacy tree hidden unless flag explicitly set
 
+## 7. Brand alignment (added after initial draft)
+
+- [x] 7.1 Drop the "flowcook editorial kitchen craft" palette (parchment / saffron / espresso / Fraunces) and adopt `bpm-ui` shared tokens (slate / blue / amber + DM Sans). Rationale captured in `feedback_admin_ui_brand_align.md` — admin must read as one product with bpm.
+- [x] 7.2 Logo = ChefHat icon inside the `bg-red-500` square that bpm-ui uses (consistent brand mark, AI-Kitchen-flavoured icon).
+- [x] 7.3 Picker dropdowns positioned by `align?: 'left' | 'right'` so they don't get clipped by the detail panel's `overflow-auto` body.
+
 ## Follow-ups (move to later changes when scheduled)
 
-- 3.4 UserDept / DeptParent / GroupMember editors as sub-tabs (full CRUD UI for memberships)
-- 3.5 Role list + assignment UI with `inherit_to_members` checkbox (write side)
-- 3.6 Delegation create / cancel UI (write side)
 - Polished modals replacing `window.prompt` for principal create
 - "Persona switch" UI for admins on the persona-switch allow list (Site Setting integration)
+- AppShell page hint binding to sub-tab state (currently always shows the sidebar nav hint, e.g. "PRINCIPALS" while on the Roles tab)
+- `GET /api/roles/{id}/usage` — replace RoleEditor's N+1 probe that lists every principal's roles to count usage
+- `DbPathResolver` for `bpm-admin-svc` so SeedCli and Api stop reading two separate `admin.dev.db` files keyed off CWD

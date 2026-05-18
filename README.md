@@ -41,8 +41,8 @@ chef/                 placeholder — flowcook-step7
 syncer/               placeholder — flowcook-step6
 db/                   開發 SQLite 落地點
 openspec/
-  changes/            21 個 active（含 flowcook-step1..7）
-  changes/archive/    12 個 2026-05-17 archived（pivot 取代）
+  changes/            19 個 active（含 flowcook-step3..7）
+  changes/archive/    12 個 2026-05-17 archived（pivot 取代）+ 2 個 2026-05-18 archived (step1/step2)
   specs/              26 個 spec（含 8 個新 flowcook-*）+ 11 個 _SUPERSEDED 標記
 .docs/                pivot 設計筆記、舊 docs、dogfood-screenshots、sample_specs、spikes、screens
 ```
@@ -180,9 +180,9 @@ dotnet ef database update -p ../Bpm.Admin.Persistence -s .
 
 | Step | 範圍 | 狀態 |
 |---|---|---|
-| 1 | `bpm-admin-svc` skeleton（Clean Arch + auth + principal/role/delegation/dept controllers） | ✅ done |
-| 2 | `bpm-admin-ui` flowcook shell（5-page nav + LoginPage + User & Role page **含完整 principal/role 管理 UI**） | ✅ done |
-| 3 | AI Kitchen wizard（11-step） | placeholder |
+| 1 | `bpm-admin-svc` skeleton（Clean Arch + auth + principal/role/delegation/dept controllers） | ✅ archived `2026-05-18-flowcook-step1` |
+| 2 | `bpm-admin-ui` flowcook shell（5-page nav + LoginPage + User & Role page 含完整 principal/role 管理 UI） | ✅ archived `2026-05-18-flowcook-step2` |
+| 3 | AI Kitchen wizard（11-step） | next — proposal in flight |
 | 4 | bpm-svc refactor 對齊新 spec | TBD |
 | 5 | bpm-ui DynamicForm migration（原 Phase 2 `add-form-runtime-rendering`） | TBD |
 | 6 | syncer v0（push spec / pull audit） | placeholder |
@@ -208,5 +208,5 @@ dotnet ef database update -p ../Bpm.Admin.Persistence -s .
 
 - [CLAUDE.md](./CLAUDE.md) — 專案背景、技術棧、DB conventions
 - [.docs/flowcook-doc/2026-05-16-flowcook-pivot-design.md](./.docs/flowcook-doc/2026-05-16-flowcook-pivot-design.md) — pivot 設計筆記
-- [openspec/](./openspec) — 21 個 active proposal（含 flowcook-step1..7）+ 26 個 spec
+- [openspec/](./openspec) — 19 個 active proposal（flowcook-step3..7 + 14 個舊 reframe-pending） + 26 個 spec
 - [.docs/screens/](./.docs/screens/) — UI 對齊 / 驗證 reference 截圖
