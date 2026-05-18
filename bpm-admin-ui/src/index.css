@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 @theme {
-  /* surfaces */
+  /* surfaces — aligned with bpm-ui */
   --color-bg: #F1F5F9;             /* slate-100 page bg */
   --color-card: #FFFFFF;
   --color-rule: #E2E8F0;           /* slate-200 hairline */
   --color-label-bg: #F1F5F9;       /* light blue field-label cells */
 
-  /* TREND BPM dark navy header */
+  /* TREND BPM dark navy header (shared with bpm-ui) */
   --color-header: #1E2D3D;
   --color-header-2: #243849;
 
@@ -61,4 +61,13 @@ body {
   stroke: #ffffff;
   stroke-width: 3px;
   stroke-linejoin: round;
+}
+
+/* monospace mini-cap label */
+.cap {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
 }

@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Bpm.Admin.Api/Bpm.Admin.Api.csproj" />
+    <Project Path="src/Bpm.Admin.Application/Bpm.Admin.Application.csproj" />
+    <Project Path="src/Bpm.Admin.Domain/Bpm.Admin.Domain.csproj" />
+    <Project Path="src/Bpm.Admin.Persistence/Bpm.Admin.Persistence.csproj" />
+    <Project Path="src/Bpm.Admin.SeedCli/Bpm.Admin.SeedCli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Bpm.Admin.Api.Tests/Bpm.Admin.Api.Tests.csproj" />
+    <Project Path="tests/Bpm.Admin.Application.Tests/Bpm.Admin.Application.Tests.csproj" />
+    <Project Path="tests/Bpm.Admin.Persistence.Tests/Bpm.Admin.Persistence.Tests.csproj" />
+  </Folder>
+</Solution>

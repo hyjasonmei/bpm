@@ -11,8 +11,10 @@ import { UsersRoles } from '@/screens/UsersRoles'
 import { Impersonation } from '@/screens/Impersonation'
 import { AuditLogs } from '@/screens/AuditLogs'
 import { SandboxMailbox } from '@/screens/sandbox/SandboxMailbox'
+import { FlowcookRoot } from '@/flowcook/Root'
 
 const SCREEN_KEY = 'bpm_admin_screen'
+const LEGACY_FLAG_KEY = 'flowcook_legacy_visible'
 type GateState = 'pending' | 'authorized' | 'forbidden'
 
 function readSavedScreen(): AdminScreen {
@@ -25,7 +27,51 @@ function readSavedScreen(): AdminScreen {
   return { kind: 'onboarding' }
 }
 
+function readLegacyFlag(): boolean {
+  try {
+    return localStorage.getItem(LEGACY_FLAG_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function setLegacyFlag(v: boolean) {
+  try {
+    if (v) localStorage.setItem(LEGACY_FLAG_KEY, '1')
+    else localStorage.removeItem(LEGACY_FLAG_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function App() {
+  // flowcook is the new five-page shell. Legacy admin (Onboarding /
+  // ProcessAdminShell / FlowLibrary / etc.) only appears when the user
+  // explicitly enables the legacy flag.
+  const [showLegacy, setShowLegacy] = useState<boolean>(readLegacyFlag)
+
+  if (!showLegacy) {
+    return (
+      <FlowcookRoot
+        onShowLegacy={() => {
+          setLegacyFlag(true)
+          setShowLegacy(true)
+        }}
+      />
+    )
+  }
+
+  return (
+    <LegacyApp
+      onExitLegacy={() => {
+        setLegacyFlag(false)
+        setShowLegacy(false)
+      }}
+    />
+  )
+}
+
+function LegacyApp({ onExitLegacy }: { onExitLegacy: () => void }) {
   const [gate, setGate] = useState<GateState>('pending')
   const [screen, setScreen] = useState<AdminScreen>(readSavedScreen)
 
@@ -88,6 +134,13 @@ export default function App() {
 
   return (
     <AdminLayout screen={screen} setScreen={setScreen}>
+      <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+        ⚠ Legacy admin UI. The new flowcook shell is the default — these
+        pages are scheduled to be migrated and retired across Steps 3-5.
+        <button onClick={onExitLegacy} className="ml-3 underline">
+          Back to flowcook
+        </button>
+      </div>
       {body}
     </AdminLayout>
   )
