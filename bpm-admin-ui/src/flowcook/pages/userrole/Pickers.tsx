@@ -14,9 +14,10 @@ interface RolePickerProps {
   excludeIds: Set<string>
   onPick: (roleId: string) => void
   buttonLabel?: string
+  align?: 'left' | 'right'
 }
 
-export function RolePicker({ roles, excludeIds, onPick, buttonLabel = '+ Assign role' }: RolePickerProps) {
+export function RolePicker({ roles, excludeIds, onPick, buttonLabel = '+ Assign role', align = 'left' }: RolePickerProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -43,7 +44,10 @@ export function RolePicker({ roles, excludeIds, onPick, buttonLabel = '+ Assign 
         <ChevronDown className="h-3 w-3" />
       </button>
       {open && (
-        <div className="absolute right-0 z-20 mt-1 w-64 overflow-hidden rounded-md border border-rule bg-card shadow-md">
+        <div className={cn(
+          'absolute z-20 mt-1 w-64 overflow-hidden rounded-md border border-rule bg-card shadow-md',
+          align === 'right' ? 'right-0' : 'left-0',
+        )}>
           {available.length === 0 ? (
             <div className="px-3 py-2 text-xs text-ink-muted">All roles already assigned.</div>
           ) : (
@@ -75,10 +79,11 @@ interface PrincipalPickerProps {
   onPick: (principalId: string) => void
   buttonLabel?: string
   placeholder?: string
+  align?: 'left' | 'right'
 }
 
 export function PrincipalPicker({
-  principals, excludeIds, acceptTypes, onPick, buttonLabel = '+ Add', placeholder = 'Search…',
+  principals, excludeIds, acceptTypes, onPick, buttonLabel = '+ Add', placeholder = 'Search…', align = 'left',
 }: PrincipalPickerProps) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -117,7 +122,10 @@ export function PrincipalPicker({
         <ChevronDown className="h-3 w-3" />
       </button>
       {open && (
-        <div className="absolute right-0 z-20 mt-1 w-72 overflow-hidden rounded-md border border-rule bg-card shadow-md">
+        <div className={cn(
+          'absolute z-20 mt-1 w-72 overflow-hidden rounded-md border border-rule bg-card shadow-md',
+          align === 'right' ? 'right-0' : 'left-0',
+        )}>
           <div className="flex items-center gap-2 border-b border-rule px-2.5 py-1.5">
             <SearchIcon className="h-3.5 w-3.5 text-ink-faint" />
             <input

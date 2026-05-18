@@ -674,6 +674,7 @@ function DeptParentEditor({
           onPick={(id) => void setParent(id)}
           buttonLabel={currentParent ? '↻ Change' : '+ Set parent'}
           placeholder="Search dept…"
+          align="right"
         />
       </div>
     </Section>
