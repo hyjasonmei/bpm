@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Building2, ChevronRight, Plus, Trash2, Users, UsersRound } from 'lucide-react'
+import { Building2, ChevronRight, Plus, Trash2, User, UsersRound } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { api } from '@/flowcook/api'
 import {
@@ -14,7 +14,7 @@ import { Cap, FilterChip } from '@/flowcook/pages/userrole/shared'
 import { PrincipalDetail } from '@/flowcook/pages/userrole/PrincipalDetail'
 
 const TYPE_ICON: Record<PrincipalType, React.ComponentType<{ className?: string }>> = {
-  0: Users,
+  0: User,
   1: Building2,
   2: UsersRound,
 }

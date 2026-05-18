@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Building2, Star, Trash2, Users, UsersRound, X } from 'lucide-react'
+import { Building2, Star, Trash2, User, UsersRound, X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { api } from '@/flowcook/api'
 import {
@@ -15,7 +15,7 @@ import { Cap, DetailRow, Empty, Section, formatDate, formatDateLocal } from '@/f
 import { CheckPill, PrincipalPicker, RolePicker } from '@/flowcook/pages/userrole/Pickers'
 
 const TYPE_ICON: Record<PrincipalType, React.ComponentType<{ className?: string }>> = {
-  0: Users,
+  0: User,
   1: Building2,
   2: UsersRound,
 }
@@ -522,7 +522,7 @@ function NewDelegationForm({
         </span>
         {targetUser ? (
           <div className="flex items-center gap-2 rounded border border-rule bg-card px-2 py-1 text-xs">
-            <Users className="h-3 w-3 text-primary" />
+            <User className="h-3 w-3 text-primary" />
             <span className="flex-1 text-ink">{targetUser.displayName}</span>
             <button
               onClick={() => setTarget(null)}
@@ -741,7 +741,7 @@ function GroupMembersEditor({
         {!loading && rows.length === 0 && <Empty>No members yet.</Empty>}
         {rows.map((row) => {
           const member = principals.find((x) => x.id === row.memberPrincipalId)
-          const Icon = member ? TYPE_ICON[member.type] : Users
+          const Icon = member ? TYPE_ICON[member.type] : User
           return (
             <div
               key={row.memberPrincipalId}

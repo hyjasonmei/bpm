@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Check, ChevronDown, Search as SearchIcon, Users, UsersRound, X } from 'lucide-react'
+import { Building2, Check, ChevronDown, Search as SearchIcon, User, UsersRound, X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { type Principal, type PrincipalType, type Role } from '@/flowcook/types'
 
 const TYPE_ICON: Record<PrincipalType, React.ComponentType<{ className?: string }>> = {
-  0: Users,
+  0: User,
   1: Building2,
   2: UsersRound,
 }
