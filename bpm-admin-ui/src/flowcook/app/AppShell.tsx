@@ -12,6 +12,7 @@ import { cn } from '@/lib/cn'
 import { useAuth } from '@/flowcook/auth/useAuth'
 import { PagePlaceholder } from '@/flowcook/app/PagePlaceholder'
 import { UserRolePage } from '@/flowcook/pages/UserRolePage'
+import { AiKitchenPage } from '@/flowcook/pages/AiKitchenPage'
 
 export type FlowcookPage = 'ai-kitchen' | 'user-role' | 'sandbox' | 'audit' | 'site-setting'
 
@@ -52,13 +53,7 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
   let body: React.ReactNode
   switch (page) {
     case 'ai-kitchen':
-      body = (
-        <PagePlaceholder
-          title="AI Kitchen"
-          kicker="step 3"
-          description="The eleven-step wizard where customer admins prep a flow — source, trigger & access, variables, forms, decisions, approvers, notify, integrations, SLA, translation, notes. Comes online with flowcook-step3-ai-kitchen-wizard."
-        />
-      )
+      body = <AiKitchenPage />
       break
     case 'user-role':
       body = <UserRolePage />
