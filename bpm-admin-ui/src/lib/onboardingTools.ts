@@ -436,5 +436,8 @@ export const STEP_TOOLS: Partial<Record<OnboardingStepId, StepToolBinding>> = {
   approvers: approversTool,
   notify:    notifyTool,
   sla:       slaTool,
-  test:      testTool,
+  // testTool is retained on disk but no longer wired — the dedicated
+  // TEST step was dropped in the 11-step refactor (Submit is now in the
+  // wizard header).
 }
+void testTool;

@@ -19,15 +19,17 @@ import type { ImportDraftResult } from '@/types/flowLibrary'
 import type { AdminScreen } from '@/components/AdminLayout'
 import { CoPilotCanvas } from './CoPilotCanvas'
 import { StepSource } from './steps/StepSource'
-import { StepStructure } from './steps/StepStructure'
+import { StepTriggerAccess } from './steps/StepTriggerAccess'
+import { StepVariables } from './steps/StepVariables'
 import { StepForms } from './steps/StepForms'
 import { StepDecisions } from './steps/StepDecisions'
 import { StepApprovers } from './steps/StepApprovers'
 import { StepNotify } from './steps/StepNotify'
+import { StepIntegrations } from './steps/StepIntegrations'
 import { StepSla } from './steps/StepSla'
-import { StepTest } from './steps/StepTest'
+import { StepTranslation } from './steps/StepTranslation'
+import { StepNotes } from './steps/StepNotes'
 import { StepPlaceholder } from './steps/StepPlaceholder'
-import { StepGoLive } from './steps/StepGoLive'
 
 interface OnboardingProps {
   onNavigate?: (s: AdminScreen) => void
@@ -73,13 +75,13 @@ function hydrationToDraft(h: ImportDraftResult): DraftSpec {
 }
 
 /** Walk validators in step order; return the first failing index, or
- *  the go_live index if all pass. */
+ *  the last step if all pass. */
 function pickStepFromValidation(d: DraftSpec): number {
   for (let i = 0; i < ONBOARDING_STEPS.length; i++) {
     const id = ONBOARDING_STEPS[i].id as OnboardingStepId
     if (!validators[id](d).valid) return i
   }
-  return ONBOARDING_STEPS.findIndex(s => s.id === 'go_live')
+  return ONBOARDING_STEPS.length - 1
 }
 
 export function Onboarding({
@@ -309,18 +311,20 @@ export function Onboarding({
   )
 }
 
-function renderCanvas(stepId: string, draft: DraftSpec, setDraft: (d: DraftSpec) => void, onNavigate?: (s: AdminScreen) => void) {
+function renderCanvas(stepId: string, draft: DraftSpec, setDraft: (d: DraftSpec) => void, _onNavigate?: (s: AdminScreen) => void) {
   switch (stepId) {
-    case 'source':    return <StepSource draft={draft} setDraft={setDraft} />
-    case 'structure': return <StepStructure draft={draft} setDraft={setDraft} />
-    case 'forms':     return <StepForms draft={draft} setDraft={setDraft} />
-    case 'decisions': return <StepDecisions draft={draft} setDraft={setDraft} />
-    case 'approvers': return <StepApprovers draft={draft} setDraft={setDraft} />
-    case 'notify':    return <StepNotify draft={draft} setDraft={setDraft} />
-    case 'sla':       return <StepSla draft={draft} setDraft={setDraft} />
-    case 'test':      return <StepTest draft={draft} setDraft={setDraft} />
-    case 'go_live':   return <StepGoLive draft={draft} onNavigate={onNavigate} />
-    default:          return <StepPlaceholder stepId={stepId} draft={draft} />
+    case 'source':         return <StepSource draft={draft} setDraft={setDraft} />
+    case 'trigger_access': return <StepTriggerAccess draft={draft} setDraft={setDraft} />
+    case 'variables':      return <StepVariables draft={draft} setDraft={setDraft} />
+    case 'forms':          return <StepForms draft={draft} setDraft={setDraft} />
+    case 'decisions':      return <StepDecisions draft={draft} setDraft={setDraft} />
+    case 'approvers':      return <StepApprovers draft={draft} setDraft={setDraft} />
+    case 'notify':         return <StepNotify draft={draft} setDraft={setDraft} />
+    case 'integrations':   return <StepIntegrations draft={draft} setDraft={setDraft} />
+    case 'sla':            return <StepSla draft={draft} setDraft={setDraft} />
+    case 'translation':    return <StepTranslation draft={draft} setDraft={setDraft} />
+    case 'notes':          return <StepNotes draft={draft} setDraft={setDraft} />
+    default:               return <StepPlaceholder stepId={stepId} draft={draft} />
   }
 }
 

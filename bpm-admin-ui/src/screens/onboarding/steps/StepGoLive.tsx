@@ -34,10 +34,13 @@ export function StepGoLive({ draft, onNavigate }: StepGoLiveProps) {
   const [result, setResult] = useState<BuildResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const allChecks = ONBOARDING_STEPS.slice(0, -1).map(s => ({
+  // StepGoLive is no longer in ONBOARDING_STEPS (11-step refactor moved
+  // Submit into the wizard header). The legacy view kept here only as a
+  // dead component reference; revisit if anything still imports it.
+  const allChecks = ONBOARDING_STEPS.map(s => ({
     id: s.id, en: s.en, zh: s.zh, ...validators[s.id](draft),
   }))
-  const goLiveCheck = validators.go_live(draft)
+  const goLiveCheck = { valid: true, errors: [] as string[] }
   const allValid = allChecks.every(c => c.valid) && goLiveCheck.valid
 
   /**

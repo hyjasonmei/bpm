@@ -10,8 +10,8 @@
 import type { SampleOrgSnapshot, TestCaseSnapshot } from '@/types/flowLibrary'
 
 export type OnboardingStepId =
-  | 'source' | 'structure' | 'forms' | 'decisions'
-  | 'approvers' | 'notify' | 'sla' | 'test' | 'go_live'
+  | 'source' | 'trigger_access' | 'variables' | 'forms' | 'decisions'
+  | 'approvers' | 'notify' | 'integrations' | 'sla' | 'translation' | 'notes'
 
 export interface OnboardingStep {
   id: OnboardingStepId
@@ -21,16 +21,20 @@ export interface OnboardingStep {
   brief: string
 }
 
+/** Canonical 11-step order per flowcook-wizard spec. BPMN preview lives
+ *  inside SOURCE now (the old standalone STRUCTURE step was merged in). */
 export const ONBOARDING_STEPS: OnboardingStep[] = [
-  { id: 'source',    en: 'SOURCE',    zh: '來源',      brief: '上傳 / 描述流程，AI 抽出 BPMN 骨架' },
-  { id: 'structure', en: 'STRUCTURE', zh: '結構',      brief: '確認節點、邊、低信心區塊' },
-  { id: 'forms',     en: 'FORMS',     zh: '表單',      brief: '每個 user task 的欄位' },
-  { id: 'decisions', en: 'DECISIONS', zh: '決策',      brief: '每個 gateway 的條件' },
-  { id: 'approvers', en: 'APPROVERS', zh: '審核者',    brief: '每個 approval 的審核者規則' },
-  { id: 'notify',    en: 'NOTIFY',    zh: '通知',      brief: '通知模板與收件人' },
-  { id: 'sla',       en: 'SLA',       zh: '時限',      brief: '每節點時限與 escalation' },
-  { id: 'test',      en: 'TEST',      zh: '測試',      brief: '建測資、跑視覺化驗證' },
-  { id: 'go_live',   en: 'GO LIVE',   zh: '上線',      brief: '送 spec 到後台部署' },
+  { id: 'source',         en: 'SOURCE',          zh: '來源',     brief: '上傳 / 描述流程 + BPMN 骨架編輯' },
+  { id: 'trigger_access', en: 'TRIGGER',         zh: '觸發',     brief: '指定觸發表單與啟動 / 可見 / 旁觀者' },
+  { id: 'variables',      en: 'VARIABLES',       zh: '變數',     brief: '宣告流程級變數（含敏感旗標）' },
+  { id: 'forms',          en: 'FORMS',           zh: '表單',     brief: '每個 user task 的欄位' },
+  { id: 'decisions',      en: 'DECISIONS',       zh: '決策',     brief: '每個 gateway 的條件' },
+  { id: 'approvers',      en: 'APPROVERS',       zh: '審核者',   brief: '每個 approval 的審核者規則' },
+  { id: 'notify',         en: 'NOTIFY',          zh: '通知',     brief: '通知模板與收件人' },
+  { id: 'integrations',   en: 'INTEGRATIONS',    zh: '整合',     brief: '對外 API 整合與欄位映射' },
+  { id: 'sla',            en: 'SLA',             zh: '時限',     brief: '每節點時限與 escalation' },
+  { id: 'translation',    en: 'TRANSLATION',     zh: '翻譯',     brief: '收集所有 label，補各語系翻譯' },
+  { id: 'notes',          en: 'NOTES',           zh: '備註',     brief: '給 chef / 驗收者的補充說明' },
 ]
 
 /* ── Spec deliverable types (subset for now — extend as steps mature) ── */
@@ -209,6 +213,53 @@ export function testCaseToSnapshot(tc: TestCase): TestCaseSnapshot {
   }
 }
 
+/** Step 2 — TRIGGER & ACCESS — single form trigger in v0/v1; the
+ *  `triggers[]` array is shaped to accept additional types later. */
+export interface FlowTrigger {
+  id: string
+  type: 'form'
+  /** References a `UserTask.formCode` defined in `userTasks[]`. */
+  formCode: string
+}
+
+export interface FlowAccess {
+  /** Principal ids allowed to start a new instance. Free-form strings
+   *  in MVP — the wizard expects them to look up against admin-svc
+   *  Principal API but the UI keeps them as text in v0. */
+  launchableBy: string[]
+  /** Principal ids allowed to see this flow in the catalog. */
+  visibleTo: string[]
+  /** Optional observer principals. */
+  watcher: string[]
+}
+
+/** Step 3 — VARIABLES — flow-scoped values referenced as `${var}` in
+ *  later steps' expression fields. */
+export interface FlowVariable {
+  name: string
+  defaultValue: string
+  description?: string
+  sensitive: boolean
+}
+
+/** Step 8 — INTEGRATIONS — outbound HTTP calls keyed by a trigger node
+ *  in the flow. v0 holds the OpenAPI URL + a free-form endpoint string;
+ *  parsing / field-mapping editor lands in a follow-up. */
+export interface IntegrationItem {
+  id: string
+  name: string
+  baseUrl: string
+  openApiUrl?: string
+  endpoint?: string
+  triggerNodeId?: string
+  auth?: {
+    kind: 'none' | 'bearer' | 'header'
+    /** masked in UI when present; persisted as plain text in v0 */
+    secret?: string
+  }
+  fieldMappings?: Record<string, string>
+}
+
 export interface DraftSpec {
   meta: {
     schemaVersion: '1.0'
@@ -221,6 +272,12 @@ export interface DraftSpec {
     language: 'zh-TW' | 'en'
   }
   flow: { nodes: FlowNode[]; edges: FlowEdge[] }
+  /** Step 2 — flow-level trigger config (single form trigger in v0). */
+  triggers: FlowTrigger[]
+  /** Step 2 — flow-level access principals. */
+  access: FlowAccess
+  /** Step 3 — flow-scoped variables. */
+  variables: FlowVariable[]
   userTasks: UserTask[]
   decisions: Decision[]
   approvals: Approval[]
@@ -230,7 +287,14 @@ export interface DraftSpec {
     identityProvider: 'csv' | 'mcp:entra'
     csvSource?: { url: string }
     fieldMappings?: Record<string, string>
+    /** Step 8 — outbound integration items added by the wizard. */
+    items?: IntegrationItem[]
   }
+  /** Step 10 — translation table: `labels[locale][key] = text`. Wizard
+   *  collects keys from flowName, node labels, field labels, etc. */
+  labels?: Record<string, Record<string, string>>
+  /** Step 11 — free-form notes shown to chef + reviewer. */
+  notes?: string
   /** Bundle-shaped sample org (mirrors `sample-org.json` inside the bundle). */
   sampleOrg: SampleOrgSnapshot
   /** Bundle-shaped test cases (mirrors `test-cases/*.json` inside the bundle). */
@@ -278,12 +342,17 @@ export const EMPTY_DRAFT: DraftSpec = {
     language: 'zh-TW',
   },
   flow: { nodes: [], edges: [] },
+  triggers: [],
+  access: { launchableBy: [], visibleTo: [], watcher: [] },
+  variables: [],
   userTasks: [],
   decisions: [],
   approvals: [],
   notifications: [],
   sla: { perNode: {} },
-  integrations: { identityProvider: 'csv' },
+  integrations: { identityProvider: 'csv', items: [] },
+  labels: { 'zh-TW': {}, en: {} },
+  notes: '',
   sampleOrg: emptySampleOrg(),
   testCases: [],
 }
@@ -332,25 +401,27 @@ export type ValidationResult = { valid: boolean; errors: string[] }
 
 export const validators: Record<OnboardingStepId, (s: DraftSpec) => ValidationResult> = {
   source: (s) => {
+    // SOURCE now covers meta + flow.nodes/edges (the old STRUCTURE step
+    // collapsed in per spec). v0 keeps the validator gentle: name + code
+    // + at least start/end nodes; broken edges are flagged but don't
+    // currently block Next (preset library guarantees them).
     const errors: string[] = []
     if (!s.meta.flowName) errors.push('尚未命名流程')
     if (!s.meta.flowCode) errors.push('尚未指定 flowCode（用於 class / table 命名）')
     if (s.flow.nodes.length < 2) errors.push('流程至少需要起點與終點')
-    return { valid: errors.length === 0, errors }
-  },
-  structure: (s) => {
-    const errors: string[] = []
     const hasStart = s.flow.nodes.some(n => n.type === 'startEvent')
     const hasEnd = s.flow.nodes.some(n => n.type === 'endEvent')
-    if (!hasStart) errors.push('缺少起點節點 (startEvent)')
-    if (!hasEnd) errors.push('缺少終點節點 (endEvent)')
-    const ids = new Set(s.flow.nodes.map(n => n.id))
-    for (const e of s.flow.edges) {
-      if (!ids.has(e.source)) errors.push(`邊 ${e.id} 的 source 節點不存在`)
-      if (!ids.has(e.target)) errors.push(`邊 ${e.id} 的 target 節點不存在`)
-    }
+    if (s.flow.nodes.length >= 2 && !hasStart) errors.push('缺少起點節點 (startEvent)')
+    if (s.flow.nodes.length >= 2 && !hasEnd) errors.push('缺少終點節點 (endEvent)')
     return { valid: errors.length === 0, errors }
   },
+  trigger_access: (s) => {
+    const errors: string[] = []
+    if (s.triggers.length === 0) errors.push('至少需要一個觸發表單')
+    if (s.access.launchableBy.length === 0) errors.push('需指定誰可啟動本流程')
+    return { valid: errors.length === 0, errors }
+  },
+  variables: () => ({ valid: true, errors: [] }), // optional; flows may have none
   forms: (s) => {
     const errors: string[] = []
     const userTaskNodes = s.flow.nodes.filter(n => n.type === 'userTask')
@@ -380,17 +451,11 @@ export const validators: Record<OnboardingStepId, (s: DraftSpec) => ValidationRe
     }
     return { valid: true, errors: [] }
   },
-  notify: () => ({ valid: true, errors: [] }), // optional; warn but allow next
-  sla: () => ({ valid: true, errors: [] }),    // optional
-  test: (s) => {
-    if (s.testCases.length === 0) return { valid: false, errors: ['至少建立一個測試案'] }
-    return { valid: true, errors: [] }
-  },
-  go_live: (s) => {
-    const errors: string[] = []
-    if (!s.sampleOrg || s.sampleOrg.users.length === 0) errors.push('Sample org 至少需要 1 名 user (上線驗收必備)')
-    return { valid: errors.length === 0, errors }
-  },
+  notify: () => ({ valid: true, errors: [] }),       // optional
+  integrations: () => ({ valid: true, errors: [] }), // optional
+  sla: () => ({ valid: true, errors: [] }),          // optional
+  translation: () => ({ valid: true, errors: [] }),  // optional in MVP — wizard auto-fills zh-TW from labels
+  notes: () => ({ valid: true, errors: [] }),
 }
 
 /* ── Persistence (localStorage) ── */
