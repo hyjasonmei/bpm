@@ -1,6 +1,7 @@
 using Bpm.Admin.Api.Auth;
 using Bpm.Admin.Application.Audit;
 using Bpm.Admin.Application.Auth;
+using Bpm.Admin.Application.Bundle;
 using Bpm.Admin.Application.Flows;
 using Bpm.Admin.Application.Principals;
 using Bpm.Admin.Application.Roles;
@@ -32,6 +33,12 @@ builder.Services.AddScoped<IGroupMembershipService, GroupMembershipService>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFlowLifecycleService, FlowLifecycleService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<BundleBuildValidator>();
+builder.Services.AddSingleton<SpecMdRenderer>();
+builder.Services.AddSingleton<WalkthroughRenderer>();
+builder.Services.AddSingleton<ChangelogRenderer>();
+builder.Services.AddSingleton<IBundleBuilder, BundleBuilder>();
 
 var app = builder.Build();
 

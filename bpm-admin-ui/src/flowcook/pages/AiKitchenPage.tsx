@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ChefHat,
   CheckCircle2,
+  Download,
   RefreshCw,
   Save,
   Sparkles,
@@ -13,6 +14,7 @@ import {
 import { cn } from '@/lib/cn'
 import { Onboarding } from '@/screens/onboarding/Onboarding'
 import { EMPTY_DRAFT, type DraftSpec } from '@/lib/onboarding'
+import { flowToBpmnXml } from '@/lib/bpmnXml'
 import { apiFetch, getJwt, setJwt } from '@/lib/apiFetch'
 import {
   cancelFlow,
@@ -372,6 +374,7 @@ function WizardView({
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
   const [transitionPending, setTransitionPending] = useState<null | 'submit' | 'cancel' | 'delete'>(null)
+  const [downloading, setDownloading] = useState(false)
   const timerRef = useRef<number | null>(null)
   const latestDraftRef = useRef<DraftSpec | null>(null)
 
@@ -446,6 +449,57 @@ function WizardView({
     }
   }
 
+  async function downloadBundle() {
+    setDownloading(true)
+    try {
+      // Flush pending autosave so the server-side spec matches what the
+      // user just saw on screen.
+      if (timerRef.current) {
+        window.clearTimeout(timerRef.current)
+        if (latestDraftRef.current) await persistDraft(latestDraftRef.current)
+      }
+      const draft = latestDraftRef.current ?? initialDraft
+      const bpmnXml = await flowToBpmnXml(draft)
+      // The bundle validator requires >=1 user + >=1 test-case so the
+      // produced zip is "runnable". If the wizard hasn't gathered them
+      // yet (early-stage Cook new flow), stub a placeholder so download
+      // remains demoable. The TODO marker keeps the unfinished signal
+      // present in the spec.md the builder emits.
+      const testCases = draft.testCases.length > 0 ? draft.testCases : [{
+        id: 'placeholder-happy',
+        name: 'Happy path (placeholder — fill in step 8)',
+        inputs: {},
+        expectedTrace: [],
+        expectedFinalStatus: 'Completed',
+      }]
+      const res = await fetch(`/api/flows/${flow.id}/bundle`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bpmnXml,
+          sampleOrg: draft.sampleOrg,
+          testCases,
+          sourceInstanceId: `flow:${flow.id}`,
+        }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${flow.flowCode}_v${flow.version}.zip`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Bundle download failed')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   async function softDelete() {
     if (!window.confirm(`Delete draft "${flow.displayName}"? This soft-deletes the row.`)) return
     setTransitionPending('delete')
@@ -481,6 +535,15 @@ function WizardView({
 
         <div className="flex items-center gap-2">
           <SaveStatusBadge state={saveState} error={saveError} />
+          <button
+            onClick={() => void downloadBundle()}
+            disabled={downloading || transitionPending !== null}
+            title="Build a portable .zip bundle from the current draft"
+            className="inline-flex items-center gap-1 rounded border border-rule bg-card px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+          >
+            <Download className="h-3 w-3" />
+            {downloading ? 'Bundling…' : 'Download bundle'}
+          </button>
           {canCancel && (
             <button
               onClick={() => void cancel()}

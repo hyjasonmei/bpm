@@ -1,4 +1,7 @@
 using System.Security.Claims;
+using System.Text.Json;
+using Bpm.Admin.Application.Audit;
+using Bpm.Admin.Application.Bundle;
 using Bpm.Admin.Application.Flows;
 using Bpm.Admin.Domain.Flows;
 using Bpm.Admin.Persistence;
@@ -6,6 +9,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace Bpm.Admin.Api.Controllers;
+
+public record BuildBundleRequest(
+    string BpmnXml,
+    SampleOrgSnapshot SampleOrg,
+    IReadOnlyList<TestCaseSnapshot> TestCases,
+    string? SourceInstanceId);
 
 [ApiController]
 [Route("api/flows")]
@@ -101,6 +110,57 @@ public class FlowsController : ControllerBase
             return NoContent();
         }
         catch (FlowLifecycleException ex) { return Conflict(ex.Message); }
+    }
+
+    /// <summary>Build a portable .zip bundle from the row's current spec
+    /// plus runtime-only inputs (bpmn.xml, sample-org, test-cases) the
+    /// wizard already has in memory. Server reads spec from the row so a
+    /// stale UI copy can't drift.</summary>
+    [HttpPost("{id:guid}/bundle")]
+    public async Task<IActionResult> Bundle(
+        Guid id,
+        [FromBody] BuildBundleRequest req,
+        [FromServices] IBundleBuilder builder,
+        [FromServices] IAuditLogger audit,
+        CancellationToken ct)
+    {
+        var row = await _db.Flows.AsNoTracking().FirstOrDefaultAsync(f => f.Id == id, ct);
+        if (row is null) return NotFound();
+
+        JsonElement specJson;
+        try
+        {
+            using var doc = JsonDocument.Parse(row.SpecJson);
+            specJson = doc.RootElement.Clone();
+        }
+        catch (JsonException ex)
+        {
+            return Conflict($"Row spec is not valid JSON: {ex.Message}");
+        }
+
+        try
+        {
+            var buildReq = new BundleBuildRequest(
+                DraftSpecJson: specJson,
+                BpmnXml: req.BpmnXml ?? string.Empty,
+                SampleOrg: req.SampleOrg,
+                TestCases: req.TestCases ?? Array.Empty<TestCaseSnapshot>(),
+                SourceInstanceId: req.SourceInstanceId ?? $"flow:{row.Id}");
+            var bytes = await builder.BuildAsync(buildReq, ct);
+
+            await audit.LogAsync(
+                actionType: "flow_bundle_built",
+                targetType: "flow",
+                targetId: row.Id.ToString(),
+                actorUserId: CurrentUserId(),
+                actorPrincipalId: null,
+                after: new { row.FlowCode, row.Version, ByteCount = bytes.LongLength, FileCount = req.TestCases?.Count ?? 0 },
+                ct: ct);
+
+            var filename = $"{row.FlowCode}_v{row.Version}.zip";
+            return File(bytes, "application/zip", filename);
+        }
+        catch (BundleBuildException ex) { return BadRequest(ex.Message); }
     }
 
     /// <summary>chef-facing endpoint. Authenticated by a shared secret header so chef
