@@ -5,6 +5,8 @@ import {
   ExternalLink,
   FlaskConical,
   LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
   Users,
 } from 'lucide-react'
@@ -30,6 +32,7 @@ const NAV: Array<{
 ]
 
 const LEGACY_FLAG_KEY = 'flowcook_legacy_visible'
+const COLLAPSED_KEY = 'flowcook_sidebar_collapsed'
 
 function readLegacyFlag(): boolean {
   try {
@@ -39,6 +42,21 @@ function readLegacyFlag(): boolean {
   }
 }
 
+function readCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeCollapsed(v: boolean) {
+  try {
+    if (v) localStorage.setItem(COLLAPSED_KEY, '1')
+    else localStorage.removeItem(COLLAPSED_KEY)
+  } catch { /* ignore */ }
+}
+
 interface AppShellProps {
   onShowLegacy?: () => void
 }
@@ -46,7 +64,16 @@ interface AppShellProps {
 export function AppShell({ onShowLegacy }: AppShellProps) {
   const { user, logout } = useAuth()
   const [page, setPage] = useState<FlowcookPage>('user-role')
+  const [collapsed, setCollapsed] = useState<boolean>(readCollapsed)
   const legacyEnabled = readLegacyFlag()
+
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      const next = !c
+      writeCollapsed(next)
+      return next
+    })
+  }
 
   const current = NAV.find((n) => n.id === page) ?? NAV[1]
 
@@ -89,29 +116,51 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
 
   return (
     <div className="flex min-h-screen bg-bg text-ink">
-      <aside className="flex w-64 shrink-0 flex-col bg-header text-white shadow-md">
-        {/* brand */}
-        <div className="border-b border-white/10 px-5 py-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded bg-red-500 text-white">
+      <aside
+        className={cn(
+          'flex shrink-0 flex-col bg-header text-white shadow-md transition-[width] duration-200',
+          collapsed ? 'w-14' : 'w-64',
+        )}
+      >
+        {/* brand + collapse toggle */}
+        <div className={cn(
+          'flex items-center border-b border-white/10',
+          collapsed ? 'flex-col gap-2 px-2 py-3' : 'justify-between px-5 py-4',
+        )}>
+          <div className={cn('flex items-center', collapsed ? '' : 'gap-2.5')}>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-red-500 text-white">
               <ChefHat className="h-4 w-4" />
             </div>
-            <div>
-              <div className="text-sm font-bold tracking-wide leading-none">
-                flowcook · admin
+            {!collapsed && (
+              <div>
+                <div className="text-sm font-bold tracking-wide leading-none">
+                  flowcook · admin
+                </div>
+                <div className="mt-1 font-mono text-[10px] tracking-[0.14em] uppercase text-white/45">
+                  v0
+                </div>
               </div>
-              <div className="mt-1 font-mono text-[10px] tracking-[0.14em] uppercase text-white/45">
-                v0
-              </div>
-            </div>
+            )}
           </div>
+          <button
+            onClick={toggleCollapsed}
+            data-testid="sidebar-collapse"
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="flex h-7 w-7 items-center justify-center rounded text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            {collapsed
+              ? <PanelLeftOpen className="h-3.5 w-3.5" />
+              : <PanelLeftClose className="h-3.5 w-3.5" />}
+          </button>
         </div>
 
         {/* nav */}
-        <nav className="flex-1 px-2 py-3">
-          <div className="mb-1.5 px-3 font-mono text-[10px] tracking-[0.14em] uppercase text-white/45">
-            menu
-          </div>
+        <nav className={cn('flex-1 py-3', collapsed ? 'px-1.5' : 'px-2')}>
+          {!collapsed && (
+            <div className="mb-1.5 px-3 font-mono text-[10px] tracking-[0.14em] uppercase text-white/45">
+              menu
+            </div>
+          )}
           {NAV.map((item) => {
             const Icon = item.icon
             const active = item.id === page
@@ -120,25 +169,29 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
                 key={item.id}
                 onClick={() => setPage(item.id)}
                 data-testid={`nav-${item.id}`}
+                title={collapsed ? `${item.label} — ${item.hint}` : undefined}
                 className={cn(
-                  'group mb-0.5 flex w-full items-center gap-3 rounded px-3 py-2 text-left transition-colors',
+                  'group mb-0.5 flex w-full items-center rounded text-left transition-colors',
+                  collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2',
                   active
                     ? 'bg-white/20 text-white'
                     : 'text-white/80 hover:bg-white/10 hover:text-white',
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium leading-none">{item.label}</div>
-                  <div className="mt-1 text-[10.5px] tracking-wider text-white/50">
-                    {item.hint}
+                {!collapsed && (
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium leading-none">{item.label}</div>
+                    <div className="mt-1 text-[10.5px] tracking-wider text-white/50">
+                      {item.hint}
+                    </div>
                   </div>
-                </div>
+                )}
               </button>
             )
           })}
 
-          {legacyEnabled && onShowLegacy && (
+          {legacyEnabled && onShowLegacy && !collapsed && (
             <button
               onClick={onShowLegacy}
               className="mt-6 flex w-full items-center gap-2 rounded border border-dashed border-white/20 px-3 py-2 font-mono text-[10px] tracking-[0.14em] uppercase text-white/55 hover:bg-white/5 hover:text-white"
@@ -150,24 +203,34 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
         </nav>
 
         {/* footer / user */}
-        <div className="border-t border-white/10 px-5 py-4">
-          <div className="flex items-center justify-between">
-            <div className="min-w-0">
-              <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-white/45">
-                signed in as
-              </div>
-              <div className="mt-0.5 truncate text-sm font-medium text-white">
-                {user?.displayName ?? 'admin'}
-              </div>
-            </div>
+        <div className={cn('border-t border-white/10', collapsed ? 'px-2 py-3' : 'px-5 py-4')}>
+          {collapsed ? (
             <button
               onClick={() => void logout()}
-              title="Sign out"
-              className="flex h-8 w-8 items-center justify-center rounded text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+              title={`Sign out (${user?.displayName ?? 'admin'})`}
+              className="flex h-8 w-full items-center justify-center rounded text-white/60 transition-colors hover:bg-white/10 hover:text-white"
             >
               <LogOut className="h-4 w-4" />
             </button>
-          </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-white/45">
+                  signed in as
+                </div>
+                <div className="mt-0.5 truncate text-sm font-medium text-white">
+                  {user?.displayName ?? 'admin'}
+                </div>
+              </div>
+              <button
+                onClick={() => void logout()}
+                title="Sign out"
+                className="flex h-8 w-8 items-center justify-center rounded text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
