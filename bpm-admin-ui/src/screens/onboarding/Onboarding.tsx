@@ -31,6 +31,20 @@ import { StepGoLive } from './steps/StepGoLive'
 
 interface OnboardingProps {
   onNavigate?: (s: AdminScreen) => void
+  /**
+   * Controlled mode (B2). When set, the wizard:
+   *  - uses `initialDraft` as the starting draft (skipping localStorage load),
+   *  - calls `onDraftChange` on every draft mutation (the host debounces +
+   *    persists), and skips `saveDraft` to localStorage,
+   *  - skips `saveStep` to localStorage.
+   * Leave undefined for legacy AdminLayout entry which self-manages via
+   * `localStorage[bpm_draft]`.
+   */
+  initialDraft?: DraftSpec
+  onDraftChange?: (d: DraftSpec) => void
+  /** Hide the legacy "Saved bundles / Export DraftSpec / Reset" strip; the
+   *  host renders its own controls (Submit / Cancel / Delete). */
+  hideTopBar?: boolean
 }
 
 const SESSION_DRAFT_KEY = 'bpm_draft_bundle'
@@ -68,15 +82,24 @@ function pickStepFromValidation(d: DraftSpec): number {
   return ONBOARDING_STEPS.findIndex(s => s.id === 'go_live')
 }
 
-export function Onboarding({ onNavigate }: OnboardingProps = {}) {
-  const [draft, setDraft] = useState<DraftSpec>(() => loadDraft())
-  const [stepIdx, setStepIdx] = useState<number>(() => loadStep())
+export function Onboarding({
+  onNavigate,
+  initialDraft,
+  onDraftChange,
+  hideTopBar,
+}: OnboardingProps = {}) {
+  const controlled = onDraftChange !== undefined
+  const [draft, setDraft] = useState<DraftSpec>(() => initialDraft ?? loadDraft())
+  const [stepIdx, setStepIdx] = useState<number>(() => (controlled ? 0 : loadStep()))
   const [savedBundleCount, setSavedBundleCount] = useState<number | null>(null)
   const [hydrating, setHydrating] = useState(false)
   const step = ONBOARDING_STEPS[stepIdx]
 
-  useEffect(() => { saveDraft(draft) }, [draft])
-  useEffect(() => { saveStep(stepIdx) }, [stepIdx])
+  useEffect(() => {
+    if (controlled) onDraftChange?.(draft)
+    else saveDraft(draft)
+  }, [draft, controlled, onDraftChange])
+  useEffect(() => { if (!controlled) saveStep(stepIdx) }, [stepIdx, controlled])
 
   // Saved-bundles indicator (PR-I6 task §10.2). Best-effort fetch — if the
   // backend is unreachable or auth hasn't kicked in yet, we just hide the
@@ -186,37 +209,39 @@ export function Onboarding({ onNavigate }: OnboardingProps = {}) {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Top bar: title + reset */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-accent" />
-            AI Onboarding
-          </h1>
-          <p className="text-xs text-ink-muted">9 個 step 把流程規格談清楚，最後產生可攜帶的 spec bundle，存到 Flow Library。</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {hydrating && (
-            <span className="text-[11px] text-ink-faint">Hydrating from saved bundle…</span>
-          )}
-          {savedBundleCount !== null && (
-            <button
-              onClick={() => onNavigate?.({ kind: 'flow-library' })}
-              className="flex items-center gap-1.5 rounded border border-rule bg-white px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-slate-50 hover:text-ink"
-              title="Open Flow Library"
-            >
-              <Library className="h-3.5 w-3.5" />
-              Saved bundles: <span className="font-semibold text-ink">{savedBundleCount}</span>
+      {!hideTopBar && (
+        /* Top bar: title + reset (legacy entry only — controlled host hides this) */
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-accent" />
+              AI Onboarding
+            </h1>
+            <p className="text-xs text-ink-muted">9 個 step 把流程規格談清楚，最後產生可攜帶的 spec bundle，存到 Flow Library。</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {hydrating && (
+              <span className="text-[11px] text-ink-faint">Hydrating from saved bundle…</span>
+            )}
+            {savedBundleCount !== null && (
+              <button
+                onClick={() => onNavigate?.({ kind: 'flow-library' })}
+                className="flex items-center gap-1.5 rounded border border-rule bg-white px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-slate-50 hover:text-ink"
+                title="Open Flow Library"
+              >
+                <Library className="h-3.5 w-3.5" />
+                Saved bundles: <span className="font-semibold text-ink">{savedBundleCount}</span>
+              </button>
+            )}
+            <button onClick={exportSpec} className="flex items-center gap-1.5 rounded border border-rule bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-slate-50" title="Debug only — canonical export is 'Save to Flow Library'">
+              <Download className="h-3.5 w-3.5" /> Export DraftSpec (debug)
             </button>
-          )}
-          <button onClick={exportSpec} className="flex items-center gap-1.5 rounded border border-rule bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-slate-50" title="Debug only — canonical export is 'Save to Flow Library'">
-            <Download className="h-3.5 w-3.5" /> Export DraftSpec (debug)
-          </button>
-          <button onClick={reset} className="flex items-center gap-1.5 rounded border border-rule bg-white px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-slate-50 hover:text-danger">
-            <RotateCcw className="h-3.5 w-3.5" /> Reset
-          </button>
+            <button onClick={reset} className="flex items-center gap-1.5 rounded border border-rule bg-white px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-slate-50 hover:text-danger">
+              <RotateCcw className="h-3.5 w-3.5" /> Reset
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Stepper bar */}
       <div className="rounded-md border border-rule bg-card px-3 py-2">

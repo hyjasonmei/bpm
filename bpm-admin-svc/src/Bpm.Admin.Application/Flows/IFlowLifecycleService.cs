@@ -18,4 +18,5 @@ public interface IFlowLifecycleService
     Task<Flow> ResumeAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
     Task<Flow> CloneVersionAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
     Task<Flow> OnHoldFromChefAsync(Guid flowId, string question, CancellationToken ct = default);
+    Task SoftDeleteDraftAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
 }

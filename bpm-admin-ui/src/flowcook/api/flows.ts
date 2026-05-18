@@ -73,3 +73,7 @@ export function resumeFlow(id: string): Promise<FlowDetail> {
 export function cloneFlowVersion(id: string): Promise<FlowDetail> {
   return api<FlowDetail>(`/api/flows/${id}/clone-version`, { method: 'POST' })
 }
+
+export function deleteFlow(id: string): Promise<void> {
+  return api<void>(`/api/flows/${id}`, { method: 'DELETE' })
+}

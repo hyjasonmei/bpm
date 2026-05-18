@@ -92,6 +92,17 @@ public class FlowsController : ControllerBase
     public Task<ActionResult<FlowDetailDto>> CloneVersion(Guid id, CancellationToken ct)
         => RunTransition(() => _lifecycle.CloneVersionAsync(id, CurrentUserId(), ct));
 
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            await _lifecycle.SoftDeleteDraftAsync(id, CurrentUserId(), ct);
+            return NoContent();
+        }
+        catch (FlowLifecycleException ex) { return Conflict(ex.Message); }
+    }
+
     /// <summary>chef-facing endpoint. Authenticated by a shared secret header so chef
     /// doesn't need a session cookie. v0 secret comes from configuration.</summary>
     [HttpPost("{id:guid}/on-hold")]

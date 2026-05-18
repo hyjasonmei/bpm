@@ -152,6 +152,25 @@ public class FlowLifecycleService : IFlowLifecycleService
         return row;
     }
 
+    public async Task SoftDeleteDraftAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
+    {
+        var row = await Load(flowId, ct);
+        if (row.State != FlowState.Draft)
+            throw new FlowLifecycleException($"Only Draft flows can be deleted (state was {row.State}). Cancel first if needed.");
+
+        row.DeletedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(
+            actionType: "flow_deleted",
+            targetType: "flow",
+            targetId: row.Id.ToString(),
+            actorUserId: actorUserId,
+            actorPrincipalId: null,
+            before: new { State = row.State.ToString(), row.FlowCode, row.DisplayName, row.Version },
+            ct: ct);
+    }
+
     private async Task<Flow> TransitionAsync(
         Guid flowId,
         FlowState target,

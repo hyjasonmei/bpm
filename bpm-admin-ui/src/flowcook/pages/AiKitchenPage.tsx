@@ -1,24 +1,40 @@
-import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, ChefHat, RefreshCw, Sparkles } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  ArrowLeft,
+  ChefHat,
+  CheckCircle2,
+  RefreshCw,
+  Save,
+  Sparkles,
+  Trash2,
+  Undo2,
+  X,
+} from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Onboarding } from '@/screens/onboarding/Onboarding'
-import type { AdminScreen } from '@/components/AdminLayout'
+import { EMPTY_DRAFT, type DraftSpec } from '@/lib/onboarding'
 import { apiFetch, getJwt, setJwt } from '@/lib/apiFetch'
-import { type FlowState, type FlowSummary, listFlows } from '@/flowcook/api/flows'
+import {
+  cancelFlow,
+  createFlow,
+  deleteFlow,
+  type FlowDetail,
+  type FlowState,
+  type FlowSummary,
+  getFlow,
+  listFlows,
+  submitFlow,
+  updateFlowSpec,
+} from '@/flowcook/api/flows'
 
 type Mode = 'list' | 'wizard'
 
-/**
- * AI Kitchen — entry page for the flow-design experience.
- *
- * Phase A: list + Cook new flow CTA + legacy wizard mount.
- * Phase B1 (this commit): list now fetches GET /api/flows from
- * bpm-admin-svc lifecycle BE. Wizard still backs to localStorage —
- * wiring the wizard to draft persistence is Phase B2.
- */
 export function AiKitchenPage() {
   const [mode, setMode] = useState<Mode>('list')
+  const [activeFlow, setActiveFlow] = useState<FlowDetail | null>(null)
 
+  // bpm-svc JWT mint — wizard's legacy apiFetch needs it for /api/chat,
+  // /api/admin/flow-library, /api/spec-extract.
   useEffect(() => {
     if (mode !== 'wizard') return
     let cancelled = false
@@ -34,45 +50,47 @@ export function AiKitchenPage() {
           const data = await res.json()
           setJwt(data.token)
         }
-      } catch { /* swallow — wizard will surface a clearer error */ }
+      } catch { /* swallow */ }
     }
     void ensureBpmSvcJwt()
     return () => { cancelled = true }
   }, [mode])
 
-  if (mode === 'wizard') {
+  const openFlow = useCallback(async (id: string) => {
+    const flow = await getFlow(id)
+    setActiveFlow(flow)
+    setMode('wizard')
+  }, [])
+
+  const backToList = useCallback(() => {
+    setActiveFlow(null)
+    setMode('list')
+  }, [])
+
+  if (mode === 'wizard' && activeFlow) {
     return (
-      <div className="flex h-full flex-col">
-        <div className="mb-4 flex items-center justify-between">
-          <button
-            onClick={() => setMode('list')}
-            className="inline-flex items-center gap-1 rounded border border-rule bg-card px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:border-primary hover:text-primary"
-          >
-            <ArrowLeft className="h-3 w-3" /> Back to kitchen
-          </button>
-        </div>
-        <div className="flex-1 min-h-0">
-          <Onboarding onNavigate={onNavigateAdapter(setMode)} />
-        </div>
-      </div>
+      <WizardView
+        flow={activeFlow}
+        onFlowChange={setActiveFlow}
+        onClose={backToList}
+      />
     )
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <CookedFlowsList onCookNew={() => setMode('wizard')} />
-    </div>
+    <CookedFlowsList onOpenFlow={openFlow} />
   )
 }
 
-function onNavigateAdapter(setMode: (m: Mode) => void) {
-  return (_s: AdminScreen) => setMode('list')
-}
+// ──────────────────────────────────────────────────────────────
+// List
+// ──────────────────────────────────────────────────────────────
 
-function CookedFlowsList({ onCookNew }: { onCookNew: () => void }) {
+function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<void> }) {
   const [flows, setFlows] = useState<FlowSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -87,6 +105,16 @@ function CookedFlowsList({ onCookNew }: { onCookNew: () => void }) {
   }, [])
 
   useEffect(() => { void refresh() }, [refresh])
+
+  async function cookNew(flowCode: string, displayName: string) {
+    const flow = await createFlow({
+      flowCode,
+      displayName,
+      specJson: JSON.stringify(EMPTY_DRAFT),
+    })
+    setCreating(false)
+    await onOpenFlow(flow.id)
+  }
 
   return (
     <div className="grid h-full grid-cols-12 gap-6">
@@ -108,7 +136,7 @@ function CookedFlowsList({ onCookNew }: { onCookNew: () => void }) {
               <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
             </button>
             <button
-              onClick={onCookNew}
+              onClick={() => setCreating(true)}
               data-testid="cook-new-flow"
               className="inline-flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary/90"
             >
@@ -143,7 +171,7 @@ function CookedFlowsList({ onCookNew }: { onCookNew: () => void }) {
               a portable spec bundle.
             </p>
             <button
-              onClick={onCookNew}
+              onClick={() => setCreating(true)}
               className="mt-6 inline-flex items-center gap-1.5 rounded bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
             >
               <ChefHat className="h-4 w-4" />
@@ -165,7 +193,12 @@ function CookedFlowsList({ onCookNew }: { onCookNew: () => void }) {
               </thead>
               <tbody className="divide-y divide-rule">
                 {flows.map((f) => (
-                  <tr key={f.id} className="hover:bg-bg">
+                  <tr
+                    key={f.id}
+                    onClick={() => void onOpenFlow(f.id)}
+                    data-testid={`flow-row-${f.flowCode}`}
+                    className="cursor-pointer hover:bg-bg"
+                  >
                     <td className="px-5 py-3">
                       <div className="font-medium text-ink">{f.displayName}</div>
                       <div className="mt-0.5 font-mono text-[11px] text-ink-muted">{f.flowCode}</div>
@@ -195,29 +228,11 @@ function CookedFlowsList({ onCookNew }: { onCookNew: () => void }) {
           </div>
           <h3 className="text-sm font-semibold text-ink">How AI Kitchen works</h3>
           <ol className="mt-3 space-y-2 text-xs text-ink-muted">
-            <li>
-              <span className="font-semibold text-ink">1. Source — </span>
-              upload an image, BPMN, or start from a preset / blank.
-            </li>
-            <li>
-              <span className="font-semibold text-ink">2. Iterate — </span>
-              chat with the assistant or edit the canvas directly. Either
-              side updates the same draft.
-            </li>
-            <li>
-              <span className="font-semibold text-ink">3. Author — </span>
-              flesh out forms, decisions, approvers, notifications, SLA.
-            </li>
-            <li>
-              <span className="font-semibold text-ink">4. Verify — </span>
-              run sandbox test cases.
-            </li>
-            <li>
-              <span className="font-semibold text-ink">5. Ship — </span>
-              export a portable <code className="font-mono text-[11px]">.zip</code>
-              {' '}bundle (spec.json + bpmn.xml + forms / notifications / SLA /
-              actors / sample-org / test-cases).
-            </li>
+            <li><span className="font-semibold text-ink">1. Source — </span>upload an image, BPMN, or start from a preset / blank.</li>
+            <li><span className="font-semibold text-ink">2. Iterate — </span>chat with the assistant or edit the canvas directly. Either side updates the same draft.</li>
+            <li><span className="font-semibold text-ink">3. Author — </span>flesh out forms, decisions, approvers, notifications, SLA.</li>
+            <li><span className="font-semibold text-ink">4. Verify — </span>run sandbox test cases.</li>
+            <li><span className="font-semibold text-ink">5. Ship — </span>Submit hands the draft to chef. Export a portable <code className="font-mono text-[11px]">.zip</code> bundle on Step 9 if you want a snapshot.</li>
           </ol>
         </div>
 
@@ -226,17 +241,316 @@ function CookedFlowsList({ onCookNew }: { onCookNew: () => void }) {
             phase status
           </div>
           <p className="text-xs leading-relaxed text-ink-muted">
-            Lifecycle now persisted in admin-svc — list reads
-            <code className="mx-1 font-mono text-[11px]">GET /api/flows</code>.
-            Wiring the wizard to write draft spec back per step lands in the
-            next sub-phase; for now the wizard still saves locally and exports
-            bundles to bpm-svc's Flow Library.
+            Drafts now auto-save to admin-svc as you edit. Click a row to
+            resume an existing draft. Submit moves it into chef's queue
+            (state = submitted); chef-side handlers land in step 7.
           </p>
         </div>
       </aside>
+
+      {creating && (
+        <CookNewFlowModal onCreate={cookNew} onCancel={() => setCreating(false)} />
+      )}
     </div>
   )
 }
+
+// ──────────────────────────────────────────────────────────────
+// Cook new flow modal
+// ──────────────────────────────────────────────────────────────
+
+function CookNewFlowModal({
+  onCreate,
+  onCancel,
+}: {
+  onCreate: (flowCode: string, displayName: string) => Promise<void>
+  onCancel: () => void
+}) {
+  const [flowCode, setFlowCode] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!flowCode.trim() || !displayName.trim()) {
+      setError('Both fields are required.')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await onCreate(flowCode.trim().toUpperCase(), displayName.trim())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/30 p-4">
+      <form
+        onSubmit={submit}
+        className="w-full max-w-md rounded-lg border border-rule bg-card p-6 shadow-lg"
+      >
+        <div className="mb-2 flex items-center gap-2">
+          <ChefHat className="h-4 w-4 text-primary" />
+          <h3 className="text-base font-semibold text-ink">Cook a new flow</h3>
+        </div>
+        <p className="mb-5 text-xs text-ink-muted">
+          Name the flow first. You'll be able to edit everything inside the wizard.
+        </p>
+
+        <label className="mb-3 block">
+          <span className="mb-1 block font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
+            Flow code
+          </span>
+          <input
+            value={flowCode}
+            onChange={(e) => setFlowCode(e.target.value)}
+            placeholder="e.g. LEAVE"
+            autoFocus
+            className="block w-full rounded border border-rule bg-white px-3 py-2 text-sm uppercase text-ink outline-none placeholder:text-ink-faint focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
+        </label>
+        <label className="mb-4 block">
+          <span className="mb-1 block font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
+            Display name
+          </span>
+          <input
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="e.g. Leave Request"
+            className="block w-full rounded border border-rule bg-white px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-faint focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
+        </label>
+
+        {error && (
+          <p className="mb-3 rounded border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">
+            {error}
+          </p>
+        )}
+
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className="rounded px-3 py-1.5 text-xs text-ink-muted hover:text-ink"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
+          >
+            <ChefHat className="h-3.5 w-3.5" />
+            {saving ? 'Creating…' : 'Open the kitchen'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────
+// Wizard view — wraps legacy Onboarding in controlled mode
+// ──────────────────────────────────────────────────────────────
+
+const AUTOSAVE_DEBOUNCE_MS = 600
+
+function WizardView({
+  flow,
+  onFlowChange,
+  onClose,
+}: {
+  flow: FlowDetail
+  onFlowChange: (f: FlowDetail) => void
+  onClose: () => void
+}) {
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [transitionPending, setTransitionPending] = useState<null | 'submit' | 'cancel' | 'delete'>(null)
+  const timerRef = useRef<number | null>(null)
+  const latestDraftRef = useRef<DraftSpec | null>(null)
+
+  // Parse initial spec into a DraftSpec; tolerate parse errors by falling
+  // back to EMPTY_DRAFT (a partial spec from chef-on-hold or an external
+  // import is the only realistic way to land here with bad JSON).
+  const initialDraft: DraftSpec = (() => {
+    try {
+      if (!flow.specJson || flow.specJson === '{}') return EMPTY_DRAFT
+      return { ...EMPTY_DRAFT, ...JSON.parse(flow.specJson) }
+    } catch {
+      return EMPTY_DRAFT
+    }
+  })()
+
+  const persistDraft = useCallback(async (draft: DraftSpec) => {
+    setSaveState('saving')
+    setSaveError(null)
+    try {
+      const updated = await updateFlowSpec(flow.id, {
+        specJson: JSON.stringify(draft),
+      })
+      onFlowChange(updated)
+      setSaveState('saved')
+    } catch (err) {
+      setSaveState('error')
+      setSaveError(err instanceof Error ? err.message : 'Save failed')
+    }
+  }, [flow.id, onFlowChange])
+
+  const handleDraftChange = useCallback((draft: DraftSpec) => {
+    latestDraftRef.current = draft
+    if (flow.state !== 'Draft') return // read-only once submitted
+    if (timerRef.current) window.clearTimeout(timerRef.current)
+    timerRef.current = window.setTimeout(() => {
+      void persistDraft(draft)
+    }, AUTOSAVE_DEBOUNCE_MS)
+  }, [flow.state, persistDraft])
+
+  useEffect(() => () => {
+    if (timerRef.current) window.clearTimeout(timerRef.current)
+  }, [])
+
+  async function submit() {
+    setTransitionPending('submit')
+    try {
+      // Flush any pending autosave first.
+      if (timerRef.current) {
+        window.clearTimeout(timerRef.current)
+        if (latestDraftRef.current) await persistDraft(latestDraftRef.current)
+      }
+      const updated = await submitFlow(flow.id)
+      onFlowChange(updated)
+      onClose()
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Submit failed')
+    } finally {
+      setTransitionPending(null)
+    }
+  }
+
+  async function cancel() {
+    if (!window.confirm('Cancel this flow and return it to Draft?')) return
+    setTransitionPending('cancel')
+    try {
+      const updated = await cancelFlow(flow.id)
+      onFlowChange(updated)
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Cancel failed')
+    } finally {
+      setTransitionPending(null)
+    }
+  }
+
+  async function softDelete() {
+    if (!window.confirm(`Delete draft "${flow.displayName}"? This soft-deletes the row.`)) return
+    setTransitionPending('delete')
+    try {
+      await deleteFlow(flow.id)
+      onClose()
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Delete failed')
+      setTransitionPending(null)
+    }
+  }
+
+  const canSubmit = flow.state === 'Draft'
+  const canCancel = flow.state === 'Submitted' || flow.state === 'Cooking' || flow.state === 'OnHold'
+  const canDelete = flow.state === 'Draft'
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onClose}
+            className="inline-flex items-center gap-1 rounded border border-rule bg-card px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:border-primary hover:text-primary"
+          >
+            <ArrowLeft className="h-3 w-3" /> Back to kitchen
+          </button>
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-sm font-semibold text-ink">{flow.displayName}</h2>
+            <span className="font-mono text-[11px] text-ink-muted">{flow.flowCode} · v{flow.version}</span>
+            <StatePill state={flow.state} />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <SaveStatusBadge state={saveState} error={saveError} />
+          {canCancel && (
+            <button
+              onClick={() => void cancel()}
+              disabled={transitionPending !== null}
+              className="inline-flex items-center gap-1 rounded border border-rule bg-card px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:border-warn hover:text-warn disabled:opacity-50"
+            >
+              <Undo2 className="h-3 w-3" /> Cancel
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={() => void softDelete()}
+              disabled={transitionPending !== null}
+              className="inline-flex items-center gap-1 rounded border border-danger/30 bg-card px-2.5 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
+            >
+              <Trash2 className="h-3 w-3" /> Delete draft
+            </button>
+          )}
+          {canSubmit && (
+            <button
+              onClick={() => void submit()}
+              disabled={transitionPending !== null}
+              className="inline-flex items-center gap-1.5 rounded bg-primary px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {transitionPending === 'submit' ? 'Submitting…' : 'Submit to chef'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0">
+        <Onboarding
+          initialDraft={initialDraft}
+          onDraftChange={handleDraftChange}
+          hideTopBar
+        />
+      </div>
+    </div>
+  )
+}
+
+function SaveStatusBadge({ state, error }: { state: 'idle' | 'saving' | 'saved' | 'error'; error: string | null }) {
+  if (state === 'saving') {
+    return (
+      <span className="inline-flex items-center gap-1 font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
+        <Save className="h-3 w-3 animate-pulse" /> Saving…
+      </span>
+    )
+  }
+  if (state === 'saved') {
+    return (
+      <span className="inline-flex items-center gap-1 font-mono text-[10px] tracking-[0.14em] uppercase text-good">
+        <CheckCircle2 className="h-3 w-3" /> Saved
+      </span>
+    )
+  }
+  if (state === 'error') {
+    return (
+      <span title={error ?? undefined} className="inline-flex items-center gap-1 font-mono text-[10px] tracking-[0.14em] uppercase text-danger">
+        <X className="h-3 w-3" /> Save failed
+      </span>
+    )
+  }
+  return null
+}
+
+// ──────────────────────────────────────────────────────────────
+// Shared bits
+// ──────────────────────────────────────────────────────────────
 
 const STATE_TONE: Record<FlowState, string> = {
   Draft:     'bg-ink-muted/15 text-ink-muted',
