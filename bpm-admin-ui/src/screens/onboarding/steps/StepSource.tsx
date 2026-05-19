@@ -256,8 +256,32 @@ function SourcePanel({
 
       <section>
         <h3 className="mb-2 text-sm font-semibold text-ink">流程來源</h3>
-        <p className="mb-3 text-xs text-ink-muted">擇一：上傳既有流程圖、選範本、或從零開始描述。</p>
+        <p className="mb-3 text-xs text-ink-muted">擇一：自然語言描述、上傳既有流程圖、或選範本起手。</p>
         <div className="grid grid-cols-3 gap-3">
+          {/* From Scratch — primary path, lives leftmost. */}
+          <SourceCard
+            icon={busyKind === 'description' ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5" />}
+            title="From Scratch"
+            subtitle="自然語言描述，AI 抽 BPMN"
+            active={busyKind === 'description'}
+            disabled={busyKind !== null}
+          >
+            <textarea
+              value={scratchText}
+              onChange={e => setScratchText(e.target.value)}
+              disabled={busyKind !== null}
+              placeholder="例：員工填差旅申請 → 主管批 → 金額 ≥ 5 萬要 CEO 核准 → 財務出帳"
+              className="mt-2 h-20 w-full resize-none rounded border border-rule bg-white px-2 py-1 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-slate-50"
+            />
+            <button
+              onClick={handleFromScratch}
+              disabled={busyKind !== null || !scratchText.trim()}
+              className="mt-1.5 w-full rounded bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
+            >
+              {busyKind === 'description' ? 'AI 思考中…' : '抽出 BPMN →'}
+            </button>
+          </SourceCard>
+
           {/* Upload */}
           <SourceCard
             icon={busyKind === 'image' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
@@ -289,8 +313,10 @@ function SourcePanel({
             </p>
           </SourceCard>
 
-          {/* Templates */}
-          <SourceCard icon={<Sparkles className="h-5 w-5" />} title="Templates" subtitle="從業界範本開始" active>
+          {/* Templates — no default highlight (was forced active before;
+              now only lights up while a preset is loading, which never
+              actually flips `busyKind`, so it stays calm). */}
+          <SourceCard icon={<Sparkles className="h-5 w-5" />} title="Templates" subtitle="從業界範本開始">
             <div className="mt-2 flex flex-col gap-1.5">
               {TEMPLATES.map(t => (
                 <button
@@ -304,30 +330,6 @@ function SourcePanel({
                 </button>
               ))}
             </div>
-          </SourceCard>
-
-          {/* From Scratch */}
-          <SourceCard
-            icon={busyKind === 'description' ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5" />}
-            title="From Scratch"
-            subtitle="自然語言描述，AI 抽 BPMN"
-            active={busyKind === 'description'}
-            disabled={busyKind !== null}
-          >
-            <textarea
-              value={scratchText}
-              onChange={e => setScratchText(e.target.value)}
-              disabled={busyKind !== null}
-              placeholder="例：員工填差旅申請 → 主管批 → 金額 ≥ 5 萬要 CEO 核准 → 財務出帳"
-              className="mt-2 h-20 w-full resize-none rounded border border-rule bg-white px-2 py-1 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-slate-50"
-            />
-            <button
-              onClick={handleFromScratch}
-              disabled={busyKind !== null || !scratchText.trim()}
-              className="mt-1.5 w-full rounded bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"
-            >
-              {busyKind === 'description' ? 'AI 思考中…' : '抽出 BPMN →'}
-            </button>
           </SourceCard>
         </div>
       </section>
