@@ -226,7 +226,7 @@ export function CoPilotCanvas({
 
         <div className="border-t border-rule bg-slate-50 p-2">
           <div className="flex items-center gap-1.5">
-            <input
+            <textarea
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => {
@@ -239,9 +239,15 @@ export function CoPilotCanvas({
                 e.preventDefault()
                 send()
               }}
-              placeholder={busy ? '送出中…' : '跟 AI 說明這個 step…'}
+              placeholder={busy ? '送出中…' : '跟 AI 說明這個 step…(Shift+Enter 換行)'}
               disabled={busy}
-              className="h-8 flex-1 rounded-md border border-rule bg-white px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-slate-100"
+              rows={1}
+              // `field-sizing: content` lets the textarea grow with its
+              // content up to max-h-32 (~8 rows); on older browsers it
+              // falls back to the fixed `rows={1}` height. Chrome 123+
+              // and Safari TP support this natively today.
+              style={{ fieldSizing: 'content' } as React.CSSProperties}
+              className="min-h-8 max-h-32 flex-1 resize-none rounded-md border border-rule bg-white px-3 py-1.5 text-sm leading-5 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-slate-100"
             />
             <button
               onClick={send}
