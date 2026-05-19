@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Send, Bot, User, AlertTriangle, Wand2 } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/cn'
 import type { OnboardingStep, DraftSpec } from '@/lib/onboarding'
 import { STEP_TOOLS } from '@/lib/onboardingTools'
@@ -19,6 +21,65 @@ import { api, ApiError } from '@/flowcook/api'
  * Anthropic tools; the CLI path emulates them via a sentinel-delimited prompt
  * contract that the backend re-wraps as tool_use blocks.
  */
+
+/**
+ * Renders assistant chat text as Markdown. Chat bubble is narrow
+ * (~320 px) so the element overrides keep margins tight — only
+ * top-level paragraphs get a top margin after the first one. Lists
+ * stay snug; code uses tabular numbers + a small monospace font;
+ * fenced code blocks scroll horizontally rather than push the bubble
+ * out. Links open in a new tab.
+ */
+function AssistantMarkdown({ text }: { text: string }) {
+  return (
+    <div className="space-y-1.5">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          p: ({ children }) => <p className="leading-snug">{children}</p>,
+          ul: ({ children }) => <ul className="ml-4 list-disc space-y-0.5">{children}</ul>,
+          ol: ({ children }) => <ol className="ml-4 list-decimal space-y-0.5">{children}</ol>,
+          li: ({ children }) => <li className="leading-snug">{children}</li>,
+          strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
+          em: ({ children }) => <em className="italic">{children}</em>,
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2 hover:text-blue-700">
+              {children}
+            </a>
+          ),
+          code: ({ className, children, ...rest }) => {
+            const isInline = !className
+            if (isInline) {
+              return <code className="rounded bg-slate-200/70 px-1 py-0.5 font-mono text-[12px] text-ink" {...rest}>{children}</code>
+            }
+            return <code className={cn(className, 'font-mono')} {...rest}>{children}</code>
+          },
+          pre: ({ children }) => (
+            <pre className="overflow-x-auto rounded-md bg-slate-900 px-3 py-2 text-[12px] leading-snug text-slate-100">
+              {children}
+            </pre>
+          ),
+          h1: ({ children }) => <h1 className="text-base font-semibold text-ink">{children}</h1>,
+          h2: ({ children }) => <h2 className="text-sm font-semibold text-ink">{children}</h2>,
+          h3: ({ children }) => <h3 className="text-sm font-semibold text-ink">{children}</h3>,
+          blockquote: ({ children }) => (
+            <blockquote className="border-l-2 border-rule pl-2 italic text-ink-muted">{children}</blockquote>
+          ),
+          hr: () => <hr className="my-2 border-rule" />,
+          table: ({ children }) => (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-[12px]">{children}</table>
+            </div>
+          ),
+          th: ({ children }) => <th className="border border-rule px-1.5 py-0.5 text-left font-semibold">{children}</th>,
+          td: ({ children }) => <td className="border border-rule px-1.5 py-0.5 align-top">{children}</td>,
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
+  )
+}
 
 interface ChatMessage {
   role: 'assistant' | 'user'
@@ -197,12 +258,13 @@ export function CoPilotCanvas({
                   : <User className="h-4 w-4" />}
               </div>
               <div className={cn(
-                'max-w-[280px] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm leading-snug',
+                'max-w-[320px] rounded-lg px-3 py-2 text-sm leading-snug',
+                m.role === 'user' && 'whitespace-pre-wrap',
                 m.role === 'assistant'
                   ? m.appliedTool ? 'bg-emerald-50 text-ink ring-1 ring-emerald-200' : 'bg-slate-50 text-ink'
                   : 'bg-primary text-white',
               )}>
-                {m.text}
+                {m.role === 'assistant' ? <AssistantMarkdown text={m.text} /> : m.text}
               </div>
             </div>
           ))}
