@@ -89,10 +89,19 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
   useEffect(() => { void refresh() }, [refresh])
 
   async function cookNew(flowCode: string, displayName: string) {
+    // Seed `spec.meta` from the row inputs so the wizard's SOURCE step
+    // opens with the name + code the user just typed, not the blank
+    // EMPTY_DRAFT meta. (Fixes the "flow name 沒有從 list 打完帶進來"
+    // observation — row.displayName lives on the row, spec.meta.flowName
+    // lives on the spec; we mirror at create time.)
+    const seeded: DraftSpec = {
+      ...EMPTY_DRAFT,
+      meta: { ...EMPTY_DRAFT.meta, flowName: displayName, flowCode },
+    }
     const flow = await createFlow({
       flowCode,
       displayName,
-      specJson: JSON.stringify(EMPTY_DRAFT),
+      specJson: JSON.stringify(seeded),
     })
     setCreating(false)
     await onOpenFlow(flow.id)

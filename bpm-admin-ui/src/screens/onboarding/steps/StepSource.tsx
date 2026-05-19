@@ -241,30 +241,17 @@ function SourcePanel({
     <div className="flex flex-col gap-5">
       <section>
         <h3 className="mb-3 text-sm font-semibold text-ink">基本資訊</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Tenant 代號" required hint="客戶識別碼，譬如 acme">
-            <Input
-              value={draft.meta.tenant}
-              onChange={e => updateMeta({ tenant: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
-              placeholder="acme"
-            />
-          </Field>
-          <Field label="Flow Code" required hint="用於 class / table 命名，UPPERCASE">
-            <Input
-              value={draft.meta.flowCode}
-              onChange={e => updateMeta({ flowCode: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
-              placeholder="LEAVE"
-              maxLength={20}
-            />
-          </Field>
-          <Field label="Flow 名稱（中文）" required className="col-span-2">
-            <Input
-              value={draft.meta.flowName}
-              onChange={e => updateMeta({ flowName: e.target.value })}
-              placeholder="請假"
-            />
-          </Field>
-        </div>
+        <Field label="Flow 名稱（中文）" required>
+          <Input
+            value={draft.meta.flowName}
+            onChange={e => updateMeta({ flowName: e.target.value })}
+            placeholder="請假"
+          />
+        </Field>
+        {/* Tenant code + Flow code are set at row creation (see Cook
+            new flow modal) and managed at the row level — exposing them
+            in the wizard caused desync. They stay in spec.meta but the
+            UI hides them here. */}
       </section>
 
       <section>
