@@ -10,6 +10,7 @@ import {
   Settings,
   Users,
 } from 'lucide-react'
+import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { useAuth } from '@/flowcook/auth/useAuth'
 import { PagePlaceholder } from '@/flowcook/app/PagePlaceholder'
@@ -18,36 +19,33 @@ import { AiKitchenPage } from '@/flowcook/pages/AiKitchenPage'
 
 export type FlowcookPage = 'ai-kitchen' | 'user-role' | 'sandbox' | 'audit' | 'site-setting'
 
-const NAV: Array<{
+interface NavEntry {
   id: FlowcookPage
+  path: string
   label: string
   hint: string
   icon: React.ComponentType<{ className?: string }>
-}> = [
-  { id: 'ai-kitchen',   label: 'AI Kitchen',   hint: 'flow design',  icon: ChefHat },
-  { id: 'user-role',    label: 'User & Role',  hint: 'principals',   icon: Users },
-  { id: 'sandbox',      label: 'Sandbox',      hint: 'safe testing', icon: FlaskConical },
-  { id: 'audit',        label: 'Audit',        hint: 'history',      icon: Activity },
-  { id: 'site-setting', label: 'Site Setting', hint: 'globals',      icon: Settings },
+}
+
+const NAV: NavEntry[] = [
+  { id: 'ai-kitchen',   path: '/ai-kitchen',   label: 'AI Kitchen',   hint: 'flow design',  icon: ChefHat },
+  { id: 'user-role',    path: '/user-role',    label: 'User & Role',  hint: 'principals',   icon: Users },
+  { id: 'sandbox',      path: '/sandbox',      label: 'Sandbox',      hint: 'safe testing', icon: FlaskConical },
+  { id: 'audit',        path: '/audit',        label: 'Audit',        hint: 'history',      icon: Activity },
+  { id: 'site-setting', path: '/site-setting', label: 'Site Setting', hint: 'globals',      icon: Settings },
 ]
 
 const LEGACY_FLAG_KEY = 'flowcook_legacy_visible'
 const COLLAPSED_KEY = 'flowcook_sidebar_collapsed'
 
 function readLegacyFlag(): boolean {
-  try {
-    return localStorage.getItem(LEGACY_FLAG_KEY) === '1'
-  } catch {
-    return false
-  }
+  try { return localStorage.getItem(LEGACY_FLAG_KEY) === '1' }
+  catch { return false }
 }
 
 function readCollapsed(): boolean {
-  try {
-    return localStorage.getItem(COLLAPSED_KEY) === '1'
-  } catch {
-    return false
-  }
+  try { return localStorage.getItem(COLLAPSED_KEY) === '1' }
+  catch { return false }
 }
 
 function writeCollapsed(v: boolean) {
@@ -63,9 +61,9 @@ interface AppShellProps {
 
 export function AppShell({ onShowLegacy }: AppShellProps) {
   const { user, logout } = useAuth()
-  const [page, setPage] = useState<FlowcookPage>('user-role')
   const [collapsed, setCollapsed] = useState<boolean>(readCollapsed)
   const legacyEnabled = readLegacyFlag()
+  const location = useLocation()
 
   const toggleCollapsed = () => {
     setCollapsed((c) => {
@@ -75,44 +73,10 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
     })
   }
 
-  const current = NAV.find((n) => n.id === page) ?? NAV[1]
-
-  let body: React.ReactNode
-  switch (page) {
-    case 'ai-kitchen':
-      body = <AiKitchenPage />
-      break
-    case 'user-role':
-      body = <UserRolePage />
-      break
-    case 'sandbox':
-      body = (
-        <PagePlaceholder
-          title="Sandbox"
-          kicker="step 4-6"
-          description="Three quiet controls — scope, mail intercept, clock freeze — that flip bpm runtime into safe-tasting mode. Wires up once Step 4 (bpm refactor) and Step 6 (syncer) land."
-        />
-      )
-      break
-    case 'audit':
-      body = (
-        <PagePlaceholder
-          title="Audit"
-          kicker="step 6"
-          description="Read-only event ledger. Every action across admin, bpm, chef, syncer lands here as an append-only event. The viewer opens with Step 6 once syncer carries bpm events back."
-        />
-      )
-      break
-    case 'site-setting':
-      body = (
-        <PagePlaceholder
-          title="Site Setting"
-          kicker="incremental"
-          description="Shared configuration — admin SMTP, Anthropic API key, persona-switch allow-list, bpm timezone, default language, tenant branding. Each tab arrives as the feature behind it ships."
-        />
-      )
-      break
-  }
+  // Header label/hint mirrors the active nav entry. Sub-routes (e.g.
+  // /ai-kitchen/<flowId>, /user-role/roles) all share the same parent
+  // pill so the strip stays stable.
+  const current = NAV.find((n) => location.pathname.startsWith(n.path)) ?? NAV[0]
 
   return (
     <div className="flex min-h-screen bg-bg text-ink">
@@ -163,17 +127,16 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
           )}
           {NAV.map((item) => {
             const Icon = item.icon
-            const active = item.id === page
             return (
-              <button
+              <NavLink
                 key={item.id}
-                onClick={() => setPage(item.id)}
+                to={item.path}
                 data-testid={`nav-${item.id}`}
                 title={collapsed ? `${item.label} — ${item.hint}` : undefined}
-                className={cn(
+                className={({ isActive }) => cn(
                   'group mb-0.5 flex w-full items-center rounded text-left transition-colors',
                   collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2',
-                  active
+                  isActive
                     ? 'bg-white/20 text-white'
                     : 'text-white/80 hover:bg-white/10 hover:text-white',
                 )}
@@ -187,7 +150,7 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
                     </div>
                   </div>
                 )}
-              </button>
+              </NavLink>
             )
           })}
 
@@ -251,7 +214,33 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
         </header>
 
         <main className="flex-1 overflow-auto px-8 py-6">
-          {body}
+          <Routes>
+            <Route path="/" element={<Navigate to="/ai-kitchen" replace />} />
+            <Route path="/ai-kitchen/*" element={<AiKitchenPage />} />
+            <Route path="/user-role/*" element={<UserRolePage />} />
+            <Route path="/sandbox" element={
+              <PagePlaceholder
+                title="Sandbox"
+                kicker="step 4-6"
+                description="Three quiet controls — scope, mail intercept, clock freeze — that flip bpm runtime into safe-tasting mode. Wires up once Step 4 (bpm refactor) and Step 6 (syncer) land."
+              />
+            } />
+            <Route path="/audit" element={
+              <PagePlaceholder
+                title="Audit"
+                kicker="step 6"
+                description="Read-only event ledger. Every action across admin, bpm, chef, syncer lands here as an append-only event. The viewer opens with Step 6 once syncer carries bpm events back."
+              />
+            } />
+            <Route path="/site-setting" element={
+              <PagePlaceholder
+                title="Site Setting"
+                kicker="incremental"
+                description="Shared configuration — admin SMTP, Anthropic API key, persona-switch allow-list, bpm timezone, default language, tenant branding. Each tab arrives as the feature behind it ships."
+              />
+            } />
+            <Route path="*" element={<Navigate to="/ai-kitchen" replace />} />
+          </Routes>
         </main>
       </div>
     </div>

@@ -11,6 +11,7 @@ import {
   Undo2,
   X,
 } from 'lucide-react'
+import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { Onboarding } from '@/screens/onboarding/Onboarding'
 import { EMPTY_DRAFT, type DraftSpec } from '@/lib/onboarding'
@@ -28,39 +29,58 @@ import {
   updateFlowSpec,
 } from '@/flowcook/api/flows'
 
-type Mode = 'list' | 'wizard'
-
 export function AiKitchenPage() {
-  const [mode, setMode] = useState<Mode>('list')
-  const [activeFlow, setActiveFlow] = useState<FlowDetail | null>(null)
+  // Nested routes under /ai-kitchen:
+  //   /ai-kitchen           → list
+  //   /ai-kitchen/:flowId   → wizard for that flow
+  // Each render fetches its own data so a refresh / paste-link path
+  // lands the same way.
+  return (
+    <Routes>
+      <Route index element={<CookedFlowsListRoute />} />
+      <Route path=":flowId" element={<WizardRoute />} />
+      <Route path="*" element={<Navigate to="" replace />} />
+    </Routes>
+  )
+}
 
-  // Phase D moved /api/chat + /api/spec-extract onto admin-svc, so the
-  // wizard no longer needs a bpm-svc JWT — the existing fc_session cookie
-  // covers both. Previous ensureBpmSvcJwt() effect deleted.
+function CookedFlowsListRoute() {
+  const navigate = useNavigate()
+  return <CookedFlowsList onOpenFlow={(id) => { navigate(id); return Promise.resolve() }} />
+}
 
-  const openFlow = useCallback(async (id: string) => {
-    const flow = await getFlow(id)
-    setActiveFlow(flow)
-    setMode('wizard')
-  }, [])
+function WizardRoute() {
+  const { flowId } = useParams<{ flowId: string }>()
+  const navigate = useNavigate()
+  const [flow, setFlow] = useState<FlowDetail | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const backToList = useCallback(() => {
-    setActiveFlow(null)
-    setMode('list')
-  }, [])
+  useEffect(() => {
+    if (!flowId) return
+    let cancelled = false
+    setError(null)
+    void getFlow(flowId)
+      .then((f) => { if (!cancelled) setFlow(f) })
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load') })
+    return () => { cancelled = true }
+  }, [flowId])
 
-  if (mode === 'wizard' && activeFlow) {
+  if (error) {
     return (
-      <WizardView
-        flow={activeFlow}
-        onFlowChange={setActiveFlow}
-        onClose={backToList}
-      />
+      <div className="rounded border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+        {error} · <button onClick={() => navigate('..')} className="underline">回 kitchen</button>
+      </div>
     )
   }
-
+  if (!flow) {
+    return <div className="text-sm text-ink-muted">Loading flow…</div>
+  }
   return (
-    <CookedFlowsList onOpenFlow={openFlow} />
+    <WizardView
+      flow={flow}
+      onFlowChange={setFlow}
+      onClose={() => navigate('..')}
+    />
   )
 }
 
