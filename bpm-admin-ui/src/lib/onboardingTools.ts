@@ -1,9 +1,14 @@
 import type {
   DraftSpec, OnboardingStepId,
   Decision, Approval, Notification, NodeSLA, TestCase,
+  FlowNode, FlowEdge,
   FormField, FieldType, ActorRef, NotifyTrigger, NotifyRecipient,
 } from './onboarding'
-import { ACTOR_PATH_WHITELIST, testCaseToSnapshot } from './onboarding'
+import { ACTOR_PATH_WHITELIST, EMPTY_DRAFT, testCaseToSnapshot } from './onboarding'
+
+const FLOW_NODE_TYPES = [
+  'startEvent', 'endEvent', 'userTask', 'approval', 'gateway', 'serviceTask', 'notify',
+] as const
 
 /**
  * Per-step Anthropic tool definitions for the CoPilot chat.
@@ -430,7 +435,73 @@ const testTool: StepToolBinding = {
   },
 }
 
+// Source — one tool call replaces the flow skeleton (meta + nodes + edges).
+// Replace semantics: AI emits the COMPLETE flow it understood from the
+// customer's description, the wizard wipes the previous draft.flow / meta
+// and seeds the rest of the steps off this clean baseline.
+const sourceTool: StepToolBinding = {
+  tool: {
+    name: 'emit_flow_skeleton',
+    description: 'Replace the flow skeleton (meta + nodes + edges) with the structure the customer just described. Emit the COMPLETE flow — every node and edge the customer needs. Every flow needs exactly one startEvent and at least one endEvent; gateways need ≥2 outgoing edges with conditions; ids are snake_case ASCII.',
+    input_schema: {
+      type: 'object',
+      required: ['meta', 'nodes', 'edges'],
+      properties: {
+        meta: {
+          type: 'object',
+          required: ['tenant', 'flowName', 'flowCode'],
+          properties: {
+            tenant:   { type: 'string', description: 'Customer tenant code, lowercase, e.g. acme' },
+            flowName: { type: 'string', description: 'Human-readable Chinese name' },
+            flowCode: { type: 'string', description: 'UPPERCASE_SNAKE identifier (class / table base name)' },
+          },
+        },
+        nodes: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['id', 'type', 'label'],
+            properties: {
+              id:    { type: 'string', description: 'snake_case unique id (start_1 / task_apply / approval_manager / gateway_amount / end_1)' },
+              type:  { type: 'string', enum: [...FLOW_NODE_TYPES] },
+              label: { type: 'string', description: '繁體中文 label' },
+            },
+          },
+        },
+        edges: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['id', 'source', 'target'],
+            properties: {
+              id:        { type: 'string' },
+              source:    { type: 'string' },
+              target:    { type: 'string' },
+              label:     { type: 'string', description: 'Optional edge label (especially gateway branches)' },
+              condition: { type: 'string', description: 'Optional condition for gateway branches' },
+            },
+          },
+        },
+      },
+    },
+  },
+  apply: (draft, raw) => {
+    const input = raw as {
+      meta: { tenant: string; flowName: string; flowCode: string }
+      nodes: FlowNode[]
+      edges: FlowEdge[]
+    }
+    return {
+      ...EMPTY_DRAFT,
+      ...draft,
+      meta: { ...draft.meta, ...input.meta },
+      flow: { nodes: input.nodes, edges: input.edges },
+    }
+  },
+}
+
 export const STEP_TOOLS: Partial<Record<OnboardingStepId, StepToolBinding>> = {
+  source:    sourceTool,
   forms:     formsTool,
   decisions: decisionsTool,
   approvers: approversTool,
@@ -438,6 +509,7 @@ export const STEP_TOOLS: Partial<Record<OnboardingStepId, StepToolBinding>> = {
   sla:       slaTool,
   // testTool is retained on disk but no longer wired — the dedicated
   // TEST step was dropped in the 11-step refactor (Submit is now in the
-  // wizard header).
+  // wizard header). trigger_access / variables / integrations /
+  // translation / notes tools land in Phase E2.
 }
 void testTool;

@@ -96,15 +96,17 @@ interface AnthropicResponse {
 }
 
 const STEP_OPENERS: Record<string, string> = {
-  source:    '請描述您要設計的流程，或選一個範本（LEAVE / PURCHASE）開始。需要建議哪個範本適合您嗎？',
-  structure: '看一下右邊的 BPMN 骨架，您可以直接拖拉節點 / 連線。如有想加 / 改 / 刪的步驟，告訴我，我會建議怎麼動。',
-  forms:     '右邊列出每個 user task 的欄位。要加新欄位、改型別、加條件規則都跟我說。',
-  decisions: '每個 gateway 我都列在右邊。請告訴我每個 gateway 的條件——譬如「金額 > 50K 走 A 路徑」。',
-  approvers: '請告訴我每個 approval 步驟由誰簽。我可以建議常見的審核者規則組合。',
-  notify:    '預設我先給您雙語的 email 模板，您可以在右邊微調文字、變數、收件人。',
-  sla:       '常見配置：審核 24 工時、超時 escalation 通知。要套用這個，還是您有不同需求？',
-  test:      '我會用您的 spec 模擬幾張案件，請看右邊的測試結果。如果路徑不如預期，告訴我哪裡需要調整。',
-  go_live:   '所有 validator 都過了。確認 spec 摘要正確嗎？按下「Submit Spec」就送到後台。',
+  source:         '描述您要設計的流程（譬如「員工填差旅單 → 主管簽 → 金額大於 5 萬要 CEO 批」），我會直接幫您畫成 BPMN 顯示在右邊。或是選 LEAVE / PURCHASE 範本起手。',
+  trigger_access: '這關決定「誰能啟動」「誰能看到」。請告訴我您的觸發表單、可啟動 / 可見 / 旁觀者的範圍，我會建議 principal 組合。',
+  variables:      '需要哪些流程級變數？譬如「自動核准上限 = 50000」「VIP 直送 CEO」。這些變數後面 step 都能用 ${var} 引用。',
+  forms:          '右邊列出每個 user task 的欄位。要加新欄位、改型別、加條件規則都跟我說。',
+  decisions:      '每個 gateway 我都列在右邊。請告訴我每個 gateway 的條件——譬如「金額 > 50K 走 A 路徑」。',
+  approvers:      '請告訴我每個 approval 步驟由誰簽。我可以建議常見的審核者規則組合。',
+  notify:         '預設我先給您雙語的 email 模板，您可以在右邊微調文字、變數、收件人。',
+  integrations:   '流程需要呼叫外部 API 嗎？告訴我目標系統與想觸發的節點，我會幫您列出 OpenAPI / endpoint / 欄位映射。',
+  sla:            '常見配置：審核 24 工時、超時 escalation 通知。要套用這個，還是您有不同需求？',
+  translation:    '右邊列出所有 spec 內的 label。需要中英文對照可以一起聊，我會把翻譯填回右邊表格。',
+  notes:          '有要交代給 chef（產 code 的 AI）或驗收者的補充嗎？右邊 textarea 直接寫；chef 之後如有疑問也會 append 在這。',
 }
 
 function summarizeDraft(d: DraftSpec) {

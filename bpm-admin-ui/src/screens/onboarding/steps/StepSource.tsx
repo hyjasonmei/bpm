@@ -11,6 +11,7 @@ import {
 } from '@/lib/onboarding'
 import { parseBpmnXml } from '@/lib/bpmnXmlParse'
 import { api, ApiError } from '@/flowcook/api'
+import { BpmnEditor } from '@/components/BpmnEditor'
 
 const TEMPLATES = [
   { code: 'LEAVE',    name: '請假',     preset: LEAVE_PRESET },
@@ -244,16 +245,16 @@ export function StepSource({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
 
       {draft.flow.nodes.length > 0 && (
         <section>
-          <h3 className="mb-2 text-sm font-semibold text-ink">已載入：{draft.flow.nodes.length} 個節點</h3>
-          <div className="rounded border border-rule bg-slate-50 p-3 font-mono text-[11px] text-ink-muted">
-            {draft.flow.nodes.map(n => (
-              <div key={n.id}>
-                <span className="text-ink-faint">{n.type.padEnd(13)}</span>
-                <span className="text-ink">{n.label}</span>
-                <span className="ml-2 text-ink-faint">[{n.id}]</span>
-              </div>
-            ))}
+          <div className="mb-2 flex items-baseline justify-between">
+            <h3 className="text-sm font-semibold text-ink">BPMN 預覽（可直接拖拉編輯）</h3>
+            <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
+              {draft.flow.nodes.length} nodes · {draft.flow.edges.length} edges
+            </span>
           </div>
+          <p className="mb-2 text-xs text-ink-muted">
+            左邊聊完 AI 會把流程畫到這。您可以直接拖拉節點、拉線、按 Delete 移除；改動會即時 sync 回 spec。
+          </p>
+          <BpmnEditor draft={draft} onChange={setDraft} height={420} />
         </section>
       )}
     </div>
