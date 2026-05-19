@@ -245,9 +245,10 @@ export function Onboarding({
         </div>
       )}
 
-      {/* Stepper bar */}
-      <div className="rounded-md border border-rule bg-card px-3 py-2">
-        <div className="flex items-center gap-0 overflow-x-auto">
+      {/* Stepper bar — compact mode fits 11 steps at 1440px viewport.
+          zh + brief surface via the native title tooltip. */}
+      <div className="rounded-md border border-rule bg-card px-2 py-1.5">
+        <div className="flex items-center gap-0.5 overflow-x-auto">
           {ONBOARDING_STEPS.map((s, i) => {
             const done = i < stepIdx
             const current = i === stepIdx
@@ -255,19 +256,16 @@ export function Onboarding({
               <button
                 key={s.id}
                 onClick={() => setStepIdx(i)}
-                className="flex items-center gap-1 whitespace-nowrap"
-              >
-                <div className={cn(
-                  'flex items-center gap-2 rounded px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors',
+                title={`${i + 1}. ${s.en} · ${s.zh} — ${s.brief}`}
+                className={cn(
+                  'flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded px-1.5 py-1 text-[10.5px] font-semibold uppercase tracking-wider transition-colors',
                   current && 'bg-accent text-white',
                   done && 'text-good',
                   !done && !current && 'text-ink-faint hover:text-ink',
-                )}>
-                  <span className="font-mono">{i + 1}</span>
-                  <span>{s.en}</span>
-                  <span className="font-normal opacity-80 normal-case">{s.zh}</span>
-                </div>
-                {i < ONBOARDING_STEPS.length - 1 && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300" />}
+                )}
+              >
+                <span className="font-mono opacity-80">{i + 1}</span>
+                <span>{s.en}</span>
               </button>
             )
           })}
