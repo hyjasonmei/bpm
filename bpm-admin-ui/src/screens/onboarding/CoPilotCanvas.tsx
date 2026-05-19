@@ -229,7 +229,16 @@ export function CoPilotCanvas({
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+              onKeyDown={e => {
+                // Skip while the IME is mid-composition — pressing Enter
+                // to pick a Chinese candidate must not send the message.
+                // Safari sometimes drops `isComposing` and only sets
+                // keyCode 229 on the underlying native event; check both.
+                if (e.key !== 'Enter' || e.shiftKey) return
+                if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return
+                e.preventDefault()
+                send()
+              }}
               placeholder={busy ? '送出中…' : '跟 AI 說明這個 step…'}
               disabled={busy}
               className="h-8 flex-1 rounded-md border border-rule bg-white px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-slate-100"
