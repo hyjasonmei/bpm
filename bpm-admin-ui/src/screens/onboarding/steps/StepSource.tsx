@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
-import { Upload, FileText, Sparkles, AlertTriangle, Loader2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Upload, FileText, Sparkles, AlertTriangle, Loader2, FileInput, Workflow } from 'lucide-react'
+import { cn } from '@/lib/cn'
 import { Field, Input } from '@/components/ui/form'
 import {
   type DraftSpec,
@@ -25,12 +26,30 @@ interface ExtractedSkeleton {
   confidence_notes?: string
 }
 
+type SourceTab = 'source' | 'preview'
+
 export function StepSource({ draft, setDraft }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void }) {
   const [scratchText, setScratchText] = useState('')
   const [busyKind, setBusyKind] = useState<null | 'image' | 'description'>(null)
   const [error, setError] = useState<string | null>(null)
   const [confNotes, setConfNotes] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Default to source tab when the draft has no flow yet; flip to
+  // preview the moment we acquire nodes (AI emit, preset load, BPMN
+  // import, etc.). Track the previous length so subsequent edits
+  // inside preview don't bounce the user back.
+  const [activeTab, setActiveTab] = useState<SourceTab>(
+    () => (draft.flow.nodes.length > 0 ? 'preview' : 'source'),
+  )
+  const prevNodeCount = useRef(draft.flow.nodes.length)
+  useEffect(() => {
+    const next = draft.flow.nodes.length
+    if (prevNodeCount.current === 0 && next > 0) {
+      setActiveTab('preview')
+    }
+    prevNodeCount.current = next
+  }, [draft.flow.nodes.length])
 
   const updateMeta = (patch: Partial<DraftSpec['meta']>) =>
     setDraft({ ...draft, meta: { ...draft.meta, ...patch } })
@@ -121,6 +140,103 @@ export function StepSource({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
     }
   }
 
+  const hasFlow = draft.flow.nodes.length > 0
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Tab bar */}
+      <div className="flex items-center gap-1 border-b border-rule">
+        <TabButton
+          active={activeTab === 'source'}
+          onClick={() => setActiveTab('source')}
+          icon={<FileInput className="h-4 w-4" />}
+          label="來源 / 基本資訊"
+        />
+        <TabButton
+          active={activeTab === 'preview'}
+          onClick={() => setActiveTab('preview')}
+          icon={<Workflow className="h-4 w-4" />}
+          label="BPMN 預覽"
+          badge={hasFlow ? `${draft.flow.nodes.length}n · ${draft.flow.edges.length}e` : undefined}
+          disabled={!hasFlow}
+        />
+      </div>
+
+      {activeTab === 'preview' ? (
+        <PreviewPanel draft={draft} setDraft={setDraft} hasFlow={hasFlow} />
+      ) : (
+        <SourcePanel
+          draft={draft}
+          updateMeta={updateMeta}
+          fileRef={fileRef}
+          handleUpload={handleUpload}
+          loadPreset={loadPreset}
+          scratchText={scratchText}
+          setScratchText={setScratchText}
+          handleFromScratch={handleFromScratch}
+          busyKind={busyKind}
+          error={error}
+          confNotes={confNotes}
+        />
+      )}
+    </div>
+  )
+}
+
+function TabButton({
+  active, onClick, icon, label, badge, disabled,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: React.ReactNode
+  label: string
+  badge?: string
+  disabled?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      data-testid={`source-tab-${active ? 'active' : 'idle'}`}
+      className={cn(
+        '-mb-px inline-flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors',
+        disabled && 'cursor-not-allowed opacity-50',
+        active
+          ? 'border-primary text-primary'
+          : 'border-transparent text-ink-muted hover:text-ink',
+      )}
+    >
+      {icon}
+      <span>{label}</span>
+      {badge && (
+        <span className={cn(
+          'rounded-full px-2 py-0.5 font-mono text-[10px] tracking-wider',
+          active ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-ink-muted',
+        )}>{badge}</span>
+      )}
+    </button>
+  )
+}
+
+interface SourcePanelProps {
+  draft: DraftSpec
+  updateMeta: (patch: Partial<DraftSpec['meta']>) => void
+  fileRef: React.RefObject<HTMLInputElement>
+  handleUpload: (f: File) => Promise<void>
+  loadPreset: (p: Partial<DraftSpec>) => void
+  scratchText: string
+  setScratchText: (s: string) => void
+  handleFromScratch: () => Promise<void>
+  busyKind: null | 'image' | 'description'
+  error: string | null
+  confNotes: string | null
+}
+
+function SourcePanel({
+  draft, updateMeta, fileRef, handleUpload, loadPreset,
+  scratchText, setScratchText, handleFromScratch,
+  busyKind, error, confNotes,
+}: SourcePanelProps) {
   return (
     <div className="flex flex-col gap-5">
       <section>
@@ -242,21 +358,26 @@ export function StepSource({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
           <p className="whitespace-pre-wrap">{confNotes}</p>
         </div>
       )}
+    </div>
+  )
+}
 
-      {draft.flow.nodes.length > 0 && (
-        <section>
-          <div className="mb-2 flex items-baseline justify-between">
-            <h3 className="text-sm font-semibold text-ink">BPMN 預覽（可直接拖拉編輯）</h3>
-            <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
-              {draft.flow.nodes.length} nodes · {draft.flow.edges.length} edges
-            </span>
-          </div>
-          <p className="mb-2 text-xs text-ink-muted">
-            左邊聊完 AI 會把流程畫到這。您可以直接拖拉節點、拉線、按 Delete 移除；改動會即時 sync 回 spec。
-          </p>
-          <BpmnEditor draft={draft} onChange={setDraft} height={420} />
-        </section>
-      )}
+function PreviewPanel({
+  draft, setDraft, hasFlow,
+}: { draft: DraftSpec; setDraft: (d: DraftSpec) => void; hasFlow: boolean }) {
+  if (!hasFlow) {
+    return (
+      <div className="rounded border border-dashed border-rule bg-bg/50 p-10 text-center text-sm text-ink-muted">
+        尚未產生流程。回「來源 / 基本資訊」tab，選範本、上傳，或在左邊聊天請 AI 幫您畫。
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs text-ink-muted">
+        左邊聊完 AI 會把流程畫到這。您可以直接拖拉節點、拉線、按 Delete 移除；改動會即時 sync 回 spec。
+      </p>
+      <BpmnEditor draft={draft} onChange={setDraft} height={460} />
     </div>
   )
 }
