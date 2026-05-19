@@ -3,7 +3,7 @@ import { Send, Bot, User, AlertTriangle, Wand2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import type { OnboardingStep, DraftSpec } from '@/lib/onboarding'
 import { STEP_TOOLS } from '@/lib/onboardingTools'
-import { apiFetch } from '@/lib/apiFetch'
+import { api, ApiError } from '@/flowcook/api'
 
 /**
  * Co-Pilot Canvas — split layout (chat left, AI-generated canvas right).
@@ -114,30 +114,27 @@ export function CoPilotCanvas({
         .filter(m => m.text.trim().length > 0)
         .map(m => ({ role: m.role, content: m.text }))
 
-      const res = await apiFetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          step: step.id,
-          draftSummary: summarizeDraft(draft),
-          messages: anthropicMessages,
-          ...(stepTool ? { tools: [stepTool.tool] } : {}),
-        }),
-      })
-
-      if (res.status === 503) {
-        const body = await res.json().catch(() => ({}))
-        const msg = body?.message ?? 'Chat unavailable — backend not configured.'
-        setSetupHint(msg)
-        setBusy(false)
-        return
+      let data: AnthropicResponse
+      try {
+        data = await api<AnthropicResponse>('/api/chat', {
+          method: 'POST',
+          json: {
+            step: step.id,
+            draftSummary: summarizeDraft(draft),
+            messages: anthropicMessages,
+            ...(stepTool ? { tools: [stepTool.tool] } : {}),
+          },
+        })
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 503) {
+          let msg = 'Chat unavailable — backend not configured.'
+          try { msg = JSON.parse(err.body)?.message ?? msg } catch { /* keep default */ }
+          setSetupHint(msg)
+          setBusy(false)
+          return
+        }
+        throw err
       }
-      if (!res.ok) {
-        const body = await res.text()
-        throw new Error(`HTTP ${res.status} — ${body || res.statusText}`)
-      }
-
-      const data = await res.json() as AnthropicResponse
       const blocks = data.content ?? []
 
       const replyText = blocks

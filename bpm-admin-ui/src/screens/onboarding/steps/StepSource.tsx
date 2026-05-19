@@ -10,7 +10,7 @@ import {
   EMPTY_DRAFT,
 } from '@/lib/onboarding'
 import { parseBpmnXml } from '@/lib/bpmnXmlParse'
-import { apiFetch } from '@/lib/apiFetch'
+import { api, ApiError } from '@/flowcook/api'
 
 const TEMPLATES = [
   { code: 'LEAVE',    name: '請假',     preset: LEAVE_PRESET },
@@ -51,23 +51,18 @@ export function StepSource({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
     setError(null)
     setConfNotes(null)
     try {
-      const res = await apiFetch('/api/spec-extract', {
+      const skeleton = await api<ExtractedSkeleton>('/api/spec-extract', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        json: payload,
       })
-      if (res.status === 503) {
-        const body = await res.json().catch(() => ({}))
-        setError(body?.message ?? 'AI 不可用 — 後端未配置 ANTHROPIC_API_KEY')
-        return
-      }
-      if (!res.ok) {
-        const body = await res.text()
-        throw new Error(`HTTP ${res.status} — ${body || res.statusText}`)
-      }
-      const skeleton = await res.json() as ExtractedSkeleton
       applySkeleton(skeleton)
     } catch (e: unknown) {
+      if (e instanceof ApiError && e.status === 503) {
+        let msg = 'AI 不可用 — 後端未配置 ANTHROPIC_API_KEY'
+        try { msg = JSON.parse(e.body)?.message ?? msg } catch { /* keep default */ }
+        setError(msg)
+        return
+      }
       setError(e instanceof Error ? e.message : String(e))
     }
   }

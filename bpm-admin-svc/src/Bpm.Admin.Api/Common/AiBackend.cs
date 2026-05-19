@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 
-namespace Bpm.Api.Common;
+namespace Bpm.Admin.Api.Common;
 
 /// <summary>
 /// AI backend abstraction. Two implementations:

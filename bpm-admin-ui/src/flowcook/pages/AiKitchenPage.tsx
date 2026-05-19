@@ -15,7 +15,6 @@ import { cn } from '@/lib/cn'
 import { Onboarding } from '@/screens/onboarding/Onboarding'
 import { EMPTY_DRAFT, type DraftSpec } from '@/lib/onboarding'
 import { flowToBpmnXml } from '@/lib/bpmnXml'
-import { apiFetch, getJwt, setJwt } from '@/lib/apiFetch'
 import {
   cancelFlow,
   createFlow,
@@ -35,28 +34,9 @@ export function AiKitchenPage() {
   const [mode, setMode] = useState<Mode>('list')
   const [activeFlow, setActiveFlow] = useState<FlowDetail | null>(null)
 
-  // bpm-svc JWT mint — wizard's legacy apiFetch needs it for /api/chat,
-  // /api/admin/flow-library, /api/spec-extract.
-  useEffect(() => {
-    if (mode !== 'wizard') return
-    let cancelled = false
-    async function ensureBpmSvcJwt() {
-      if (getJwt()) return
-      try {
-        const res = await apiFetch('/api/dev/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ PersonaCode: 'admin' }),
-        })
-        if (res.ok && !cancelled) {
-          const data = await res.json()
-          setJwt(data.token)
-        }
-      } catch { /* swallow */ }
-    }
-    void ensureBpmSvcJwt()
-    return () => { cancelled = true }
-  }, [mode])
+  // Phase D moved /api/chat + /api/spec-extract onto admin-svc, so the
+  // wizard no longer needs a bpm-svc JWT — the existing fc_session cookie
+  // covers both. Previous ensureBpmSvcJwt() effect deleted.
 
   const openFlow = useCallback(async (id: string) => {
     const flow = await getFlow(id)
