@@ -25,6 +25,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Building2, Check, ChevronDown, Plus, Search, Shield, User, UsersRound, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 import { cn } from '@/lib/cn'
 import { api } from '@/flowcook/api'
 import {
@@ -247,14 +248,6 @@ function PrincipalPickerModal({ title, initial, directory, onCancel, onCommit }:
   )
   const searchRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onCancel()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel])
-
   useEffect(() => { searchRef.current?.focus() }, [tab])
 
   const toggle = useCallback((ref: string) => {
@@ -289,22 +282,25 @@ function PrincipalPickerModal({ title, initial, directory, onCancel, onCommit }:
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
-      onClick={onCancel}
+    <Modal
+      open
+      onClose={onCancel}
+      title={title}
+      size="md"
+      footer={
+        <>
+          <div className="mr-auto text-xs text-ink-muted">
+            已選 <span className="font-semibold text-ink">{bufferList.length}</span> 項
+          </div>
+          <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+          <Button variant="primary" onClick={handleCommit}>
+            <ChevronDown className="h-4 w-4 -rotate-90" />
+            Select
+          </Button>
+        </>
+      }
     >
-      <div
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-lg bg-white shadow-2xl"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-rule px-5 py-3">
-          <h3 className="text-base font-bold text-ink">{title}</h3>
-          <button onClick={onCancel} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="關閉">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
+      <div className="flex h-full flex-col">
         {/* Tabs */}
         <div className="flex items-center gap-1 border-b border-rule px-3 pt-2">
           {TAB_ORDER.map((k, i) => {
@@ -412,20 +408,7 @@ function PrincipalPickerModal({ title, initial, directory, onCancel, onCommit }:
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between gap-3 border-t border-rule bg-slate-50/50 px-4 py-3">
-          <div className="text-xs text-ink-muted">
-            已選 <span className="font-semibold text-ink">{bufferList.length}</span> 項
-          </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={onCancel}>Cancel</Button>
-            <Button variant="primary" onClick={handleCommit}>
-              <ChevronDown className="h-4 w-4 -rotate-90" />
-              Select
-            </Button>
-          </div>
-        </div>
       </div>
-    </div>
+    </Modal>
   )
 }
