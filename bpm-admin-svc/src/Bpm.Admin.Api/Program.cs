@@ -36,6 +36,8 @@ builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFlowLifecycleService, FlowLifecycleService>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<Bpm.Admin.Application.Common.Abstractions.IClock, Bpm.Admin.Api.Common.AdminSystemClock>();
+builder.Services.AddSingleton<Bpm.Admin.Application.Spec.Expressions.IExpressionEvaluator, Bpm.Admin.Application.Spec.Expressions.CelNetExpressionEvaluator>();
 builder.Services.AddSingleton<BundleBuildValidator>();
 builder.Services.AddSingleton<SpecMdRenderer>();
 builder.Services.AddSingleton<WalkthroughRenderer>();

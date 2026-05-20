@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Identity" Version="2.3.1" />
+    <PackageReference Include="Cel.NET" Version="1.0.0" />
   </ItemGroup>
 
   <PropertyGroup>
