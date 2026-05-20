@@ -49,7 +49,7 @@ interface RoleDto {
   description: string | null
 }
 
-export interface DirectoryRow {
+interface DirectoryRow {
   kind: PrincipalRefKind
   id: string
   displayName: string
@@ -120,47 +120,6 @@ function useDirectory(): DirectoryState {
     return () => { cancelled = true }
   }, [])
   return state
-}
-
-/**
- * Snapshot of the principal directory at this moment. Loads lazily on
- * first access. Other modules (e.g. AI tool handlers) read this without
- * mounting a picker — they should call {@link ensurePrincipalDirectoryLoaded}
- * first if they need the data to be present.
- */
-export function getPrincipalDirectory(): DirectoryRow[] {
-  return directoryCache.rows
-}
-
-export function ensurePrincipalDirectoryLoaded(): Promise<void> {
-  return loadDirectory()
-}
-
-/**
- * Resolve `(kind, name)` to a `${kind}:${id}` ref string, or null if the
- * name doesn't match any cached principal. Match is case-insensitive +
- * trims whitespace; if multiple rows share the name (unlikely), returns
- * the first.
- */
-export function findPrincipalRefByName(kind: PrincipalRefKind, name: string): string | null {
-  const needle = name.trim().toLowerCase()
-  if (!needle) return null
-  const row = directoryCache.rows.find(r =>
-    r.kind === kind && r.displayName.trim().toLowerCase() === needle
-  )
-  return row ? formatPrincipalRef({ kind: row.kind, id: row.id }) : null
-}
-
-/**
- * Inverse of {@link findPrincipalRefByName}: given a stored ref string,
- * return `{ kind, name }`. Falls back to `{ kind, name: id }` when the
- * directory doesn't know about that id — keeps AI context legible even
- * when a ref dangles (deleted principal, partially-synced cache).
- */
-export function describePrincipalRef(ref: string): { kind: PrincipalRefKind; name: string } {
-  const parsed = parsePrincipalRef(ref)
-  const row = directoryCache.rows.find(r => r.kind === parsed.kind && r.id === parsed.id)
-  return { kind: parsed.kind, name: row?.displayName ?? parsed.id }
 }
 
 function resolveRef(rows: DirectoryRow[], ref: string): DirectoryRow | null {

@@ -1,11 +1,10 @@
 import type {
-  DraftSpec, OnboardingStepId, PrincipalRefKind,
+  DraftSpec, OnboardingStepId,
   Decision, Approval, Notification, NodeSLA, TestCase,
   FlowNode, FlowEdge,
   FormField, FieldType, ActorRef, NotifyTrigger, NotifyRecipient,
 } from './onboarding'
 import { ACTOR_PATH_WHITELIST, EMPTY_DRAFT, testCaseToSnapshot } from './onboarding'
-import { findPrincipalRefByName } from '@/components/principal-picker/PrincipalPicker'
 
 const FLOW_NODE_TYPES = [
   'startEvent', 'endEvent', 'userTask', 'approval', 'gateway', 'serviceTask', 'notify',
@@ -501,80 +500,22 @@ const sourceTool: StepToolBinding = {
   },
 }
 
-// Access — patch draft.access.{launchableBy, watcher}. AI emits principals
-// by (kind, name) since UUIDs aren't predictable; apply() resolves names
-// against the cached principal directory. Unresolved names are skipped
-// (the tool reply text will surface what landed). visibleTo mirrors
-// launchableBy automatically — same as the UI does in StepTriggerAccess.
-const accessTool: StepToolBinding = {
-  tool: {
-    name: 'emit_access_config',
-    description: `Set who can launch / watch this flow. Emit the COMPLETE list — both existing and newly added entries. Each entry references a real principal that the admin has already created (kind ∈ user|dept|group|role). Use displayName / role-name verbatim; the system looks names up case-insensitively. Unresolved names are dropped, so check spelling. visibleTo is auto-mirrored from launchableBy (能啟動的自然看得到) — do NOT emit it.`,
-    input_schema: {
-      type: 'object',
-      required: ['launchableBy'],
-      properties: {
-        launchableBy: {
-          type: 'array',
-          description: 'Principals allowed to start a new instance of this flow.',
-          items: {
-            type: 'object',
-            required: ['kind', 'name'],
-            properties: {
-              kind: { type: 'string', enum: ['user', 'dept', 'group', 'role'] },
-              name: { type: 'string', description: 'displayName as shown in User & Role page (or role name)' },
-            },
-          },
-        },
-        watcher: {
-          type: 'array',
-          description: 'Optional — principals who can see other people’s running instances (oversight role).',
-          items: {
-            type: 'object',
-            required: ['kind', 'name'],
-            properties: {
-              kind: { type: 'string', enum: ['user', 'dept', 'group', 'role'] },
-              name: { type: 'string' },
-            },
-          },
-        },
-      },
-    },
-  },
-  apply: (draft, raw) => {
-    const input = raw as {
-      launchableBy: { kind: PrincipalRefKind; name: string }[]
-      watcher?: { kind: PrincipalRefKind; name: string }[]
-    }
-    const resolve = (list: { kind: PrincipalRefKind; name: string }[]) =>
-      list.map(item => findPrincipalRefByName(item.kind, item.name)).filter((r): r is string => r !== null)
-
-    const launchable = resolve(input.launchableBy ?? [])
-    const watcher = input.watcher ? resolve(input.watcher) : draft.access.watcher
-
-    return {
-      ...draft,
-      access: {
-        ...draft.access,
-        launchableBy: launchable,
-        visibleTo: launchable, // mirror —能啟動的自然看得到
-        watcher,
-      },
-    }
-  },
-}
-
+// ACCESS intentionally has no tool. The picker (modal with 4 tabs +
+// search + select buffer) is already the friendliest path to assign
+// principals — adding an AI editor on top brings staleness / scale
+// problems (whole directory in prompt) that aren't worth it for the
+// gain. Chat on this step stays advisory: answer questions, explain
+// concepts, suggest who should own what. The picker does the writing.
 export const STEP_TOOLS: Partial<Record<OnboardingStepId, StepToolBinding>> = {
-  source:         sourceTool,
-  trigger_access: accessTool,
-  forms:          formsTool,
-  decisions:      decisionsTool,
-  approvers:      approversTool,
-  notify:         notifyTool,
-  sla:            slaTool,
+  source:    sourceTool,
+  forms:     formsTool,
+  decisions: decisionsTool,
+  approvers: approversTool,
+  notify:    notifyTool,
+  sla:       slaTool,
   // testTool is retained on disk but no longer wired — the dedicated
   // TEST step was dropped in the 11-step refactor (Submit is now in the
-  // wizard header). variables / integrations / translation / notes
-  // tools land in Phase E2.
+  // wizard header). trigger_access / variables / integrations /
+  // translation / notes tools land in Phase E2 if needed.
 }
 void testTool;

@@ -5,7 +5,6 @@ import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/cn'
 import type { OnboardingStep, DraftSpec } from '@/lib/onboarding'
 import { STEP_TOOLS } from '@/lib/onboardingTools'
-import { describePrincipalRef, getPrincipalDirectory } from '@/components/principal-picker/PrincipalPicker'
 import { api, ApiError } from '@/flowcook/api'
 
 /**
@@ -98,7 +97,7 @@ interface AnthropicResponse {
 
 const STEP_OPENERS: Record<string, string> = {
   source:         '描述您要設計的流程（譬如「員工填差旅單 → 主管簽 → 金額大於 5 萬要 CEO 批」），我會直接幫您畫成 BPMN 顯示在右邊。或是選 LEAVE / PURCHASE 範本起手。',
-  trigger_access: '這關決定誰能啟動 / 旁觀這個流程（能啟動的自然看得到，所以沒分開）。送單表單會自動取流程第一個 user task，您不用再選。告訴我目標部門 / 群組，我會幫您建議 principal 組合。',
+  trigger_access: '這關決定誰能啟動 / 旁觀這個流程（能啟動的自然看得到，所以沒分開）。送單表單會自動取流程第一個 user task。這邊我只負責答疑跟給建議 — 實際勾選請用右邊 picker，比較直覺也不會出錯。',
   variables:      '純內部流程通常這關直接 Next 即可。如果上一關 INTEGRATIONS 設了外部 API，這裡會自動帶入 BASE_URL 之類的值，您可以改名 / 鎖定 / 移除；要再加自訂變數（譬如「自動核准上限 = 50000」）也可以。',
   forms:          '右邊列出每個 user task 的欄位。要加新欄位、改型別、加條件規則都跟我說。',
   decisions:      '每個 gateway 我都列在右邊。請告訴我每個 gateway 的條件——譬如「金額 > 50K 走 A 路徑」。',
@@ -178,31 +177,13 @@ export function CoPilotCanvas({
         .filter(m => m.text.trim().length > 0)
         .map(m => ({ role: m.role, content: m.text }))
 
-      // ACCESS step needs the principal directory in context so the model can
-      // emit names the apply function can resolve, and the current access
-      // list (resolved to names) so the model knows what's already there —
-      // the tool semantics are "emit COMPLETE list" so it has to preserve
-      // existing entries unless the user asks to remove them. The directory
-      // is loaded by StepTriggerAccess on mount, so these reads are sync.
-      const baseSummary = summarizeDraft(draft)
-      const draftSummary = step.id === 'trigger_access'
-        ? {
-            ...baseSummary,
-            principalsAvailable: getPrincipalDirectory().map(r => ({ kind: r.kind, name: r.displayName })),
-            currentAccess: {
-              launchableBy: draft.access.launchableBy.map(describePrincipalRef),
-              watcher: draft.access.watcher.map(describePrincipalRef),
-            },
-          }
-        : baseSummary
-
       let data: AnthropicResponse
       try {
         data = await api<AnthropicResponse>('/api/chat', {
           method: 'POST',
           json: {
             step: step.id,
-            draftSummary,
+            draftSummary: summarizeDraft(draft),
             messages: anthropicMessages,
             ...(stepTool ? { tools: [stepTool.tool] } : {}),
           },
