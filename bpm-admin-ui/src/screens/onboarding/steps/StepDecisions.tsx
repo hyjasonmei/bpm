@@ -1,9 +1,13 @@
-import { Field, Select, Checkbox } from '@/components/ui/form'
-import { ExpressionInput } from '@/components/wizard/ExpressionInput'
+import { useState } from 'react'
+import { AlertCircle, CheckCircle2, Code2, Star } from 'lucide-react'
+import { cn } from '@/lib/cn'
+import { Field, Select } from '@/components/ui/form'
+import { ExpressionEditorModal } from '@/components/expression-editor/ExpressionEditorModal'
 import type { DraftSpec, Decision, DecisionBranch } from '@/lib/onboarding'
 
 export function StepDecisions({ draft, setDraft }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void }) {
   const gateways = draft.flow.nodes.filter(n => n.type === 'gateway')
+  const [activeGwId, setActiveGwId] = useState<string>(gateways[0]?.id ?? '')
 
   if (gateways.length === 0) {
     return (
@@ -12,6 +16,9 @@ export function StepDecisions({ draft, setDraft }: { draft: DraftSpec; setDraft:
       </div>
     )
   }
+
+  // Ensure activeGwId stays valid even if SOURCE deletes the active node.
+  const safeActiveId = gateways.find(g => g.id === activeGwId)?.id ?? gateways[0].id
 
   const upsert = (d: Decision) => {
     const others = draft.decisions.filter(x => x.id !== d.id)
@@ -29,105 +36,258 @@ export function StepDecisions({ draft, setDraft }: { draft: DraftSpec; setDraft:
     }
   }
 
+  const variableNames = draft.variables.map(v => v.name).filter(Boolean)
+  // Gateway conditions reference fields from any user task earlier in
+  // the flow (譬如 leave_type, amount). Surface the union of all form
+  // field IDs so the CEL editor can offer them as clickable refs.
+  const formFieldIds = Array.from(new Set(
+    draft.userTasks.flatMap(t => t.fields.map(f => f.id)).filter(Boolean)
+  ))
+
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       <p className="text-xs text-ink-muted">
-        每個 gateway 都需要設定 type 跟每條 outgoing edge 的條件。Exclusive 模式恰好一條 isDefault。
+        每個 gateway 都需要設定 type 跟每條 outgoing edge 的條件。
+        Exclusive 模式恰好一條 isDefault。
       </p>
 
-      {gateways.map(gw => {
-        const decision = draft.decisions.find(d => d.id === gw.id) ?? getOrCreate(gw.id)
-        const outgoing = draft.flow.edges.filter(e => e.source === gw.id)
-
-        return (
-          <div key={gw.id} className="rounded-md border border-rule bg-white">
-            <div className="flex items-center justify-between border-b border-rule bg-slate-50 px-3 py-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-ink">{gw.label}</span>
-                <span className="font-mono text-[10px] text-ink-faint">{gw.id}</span>
-              </div>
-              <div className="flex items-center gap-2 text-[11px]">
-                <span className={
-                  decision.branches.length === outgoing.length
-                    ? 'rounded bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700'
-                    : 'rounded bg-rose-50 px-2 py-0.5 font-medium text-rose-700'
-                }>
-                  {decision.branches.length}/{outgoing.length} branches
-                </span>
-                {decision.type === 'exclusive' && (
-                  <span className={
-                    decision.branches.filter(b => b.isDefault).length === 1
-                      ? 'rounded bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700'
-                      : 'rounded bg-rose-50 px-2 py-0.5 font-medium text-rose-700'
-                  }>
-                    {decision.branches.filter(b => b.isDefault).length === 1 ? 'has default' : 'needs exactly 1 default'}
-                  </span>
+      {/* Pill row — one per gateway */}
+      {gateways.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          {gateways.map(gw => {
+            const dec = draft.decisions.find(d => d.id === gw.id) ?? getOrCreate(gw.id)
+            const outgoing = draft.flow.edges.filter(e => e.source === gw.id)
+            const valid = decisionValid(dec, outgoing.length)
+            const isActive = gw.id === safeActiveId
+            return (
+              <button
+                key={gw.id}
+                onClick={() => setActiveGwId(gw.id)}
+                className={cn(
+                  'flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
+                  isActive
+                    ? 'border-primary bg-primary/5 text-ink'
+                    : 'border-rule bg-card text-ink-muted hover:border-primary/40 hover:text-ink',
                 )}
-              </div>
-            </div>
+              >
+                {valid
+                  ? <CheckCircle2 className={cn('h-3.5 w-3.5', isActive ? 'text-good' : 'text-good/70')} />
+                  : <AlertCircle className={cn('h-3.5 w-3.5', isActive ? 'text-warn' : 'text-warn/70')} />}
+                <span>{gw.label}</span>
+                <span className={cn(
+                  'rounded-full px-1.5 text-[10px] font-mono',
+                  isActive ? 'bg-white text-ink-muted' : 'bg-slate-100 text-ink-faint',
+                )}>
+                  {dec.branches.length}/{outgoing.length}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
-            <div className="p-3 space-y-3">
-              <Field label="Decision type">
-                <Select value={decision.type} onChange={e => upsert({ ...decision, type: e.target.value as Decision['type'] })}>
-                  <option value="exclusive">exclusive — 走唯一一條符合的</option>
-                  <option value="parallel">parallel — 全部都走</option>
-                  <option value="inclusive">inclusive — 符合的都走</option>
-                </Select>
-              </Field>
+      <GatewayEditor
+        gateway={gateways.find(g => g.id === safeActiveId)!}
+        decision={draft.decisions.find(d => d.id === safeActiveId) ?? getOrCreate(safeActiveId)}
+        outgoing={draft.flow.edges.filter(e => e.source === safeActiveId)}
+        nodes={draft.flow.nodes}
+        formFieldIds={formFieldIds}
+        variableNames={variableNames}
+        onChange={upsert}
+      />
+    </div>
+  )
+}
 
-              <div>
-                <p className="mb-2 text-xs font-semibold text-ink">Branches</p>
-                <div className="space-y-2">
-                  {outgoing.map(edge => {
-                    const branchIdx = decision.branches.findIndex(b => b.edgeId === edge.id)
-                    const branch: DecisionBranch = branchIdx >= 0
-                      ? decision.branches[branchIdx]
-                      : { edgeId: edge.id, condition: '', isDefault: false }
-                    const targetNode = draft.flow.nodes.find(n => n.id === edge.target)
+function decisionValid(decision: Decision, expectedBranches: number): boolean {
+  if (decision.branches.length !== expectedBranches) return false
+  if (decision.type === 'exclusive') {
+    return decision.branches.filter(b => b.isDefault).length === 1
+  }
+  return true
+}
 
-                    const updateBranch = (b: DecisionBranch) => {
-                      const others = decision.branches.filter(x => x.edgeId !== edge.id)
-                      // exclusive: setting isDefault on this branch clears others
-                      const cleared = b.isDefault && decision.type === 'exclusive'
-                        ? others.map(x => ({ ...x, isDefault: false }))
-                        : others
-                      upsert({ ...decision, branches: [...cleared, b] })
-                    }
+function GatewayEditor({
+  gateway, decision, outgoing, nodes, formFieldIds, variableNames, onChange,
+}: {
+  gateway: { id: string; label: string }
+  decision: Decision
+  outgoing: { id: string; target: string }[]
+  nodes: { id: string; label: string }[]
+  formFieldIds: string[]
+  variableNames: string[]
+  onChange: (d: Decision) => void
+}) {
+  const hasDefault = decision.branches.filter(b => b.isDefault).length === 1
+  const branchCount = decision.branches.length
+  const expected = outgoing.length
 
-                    return (
-                      <div key={edge.id} className="grid grid-cols-[120px_1fr_140px] gap-2 items-end rounded border border-rule bg-slate-50 p-2.5">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider text-ink-faint">Edge → target</p>
-                          <p className="text-sm text-ink">
-                            <span className="font-mono text-ink-muted">{edge.id}</span>
-                            <span className="mx-1">→</span>
-                            <span className="font-medium">{targetNode?.label ?? edge.target}</span>
-                          </p>
-                        </div>
-                        <Field label={`條件 / Condition${decision.type === 'exclusive' ? '' : ' (parallel/inclusive 仍要寫，便於 BPMN 標註)'}`}>
-                          <ExpressionInput
-                            value={branch.condition}
-                            onChange={v => updateBranch({ ...branch, condition: v })}
-                            shape="boolean"
-                            placeholder="amount >= 10000"
-                            testId={`expr-gateway-${decision.id}-${edge.id}`}
-                          />
-                        </Field>
-                        <Checkbox
-                          id={`${decision.id}-${edge.id}-default`}
-                          checked={!!branch.isDefault}
-                          onChange={e => updateBranch({ ...branch, isDefault: e.target.checked })}
-                          label="isDefault"
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
+  return (
+    <div className="rounded-md border border-rule bg-white">
+      <div className="flex items-center justify-between gap-3 border-b border-rule bg-slate-50 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-ink">{gateway.label}</span>
+          <span className="font-mono text-[10px] text-ink-faint">{gateway.id}</span>
+        </div>
+        <div className="flex items-center gap-2 text-[11px]">
+          <span className={cn(
+            'rounded px-2 py-0.5 font-medium',
+            branchCount === expected ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700',
+          )}>
+            {branchCount}/{expected} branches
+          </span>
+          {decision.type === 'exclusive' && (
+            <span className={cn(
+              'rounded px-2 py-0.5 font-medium',
+              hasDefault ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700',
+            )}>
+              {hasDefault ? '✓ default 已指定' : '⚠ 缺 default branch'}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-3 p-3">
+        <Field label="Decision type" hint="exclusive 最常用；parallel = 同時全走；inclusive = 條件吻合的都走 (罕見)">
+          <Select value={decision.type} onChange={e => onChange({ ...decision, type: e.target.value as Decision['type'] })}>
+            <option value="exclusive">exclusive — 擇一走（最常用）</option>
+            <option value="parallel">parallel — 同時全走（並聯通知）</option>
+            <option value="inclusive">inclusive — 條件吻合的都走（罕見）</option>
+          </Select>
+        </Field>
+
+        <div>
+          <p className="mb-2 text-xs font-semibold text-ink">Branches</p>
+          <div className="space-y-2">
+            {[...outgoing]
+              // Show the default branch first when in exclusive mode.
+              .sort((a, b) => {
+                if (decision.type !== 'exclusive') return 0
+                const ad = decision.branches.find(x => x.edgeId === a.id)?.isDefault ?? false
+                const bd = decision.branches.find(x => x.edgeId === b.id)?.isDefault ?? false
+                return (bd ? 1 : 0) - (ad ? 1 : 0)
+              })
+              .map(edge => {
+                const existing = decision.branches.find(b => b.edgeId === edge.id)
+                const branch: DecisionBranch = existing ?? { edgeId: edge.id, condition: '', isDefault: false }
+                const targetNode = nodes.find(n => n.id === edge.target)
+
+                const updateBranch = (next: DecisionBranch) => {
+                  const others = decision.branches.filter(x => x.edgeId !== edge.id)
+                  // exclusive: setting isDefault here clears others
+                  const cleared = next.isDefault && decision.type === 'exclusive'
+                    ? others.map(x => ({ ...x, isDefault: false }))
+                    : others
+                  onChange({ ...decision, branches: [...cleared, next] })
+                }
+
+                return (
+                  <BranchRow
+                    key={edge.id}
+                    edgeId={edge.id}
+                    targetLabel={targetNode?.label ?? edge.target}
+                    branch={branch}
+                    decisionType={decision.type}
+                    contextFieldIds={formFieldIds}
+                    variableNames={variableNames}
+                    onChange={updateBranch}
+                  />
+                )
+              })}
           </div>
-        )
-      })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BranchRow({
+  edgeId, targetLabel, branch, decisionType, contextFieldIds, variableNames, onChange,
+}: {
+  edgeId: string
+  targetLabel: string
+  branch: DecisionBranch
+  decisionType: Decision['type']
+  contextFieldIds: string[]
+  variableNames: string[]
+  onChange: (next: DecisionBranch) => void
+}) {
+  const [exprOpen, setExprOpen] = useState(false)
+  const isDefault = !!branch.isDefault
+  const empty = !branch.condition.trim()
+  const isExclusive = decisionType === 'exclusive'
+
+  return (
+    <div
+      className={cn(
+        'rounded border bg-slate-50 p-2.5',
+        isDefault && isExclusive ? 'border-primary/40 bg-primary/5' : 'border-rule',
+      )}
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {isDefault && isExclusive && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
+              <Star className="h-3 w-3" />
+              Default
+            </span>
+          )}
+          <p className="text-sm text-ink">
+            <span className="font-mono text-[11px] text-ink-muted">{edgeId}</span>
+            <span className="mx-1.5 text-ink-faint">→</span>
+            <span className="font-medium">{targetLabel}</span>
+          </p>
+        </div>
+        {isExclusive && (
+          <button
+            type="button"
+            onClick={() => onChange({ ...branch, isDefault: !isDefault })}
+            className={cn(
+              'rounded border px-2 py-0.5 text-[11px] font-medium transition-colors',
+              isDefault
+                ? 'border-primary bg-white text-primary hover:bg-primary/5'
+                : 'border-rule bg-white text-ink-muted hover:border-primary hover:text-primary',
+            )}
+            title="exclusive 模式下，預設 branch 是條件都不符合時走的那條"
+          >
+            {isDefault ? '取消 default' : '設為 default'}
+          </button>
+        )}
+      </div>
+
+      <div>
+        <span className="mb-1 block font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
+          條件 / Condition {decisionType !== 'exclusive' && '— parallel/inclusive 仍要寫，便於 BPMN 標註'}
+        </span>
+        <button
+          type="button"
+          onClick={() => setExprOpen(true)}
+          className={cn(
+            'group flex w-full items-center gap-2 rounded border bg-white px-2 py-1 text-left hover:border-primary',
+            empty ? 'border-dashed border-rule' : 'border-rule',
+          )}
+        >
+          <Code2 className={cn('h-3.5 w-3.5 shrink-0', empty ? 'text-ink-faint' : 'text-primary')} />
+          <code className={cn('flex-1 truncate font-mono text-[11px]', empty ? 'text-ink-faint' : 'text-ink')}>
+            {empty
+              ? (isDefault && isExclusive ? 'default branch — 條件可留空' : '點此設定條件…')
+              : branch.condition}
+          </code>
+          <span className="text-[10px] text-ink-faint group-hover:text-primary">編輯 →</span>
+        </button>
+      </div>
+
+      <ExpressionEditorModal
+        open={exprOpen}
+        title={`條件 — ${edgeId} → ${targetLabel}`}
+        shape="boolean"
+        initial={branch.condition}
+        placeholder="amount >= 10000"
+        contextFieldIds={contextFieldIds}
+        contextVariables={variableNames}
+        onCancel={() => setExprOpen(false)}
+        onCommit={(v) => { onChange({ ...branch, condition: v }); setExprOpen(false) }}
+      />
     </div>
   )
 }
