@@ -45,13 +45,18 @@ export function StepIntegrations({ draft, setDraft }: Props) {
       <div>
         <h3 className="text-sm font-semibold text-ink">外部整合 · Integrations</h3>
         <p className="mt-1 text-xs text-ink-muted">
-          流程節點要呼叫的外部 HTTP API。v0 只記錄 baseUrl / OpenAPI URL / endpoint 字串；之後會做 OpenAPI parse + 欄位映射編輯器。
+          流程節點要呼叫的外部 HTTP API（記錄 baseUrl / OpenAPI URL / endpoint）。
+          純內部流程多半不需要 — 直接 Next。
         </p>
       </div>
 
       {items.length === 0 && (
-        <div className="rounded-md border border-dashed border-rule bg-bg/50 px-4 py-8 text-center text-sm text-ink-muted">
-          沒有外部整合（OK，許多流程不需要）。需要時點下方 +。
+        <div className="rounded-md border border-dashed border-rule bg-bg/50 px-4 py-10 text-center">
+          <p className="text-sm font-medium text-ink">這關通常可空</p>
+          <p className="mt-1 text-xs text-ink-muted">
+            請假 / 加班 / 簽核這類純內部流程不對接外部系統，直接下方 Next。
+          </p>
+          <p className="mt-3 text-xs text-ink-faint">要對接 OA / ERP / Slack / Webhook 才需要點下方「加整合」。</p>
         </div>
       )}
 

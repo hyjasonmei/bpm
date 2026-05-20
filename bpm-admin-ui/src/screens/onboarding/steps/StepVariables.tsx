@@ -29,19 +29,29 @@ export function StepVariables({ draft, setDraft }: Props) {
     setVars([...draft.variables, { name: '', defaultValue: '', description: '', sensitive: false }])
   }
 
+  const hasIntegrations = (draft.integrations.items ?? []).length > 0
+
   return (
     <div className="space-y-4">
       <div>
         <h3 className="text-sm font-semibold text-ink">流程變數 · Variables</h3>
         <p className="mt-1 text-xs text-ink-muted">
-          後續步驟可在表達式 / 條件 / 訊息模板裡用 <code className="font-mono text-[11px]">{'${'}var_name{'}'}</code> 引用。
-          勾起 sensitive 的變數 UI 會遮罩，但 v0 後端仍是明文 — 真機密請走 Site Setting 的 secret store（後續 step）。
+          可在後續表達式 / 條件 / 訊息模板用 <code className="font-mono text-[11px]">{'${'}var_name{'}'}</code> 引用。
+          純內部流程多半不需要 — 直接 Next。INTEGRATIONS 的 BASE_URL 之類會自動帶到這。
         </p>
       </div>
 
       <div className="rounded-md border border-rule bg-card">
         {draft.variables.length === 0 && (
-          <div className="px-4 py-8 text-center text-sm text-ink-muted">尚未定義任何變數</div>
+          <div className="px-4 py-10 text-center">
+            <p className="text-sm font-medium text-ink">這關通常可空</p>
+            <p className="mt-1 text-xs text-ink-muted">
+              {hasIntegrations
+                ? '上一關有設整合，可以從 baseUrl 抽變數出來（未來會自動推；目前先手動加）。'
+                : '純內部流程不需要變數，直接下方 Next。'}
+            </p>
+            <p className="mt-3 text-xs text-ink-faint">想自訂變數（譬如自動核准上限）才需要點下方「加變數」。</p>
+          </div>
         )}
         {draft.variables.length > 0 && (
           <table className="w-full text-sm">
