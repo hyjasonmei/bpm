@@ -37,31 +37,38 @@ interface Props {
   size?: Size
   /** Hide the × button (e.g. when only Cancel/Save should dismiss). */
   hideClose?: boolean
-  /** Disable ESC-to-close + backdrop click. Use sparingly. */
-  dismissable?: boolean
+  /** Close on ESC. Default true; set false to require an explicit
+   *  Cancel/Save click (e.g. modal in a confirm flow). */
+  closeOnEsc?: boolean
+  /** Close on backdrop click. **Default false** — most wizard modals have
+   *  a draft buffer where an accidental click would lose work. Opt in
+   *  for read-only previews where dismissing fast is desirable. */
+  closeOnBackdrop?: boolean
   /** Extra classes on the inner panel. */
   className?: string
 }
 
 export function Modal({
   open, onClose, title, titleSlot, children, footer,
-  size = 'md', hideClose = false, dismissable = true, className,
+  size = 'md', hideClose = false,
+  closeOnEsc = true, closeOnBackdrop = false,
+  className,
 }: Props) {
   useEffect(() => {
-    if (!open || !dismissable) return
+    if (!open || !closeOnEsc) return
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, dismissable, onClose])
+  }, [open, closeOnEsc, onClose])
 
   if (!open) return null
 
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
-      onClick={dismissable ? onClose : undefined}
+      onClick={closeOnBackdrop ? onClose : undefined}
     >
       <div
         className={cn(

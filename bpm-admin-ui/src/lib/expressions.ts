@@ -11,7 +11,10 @@
  * raw evaluator message so we never hide a real parse/scope error.
  */
 import { useEffect, useRef, useState } from 'react'
-import { apiFetch } from '@/lib/apiFetch'
+// Validator endpoint lives on admin-svc. We hit it with a relative-URL
+// fetch so the vite dev proxy targets the right server (apiFetch points
+// at bpm-svc, which is wrong now — bpm-svc no longer carries authoring
+// concerns).
 
 export type ExpressionShape = 'boolean' | 'any'
 
@@ -46,9 +49,10 @@ export async function validateExpression(
   signal?: AbortSignal,
 ): Promise<ValidateExpressionResponse> {
   try {
-    const res = await apiFetch('/api/specs/validate-expression', {
+    const res = await fetch('/api/specs/validate-expression', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         expression,
         shape,
