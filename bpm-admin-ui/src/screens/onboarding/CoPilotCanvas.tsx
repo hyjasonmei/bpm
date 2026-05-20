@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/cn'
 import type { OnboardingStep, DraftSpec } from '@/lib/onboarding'
 import { STEP_TOOLS } from '@/lib/onboardingTools'
+import { describePrincipalRef, getPrincipalDirectory } from '@/components/principal-picker/PrincipalPicker'
 import { api, ApiError } from '@/flowcook/api'
 
 /**
@@ -177,13 +178,31 @@ export function CoPilotCanvas({
         .filter(m => m.text.trim().length > 0)
         .map(m => ({ role: m.role, content: m.text }))
 
+      // ACCESS step needs the principal directory in context so the model can
+      // emit names the apply function can resolve, and the current access
+      // list (resolved to names) so the model knows what's already there —
+      // the tool semantics are "emit COMPLETE list" so it has to preserve
+      // existing entries unless the user asks to remove them. The directory
+      // is loaded by StepTriggerAccess on mount, so these reads are sync.
+      const baseSummary = summarizeDraft(draft)
+      const draftSummary = step.id === 'trigger_access'
+        ? {
+            ...baseSummary,
+            principalsAvailable: getPrincipalDirectory().map(r => ({ kind: r.kind, name: r.displayName })),
+            currentAccess: {
+              launchableBy: draft.access.launchableBy.map(describePrincipalRef),
+              watcher: draft.access.watcher.map(describePrincipalRef),
+            },
+          }
+        : baseSummary
+
       let data: AnthropicResponse
       try {
         data = await api<AnthropicResponse>('/api/chat', {
           method: 'POST',
           json: {
             step: step.id,
-            draftSummary: summarizeDraft(draft),
+            draftSummary,
             messages: anthropicMessages,
             ...(stepTool ? { tools: [stepTool.tool] } : {}),
           },
