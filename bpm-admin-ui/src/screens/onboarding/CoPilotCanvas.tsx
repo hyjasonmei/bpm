@@ -115,7 +115,23 @@ function summarizeDraft(d: DraftSpec) {
     nodeCount: d.flow.nodes.length,
     edgeCount: d.flow.edges.length,
     nodes: d.flow.nodes.map(n => ({ id: n.id, type: n.type, label: n.label })),
-    userTaskFormCodes: d.userTasks.map(t => ({ id: t.id, formCode: t.formCode, fieldCount: t.fields.length })),
+    // Full edge list — tools that emit references to edges (e.g.
+    // emit_decision_rules) MUST use these exact ids verbatim. Without
+    // this the model invents semantic names like `edge_days_to_vp`
+    // which apply() can't resolve.
+    edges: d.flow.edges.map(e => ({
+      id: e.id, source: e.source, target: e.target,
+      label: e.label, condition: e.condition, isDefault: e.isDefault,
+    })),
+    // userTask field IDs — gateway conditions / validators / notify
+    // templates all reference these by exact id (e.g. `leave_days`,
+    // NOT `leaveDays`). Surface the canonical id + type so the model
+    // doesn't camelCase-ify them.
+    userTasks: d.userTasks.map(t => ({
+      id: t.id,
+      formCode: t.formCode,
+      fields: t.fields.map(f => ({ id: f.id, type: f.type, required: f.required })),
+    })),
     approvalCount: d.approvals.length,
     decisionCount: d.decisions.length,
     notificationCount: d.notifications.length,

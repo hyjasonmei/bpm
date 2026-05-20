@@ -132,7 +132,7 @@ const formsTool: StepToolBinding = {
 const decisionsTool: StepToolBinding = {
   tool: {
     name: 'emit_decision_rules',
-    description: 'Replace the entire decisions[] array. Include one entry per gateway node, with a branch entry for every outgoing edge. For exclusive gateways, exactly one branch must have isDefault=true.',
+    description: 'Replace the entire decisions[] array. Include one entry per gateway node, with a branch entry for every outgoing edge. **Critical**: `id` must match a node id from draftSummary.nodes[] verbatim (e.g. `gateway_days`), and every `edgeId` must match a draftSummary.edges[].id verbatim (e.g. `e4`, `e5`) — do NOT invent semantic names. `condition` references userTask field ids verbatim (snake_case, see draftSummary.userTasks[].fields[].id). For exclusive gateways, exactly one branch must have isDefault=true.',
     input_schema: {
       type: 'object',
       required: ['decisions'],
