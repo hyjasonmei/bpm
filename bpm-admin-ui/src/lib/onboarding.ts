@@ -25,7 +25,7 @@ export interface OnboardingStep {
  *  inside SOURCE now (the old standalone STRUCTURE step was merged in). */
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   { id: 'source',         en: 'SOURCE',          zh: '來源',     brief: '上傳 / 描述流程 + BPMN 骨架編輯' },
-  { id: 'trigger_access', en: 'TRIGGER',         zh: '觸發',     brief: '指定觸發表單與啟動 / 可見 / 旁觀者' },
+  { id: 'trigger_access', en: 'ACCESS',          zh: '存取',     brief: '指定誰可啟動 / 旁觀此流程' },
   { id: 'variables',      en: 'VARIABLES',       zh: '變數',     brief: '宣告流程級變數（含敏感旗標）' },
   { id: 'forms',          en: 'FORMS',           zh: '表單',     brief: '每個 user task 的欄位' },
   { id: 'decisions',      en: 'DECISIONS',       zh: '決策',     brief: '每個 gateway 的條件' },
@@ -213,8 +213,10 @@ export function testCaseToSnapshot(tc: TestCase): TestCaseSnapshot {
   }
 }
 
-/** Step 2 — TRIGGER & ACCESS — single form trigger in v0/v1; the
- *  `triggers[]` array is shaped to accept additional types later. */
+/** Step 2 — ACCESS — the trigger is auto-derived from the first
+ *  user task in the flow (v0 心智模型「第一個 task = 送單」). The
+ *  `triggers[]` array still shapes the spec for future cron / webhook
+ *  / mail triggers, but the wizard UI no longer asks for it. */
 export interface FlowTrigger {
   id: string
   type: 'form'
@@ -222,15 +224,61 @@ export interface FlowTrigger {
   formCode: string
 }
 
+/** Derive the (single) form trigger from the first user task in the
+ *  flow. Returns null when there is no user task yet, or when the
+ *  first user task lacks a formCode. Callers should treat null as
+ *  「尚未可送單」 and surface a guidance message. */
+export function deriveAutoTrigger(draft: DraftSpec): FlowTrigger | null {
+  const firstUtNode = draft.flow.nodes.find(n => n.type === 'userTask')
+  if (!firstUtNode) return null
+  const ut = draft.userTasks.find(t => t.id === firstUtNode.id)
+  const formCode = ut?.formCode ?? ''
+  if (!formCode) return null
+  return {
+    id: formCode.toLowerCase().replace(/[^a-z0-9-]+/g, '-') || 'main',
+    type: 'form',
+    formCode,
+  }
+}
+
 export interface FlowAccess {
-  /** Principal ids allowed to start a new instance. Free-form strings
-   *  in MVP — the wizard expects them to look up against admin-svc
-   *  Principal API but the UI keeps them as text in v0. */
+  /** Prefixed principal refs allowed to start a new instance.
+   *  Format: `${kind}:${id}` where kind ∈ user|dept|group|role.
+   *  Legacy unprefixed uuids are treated as `user:` at render time. */
   launchableBy: string[]
-  /** Principal ids allowed to see this flow in the catalog. */
+  /** v0 wizard auto-mirrors `launchableBy` (能啟動的必然看得到).
+   *  Schema kept for future power-user UI to split them. */
   visibleTo: string[]
-  /** Optional observer principals. */
+  /** Optional observer principal refs (same prefix format). */
   watcher: string[]
+}
+
+/** Discriminator for what an entry in FlowAccess refers to. */
+export type PrincipalRefKind = 'user' | 'dept' | 'group' | 'role'
+
+export interface PrincipalRef {
+  kind: PrincipalRefKind
+  id: string
+}
+
+const KIND_VALUES: readonly PrincipalRefKind[] = ['user', 'dept', 'group', 'role']
+
+/** Parse a stored ref string like `user:abc-uuid` into its parts.
+ *  Unprefixed legacy strings (raw uuid) are interpreted as user. */
+export function parsePrincipalRef(s: string): PrincipalRef {
+  const i = s.indexOf(':')
+  if (i > 0) {
+    const kind = s.slice(0, i)
+    const id = s.slice(i + 1)
+    if ((KIND_VALUES as readonly string[]).includes(kind) && id) {
+      return { kind: kind as PrincipalRefKind, id }
+    }
+  }
+  return { kind: 'user', id: s }
+}
+
+export function formatPrincipalRef(r: PrincipalRef): string {
+  return `${r.kind}:${r.id}`
 }
 
 /** Step 3 — VARIABLES — flow-scoped values referenced as `${var}` in
@@ -417,7 +465,12 @@ export const validators: Record<OnboardingStepId, (s: DraftSpec) => ValidationRe
   },
   trigger_access: (s) => {
     const errors: string[] = []
-    if (s.triggers.length === 0) errors.push('至少需要一個觸發表單')
+    const auto = deriveAutoTrigger(s)
+    if (!auto) {
+      const firstUt = s.flow.nodes.find(n => n.type === 'userTask')
+      if (!firstUt) errors.push('流程沒有 user task — 至少需要一張送單表單作為啟動點（在 SOURCE 新增 user task）')
+      else errors.push(`送單表單 "${firstUt.label}" 還沒指定 formCode（在 FORMS 步驟設定）`)
+    }
     if (s.access.launchableBy.length === 0) errors.push('需指定誰可啟動本流程')
     return { valid: errors.length === 0, errors }
   },
