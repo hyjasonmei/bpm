@@ -280,7 +280,7 @@ const approversTool: StepToolBinding = {
 const notifyTool: StepToolBinding = {
   tool: {
     name: 'emit_notifications',
-    description: 'Replace the entire notifications[] array. Each notification has a trigger, channels, recipients, and a 繁體中文 template with Mustache {{variables}}. Variables[] must list every {{var}} appearing in subject + body. Recipients accept three ergonomic types: submitter / current_approver / principal (`ref` is `kind:id`, kind ∈ user|dept|group|role).',
+    description: 'Replace the entire notifications[] array. Each notification has a trigger, channels, recipients, and a 繁體中文 template with Mustache {{variables}}. Variables[] must list every {{var}} appearing in subject + body. Recipients accept three ergonomic types: submitter / current_approver / principal (`ref` is `kind:id`, kind ∈ user|dept|group|role). Optional `nodeId` binds a notification to a BPMN `notify` node — when set, the notification fires when the flow reaches that node (position-based) instead of on the cross-cutting trigger event.',
     input_schema: {
       type: 'object',
       required: ['notifications'],
@@ -292,6 +292,7 @@ const notifyTool: StepToolBinding = {
             required: ['id', 'trigger', 'channel', 'recipients', 'template'],
             properties: {
               id: { type: 'string', description: 'snake_case' },
+              nodeId: { type: 'string', description: 'Optional: BPMN `notify` node id this notification is bound to. When set, the notification fires when the flow reaches that node (ignore the cross-cutting trigger for routing — trigger may stay as an admin-side label).' },
               trigger: { type: 'string', enum: ['on_submit', 'on_approve', 'on_reject', 'on_complete', 'on_assign', 'on_sla_breach'] },
               channel: { type: 'array', items: { type: 'string', enum: ['email', 'in_app', 'teams'] } },
               recipients: {
@@ -330,6 +331,7 @@ const notifyTool: StepToolBinding = {
     const input = raw as {
       notifications: Array<{
         id: string
+        nodeId?: string
         trigger: NotifyTrigger
         channel: ('email' | 'in_app' | 'teams')[]
         recipients: NotifyRecipient[]
@@ -346,6 +348,7 @@ const notifyTool: StepToolBinding = {
         body: { 'zh-TW': n.template.bodyZh },
         variables: n.template.variables,
       },
+      ...(n.nodeId ? { nodeId: n.nodeId } : {}),
     }))
     return { ...draft, notifications: next }
   },

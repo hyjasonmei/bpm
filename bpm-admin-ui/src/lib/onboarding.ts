@@ -195,6 +195,12 @@ export interface Notification {
   channel: ('email' | 'teams' | 'in_app')[]
   recipients: NotifyRecipient[]
   template: NotifyTemplate
+  /** When set, this notification is bound to a BPMN `notify` node — it
+   *  fires exactly when the flow reaches that node (position-based).
+   *  When undefined, it fires on the cross-cutting `trigger` event
+   *  (event-based — on_submit / on_approve / etc.). The wizard groups
+   *  the two kinds in separate sections of the NOTIFY step. */
+  nodeId?: string
 }
 
 /* SLA — mirrors spec_schema.md §2.7 */
@@ -314,16 +320,26 @@ export interface FlowVariable {
   sensitive: boolean
 }
 
-/** Step 8 — INTEGRATIONS — outbound HTTP calls keyed by a trigger node
- *  in the flow. v0 holds the OpenAPI URL + a free-form endpoint string;
- *  parsing / field-mapping editor lands in a follow-up. */
+/** Step 7 — INTEGRATIONS — each entry binds to a `serviceTask` node and
+ *  declares the outbound HTTP call that node performs. v0 holds the
+ *  OpenAPI URL + a free-form endpoint string; OpenAPI parsing / field-
+ *  mapping editor lands in a follow-up.
+ *
+ *  Binding semantics: 1 IntegrationItem ↔ 1 serviceTask node. Same
+ *  external system reached from N different serviceTasks → N entries
+ *  (DRY-via-catalog refactor is a v2+ consideration). Legacy field
+ *  `triggerNodeId` is migrated to `serviceTaskNodeId` on load.
+ */
 export interface IntegrationItem {
   id: string
   name: string
   baseUrl: string
   openApiUrl?: string
   endpoint?: string
-  triggerNodeId?: string
+  /** BPMN serviceTask node this integration is bound to. Required for
+   *  the wizard to know which call this is — the SOURCE / FORMS steps
+   *  should make sure each serviceTask has a corresponding integration. */
+  serviceTaskNodeId?: string
   auth?: {
     kind: 'none' | 'bearer' | 'header'
     /** masked in UI when present; persisted as plain text in v0 */
@@ -480,11 +496,27 @@ export function migrateDraft(d: unknown): DraftSpec {
     approver: migrateActorRef(a.approver),
   })) as Approval[]
 
+  // Legacy: IntegrationItem.triggerNodeId renamed to .serviceTaskNodeId
+  // (matches the BPMN-binding semantic — each integration binds to one
+  // serviceTask node).
+  type LegacyIntegrationItem = IntegrationItem & { triggerNodeId?: string }
+  const legacyIntegrations = partial.integrations?.items ?? []
+  const integrationsItems = legacyIntegrations.map(it => {
+    const legacy = it as LegacyIntegrationItem
+    if (legacy.serviceTaskNodeId || !legacy.triggerNodeId) return it
+    const { triggerNodeId, ...rest } = legacy
+    return { ...rest, serviceTaskNodeId: triggerNodeId } as IntegrationItem
+  })
+
   return {
     ...EMPTY_DRAFT,
     ...partial,
     userTasks,
     approvals,
+    integrations: {
+      ...(partial.integrations ?? EMPTY_DRAFT.integrations),
+      items: integrationsItems,
+    },
     sampleOrg: (partial.sampleOrg && (partial.sampleOrg as SampleOrgSnapshot).users)
       ? (partial.sampleOrg as SampleOrgSnapshot)
       : emptySampleOrg(),

@@ -5,8 +5,8 @@
  * subject expose clickable variable chips (form fields + draft
  * variables) so authors don't have to memorise field ids.
  */
-import { AlertCircle, CheckCircle2, Mail, Plus, Sparkles, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { AlertCircle, CheckCircle2, MapPin, Mail, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { cn } from '@/lib/cn'
 import { Field, Input, Select, Textarea, Checkbox } from '@/components/ui/form'
 import { PrincipalSinglePickerField } from '@/components/principal-picker/PrincipalPicker'
@@ -104,7 +104,35 @@ const PRESETS: PresetNotification[] = [
 ]
 
 export function StepNotify({ draft, setDraft }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void }) {
-  const notifications = [...draft.notifications].sort((a, b) => a.id.localeCompare(b.id))
+  // Auto-materialise a Notification for every BPMN `notify` node that
+  // doesn't have one yet — same getOrCreate pattern as APPROVERS for
+  // approval nodes. This lets users「拉個 notify 節點 → 立刻設定收件人」
+  // without going through a separate"+ Add"step.
+  const notifyNodes = draft.flow.nodes.filter(n => n.type === 'notify')
+  const ensuredNotifications = useMemo(() => {
+    const existing = draft.notifications
+    const augmented = [...existing]
+    for (const node of notifyNodes) {
+      if (existing.some(n => n.nodeId === node.id)) continue
+      augmented.push({
+        id: `notify_${node.id}`,
+        nodeId: node.id,
+        trigger: 'on_assign',
+        channel: ['email', 'in_app'],
+        recipients: [{ type: 'submitter' }],
+        template: {
+          subject: { 'zh-TW': `【通知】${node.label}` },
+          body: { 'zh-TW': `案件已進入「${node.label}」階段。\n\n請點此查看：{{caseUrl}}` },
+          variables: ['caseUrl'],
+        },
+      })
+    }
+    return augmented
+  }, [draft.notifications, notifyNodes])
+
+  const notifications = [...ensuredNotifications].sort((a, b) => a.id.localeCompare(b.id))
+  const nodeBound = notifications.filter(n => n.nodeId)
+  const eventDriven = notifications.filter(n => !n.nodeId)
   const [activeId, setActiveId] = useState<string>(notifications[0]?.id ?? '')
 
   const safeActiveId = notifications.find(n => n.id === activeId)?.id ?? notifications[0]?.id ?? ''
@@ -157,43 +185,64 @@ export function StepNotify({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
         本步驟非阻擋，可以全空。
       </p>
 
-      {/* Preset strip — always visible to encourage common patterns */}
-      <PresetStrip onPick={addPreset} onBlank={addBlank} />
+      {/* Section A — node-bound notifications (one auto-created per
+       *  `notify` BPMN node). These are 「位置通知」— in the diagram
+       *  the user can see where they fire. */}
+      {nodeBound.length > 0 && (
+        <PillSection
+          icon={MapPin}
+          title="位置通知 — 綁定 BPMN notify 節點"
+          subtitle="拉一個 notify 節點到 BPMN 自動產生對應通知。每個節點剛好一個。"
+          notifications={nodeBound}
+          activeId={safeActiveId}
+          onPick={setActiveId}
+          nodeLookup={Object.fromEntries(notifyNodes.map(n => [n.id, n.label]))}
+        />
+      )}
+
+      {/* Section B — event-driven (cross-cutting, not tied to a BPMN node) */}
+      <div>
+        <div className="mb-1 flex items-center gap-1.5">
+          <Mail className="h-3.5 w-3.5 text-primary" />
+          <p className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
+            事件通知 — 跨節點 trigger（on_submit / on_assign 等）
+          </p>
+        </div>
+        <PresetStrip onPick={addPreset} onBlank={addBlank} />
+        {eventDriven.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {eventDriven.map(n => {
+              const isActive = n.id === safeActiveId
+              const ok = notificationValid(n)
+              return (
+                <button
+                  key={n.id}
+                  onClick={() => setActiveId(n.id)}
+                  className={cn(
+                    'flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
+                    isActive
+                      ? 'border-primary bg-primary/5 text-ink'
+                      : 'border-rule bg-card text-ink-muted hover:border-primary/40 hover:text-ink',
+                  )}
+                >
+                  {ok
+                    ? <CheckCircle2 className={cn('h-3.5 w-3.5', isActive ? 'text-good' : 'text-good/70')} />
+                    : <AlertCircle className={cn('h-3.5 w-3.5', isActive ? 'text-warn' : 'text-warn/70')} />}
+                  <Mail className={cn('h-3 w-3', isActive ? 'text-primary' : 'text-ink-faint')} />
+                  <span>{n.trigger}</span>
+                  <span className={cn('font-mono text-[10px]', isActive ? 'text-ink-muted' : 'text-ink-faint')}>
+                    → {n.recipients.map(recipientLabel).join('+')}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
       {notifications.length === 0 && (
         <div className="rounded border border-dashed border-rule p-10 text-center text-sm text-ink-faint">
-          還沒有通知。上面選一個常見範本一鍵新增，或自訂空白通知。
-        </div>
-      )}
-
-      {/* Pill row — one per notification */}
-      {notifications.length > 1 && (
-        <div className="flex flex-wrap gap-1.5">
-          {notifications.map(n => {
-            const isActive = n.id === safeActiveId
-            const ok = notificationValid(n)
-            return (
-              <button
-                key={n.id}
-                onClick={() => setActiveId(n.id)}
-                className={cn(
-                  'flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
-                  isActive
-                    ? 'border-primary bg-primary/5 text-ink'
-                    : 'border-rule bg-card text-ink-muted hover:border-primary/40 hover:text-ink',
-                )}
-              >
-                {ok
-                  ? <CheckCircle2 className={cn('h-3.5 w-3.5', isActive ? 'text-good' : 'text-good/70')} />
-                  : <AlertCircle className={cn('h-3.5 w-3.5', isActive ? 'text-warn' : 'text-warn/70')} />}
-                <Mail className={cn('h-3 w-3', isActive ? 'text-primary' : 'text-ink-faint')} />
-                <span>{n.trigger}</span>
-                <span className={cn('font-mono text-[10px]', isActive ? 'text-ink-muted' : 'text-ink-faint')}>
-                  → {n.recipients.map(recipientLabel).join('+')}
-                </span>
-              </button>
-            )
-          })}
+          還沒有通知 — 流程沒有 notify 節點，也沒有跨節點事件通知。空就直接 Next。
         </div>
       )}
 
@@ -202,15 +251,24 @@ export function StepNotify({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
         <div className="rounded-md border border-rule bg-white">
           <div className="flex items-center justify-between gap-3 border-b border-rule bg-slate-50 px-3 py-2">
             <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-primary" />
+              {activeNotification.nodeId
+                ? <MapPin className="h-4 w-4 text-primary" />
+                : <Mail className="h-4 w-4 text-primary" />}
               <span className="font-mono text-[11px] text-ink-muted">{activeNotification.id}</span>
+              {activeNotification.nodeId && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                  <MapPin className="h-3 w-3" />
+                  綁節點 {notifyNodes.find(n => n.id === activeNotification.nodeId)?.label ?? activeNotification.nodeId}
+                </span>
+              )}
               <span className="text-sm font-semibold text-ink">{activeNotification.trigger}</span>
               <span className="text-[10px] text-ink-faint">[{activeNotification.channel.join('+')}]</span>
             </div>
             <button
               onClick={() => remove(activeNotification.id)}
-              className="flex h-7 w-7 items-center justify-center rounded text-ink-faint hover:bg-rose-50 hover:text-danger"
-              title="移除這個通知"
+              disabled={!!activeNotification.nodeId}
+              className="flex h-7 w-7 items-center justify-center rounded text-ink-faint hover:bg-rose-50 hover:text-danger disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-ink-faint"
+              title={activeNotification.nodeId ? '位置通知由 BPMN notify 節點決定，到 SOURCE 刪節點才會移除' : '移除這個通知'}
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -277,6 +335,56 @@ function notificationValid(n: Notification): boolean {
   if (n.channel.length === 0) return false
   if (!n.template.subject['zh-TW'] || !n.template.body['zh-TW']) return false
   return true
+}
+
+function PillSection({
+  icon: Icon, title, subtitle, notifications, activeId, onPick, nodeLookup,
+}: {
+  icon: typeof MapPin
+  title: string
+  subtitle: string
+  notifications: Notification[]
+  activeId: string
+  onPick: (id: string) => void
+  nodeLookup?: Record<string, string>
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center gap-1.5">
+        <Icon className="h-3.5 w-3.5 text-primary" />
+        <p className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">{title}</p>
+      </div>
+      <p className="mb-2 text-[11px] text-ink-faint">{subtitle}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {notifications.map(n => {
+          const isActive = n.id === activeId
+          const ok = notificationValid(n)
+          const label = n.nodeId ? (nodeLookup?.[n.nodeId] ?? n.nodeId) : n.trigger
+          return (
+            <button
+              key={n.id}
+              onClick={() => onPick(n.id)}
+              className={cn(
+                'flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
+                isActive
+                  ? 'border-primary bg-primary/5 text-ink'
+                  : 'border-rule bg-card text-ink-muted hover:border-primary/40 hover:text-ink',
+              )}
+            >
+              {ok
+                ? <CheckCircle2 className={cn('h-3.5 w-3.5', isActive ? 'text-good' : 'text-good/70')} />
+                : <AlertCircle className={cn('h-3.5 w-3.5', isActive ? 'text-warn' : 'text-warn/70')} />}
+              <Icon className={cn('h-3 w-3', isActive ? 'text-primary' : 'text-ink-faint')} />
+              <span>{label}</span>
+              <span className={cn('font-mono text-[10px]', isActive ? 'text-ink-muted' : 'text-ink-faint')}>
+                → {n.recipients.map(recipientLabel).join('+')}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 function PresetStrip({
