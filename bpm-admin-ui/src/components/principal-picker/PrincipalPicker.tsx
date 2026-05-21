@@ -188,6 +188,65 @@ export function PrincipalPickerField({ label, helper, value, onChange, modalTitl
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Public — Single-select picker (for ActorRef.principal etc.)
+// ─────────────────────────────────────────────────────────────────────────
+
+interface SingleProps {
+  value: string  // empty string = unset
+  onChange: (next: string) => void
+  modalTitle?: string
+  /** Render a smaller compact chip + click-to-edit; default true. */
+  compact?: boolean
+  placeholder?: string
+}
+
+/** Single-pick variant used when only one principal makes sense (e.g.
+ *  ActorRef.principal). Internally reuses the same modal but constrains
+ *  the buffer to at most one ref (radio behavior). */
+export function PrincipalSinglePickerField({
+  value, onChange, modalTitle, compact = true, placeholder,
+}: SingleProps) {
+  const [open, setOpen] = useState(false)
+  const dir = useDirectory()
+  const row = value ? resolveRef(dir.rows, value) : null
+
+  return (
+    <div className="inline-flex items-center gap-1">
+      {value ? (
+        <PrincipalChip refValue={value} row={row} onRemove={() => onChange('')} />
+      ) : (
+        <span className="text-xs text-ink-faint">{placeholder ?? '尚未指定'}</span>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn(
+          'inline-flex items-center gap-1 rounded border border-dashed border-rule bg-card font-medium text-ink-muted hover:border-primary hover:text-primary',
+          compact ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm',
+        )}
+      >
+        <Plus className="h-3 w-3" />
+        {value ? '改選' : '選擇'}
+      </button>
+      {dir.error && (
+        <span className="text-[10px] text-warn">目錄載入失敗：{dir.error}</span>
+      )}
+
+      {open && (
+        <PrincipalPickerModal
+          title={modalTitle ?? '選擇 principal'}
+          initial={value ? [value] : []}
+          directory={dir}
+          singleSelect
+          onCancel={() => setOpen(false)}
+          onCommit={(next) => { onChange(next[0] ?? ''); setOpen(false) }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Public — Chip (also used standalone if needed)
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -232,13 +291,16 @@ interface ModalProps {
   title: string
   initial: string[]
   directory: DirectoryState
+  /** Radio-style — clicking a row replaces the buffer; commits a 0 or 1
+   *  length array. The single-pick wrapper passes this through. */
+  singleSelect?: boolean
   onCancel: () => void
   onCommit: (next: string[]) => void
 }
 
 const TAB_ORDER: PrincipalRefKind[] = ['user', 'dept', 'group', 'role']
 
-function PrincipalPickerModal({ title, initial, directory, onCancel, onCommit }: ModalProps) {
+function PrincipalPickerModal({ title, initial, directory, singleSelect = false, onCancel, onCommit }: ModalProps) {
   const [tab, setTab] = useState<PrincipalRefKind>('user')
   const [q, setQ] = useState('')
   // Normalize legacy unprefixed uuids to `user:…` so the buffer's keys
@@ -252,12 +314,15 @@ function PrincipalPickerModal({ title, initial, directory, onCancel, onCommit }:
 
   const toggle = useCallback((ref: string) => {
     setBuffer(prev => {
+      if (singleSelect) {
+        return prev.has(ref) ? new Set() : new Set([ref])
+      }
       const next = new Set(prev)
       if (next.has(ref)) next.delete(ref)
       else next.add(ref)
       return next
     })
-  }, [])
+  }, [singleSelect])
 
   const tabRows = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -290,7 +355,11 @@ function PrincipalPickerModal({ title, initial, directory, onCancel, onCommit }:
       footer={
         <>
           <div className="mr-auto text-xs text-ink-muted">
-            已選 <span className="font-semibold text-ink">{bufferList.length}</span> 項
+            {singleSelect
+              ? (bufferList.length === 0
+                  ? <>請選一個</>
+                  : <>已選 <span className="font-semibold text-ink">1</span>，點 Select 套用</>)
+              : <>已選 <span className="font-semibold text-ink">{bufferList.length}</span> 項</>}
           </div>
           <Button variant="ghost" onClick={onCancel}>Cancel</Button>
           <Button variant="primary" onClick={handleCommit}>

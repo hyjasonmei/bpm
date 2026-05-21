@@ -169,14 +169,20 @@ const decisionsTool: StepToolBinding = {
   },
 }
 
-// approvers — emits the v1.1 ActorRef discriminated union (see
-// spec_schema.md §2.10). The schema is recursive: conditional.then/else
-// and collection.actors[*] both reference actorRef, plus any actorRef may
-// carry one fallback. Depth limits (conditional ≤ 3, fallback ≤ 1) are
-// validated server-side at /api/admin/flow-library/build — keeping the
-// schema permissive here avoids ballooning the input_schema and works
-// around tool input validation that doesn't enforce $ref recursion depth.
+// approvers — emits the v2 ActorRef discriminated union (see
+// flowcook-wizard spec §APPROVERS). Five types: expr / principal /
+// conditional / collection / natural_language. Fallback is no longer
+// a recursive ActorRef — it's `{ text: string }`. conditional.then/else
+// and collection.actors[*] are still recursive. Prefer structured
+// types; natural_language is the last resort.
 const ACTOR_REF_DEFS = {
+  fallback: {
+    type: 'object',
+    required: ['text'],
+    properties: {
+      text: { type: 'string', description: 'Natural-language description of what to do when the primary rule resolves to no one. chef reads this at build time and generates the catch-all branch.' },
+    },
+  },
   actorRef: {
     oneOf: [
       {
@@ -184,35 +190,17 @@ const ACTOR_REF_DEFS = {
         required: ['type', 'path'],
         properties: {
           type: { const: 'expr' },
-          path: { type: 'string', enum: [...ACTOR_PATH_WHITELIST], description: 'Whitelisted org-chart path. Use lowercase exactly as listed.' },
-          fallback: { $ref: '#/$defs/actorRef' },
+          path: { type: 'string', enum: [...ACTOR_PATH_WHITELIST], description: 'Whitelisted org-chart path. Walks from `submitter` token by token (.manager / .department / .head / .parent). Use one of the whitelisted values verbatim.' },
+          fallback: { $ref: '#/$defs/fallback' },
         },
       },
       {
         type: 'object',
-        required: ['type', 'code'],
+        required: ['type', 'ref'],
         properties: {
-          type: { const: 'role' },
-          code: { type: 'string', description: 'Role code, e.g. Finance / CEO / VP / HR / admin / designer / viewer' },
-          fallback: { $ref: '#/$defs/actorRef' },
-        },
-      },
-      {
-        type: 'object',
-        required: ['type', 'id'],
-        properties: {
-          type: { const: 'group' },
-          id: { type: 'string', description: 'Group id (Guid)' },
-          fallback: { $ref: '#/$defs/actorRef' },
-        },
-      },
-      {
-        type: 'object',
-        required: ['type', 'id'],
-        properties: {
-          type: { const: 'user' },
-          id: { type: 'string', description: 'Specific user id (Guid). TEST-ONLY — production specs should use expr/role.' },
-          fallback: { $ref: '#/$defs/actorRef' },
+          type: { const: 'principal' },
+          ref: { type: 'string', description: 'Prefixed principal ref `kind:id`, where kind ∈ user|dept|group|role and id is the directory uuid (or role code). Must match a real principal in draftSummary.principalsAvailable when surfaced — picker is the source of truth.' },
+          fallback: { $ref: '#/$defs/fallback' },
         },
       },
       {
@@ -224,14 +212,14 @@ const ACTOR_REF_DEFS = {
             type: 'object',
             required: ['field', 'op', 'value'],
             properties: {
-              field: { type: 'string', description: 'A form field id from userTasks' },
+              field: { type: 'string', description: 'A form field id from userTasks (verbatim, snake_case)' },
               op: { type: 'string', enum: ['==', '!=', '>', '>=', '<', '<=', 'in', 'not_in'] },
               value: { description: 'Literal or array (for in / not_in)' },
             },
           },
           then: { $ref: '#/$defs/actorRef' },
           else: { $ref: '#/$defs/actorRef' },
-          fallback: { $ref: '#/$defs/actorRef' },
+          fallback: { $ref: '#/$defs/fallback' },
         },
       },
       {
@@ -242,7 +230,16 @@ const ACTOR_REF_DEFS = {
           mode: { type: 'string', enum: ['any', 'all'] },
           min_approvals: { type: 'integer', minimum: 1, description: 'Required when mode=any. Must be ≤ actors.length.' },
           actors: { type: 'array', minItems: 1, items: { $ref: '#/$defs/actorRef' } },
-          fallback: { $ref: '#/$defs/actorRef' },
+          fallback: { $ref: '#/$defs/fallback' },
+        },
+      },
+      {
+        type: 'object',
+        required: ['type', 'text'],
+        properties: {
+          type: { const: 'natural_language' },
+          text: { type: 'string', description: 'LAST RESORT only — use this only when none of expr / principal / conditional / collection can express the rule. chef will use LLM judgment to generate the resolver code.' },
+          fallback: { $ref: '#/$defs/fallback' },
         },
       },
     ],
@@ -253,7 +250,7 @@ const approversTool: StepToolBinding = {
   tool: {
     name: 'emit_approver_config',
     description:
-      'Replace the entire approvals[] array. Include one entry per approval node. Each entry has {id, approver: ActorRef}. ActorRef is a discriminated union by type: expr (org-chart path walk), role (code), group (id), user (id, test-only), conditional (if/then/else against form field), collection (any|all of N actors with optional min_approvals). Any ActorRef may carry one fallback. Use the typed-discriminator form — never strings or sigil syntax.',
+      'Replace the entire approvals[] array. Include one entry per approval node `{id, approver: ActorRef}`. ActorRef discriminated by `type`: expr (org-chart path) / principal (`kind:id` ref to user|dept|group|role) / conditional (if/then/else against form field) / collection (any|all of N actors). **natural_language is the last resort** — prefer the four structured types whenever possible. Fallback is now `{ text: string }` (not recursive ActorRef); chef reads it at build time.',
     input_schema: {
       type: 'object',
       required: ['approvals'],

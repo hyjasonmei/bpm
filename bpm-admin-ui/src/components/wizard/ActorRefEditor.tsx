@@ -14,13 +14,15 @@
  */
 import { Field, Input, Select } from '@/components/ui/form'
 import { NoteEditorModal } from '@/components/note-editor/NoteEditorModal'
-import { Pencil, StickyNote } from 'lucide-react'
+import { PrincipalSinglePickerField } from '@/components/principal-picker/PrincipalPicker'
+import { ActorPathBuilderModal } from '@/components/actor-path-builder/ActorPathBuilderModal'
+import { Code2, Pencil, StickyNote } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/cn'
 import {
-  ACTOR_PATH_WHITELIST,
   ACTOR_STRUCTURED_TYPES,
   ACTOR_TYPE_LABELS,
+  type ActorPath,
   type ActorRef,
   type ActorRefCondition,
   type ActorRefFallback,
@@ -87,22 +89,21 @@ function BodyEditor({
 }: { value: ActorRef; onChange: (n: ActorRef) => void; conditionalDepth: number }) {
   switch (value.type) {
     case 'expr':
-      return (
-        <Field label="路徑 / Path" hint="從 submitter 走 org chart；接 .manager / .department / .head / .parent">
-          <Select value={value.path} onChange={e => onChange({ ...value, path: e.target.value as typeof ACTOR_PATH_WHITELIST[number] })}>
-            {ACTOR_PATH_WHITELIST.map(p => <option key={p} value={p}>{p}</option>)}
-          </Select>
-        </Field>
-      )
+      return <ExprPathBody value={value} onChange={onChange} />
+
+    /* delegated to ExprPathBody to keep BodyEditor lean */
 
     case 'principal':
       return (
-        <Field label="Principal ref" hint="格式 kind:id，kind ∈ user/dept/group/role。下版會接 PrincipalPicker modal。">
-          <Input
-            value={value.ref}
-            onChange={e => onChange({ ...value, ref: e.target.value })}
-            placeholder="role:HR / user:<uuid> / dept:<uuid> / group:<uuid>"
-          />
+        <Field label="Principal" hint="挑一個 user / dept / group / role">
+          <div className="rounded border border-rule bg-card px-3 py-2">
+            <PrincipalSinglePickerField
+              value={value.ref}
+              onChange={ref => onChange({ ...value, ref })}
+              modalTitle="挑一個 approver"
+              placeholder="點右側「選擇」開啟 picker"
+            />
+          </div>
         </Field>
       )
 
@@ -121,6 +122,31 @@ function BodyEditor({
         <NaturalLanguageBody value={value} onChange={onChange} />
       )
   }
+}
+
+function ExprPathBody({
+  value, onChange,
+}: { value: Extract<ActorRef, { type: 'expr' }>; onChange: (n: ActorRef) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Field label="路徑 / Path" hint="從提案人開始走 org chart：.manager / .department / .head / .parent">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="group flex w-full items-center gap-2 rounded border border-rule bg-white px-2 py-1 text-left hover:border-primary"
+      >
+        <Code2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+        <code className="flex-1 truncate font-mono text-[11px] text-ink">{value.path}</code>
+        <span className="text-[10px] text-ink-faint group-hover:text-primary">編輯 →</span>
+      </button>
+      <ActorPathBuilderModal
+        open={open}
+        initial={value.path}
+        onCancel={() => setOpen(false)}
+        onCommit={(path) => { onChange({ ...value, path: path as ActorPath }); setOpen(false) }}
+      />
+    </Field>
+  )
 }
 
 function NaturalLanguageBody({
