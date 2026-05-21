@@ -526,6 +526,67 @@ const sourceTool: StepToolBinding = {
   },
 }
 
+// translation — patch draft.labels[locale][key]. Typical use: "AI fill
+// empties" button posts a chat turn that lists every empty (key,
+// zh-TW) pair; AI returns the en translations. Tool semantics: PATCH
+// (partial update) — only emitted keys are written; omitted keys keep
+// their current values. Diverges from the「emit COMPLETE」family
+// because translation is naturally additive and the table can be
+// huge.
+const translationTool: StepToolBinding = {
+  tool: {
+    name: 'emit_translations',
+    description: 'PATCH (partial merge) into draft.labels. Each entry overwrites labels[entry.locale][entry.key]; existing keys not in this payload are LEFT ALONE. Use this to fill empties or correct a handful of strings, not to replace the whole table. Locale strings: "zh-TW" (primary, usually pre-filled), "en", future "ja" / "ko" etc.',
+    input_schema: {
+      type: 'object',
+      required: ['entries'],
+      properties: {
+        entries: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['locale', 'key', 'text'],
+            properties: {
+              locale: { type: 'string', description: 'e.g. "en", "zh-TW"' },
+              key: { type: 'string', description: 'Label key from draftSummary.labelKeys, e.g. "node.task_apply.label" or "field.task_apply.leave_type.label"' },
+              text: { type: 'string', description: 'Translation in the target locale' },
+            },
+          },
+        },
+      },
+    },
+  },
+  apply: (draft, raw) => {
+    const input = raw as { entries: Array<{ locale: string; key: string; text: string }> }
+    const labels: Record<string, Record<string, string>> = {
+      ...(draft.labels ?? { 'zh-TW': {} }),
+    }
+    for (const e of input.entries) {
+      labels[e.locale] = { ...(labels[e.locale] ?? {}), [e.key]: e.text }
+    }
+    return { ...draft, labels }
+  },
+}
+
+// notes — overwrite draft.notes. Simple replace-the-string, no merge.
+const notesTool: StepToolBinding = {
+  tool: {
+    name: 'emit_notes_text',
+    description: 'Replace draft.notes (single free-text string for chef / reviewer). Pass the new full body — this is OVERWRITE, not append. If the user says "add a paragraph about X", read draftSummary.notes (when present) and concatenate before emitting.',
+    input_schema: {
+      type: 'object',
+      required: ['text'],
+      properties: {
+        text: { type: 'string', description: 'The full new notes body (overwrites). Plain text. Use \\n for line breaks.' },
+      },
+    },
+  },
+  apply: (draft, raw) => {
+    const input = raw as { text: string }
+    return { ...draft, notes: input.text }
+  },
+}
+
 // ACCESS intentionally has no tool. The picker (modal with 4 tabs +
 // search + select buffer) is already the friendliest path to assign
 // principals — adding an AI editor on top brings staleness / scale
@@ -537,11 +598,14 @@ export const STEP_TOOLS: Partial<Record<OnboardingStepId, StepToolBinding>> = {
   forms:     formsTool,
   decisions: decisionsTool,
   approvers: approversTool,
-  notify:    notifyTool,
-  sla:       slaTool,
+  notify:      notifyTool,
+  sla:         slaTool,
+  translation: translationTool,
+  notes:       notesTool,
   // testTool is retained on disk but no longer wired — the dedicated
   // TEST step was dropped in the 11-step refactor (Submit is now in the
-  // wizard header). trigger_access / variables / integrations /
-  // translation / notes tools land in Phase E2 if needed.
+  // wizard header). trigger_access / variables / integrations tools
+  // remain advisory (ACCESS by design; INTEGRATIONS / VARIABLES land
+  // in Phase E2 if needed).
 }
 void testTool;

@@ -105,8 +105,8 @@ const STEP_OPENERS: Record<string, string> = {
   notify:         '預設我先給您雙語的 email 模板，您可以在右邊微調文字、變數、收件人。',
   integrations:   '純內部流程（請假 / 加班 / 簽核這類）通常這關直接 Next 即可。要對接外部系統再告訴我目標系統 / OpenAPI URL / 想觸發的節點，我會幫您列出 endpoint 跟欄位映射。',
   sla:            '常見配置：審核 24 工時、超時 escalation 通知。要套用這個，還是您有不同需求？',
-  translation:    '右邊列出所有 spec 內的 label。需要中英文對照可以一起聊，我會把翻譯填回右邊表格。',
-  notes:          '有要交代給 chef（產 code 的 AI）或驗收者的補充嗎？右邊 textarea 直接寫；chef 之後如有疑問也會 append 在這。',
+  translation:    '右邊列出所有 spec 內的 label。直接跟我說「翻譯所有 en 欄位」或「把節點名稱英文化」，我會把翻譯填回右邊表格。',
+  notes:          '有要交代給 chef（產 code 的 AI）或驗收者的補充嗎？右邊 textarea 自己寫或跟我說「加一段：金額大於 50K 一定要 board approval」這種，我會幫你補進去。',
 }
 
 function summarizeDraft(d: DraftSpec) {
@@ -151,6 +151,8 @@ function summarizeDraft(d: DraftSpec) {
           note: (cfg as { note?: { 'zh-TW'?: string } }).note?.['zh-TW'],
         }]))
       : {},
+    labels: d.labels ?? {},
+    notes: d.notes ?? '',
     testCaseCount: d.testCases.length,
   }
 }

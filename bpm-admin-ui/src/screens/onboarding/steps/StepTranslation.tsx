@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Languages, Sparkles } from 'lucide-react'
+import { cn } from '@/lib/cn'
 import type { DraftSpec } from '@/lib/onboarding'
 
 interface Props {
@@ -26,9 +27,7 @@ export function StepTranslation({ draft, setDraft }: Props) {
     setDraft({ ...draft, labels: next })
   }
 
-  function aiFillStub() {
-    window.alert('AI fill empties 將在後續整合 Anthropic 翻譯 — 目前請手動填入。')
-  }
+  const emptyEnCount = keys.filter(k => !labels.en?.[k.key]).length
 
   if (keys.length === 0) {
     return (
@@ -50,13 +49,16 @@ export function StepTranslation({ draft, setDraft }: Props) {
             收集 spec 內所有使用者可見的 label，補各語系翻譯。建立此 bundle 的人預設為 zh-TW。
           </p>
         </div>
-        <button
-          onClick={aiFillStub}
-          className="inline-flex items-center gap-1.5 rounded border border-dashed border-accent/40 bg-card px-2.5 py-1 text-xs font-medium text-accent hover:bg-accent/10"
+        <div
+          className={cn(
+            'inline-flex max-w-[280px] items-start gap-1.5 rounded border border-dashed border-primary/30 bg-primary/5 px-2.5 py-1 text-[11px] leading-relaxed text-ink',
+          )}
         >
-          <Sparkles className="h-3.5 w-3.5" />
-          AI fill empties（即將上線）
-        </button>
+          <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+          <span>
+            想自動翻譯？左側 chat 直接說「請把所有 en 欄位翻譯一下」即可（{emptyEnCount} 個空缺）
+          </span>
+        </div>
       </div>
 
       <div className="overflow-auto rounded-md border border-rule bg-card">
