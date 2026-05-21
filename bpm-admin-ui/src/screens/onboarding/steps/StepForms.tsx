@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { AlertCircle, CheckCircle2, Code2, Eye, ListChecks, Pencil, Plus, StickyNote, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { AlertCircle, CheckCircle2, Code2, Eye, ListChecks, Pencil, Plus, Send, StickyNote, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Field, Input, Select, Checkbox } from '@/components/ui/form'
 import { OptionsEditorModal } from '@/components/options-editor/OptionsEditorModal'
@@ -37,23 +37,41 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
 
   // Ensure activeTaskId is still valid (e.g. SOURCE deleted the node).
   const safeActiveId = userTaskNodes.find(n => n.id === activeTaskId)?.id ?? userTaskNodes[0].id
+  const firstTaskId = userTaskNodes[0].id
 
-  const getOrCreate = (nodeId: string): UserTask => {
-    const existing = draft.userTasks.find(t => t.id === nodeId)
-    if (existing) return existing
-    const node = draft.flow.nodes.find(n => n.id === nodeId)!
+  const buildDefault = (nodeId: string): UserTask => {
+    const idx = userTaskNodes.findIndex(n => n.id === nodeId)
+    const suffix = idx === 0 ? 'APPLY' : `TASK${idx + 1}`
     return {
       id: nodeId,
-      formCode: `${draft.meta.flowCode || 'FLOW'}_${node.label.toUpperCase().replace(/\s+/g, '_').slice(0, 12)}`,
+      formCode: `${draft.meta.flowCode || 'FLOW'}_${suffix}`,
       fields: [],
       permissions: { submitter: 'self', viewers: ['self'] },
     }
   }
 
+  const getOrCreate = (nodeId: string): UserTask =>
+    draft.userTasks.find(t => t.id === nodeId) ?? buildDefault(nodeId)
+
   const upsertTask = (task: UserTask) => {
     const others = draft.userTasks.filter(t => t.id !== task.id)
     setDraft({ ...draft, userTasks: [...others, task] })
   }
+
+  // Auto-persist a UserTask entry for every node that doesn't have one
+  // yet. Without this the formCode preview is only ever in-memory: a
+  // user who clicks a pill but doesn't touch any field leaves
+  // draft.userTasks empty, which the ACCESS step's auto-trigger then
+  // can't see. Run once per missing node when the step mounts.
+  useEffect(() => {
+    const missing = userTaskNodes.filter(n => !draft.userTasks.find(t => t.id === n.id))
+    if (missing.length === 0) return
+    setDraft({
+      ...draft,
+      userTasks: [...draft.userTasks, ...missing.map(n => buildDefault(n.id))],
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const activeNode = userTaskNodes.find(n => n.id === safeActiveId)!
   const activeTask = draft.userTasks.find(t => t.id === safeActiveId) ?? getOrCreate(safeActiveId)
@@ -65,16 +83,18 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
         每個 user task 需要至少一個欄位、一個必填欄位才能往下一步。
       </p>
 
-      {/* Pill row — one per user task */}
+      {/* Pill row — one per user task; first pill marked as 送單 trigger */}
       <div className="flex flex-wrap gap-1.5">
         {userTaskNodes.map(node => {
           const task = draft.userTasks.find(t => t.id === node.id) ?? getOrCreate(node.id)
           const isActive = node.id === safeActiveId
+          const isTrigger = node.id === firstTaskId
           const taskValid = task.fields.length > 0 && task.fields.some(f => f.required)
           return (
             <button
               key={node.id}
               onClick={() => setActiveTaskId(node.id)}
+              title={isTrigger ? '此 task 的 formCode 會做為流程啟動 trigger' : undefined}
               className={cn(
                 'group flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
                 isActive
@@ -86,6 +106,11 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
                 ? <CheckCircle2 className={cn('h-3.5 w-3.5', isActive ? 'text-good' : 'text-good/70')} />
                 : <AlertCircle className={cn('h-3.5 w-3.5', isActive ? 'text-warn' : 'text-warn/70')} />}
               <span>{node.label}</span>
+              {isTrigger && (
+                <span className="inline-flex items-center gap-0.5 rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[9px] tracking-[0.12em] uppercase text-accent">
+                  <Send className="h-2.5 w-2.5" /> 送單
+                </span>
+              )}
               <span className={cn(
                 'rounded-full px-1.5 text-[10px] font-mono',
                 isActive ? 'bg-white text-ink-muted' : 'bg-slate-100 text-ink-faint',
@@ -126,9 +151,16 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
           </div>
         </div>
 
-        <Field label="Form Code" hint="Claude Code 用此命名 React component / DB table">
+        <Field
+          label="Form Code"
+          required
+          hint={safeActiveId === firstTaskId
+            ? '此 task 的 formCode 會做為「送單」trigger 的 id — chef 也用此命名 React component / DB table'
+            : 'chef 用此命名 React component / DB table'}
+        >
           <Input
             value={activeTask.formCode}
+            placeholder="e.g. LEAVE_APPLY"
             onChange={e => upsertTask({ ...activeTask, formCode: e.target.value.toUpperCase() })}
           />
         </Field>

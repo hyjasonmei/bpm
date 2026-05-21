@@ -7,7 +7,7 @@ interface Props {
 }
 
 /**
- * Step 3 — VARIABLES.
+ * VARIABLES step.
  *
  * Flow-scoped variables referenced as `${var_name}` in later steps'
  * expression fields. Sensitive values get a UI mask (eye-off icon) so

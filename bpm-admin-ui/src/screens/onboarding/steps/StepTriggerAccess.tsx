@@ -9,7 +9,7 @@ interface Props {
 }
 
 /**
- * Step 2 — ACCESS.
+ * ACCESS step.
  *
  * The form trigger is auto-derived from the first user task in the
  * flow (心智模型：「第一個 task = 送單」). The wizard surfaces it

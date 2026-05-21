@@ -28,8 +28,11 @@ export interface OnboardingStep {
  *  are polish. */
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   { id: 'source',         en: 'SOURCE',          zh: '來源',     brief: '上傳 / 描述流程 + BPMN 骨架編輯' },
+  // FORMS sits before ACCESS because the access validator derives the
+  // trigger from the first user task's formCode — if FORMS hadn't been
+  // filled yet, ACCESS could never pass.
+  { id: 'forms',          en: 'FORMS',           zh: '表單',     brief: '每個 user task 的欄位（含送單表單 formCode）' },
   { id: 'trigger_access', en: 'ACCESS',          zh: '存取',     brief: '指定誰可啟動 / 旁觀此流程' },
-  { id: 'forms',          en: 'FORMS',           zh: '表單',     brief: '每個 user task 的欄位' },
   { id: 'decisions',      en: 'DECISIONS',       zh: '決策',     brief: '每個 gateway 的條件' },
   { id: 'approvers',      en: 'APPROVERS',       zh: '審核者',   brief: '每個 approval 的審核者規則' },
   { id: 'notify',         en: 'NOTIFY',          zh: '通知',     brief: '通知模板與收件人' },
@@ -208,7 +211,7 @@ export interface Notification {
  *    legacy "50%" relative form is migrated to its computed absolute
  *  - `note` is the chef-instruction escape hatch when the structured
  *    duration / escalation can't express the rule (same role as
- *    FormField.note in step 3 FORMS)
+ *    FormField.note in FORMS)
  */
 export interface NodeSLA {
   duration: string
@@ -253,7 +256,7 @@ export function testCaseToSnapshot(tc: TestCase): TestCaseSnapshot {
   }
 }
 
-/** Step 2 — ACCESS — the trigger is auto-derived from the first
+/** ACCESS — the trigger is auto-derived from the first
  *  user task in the flow (v0 心智模型「第一個 task = 送單」). The
  *  `triggers[]` array still shapes the spec for future cron / webhook
  *  / mail triggers, but the wizard UI no longer asks for it. */
@@ -321,8 +324,8 @@ export function formatPrincipalRef(r: PrincipalRef): string {
   return `${r.kind}:${r.id}`
 }
 
-/** Step 3 — VARIABLES — flow-scoped values referenced as `${var}` in
- *  later steps' expression fields. */
+/** VARIABLES — flow-scoped values referenced as `${var}` in later
+ *  steps' expression fields. */
 export interface FlowVariable {
   name: string
   defaultValue: string
@@ -370,11 +373,11 @@ export interface DraftSpec {
     language: 'zh-TW' | 'en'
   }
   flow: { nodes: FlowNode[]; edges: FlowEdge[] }
-  /** Step 2 — flow-level trigger config (single form trigger in v0). */
+  /** ACCESS — flow-level trigger config (single form trigger in v0). */
   triggers: FlowTrigger[]
-  /** Step 2 — flow-level access principals. */
+  /** ACCESS — flow-level access principals. */
   access: FlowAccess
-  /** Step 3 — flow-scoped variables. */
+  /** VARIABLES — flow-scoped values. */
   variables: FlowVariable[]
   userTasks: UserTask[]
   decisions: Decision[]

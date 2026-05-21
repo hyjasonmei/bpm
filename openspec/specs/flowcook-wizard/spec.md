@@ -36,31 +36,33 @@ After step 11 the wizard SHALL present a Submit button (not a separate step) tha
 The wizard SHALL refuse to advance to step N+1 until step N's validator passes. Each step's validator SHALL be deterministic and idempotent. INTEGRATIONS, VARIABLES, SLA, TRANSLATION, NOTES validators SHALL accept the empty state — these steps are routinely skipped on pure internal flows.
 
 #### Scenario: Cannot skip a placeholder step
-- **WHEN** the user fills steps 1-2 but leaves step 3 (FORMS) empty
-- **THEN** "Next" on step 3 is disabled until at least one userTask field is defined
+- **WHEN** the user fills step 1 but leaves step 2 (FORMS) empty
+- **THEN** "Next" on step 2 is disabled until at least one userTask field is defined
 
 #### Scenario: Optional steps can be empty
 - **WHEN** the user reaches step 7 INTEGRATIONS with no external systems
 - **THEN** "Next" remains enabled with an empty `integrations.items[]`
 - **AND** the empty-state copy reads "這關通常可空 — 純內部流程不對接外部系統，直接 Next"
 
-### Requirement: Step 2 (ACCESS) auto-derives the trigger; UI only asks about ACCESS
+### Requirement: Step 3 (ACCESS) auto-derives the trigger; UI only asks about ACCESS
 
 The trigger SHALL be auto-derived from the first user task in the flow (the model "user submits the first form = flow starts"). The wizard SHALL display the derived trigger as a read-only summary card so the admin can confirm it, but SHALL NOT offer an edit control on this step — to change the trigger form the admin reorders nodes in SOURCE (or renames the formCode in FORMS).
 
 The underlying schema SHALL still write `triggers[]` as an array of one form trigger, leaving room for future cron / webhook / mail entries when a power-user UI surfaces them.
 
+ACCESS depends on FORMS because the derived trigger needs the first user task's `formCode`. The wizard SHALL therefore order steps SOURCE → FORMS → ACCESS so the admin sets `formCode` before reaching this step.
+
 #### Scenario: Trigger summary card on ACCESS
-- **WHEN** the admin reaches step 2 and the flow has a first user task labelled "員工申請" with formCode `LEAVE_APPLY`
+- **WHEN** the admin reaches step 3 and the flow has a first user task labelled "員工申請" with formCode `LEAVE_APPLY`
 - **THEN** the page shows a read-only card「📋 員工申請  LEAVE_APPLY」+「使用者送這張表單 = 啟動這個流程」
 - **AND** `draft.triggers[0]` is `{ id: 'leave-apply', type: 'form', formCode: 'LEAVE_APPLY' }`
 
 #### Scenario: Flow with no user task surfaces a warning
-- **WHEN** the admin reaches step 2 but the flow has no `userTask` node
+- **WHEN** the admin reaches step 3 but the flow has no `userTask` node
 - **THEN** the page shows a warning card「⚠ 流程還沒有送單表單」pointing back to SOURCE
 - **AND** the step validator blocks Next
 
-### Requirement: Step 2 (ACCESS) collapses launchableBy / visibleTo into one picker
+### Requirement: Step 3 (ACCESS) collapses launchableBy / visibleTo into one picker
 
 The step SHALL capture access principals via the shared Principal picker (`flowcook-principal-model`). To keep the customer's mental model simple the UI SHALL show two pickers only:
 
@@ -77,10 +79,10 @@ Each picker uses the shared `PrincipalPicker` modal (USER / DEPT / GROUP / ROLE 
 - **AND** the wizard never asks about visibleTo separately
 
 #### Scenario: Validator requires at least one launchableBy entry
-- **WHEN** the admin reaches step 2 with launchableBy empty
+- **WHEN** the admin reaches step 3 with launchableBy empty
 - **THEN** Next is disabled with hint「需指定誰可啟動本流程」
 
-### Requirement: Step 3 (FORMS) lays out user tasks with a pill row
+### Requirement: Step 2 (FORMS) lays out user tasks with a pill row
 
 FORMS SHALL render a pill row above the editor — one pill per user task node — with status icon (✓ when at least 1 required field, ⚠ otherwise) + label + field count. Clicking a pill activates that task's editor below. Only the active task's editor is mounted at any time.
 
@@ -280,7 +282,7 @@ The left CHAT panel SHALL surface, per step, the Anthropic tool the AI may invok
 The chat footer SHALL display the tool name when one is wired ("工具：emit_decision_rules"), so the admin can tell which steps the AI can edit directly vs. which are advisory.
 
 #### Scenario: ACCESS chat is advisory only
-- **WHEN** the admin is on step 2 and asks the AI to add Engineering dept
+- **WHEN** the admin is on step 3 and asks the AI to add Engineering dept
 - **THEN** the AI replies with text guidance only
 - **AND** the admin uses the right-side PrincipalPicker to actually add the dept
 
