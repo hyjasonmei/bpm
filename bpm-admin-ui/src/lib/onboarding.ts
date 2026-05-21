@@ -137,11 +137,57 @@ export interface FormBanner {
   condition?: string
 }
 
-export type LayoutChild = FieldRef | FormSection | FormRow | FormBanner
+export type BannerSeverityOrTotalFormat = 'currency' | 'number' | 'percent'
 
-/** Walk a layout tree and collect every fieldRef id in render order.
- *  Used by chef to verify it has every field defined, and by the
- *  wizard to spot orphan fields not yet placed in the layout. */
+/**
+ * One aggregation row at the bottom of a repeater (e.g. subtotal, VAT,
+ * grand total). `formula` is a CEL expression evaluated in a context
+ * where `items` is the bound list and `${var}` resolves to a flow
+ * variable. chef reads these and emits the corresponding computed
+ * row in the generated component.
+ */
+export interface FormTotal {
+  id: string
+  label: { 'zh-TW': string; en?: string }
+  formula: string
+  format?: BannerSeverityOrTotalFormat
+}
+
+/**
+ * A bounded list of items, each carrying its own field set + layout
+ * (Tier 2). Used for invoice line items, hardware purchase rows,
+ * approver collections, etc. Nested repeaters are not supported in
+ * MVP — the inner layout permits sections / rows / banners only.
+ */
+export interface FormRepeater {
+  kind: 'repeater'
+  id: string
+  title: { 'zh-TW': string; en?: string }
+  condition?: string
+  minCount?: number
+  maxCount?: number
+  /** Per-item field set. Each item the user adds at runtime fills out
+   *  these fields. Independent from `UserTask.fields[]`. */
+  itemFields: FormField[]
+  /** Layout tree for one item; mirrors `FormSection.children` but is
+   *  allowed to contain bare FieldRefs, FormRows, and FormBanners
+   *  (no nested sections or repeaters). */
+  itemLayout: LayoutChild[]
+  /** Optional summary aggregations rendered below the item list. */
+  totals?: FormTotal[]
+}
+
+export type LayoutChild =
+  | FieldRef
+  | FormSection
+  | FormRow
+  | FormBanner
+  | FormRepeater
+
+/** Walk a layout tree and collect every fieldRef id that points at the
+ *  outer (single-instance) field set. Field refs nested inside a
+ *  repeater's itemLayout are NOT included — they reference the
+ *  repeater's own `itemFields[]`, which is a different namespace. */
 export function collectLayoutFieldIds(layout: LayoutChild[] | undefined): string[] {
   if (!layout) return []
   const out: string[] = []
@@ -150,6 +196,8 @@ export function collectLayoutFieldIds(layout: LayoutChild[] | undefined): string
       if (n.kind === 'fieldRef') out.push(n.id)
       else if (n.kind === 'section') walk(n.children)
       else if (n.kind === 'row') for (const c of n.children) out.push(c.id)
+      // repeater intentionally not descended — its itemLayout closes
+      // over its own itemFields[] namespace.
     }
   }
   walk(layout)

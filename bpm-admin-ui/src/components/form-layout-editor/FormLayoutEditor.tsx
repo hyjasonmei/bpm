@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { AlertTriangle, ChevronDown, GripVertical, Info, Plus, ShieldAlert, Trash2 } from 'lucide-react'
+import { AlertTriangle, ChevronDown, GripVertical, Info, LayoutList, Plus, Repeat, ShieldAlert, Sigma, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import {
   buildDefaultLayout,
@@ -7,10 +7,13 @@ import {
   type BannerSeverity,
   type FieldColSpan,
   type FieldRef,
+  type FieldType,
   type FormBanner,
   type FormField,
+  type FormRepeater,
   type FormRow,
   type FormSection,
+  type FormTotal,
   type LayoutChild,
   type UserTask,
 } from '@/lib/onboarding'
@@ -176,6 +179,20 @@ function SectionCard({
       },
     ])
   }
+  function addRepeater() {
+    onChildrenChange([
+      ...children,
+      {
+        kind: 'repeater',
+        id: `rep_${Date.now().toString(36).slice(-4)}`,
+        title: { 'zh-TW': '新多筆群組' },
+        minCount: 1,
+        itemFields: [],
+        itemLayout: [],
+        totals: [],
+      },
+    ])
+  }
   function updateChild(idx: number, patch: Partial<LayoutChild>) {
     const next = children.map((c, i) => i === idx ? ({ ...c, ...patch } as LayoutChild) : c)
     onChildrenChange(next)
@@ -251,6 +268,16 @@ function SectionCard({
               />
             )
           }
+          if (child.kind === 'repeater') {
+            return (
+              <RepeaterCard
+                key={child.id}
+                repeater={child}
+                onPatch={p => updateChild(idx, p as Partial<FormRepeater>)}
+                onRemove={() => removeChild(idx)}
+              />
+            )
+          }
           // Defensive: nested section inside a section. Schema permits
           // it but the UI doesn't expose nesting controls; render a
           // disabled card so existing data isn't lost.
@@ -284,6 +311,13 @@ function SectionCard({
           className="inline-flex items-center gap-1 rounded border border-rule bg-white px-2 py-0.5 text-[11px] text-ink-muted transition-colors hover:border-primary hover:text-primary"
         >
           <Plus className="h-3 w-3" /> 提示文字
+        </button>
+        <button
+          type="button"
+          onClick={addRepeater}
+          className="inline-flex items-center gap-1 rounded border border-rule bg-white px-2 py-0.5 text-[11px] text-ink-muted transition-colors hover:border-primary hover:text-primary"
+        >
+          <Repeat className="h-3 w-3" /> 多筆 repeater
         </button>
       </div>
     </div>
@@ -500,6 +534,389 @@ function UnplacedFieldPicker({ options, onPick, compact }: {
       <ChevronDown className="pointer-events-none absolute right-1 top-1/2 h-3 w-3 -translate-y-1/2 text-ink-faint" />
     </div>
   )
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Repeater (Tier 2)
+// ─────────────────────────────────────────────────────────────────────
+
+const FIELD_TYPE_OPTIONS: FieldType[] = [
+  'text', 'textarea', 'number', 'date', 'daterange',
+  'select', 'multiselect', 'file', 'user_picker', 'derived',
+]
+const TOTAL_FORMATS: NonNullable<FormTotal['format']>[] = ['currency', 'number', 'percent']
+
+function RepeaterCard({ repeater, onPatch, onRemove }: {
+  repeater: FormRepeater
+  onPatch: (p: Partial<FormRepeater>) => void
+  onRemove: () => void
+}) {
+  const { itemFields, itemLayout, totals = [] } = repeater
+  const placedItemIds = new Set(collectItemFieldIds(itemLayout))
+  const unplacedItem = itemFields.filter(f => !placedItemIds.has(f.id))
+
+  function addItemField() {
+    const id = `f_${Date.now().toString(36).slice(-4)}`
+    const newField: FormField = { id, label: { 'zh-TW': '新欄位' }, type: 'text', required: false }
+    const nextFields = [...itemFields, newField]
+    // Auto-place it at the tail of the item layout so the row shows up
+    // alongside the fields list.
+    const nextLayout: LayoutChild[] = [...itemLayout, { kind: 'fieldRef', id }]
+    onPatch({ itemFields: nextFields, itemLayout: nextLayout })
+  }
+  function updateItemField(idx: number, patch: Partial<FormField>) {
+    onPatch({ itemFields: itemFields.map((f, i) => i === idx ? { ...f, ...patch } : f) })
+  }
+  function removeItemField(idx: number) {
+    const removedId = itemFields[idx].id
+    onPatch({
+      itemFields: itemFields.filter((_, i) => i !== idx),
+      // Strip any fieldRefs to the removed id from the layout tree.
+      itemLayout: stripFieldRefs(itemLayout, removedId),
+    })
+  }
+
+  function addItemRow() {
+    onPatch({
+      itemLayout: [
+        ...itemLayout,
+        { kind: 'row', id: `row_${Date.now().toString(36).slice(-4)}`, children: [] },
+      ],
+    })
+  }
+  function addItemBanner() {
+    onPatch({
+      itemLayout: [
+        ...itemLayout,
+        {
+          kind: 'banner',
+          id: `banner_${Date.now().toString(36).slice(-4)}`,
+          severity: 'info',
+          text: { 'zh-TW': '提示文字' },
+        },
+      ],
+    })
+  }
+  function placeItemField(fieldId: string) {
+    onPatch({ itemLayout: [...itemLayout, { kind: 'fieldRef', id: fieldId }] })
+  }
+  function updateItemChild(idx: number, patch: Partial<LayoutChild>) {
+    onPatch({
+      itemLayout: itemLayout.map((c, i) =>
+        i === idx ? ({ ...c, ...patch } as LayoutChild) : c
+      ),
+    })
+  }
+  function removeItemChild(idx: number) {
+    onPatch({ itemLayout: itemLayout.filter((_, i) => i !== idx) })
+  }
+
+  function addTotal() {
+    onPatch({
+      totals: [
+        ...totals,
+        {
+          id: `total_${Date.now().toString(36).slice(-4)}`,
+          label: { 'zh-TW': '合計' },
+          formula: 'sum(items.amount)',
+          format: 'currency',
+        },
+      ],
+    })
+  }
+  function updateTotal(idx: number, patch: Partial<FormTotal>) {
+    onPatch({ totals: totals.map((t, i) => i === idx ? { ...t, ...patch } : t) })
+  }
+  function removeTotal(idx: number) {
+    onPatch({ totals: totals.filter((_, i) => i !== idx) })
+  }
+
+  return (
+    <div className="rounded-md border border-accent/30 bg-accent/5">
+      {/* Header */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-accent/30 bg-accent/10 px-3 py-2">
+        <Repeat className="h-3.5 w-3.5 shrink-0 text-accent" />
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent">repeater</span>
+        <input
+          value={repeater.title['zh-TW']}
+          onChange={e => onPatch({ title: { ...repeater.title, 'zh-TW': e.target.value } })}
+          placeholder="多筆群組標題"
+          className="flex-1 min-w-[140px] rounded border border-transparent bg-transparent px-1.5 py-0.5 text-sm font-semibold text-ink outline-none hover:bg-white focus:border-primary focus:bg-white"
+        />
+        <CountInput
+          label="min"
+          value={repeater.minCount}
+          onChange={n => onPatch({ minCount: n })}
+        />
+        <CountInput
+          label="max"
+          value={repeater.maxCount}
+          onChange={n => onPatch({ maxCount: n })}
+        />
+        <ConditionInput value={repeater.condition} onChange={c => onPatch({ condition: c || undefined })} />
+        <button onClick={onRemove} title="移除 repeater" className="text-ink-faint hover:text-danger">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Item fields */}
+      <div className="border-b border-accent/30 p-3">
+        <div className="mb-1.5 flex items-center gap-1.5">
+          <LayoutList className="h-3 w-3 text-ink-muted" />
+          <span className="text-[11px] font-semibold text-ink">每筆欄位</span>
+          <button
+            type="button"
+            onClick={addItemField}
+            className="ml-auto inline-flex items-center gap-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-blue-700"
+          >
+            <Plus className="h-2.5 w-2.5" /> 加欄位
+          </button>
+        </div>
+        {itemFields.length === 0 ? (
+          <div className="rounded border border-dashed border-rule p-2 text-center text-[10px] text-ink-faint">
+            還沒有「每筆欄位」。點上方加欄位開始。
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {itemFields.map((f, idx) => (
+              <ItemFieldRow
+                key={f.id}
+                field={f}
+                onPatch={p => updateItemField(idx, p)}
+                onRemove={() => removeItemField(idx)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Item layout */}
+      <div className="border-b border-accent/30 p-3">
+        <div className="mb-1.5 flex items-center gap-1.5">
+          <LayoutList className="h-3 w-3 text-ink-muted" />
+          <span className="text-[11px] font-semibold text-ink">每筆排版</span>
+        </div>
+        {itemLayout.length === 0 ? (
+          <div className="rounded border border-dashed border-rule p-2 text-center text-[10px] text-ink-faint">
+            欄位會以 flat 一行渲染。下方按鈕可加多欄列 / 提示 / 指定排序。
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {itemLayout.map((child, idx) => {
+              if (child.kind === 'fieldRef') {
+                const fld = itemFields.find(f => f.id === child.id)
+                return (
+                  <FieldRefRow
+                    key={`${child.id}-${idx}`}
+                    fieldRef={child}
+                    field={fld}
+                    onPatch={p => updateItemChild(idx, p as Partial<FieldRef>)}
+                    onRemove={() => removeItemChild(idx)}
+                  />
+                )
+              }
+              if (child.kind === 'row') {
+                return (
+                  <RowCard
+                    key={child.id}
+                    row={child}
+                    fields={itemFields}
+                    unplaced={unplacedItem}
+                    onPatch={p => updateItemChild(idx, p as Partial<FormRow>)}
+                    onRemove={() => removeItemChild(idx)}
+                  />
+                )
+              }
+              if (child.kind === 'banner') {
+                return (
+                  <BannerCard
+                    key={child.id}
+                    banner={child}
+                    onPatch={p => updateItemChild(idx, p as Partial<FormBanner>)}
+                    onRemove={() => removeItemChild(idx)}
+                  />
+                )
+              }
+              return (
+                <div key={`unsupported-${idx}`} className="rounded border border-dashed border-rule p-2 text-[10px] text-ink-muted">
+                  此 UI 不支援 repeater 內嵌 {child.kind} —— 請從 schema 改回。
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <div className="mt-2 flex items-center gap-2">
+          <UnplacedFieldPicker options={unplacedItem} onPick={placeItemField} compact />
+          <button
+            type="button"
+            onClick={addItemRow}
+            className="inline-flex items-center gap-1 rounded border border-rule bg-white px-2 py-0.5 text-[11px] text-ink-muted transition-colors hover:border-primary hover:text-primary"
+          >
+            <Plus className="h-3 w-3" /> 多欄列
+          </button>
+          <button
+            type="button"
+            onClick={addItemBanner}
+            className="inline-flex items-center gap-1 rounded border border-rule bg-white px-2 py-0.5 text-[11px] text-ink-muted transition-colors hover:border-primary hover:text-primary"
+          >
+            <Plus className="h-3 w-3" /> 提示文字
+          </button>
+        </div>
+      </div>
+
+      {/* Totals */}
+      <div className="p-3">
+        <div className="mb-1.5 flex items-center gap-1.5">
+          <Sigma className="h-3 w-3 text-ink-muted" />
+          <span className="text-[11px] font-semibold text-ink">合計列（選填）</span>
+          <button
+            type="button"
+            onClick={addTotal}
+            className="ml-auto inline-flex items-center gap-1 rounded border border-rule bg-white px-2 py-0.5 text-[10px] text-ink-muted transition-colors hover:border-primary hover:text-primary"
+          >
+            <Plus className="h-2.5 w-2.5" /> 合計列
+          </button>
+        </div>
+        {totals.length === 0 ? (
+          <div className="text-[10px] text-ink-faint">
+            可不寫合計。chef 看 formula CEL 寫對應 aggregate（如 sum(items.amount)）。
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {totals.map((t, idx) => (
+              <TotalRow
+                key={t.id}
+                total={t}
+                onPatch={p => updateTotal(idx, p)}
+                onRemove={() => removeTotal(idx)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ItemFieldRow({ field, onPatch, onRemove }: {
+  field: FormField
+  onPatch: (p: Partial<FormField>) => void
+  onRemove: () => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded border border-rule bg-white px-2 py-1">
+      <input
+        value={field.id}
+        onChange={e => onPatch({ id: e.target.value })}
+        placeholder="snake_id"
+        className="w-28 rounded border border-rule bg-white px-1.5 py-0.5 font-mono text-[10px] text-ink-muted outline-none focus:border-primary"
+      />
+      <input
+        value={field.label['zh-TW']}
+        onChange={e => onPatch({ label: { ...field.label, 'zh-TW': e.target.value } })}
+        placeholder="顯示名稱"
+        className="flex-1 min-w-[100px] rounded border border-rule bg-white px-1.5 py-0.5 text-xs text-ink outline-none focus:border-primary"
+      />
+      <select
+        value={field.type}
+        onChange={e => onPatch({ type: e.target.value as FieldType })}
+        className="rounded border border-rule bg-white px-1 py-0.5 text-[10px] text-ink-muted outline-none focus:border-primary"
+      >
+        {FIELD_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+      </select>
+      <label className="inline-flex items-center gap-1 text-[10px] text-ink-muted">
+        <input
+          type="checkbox"
+          checked={field.required}
+          onChange={e => onPatch({ required: e.target.checked })}
+          className="h-3 w-3"
+        />
+        必填
+      </label>
+      <button onClick={onRemove} title="刪除欄位" className="text-ink-faint hover:text-danger">
+        <Trash2 className="h-3 w-3" />
+      </button>
+    </div>
+  )
+}
+
+function CountInput({ label, value, onChange }: {
+  label: string
+  value: number | undefined
+  onChange: (n: number | undefined) => void
+}) {
+  return (
+    <label className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-[0.12em] text-ink-muted">
+      {label}
+      <input
+        type="number"
+        min={0}
+        value={value ?? ''}
+        onChange={e => {
+          const v = e.target.value
+          onChange(v === '' ? undefined : Math.max(0, Number(v)))
+        }}
+        placeholder="—"
+        className="w-12 rounded border border-rule bg-white px-1 py-0.5 text-center text-[11px] text-ink outline-none focus:border-primary"
+      />
+    </label>
+  )
+}
+
+function TotalRow({ total, onPatch, onRemove }: {
+  total: FormTotal
+  onPatch: (p: Partial<FormTotal>) => void
+  onRemove: () => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded border border-rule bg-white px-2 py-1">
+      <Sigma className="h-3 w-3 text-ink-faint" />
+      <input
+        value={total.label['zh-TW']}
+        onChange={e => onPatch({ label: { ...total.label, 'zh-TW': e.target.value } })}
+        placeholder="顯示名稱"
+        className="w-28 rounded border border-rule bg-white px-1.5 py-0.5 text-xs text-ink outline-none focus:border-primary"
+      />
+      <input
+        value={total.formula}
+        onChange={e => onPatch({ formula: e.target.value })}
+        placeholder="CEL，譬如 sum(items.amount)"
+        className="flex-1 min-w-[180px] rounded border border-rule bg-white px-1.5 py-0.5 font-mono text-[10px] text-ink-muted outline-none focus:border-primary"
+      />
+      <select
+        value={total.format ?? 'number'}
+        onChange={e => onPatch({ format: e.target.value as FormTotal['format'] })}
+        className="rounded border border-rule bg-white px-1 py-0.5 text-[10px] text-ink-muted outline-none focus:border-primary"
+      >
+        {TOTAL_FORMATS.map(f => <option key={f} value={f}>{f}</option>)}
+      </select>
+      <button onClick={onRemove} title="刪除合計列" className="text-ink-faint hover:text-danger">
+        <Trash2 className="h-3 w-3" />
+      </button>
+    </div>
+  )
+}
+
+function collectItemFieldIds(layout: LayoutChild[]): string[] {
+  const out: string[] = []
+  for (const n of layout) {
+    if (n.kind === 'fieldRef') out.push(n.id)
+    else if (n.kind === 'row') for (const c of n.children) out.push(c.id)
+    // banner / section / repeater not expected at item level — skip
+  }
+  return out
+}
+
+function stripFieldRefs(layout: LayoutChild[], removedFieldId: string): LayoutChild[] {
+  return layout
+    .map(n => {
+      if (n.kind === 'fieldRef') return n.id === removedFieldId ? null : n
+      if (n.kind === 'row') {
+        return { ...n, children: n.children.filter(c => c.id !== removedFieldId) }
+      }
+      return n
+    })
+    .filter((x): x is LayoutChild => x !== null)
 }
 
 // ─────────────────────────────────────────────────────────────────────
