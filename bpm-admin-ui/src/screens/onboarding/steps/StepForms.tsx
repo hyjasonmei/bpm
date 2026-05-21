@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { AlertCircle, CheckCircle2, Code2, Eye, ListChecks, Plus, Trash2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Code2, Eye, ListChecks, Pencil, Plus, StickyNote, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Field, Input, Select, Checkbox } from '@/components/ui/form'
 import { OptionsEditorModal } from '@/components/options-editor/OptionsEditorModal'
 import { ExpressionEditorModal } from '@/components/expression-editor/ExpressionEditorModal'
 import { FormPreviewModal } from '@/components/form-preview/FormPreviewModal'
+import { NoteEditorModal } from '@/components/note-editor/NoteEditorModal'
 import type { ExpressionShape } from '@/lib/expressions'
 import type { DraftSpec, FormField, UserTask, FieldType } from '@/lib/onboarding'
 
@@ -316,9 +317,66 @@ function FieldEditor({ field, siblingFieldIds, variableNames, onChange, onRemove
         <OptionsBlock field={field} onChange={onChange} />
       )}
 
-      {field.hint?.['zh-TW'] && (
-        <p className="text-[11px] italic text-ink-faint">Hint: {field.hint['zh-TW']}</p>
-      )}
+      <NoteBlock field={field} onChange={onChange} />
+    </div>
+  )
+}
+
+/**
+ * Always-visible note row at the bottom of every field. The note is a
+ * free-text instruction for chef — used when CEL / structured props
+ * can't express the rule (e.g.「金額大時主管要 double-check 上季預算」).
+ * Click 編輯 → opens NoteEditorModal; AI chat can also fill this via
+ * emit_form_fields.noteZh.
+ */
+function NoteBlock({ field, onChange }: {
+  field: FormField
+  onChange: (f: FormField) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const note = field.note?.['zh-TW'] ?? ''
+  const empty = !note.trim()
+  return (
+    <div className="pt-1">
+      <span className="mb-1 block font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
+        備註 / Note — 給 chef 的自然語言補充
+      </span>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn(
+          'group flex w-full items-start gap-2 rounded border bg-white px-2 py-1.5 text-left hover:border-primary',
+          empty ? 'border-dashed border-rule' : 'border-rule',
+        )}
+      >
+        <StickyNote className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', empty ? 'text-ink-faint' : 'text-primary')} />
+        <span className={cn('flex-1 whitespace-pre-line text-[11px] leading-relaxed', empty ? 'text-ink-faint' : 'text-ink')}>
+          {empty ? '點此寫給 chef…（譬如 CEL 寫不下的業務規則）' : note}
+        </span>
+        <span className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] text-ink-faint group-hover:text-primary">
+          <Pencil className="h-3 w-3" />
+          編輯
+        </span>
+      </button>
+      <NoteEditorModal
+        open={open}
+        title={`備註 — ${field.label['zh-TW'] || field.id}`}
+        initial={note}
+        helper={
+          <>
+            這段文字直接交給 chef（生 code 的 AI）讀。寫不下 CEL 的業務規則、跨欄位互動、客戶情境都可以寫這。<br />
+            一般使用者看不到此內容。
+          </>
+        }
+        onCancel={() => setOpen(false)}
+        onCommit={(v) => {
+          onChange({
+            ...field,
+            note: v ? { 'zh-TW': v, ...(field.note?.en ? { en: field.note.en } : {}) } : undefined,
+          })
+          setOpen(false)
+        }}
+      />
     </div>
   )
 }

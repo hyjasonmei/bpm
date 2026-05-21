@@ -79,8 +79,8 @@ function FieldPreview({ field }: { field: FormField }) {
       {helperBits.length > 0 && (
         <p className="font-mono text-[10px] text-ink-faint">{helperBits.join(' · ')}</p>
       )}
-      {field.hint?.['zh-TW'] && (
-        <p className="text-[10px] italic text-ink-muted">{field.hint['zh-TW']}</p>
+      {field.note?.['zh-TW'] && (
+        <p className="text-[10px] italic text-ink-muted">📝 {field.note['zh-TW']}</p>
       )}
     </div>
   )

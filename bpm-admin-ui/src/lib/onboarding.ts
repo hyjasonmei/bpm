@@ -55,7 +55,12 @@ export interface FormField {
   conditional?: string
   /** CEL boolean over (siblings + `value`); see spec_schema.md §2.3. */
   validator?: string
-  hint?: { 'zh-TW': string; en?: string }
+  /** Free-text note for chef — used when CEL / structured props can't
+   *  express the business rule (e.g. "金額很大時主管要 double check
+   *  上一季的預算"). chef reads this and decides how to bake it into
+   *  the generated code. Renamed from `hint`; legacy drafts are
+   *  migrated on load. */
+  note?: { 'zh-TW': string; en?: string }
   default?: unknown
   derivedFrom?: string
 }
@@ -436,9 +441,23 @@ export function migrateDraft(d: unknown): DraftSpec {
   } else {
     testCases = []
   }
+  // Legacy: FormField.hint was renamed to .note. Walk userTasks once on
+  // load so the UI never sees the old shape; saving will persist as note.
+  type LegacyFormField = FormField & { hint?: { 'zh-TW': string; en?: string } }
+  const userTasks = (partial.userTasks ?? []).map(t => ({
+    ...t,
+    fields: t.fields.map(f => {
+      const legacy = f as LegacyFormField
+      if (!legacy.hint || legacy.note) return f
+      const { hint, ...rest } = legacy
+      return { ...rest, note: hint } as FormField
+    }),
+  }))
+
   return {
     ...EMPTY_DRAFT,
     ...partial,
+    userTasks,
     sampleOrg: (partial.sampleOrg && (partial.sampleOrg as SampleOrgSnapshot).users)
       ? (partial.sampleOrg as SampleOrgSnapshot)
       : emptySampleOrg(),
@@ -592,7 +611,7 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
         { id: 'days', label: { 'zh-TW': '天數' }, type: 'derived', required: false,
           derivedFrom: 'businessDaysBetween(date_range.start, date_range.end)' },
         { id: 'reason', label: { 'zh-TW': '事由', en: 'Reason' }, type: 'textarea', required: true,
-          hint: { 'zh-TW': '中英文皆可' } },
+          note: { 'zh-TW': '中英文皆可' } },
         { id: 'cert', label: { 'zh-TW': '證明文件' }, type: 'file', required: true,
           conditional: "leave_type === '病假' || leave_type === '公假'" },
       ],
@@ -603,7 +622,7 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
       formCode: 'LEAVE_ARCHIVE',
       fields: [
         { id: 'archive_note', label: { 'zh-TW': '備案備註' }, type: 'textarea', required: true,
-          hint: { 'zh-TW': 'HR 留下處理紀錄供日後追溯' } },
+          note: { 'zh-TW': 'HR 留下處理紀錄供日後追溯' } },
       ],
       permissions: { submitter: 'role:HR', viewers: ['role:HR', 'self'] },
     },
@@ -740,12 +759,12 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
             { value: 'other', label: '其他' },
           ] },
         { id: 'amount', label: { 'zh-TW': '金額 (TWD)', en: 'Amount (TWD)' }, type: 'number', required: true,
-          hint: { 'zh-TW': '未稅金額，整數' } },
+          note: { 'zh-TW': '未稅金額，整數' } },
         { id: 'items', label: { 'zh-TW': '品項明細', en: 'Items' }, type: 'textarea', required: true,
-          hint: { 'zh-TW': '一行一品項，含數量單價' } },
+          note: { 'zh-TW': '一行一品項，含數量單價' } },
         { id: 'justification', label: { 'zh-TW': '採購理由', en: 'Justification' }, type: 'textarea', required: true },
         { id: 'quote_file', label: { 'zh-TW': '報價單', en: 'Quote' }, type: 'file', required: true,
-          conditional: 'amount >= 10000', hint: { 'zh-TW': '1 萬以上必附正式報價單' } },
+          conditional: 'amount >= 10000', note: { 'zh-TW': '1 萬以上必附正式報價單' } },
       ],
       permissions: { submitter: 'self', viewers: ['self', 'manager', 'role:Finance', 'role:Purchase'] },
     },
@@ -754,7 +773,7 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
       formCode: 'PURCHASE_EXEC',
       fields: [
         { id: 'po_number', label: { 'zh-TW': '採購單號', en: 'PO Number' }, type: 'text', required: true,
-          hint: { 'zh-TW': 'ERP 開立後填回' } },
+          note: { 'zh-TW': 'ERP 開立後填回' } },
         { id: 'expected_delivery', label: { 'zh-TW': '預計到貨日', en: 'Expected delivery' }, type: 'date', required: true },
         { id: 'exec_note', label: { 'zh-TW': '處理備註', en: 'Note' }, type: 'textarea', required: false },
       ],

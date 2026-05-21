@@ -70,7 +70,7 @@ const formsTool: StepToolBinding = {
               labelEn: { type: 'string', description: 'Optional English label' },
               type: { type: 'string', enum: FIELD_TYPES },
               required: { type: 'boolean' },
-              hintZh: { type: 'string', description: 'Optional inline hint shown beneath the field' },
+              noteZh: { type: 'string', description: 'Optional free-text note for chef — use this when CEL / structured props cannot capture a business rule (e.g. "金額很大時主管要 double check 上一季預算"). chef reads it to generate the right code. Not shown to end-users.' },
               conditional: { type: 'string', description: "Optional JS-like expression, e.g. \"leave_type === '病假'\"" },
               options: {
                 type: 'array',
@@ -97,7 +97,7 @@ const formsTool: StepToolBinding = {
         labelEn?: string
         type: FieldType
         required: boolean
-        hintZh?: string
+        noteZh?: string
         conditional?: string
         options?: { value: string; label: string }[]
       }>
@@ -111,7 +111,7 @@ const formsTool: StepToolBinding = {
       label: { 'zh-TW': f.labelZh, ...(f.labelEn ? { en: f.labelEn } : {}) },
       type: f.type,
       required: f.required,
-      ...(f.hintZh ? { hint: { 'zh-TW': f.hintZh } } : {}),
+      ...(f.noteZh ? { note: { 'zh-TW': f.noteZh } } : {}),
       ...(f.conditional ? { conditional: f.conditional } : {}),
       ...(f.options ? { options: f.options } : {}),
     }))
