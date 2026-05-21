@@ -1,5 +1,6 @@
 import { BrowserRouter } from 'react-router-dom'
 import { AppShell } from '@/flowcook/app/AppShell'
+import { PageHeaderProvider } from '@/flowcook/app/pageHeader'
 import { LoginPage } from '@/flowcook/auth/LoginPage'
 import { AuthProvider, useAuth } from '@/flowcook/auth/useAuth'
 
@@ -19,7 +20,9 @@ function Inner({ onShowLegacy }: RootProps) {
   if (status === 'unauthenticated') return <LoginPage />
   return (
     <BrowserRouter>
-      <AppShell onShowLegacy={onShowLegacy} />
+      <PageHeaderProvider>
+        <AppShell onShowLegacy={onShowLegacy} />
+      </PageHeaderProvider>
     </BrowserRouter>
   )
 }

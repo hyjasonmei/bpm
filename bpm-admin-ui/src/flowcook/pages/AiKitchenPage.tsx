@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowLeft,
-  ChefHat,
   CheckCircle2,
+  ChefHat,
+  Copy,
   Download,
   RefreshCw,
   Save,
@@ -16,8 +16,12 @@ import { cn } from '@/lib/cn'
 import { Onboarding } from '@/screens/onboarding/Onboarding'
 import { EMPTY_DRAFT, migrateDraft, type DraftSpec } from '@/lib/onboarding'
 import { flowToBpmnXml } from '@/lib/bpmnXml'
+import { useSetPageHeader, type PageHeader } from '@/flowcook/app/pageHeader'
+import { PhaseTabs, type PhaseId } from '@/flowcook/app/PhaseTabs'
+import { OverflowMenu, type OverflowGroup } from '@/flowcook/app/OverflowMenu'
 import {
   cancelFlow,
+  cloneFlowVersion,
   createFlow,
   deleteFlow,
   type FlowDetail,
@@ -380,10 +384,12 @@ function WizardView({
   onFlowChange: (f: FlowDetail) => void
   onClose: () => void
 }) {
+  const navigate = useNavigate()
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [transitionPending, setTransitionPending] = useState<null | 'submit' | 'cancel' | 'delete'>(null)
+  const [transitionPending, setTransitionPending] = useState<null | 'submit' | 'cancel' | 'delete' | 'clone'>(null)
   const [downloading, setDownloading] = useState(false)
+  const [phase, setPhase] = useState<PhaseId>('prep')
   const timerRef = useRef<number | null>(null)
   const latestDraftRef = useRef<DraftSpec | null>(null)
 
@@ -524,26 +530,85 @@ function WizardView({
     }
   }
 
+  async function clone() {
+    setTransitionPending('clone')
+    try {
+      // Flush autosave so the new version snapshots the latest spec.
+      if (timerRef.current) {
+        window.clearTimeout(timerRef.current)
+        if (latestDraftRef.current) await persistDraft(latestDraftRef.current)
+      }
+      const next = await cloneFlowVersion(flow.id)
+      // Navigate to the freshly-cloned draft (sibling route under /ai-kitchen).
+      navigate(`../${next.id}`)
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Clone failed')
+    } finally {
+      setTransitionPending(null)
+    }
+  }
+
   const canSubmit = flow.state === 'Draft'
   const canCancel = flow.state === 'Submitted' || flow.state === 'Cooking' || flow.state === 'OnHold'
   const canDelete = flow.state === 'Draft'
 
+  // Push flow context into the AppShell top bar (kicker + back + title +
+  // version + state). Save status sits with the action buttons in the
+  // main page header, not here. Memoize so the effect only fires when
+  // values actually change.
+  const pageHeader = useMemo<PageHeader>(() => ({
+    back: { label: 'Back to kitchen', onClick: onClose },
+    title: flow.displayName,
+    subtitle: `${flow.flowCode} · v${flow.version}`,
+    badges: <StatePill state={flow.state} />,
+  }), [flow.displayName, flow.flowCode, flow.version, flow.state, onClose])
+  useSetPageHeader(pageHeader)
+
+  const overflowGroups: OverflowGroup[] = [
+    {
+      items: [
+        {
+          id: 'clone',
+          label: transitionPending === 'clone' ? 'Cloning…' : 'Clone to new draft',
+          icon: <Copy className="h-3 w-3" />,
+          tone: 'productive',
+          disabled: transitionPending !== null,
+          hint: '把現在的 spec 複製一份成新草稿（v+1）',
+          onClick: () => void clone(),
+        },
+      ],
+    },
+    {
+      items: [
+        ...(canCancel ? [{
+          id: 'cancel',
+          label: 'Cancel flow',
+          icon: <Undo2 className="h-3 w-3" />,
+          tone: 'risky' as const,
+          disabled: transitionPending !== null,
+          hint: '把流程回到 Draft 狀態',
+          onClick: () => void cancel(),
+        }] : []),
+        ...(canDelete ? [{
+          id: 'delete',
+          label: 'Delete draft',
+          icon: <Trash2 className="h-3 w-3" />,
+          tone: 'danger' as const,
+          disabled: transitionPending !== null,
+          hint: 'Soft-delete — 可由 admin DB 還原',
+          onClick: () => void softDelete(),
+        }] : []),
+      ],
+    },
+  ]
+
   return (
     <div className="flex h-full flex-col">
+      {/* Phase tabs (Prep/Cook/Serve) on the left, primary actions +
+          overflow menu on the right. Flow title / version / state pill /
+          save status now live in the AppShell top bar via pageHeader. */}
       <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onClose}
-            className="inline-flex items-center gap-1 rounded border border-rule bg-card px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:border-primary hover:text-primary"
-          >
-            <ArrowLeft className="h-3 w-3" /> Back to kitchen
-          </button>
-          <div className="flex items-baseline gap-2">
-            <h2 className="text-sm font-semibold text-ink">{flow.displayName}</h2>
-            <span className="font-mono text-[11px] text-ink-muted">{flow.flowCode} · v{flow.version}</span>
-            <StatePill state={flow.state} />
-          </div>
-        </div>
+        <PhaseTabs active={phase} onChange={setPhase} />
 
         <div className="flex items-center gap-2">
           <SaveStatusBadge state={saveState} error={saveError} />
@@ -556,24 +621,6 @@ function WizardView({
             <Download className="h-3 w-3" />
             {downloading ? 'Bundling…' : 'Download bundle'}
           </button>
-          {canCancel && (
-            <button
-              onClick={() => void cancel()}
-              disabled={transitionPending !== null}
-              className="inline-flex items-center gap-1 rounded border border-rule bg-card px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:border-warn hover:text-warn disabled:opacity-50"
-            >
-              <Undo2 className="h-3 w-3" /> Cancel
-            </button>
-          )}
-          {canDelete && (
-            <button
-              onClick={() => void softDelete()}
-              disabled={transitionPending !== null}
-              className="inline-flex items-center gap-1 rounded border border-danger/30 bg-card px-2.5 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
-            >
-              <Trash2 className="h-3 w-3" /> Delete draft
-            </button>
-          )}
           {canSubmit && (
             <button
               onClick={() => void submit()}
@@ -584,6 +631,7 @@ function WizardView({
               {transitionPending === 'submit' ? 'Submitting…' : 'Submit to chef'}
             </button>
           )}
+          <OverflowMenu groups={overflowGroups} />
         </div>
       </div>
 

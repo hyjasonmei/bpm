@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import {
   Activity,
+  ArrowLeft,
   ChefHat,
   ExternalLink,
   FlaskConical,
-  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
@@ -12,8 +12,9 @@ import {
 } from 'lucide-react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/cn'
-import { useAuth } from '@/flowcook/auth/useAuth'
 import { PagePlaceholder } from '@/flowcook/app/PagePlaceholder'
+import { usePageHeader } from '@/flowcook/app/pageHeader'
+import { UserMenu } from '@/flowcook/app/UserMenu'
 import { UserRolePage } from '@/flowcook/pages/UserRolePage'
 import { AiKitchenPage } from '@/flowcook/pages/AiKitchenPage'
 
@@ -60,7 +61,6 @@ interface AppShellProps {
 }
 
 export function AppShell({ onShowLegacy }: AppShellProps) {
-  const { user, logout } = useAuth()
   const [collapsed, setCollapsed] = useState<boolean>(readCollapsed)
   const legacyEnabled = readLegacyFlag()
   const location = useLocation()
@@ -79,23 +79,23 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
   const current = NAV.find((n) => location.pathname.startsWith(n.path)) ?? NAV[0]
 
   return (
-    <div className="flex min-h-screen bg-bg text-ink">
+    <div className="flex h-screen overflow-hidden bg-bg text-ink">
       <aside
         className={cn(
           'flex shrink-0 flex-col bg-header text-white shadow-md transition-[width] duration-200',
           collapsed ? 'w-14' : 'w-64',
         )}
       >
-        {/* brand + collapse toggle */}
+        {/* brand + collapse toggle — h-16 matches the top header strip */}
         <div className={cn(
-          'flex items-center border-b border-white/10',
-          collapsed ? 'flex-col gap-2 px-2 py-3' : 'justify-between px-5 py-4',
+          'flex h-16 shrink-0 items-center border-b border-white/10',
+          collapsed ? 'justify-center px-2' : 'justify-between px-5',
         )}>
-          <div className={cn('flex items-center', collapsed ? '' : 'gap-2.5')}>
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-red-500 text-white">
-              <ChefHat className="h-4 w-4" />
-            </div>
-            {!collapsed && (
+          {!collapsed && (
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-red-500 text-white">
+                <ChefHat className="h-4 w-4" />
+              </div>
               <div>
                 <div className="text-sm font-bold tracking-wide leading-none">
                   flowcook · admin
@@ -104,16 +104,16 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
                   v0
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
           <button
             onClick={toggleCollapsed}
             data-testid="sidebar-collapse"
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="flex h-7 w-7 items-center justify-center rounded text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex h-8 w-8 items-center justify-center rounded text-white/55 transition-colors hover:bg-white/10 hover:text-white"
           >
             {collapsed
-              ? <PanelLeftOpen className="h-3.5 w-3.5" />
+              ? <PanelLeftOpen className="h-4 w-4" />
               : <PanelLeftClose className="h-3.5 w-3.5" />}
           </button>
         </div>
@@ -165,53 +165,11 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
           )}
         </nav>
 
-        {/* footer / user */}
-        <div className={cn('border-t border-white/10', collapsed ? 'px-2 py-3' : 'px-5 py-4')}>
-          {collapsed ? (
-            <button
-              onClick={() => void logout()}
-              title={`Sign out (${user?.displayName ?? 'admin'})`}
-              className="flex h-8 w-full items-center justify-center rounded text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          ) : (
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-white/45">
-                  signed in as
-                </div>
-                <div className="mt-0.5 truncate text-sm font-medium text-white">
-                  {user?.displayName ?? 'admin'}
-                </div>
-              </div>
-              <button
-                onClick={() => void logout()}
-                title="Sign out"
-                className="flex h-8 w-8 items-center justify-center rounded text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* page header strip */}
-        <header className="flex items-end justify-between border-b border-rule bg-card px-8 pb-4 pt-6">
-          <div>
-            <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
-              flowcook · admin
-            </div>
-            <h1 className="mt-1.5 text-2xl font-bold leading-none text-ink">
-              {current.label}
-            </h1>
-          </div>
-          <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
-            {current.hint}
-          </div>
-        </header>
+        {/* page header strip — pages may override via PageHeaderProvider */}
+        <PageHeaderStrip fallbackLabel={current.label} fallbackHint={current.hint} />
 
         <main className="flex-1 overflow-auto px-8 py-6">
           <Routes>
@@ -244,5 +202,53 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
         </main>
       </div>
     </div>
+  )
+}
+
+function PageHeaderStrip({ fallbackLabel, fallbackHint }: { fallbackLabel: string; fallbackHint: string }) {
+  const override = usePageHeader()
+
+  // Brand kicker lives in the sidebar; this strip is one row so its
+  // bottom border lines up with the sidebar's brand divider.
+  return (
+    <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-rule bg-card px-8">
+      <div className="min-w-0 flex-1">
+        {override ? (
+          <div className="flex flex-wrap items-center gap-3">
+            {override.back && (
+              <button
+                onClick={override.back.onClick}
+                className="inline-flex items-center gap-1 rounded border border-rule bg-card px-2 py-1 text-[11px] font-medium text-ink-muted transition-colors hover:border-primary hover:text-primary"
+              >
+                <ArrowLeft className="h-3 w-3" />
+                {override.back.label}
+              </button>
+            )}
+            <h1 className="truncate text-lg font-bold leading-none text-ink">
+              {override.title}
+            </h1>
+            {override.subtitle && (
+              <span className="font-mono text-[11px] text-ink-muted">{override.subtitle}</span>
+            )}
+            {override.badges}
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-baseline gap-3">
+            <h1 className="text-lg font-bold leading-none text-ink">{fallbackLabel}</h1>
+            <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
+              {fallbackHint}
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
+        {override?.status && (
+          <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
+            {override.status}
+          </div>
+        )}
+        <UserMenu />
+      </div>
+    </header>
   )
 }
