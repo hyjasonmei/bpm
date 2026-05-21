@@ -20,7 +20,8 @@ mkdir -p ~/claude/flowcook-bundles
 2. Download bundle → unzip to
    `~/claude/flowcook-bundles/<FLOWCODE>-v<N>-<YYYYMMDD>/`.
 3. Verify the unzipped tree contains `spec.json` + `bpmn.xml` +
-   `sampleOrg.json` + `testCases.json` + (optional) `notes/`.
+   `manifest.json` + `forms/` + `sample-org.json` + `test-cases/`
+   (see SKILL.md §2 for the full layout).
 
 ## 2. Spin up a worktree (Jason, in main repo)
 

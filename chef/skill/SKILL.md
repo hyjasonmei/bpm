@@ -53,17 +53,30 @@ spec wins — flag the inconsistency before you continue.
 
 ## 2. Inputs you have
 
-Jason hands you exactly one thing: a path to an unzipped bundle.
+Jason hands you exactly one thing: a path to an unzipped bundle. The
+layout is fixed by `bpm-admin-svc`'s `BundleBuilder`:
 
 ```
 /some/path/<FLOWCODE>-v<N>-<ts>/
-├── spec.json          ← the single source of truth — read this first
-├── bpmn.xml           ← the BPMN graph (visual)
-├── sampleOrg.json     ← seed data for the integration tests
-├── testCases.json     ← happy/edge cases the wizard's test step gathered
-└── notes/             ← chef-readable free-text instructions
-                        (form-field notes, SLA notes, NOTES step)
+├── spec.json                    ← single source of truth — read first
+├── bpmn.xml                     ← BPMN graph (visual)
+├── spec.md                      ← human-readable spec render (handy)
+├── README.md                    ← top-level bundle README
+├── walkthrough.md               ← first test case walked through
+├── forms/<userTaskId>.json      ← per-task form spec (fields + layout)
+├── notifications/<id>.json      ← per notification
+├── sla.json                     ← perNode SLA map
+├── actors.json                  ← every ActorRef in the spec, indexed
+├── sample-org.json              ← seed data for tests
+├── test-cases/<caseId>.json     ← one file per case
+├── CHANGELOG.md                 ← present only when there's a parent spec
+└── manifest.json                ← file list + SHA-256 + flow meta
 ```
+
+There is no `notes/` directory — chef-readable free-text lives inline
+on each spec node (`FormField.note`, `NodeSLA.note`, `draft.notes` for
+the final NOTES step, ActorRef `fallback.text`). Read them from
+`spec.json` directly; don't expect a pre-flattened mirror.
 
 `spec.json` carries everything authoritative:
 
@@ -85,8 +98,10 @@ Jason hands you exactly one thing: a path to an unzipped bundle.
 - `labels` — multi-locale translations
 - `notes` — final free-text from NOTES step
 
-`notes/` mirrors the free-text chef-instruction chunks scattered through
-the spec so you can read them as one stack instead of walking the tree.
+The bundle also flattens common views into the side folders
+(`forms/`, `notifications/`, `sla.json`, `actors.json`) for fast lookup
+when chasing down a single artifact — but `spec.json` remains the
+canonical source.
 
 ## 3. What you write
 

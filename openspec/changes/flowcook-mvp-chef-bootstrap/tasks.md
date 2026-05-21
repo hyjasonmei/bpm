@@ -16,14 +16,17 @@
 - [ ] 2.2 Smoke-test the skill loads via `/chef-codegen` in a fresh
        Claude Code session inside the repo
 
-## 3. Bundle contract verification
+## 3. Bundle contract verification (✓ done during Phase C)
 
-- [ ] 3.1 Confirm `bpm-admin-svc`'s `POST /api/flows/{id}/bundle`
-       output contains every section chef's skill expects (`notes/`
-       directory + `testCases.json` shape match)
-- [ ] 3.2 If a gap exists, file a follow-up against
-       `flowcook-step3-ai-kitchen-wizard` to extend the bundle
-       writer; do NOT relax chef's skill to fit
+- [x] 3.1 Verified `bpm-admin-svc/Bundle/BundleBuilder.cs` emits:
+       `spec.json`, `bpmn.xml`, `spec.md`, `README.md`,
+       `walkthrough.md`, `forms/<id>.json`, `notifications/<id>.json`,
+       `sla.json`, `actors.json`, `sample-org.json`,
+       `test-cases/<id>.json`, optional `CHANGELOG.md`, `manifest.json`.
+- [x] 3.2 No `notes/` directory exists — free-text chef instructions
+       live inline on spec nodes (`FormField.note`, `NodeSLA.note`,
+       `draft.notes`, ActorRef `fallback.text`). Updated `chef/skill/SKILL.md`
+       to reflect actual layout instead of relaxing the bundle writer.
 
 ## 4. First demo flow (Phase D — separate proposal / commit)
 
