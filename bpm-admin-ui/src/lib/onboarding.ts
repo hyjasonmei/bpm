@@ -203,7 +203,13 @@ export interface Notification {
   nodeId?: string
 }
 
-/* SLA — mirrors spec_schema.md §2.7 */
+/* SLA — mirrors spec_schema.md §2.7. v2 simplification:
+ *  - `duration` and `escalation.after` are absolute hours (e.g. "8h") only;
+ *    legacy "50%" relative form is migrated to its computed absolute
+ *  - `note` is the chef-instruction escape hatch when the structured
+ *    duration / escalation can't express the rule (same role as
+ *    FormField.note in step 3 FORMS)
+ */
 export interface NodeSLA {
   duration: string
   businessHoursOnly?: boolean
@@ -211,6 +217,10 @@ export interface NodeSLA {
     after: string
     action: 'notify' | 'reassign' | 'escalate_one_level' | 'auto_approve' | 'auto_reject'
   }
+  /** Free-text instruction for chef when structured duration /
+   *  escalation can't express the rule (e.g. 「夜班的 SLA 算法不同」
+   *  「跨時區員工放寬 2 小時」). End-users don't see this. */
+  note?: { 'zh-TW': string; en?: string }
 }
 
 /* Test cases — mirrors spec_schema.md §2.9.
@@ -508,6 +518,31 @@ export function migrateDraft(d: unknown): DraftSpec {
     return { ...rest, serviceTaskNodeId: triggerNodeId } as IntegrationItem
   })
 
+  // Legacy: SLA escalation.after used to accept "50%" (relative to
+  // duration). v2 collapses to absolute hours so the value is always
+  // legible — convert the % form on load.
+  const perNode = partial.sla?.perNode ?? {}
+  const migratedSla: Record<string, NodeSLA> = {}
+  for (const [nodeId, raw] of Object.entries(perNode)) {
+    const sla = raw as NodeSLA
+    if (!sla.escalation || !/%$/.test(sla.escalation.after)) {
+      migratedSla[nodeId] = sla
+      continue
+    }
+    const pct = parseFloat(sla.escalation.after) / 100
+    const m = /^(\d+)([hd])$/.exec(sla.duration)
+    if (!m || isNaN(pct)) {
+      migratedSla[nodeId] = sla
+      continue
+    }
+    const hours = parseInt(m[1], 10) * (m[2] === 'd' ? 24 : 1)
+    const absHours = Math.max(1, Math.round(hours * pct))
+    migratedSla[nodeId] = {
+      ...sla,
+      escalation: { ...sla.escalation, after: `${absHours}h` },
+    }
+  }
+
   return {
     ...EMPTY_DRAFT,
     ...partial,
@@ -517,6 +552,7 @@ export function migrateDraft(d: unknown): DraftSpec {
       ...(partial.integrations ?? EMPTY_DRAFT.integrations),
       items: integrationsItems,
     },
+    sla: { perNode: migratedSla },
     sampleOrg: (partial.sampleOrg && (partial.sampleOrg as SampleOrgSnapshot).users)
       ? (partial.sampleOrg as SampleOrgSnapshot)
       : emptySampleOrg(),

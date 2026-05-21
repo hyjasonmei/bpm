@@ -363,7 +363,11 @@ If a notification's \`nodeId\` is already set in draftSummary, treat it as node-
 const slaTool: StepToolBinding = {
   tool: {
     name: 'emit_sla_config',
-    description: `Replace sla.perNode. **Critical**: Pass the COMPLETE map — every node that should have SLA after the change (existing entries that should stay + new + modified). Omitting an existing key DELETES that node's SLA. If the user asks to "set SLA on node X", include X **plus all other existing nodes' SLA** from draftSummary.sla.perNode. Keys are node ids (only approval / userTask / serviceTask nodes are meaningful). Duration uses suffix h or d, e.g. "8h", "2d". escalation.after may also be a percentage like "50%" of the duration.`,
+    description: `Replace sla.perNode. **Critical**: Pass the COMPLETE map — every node that should have SLA after the change (existing entries that should stay + new + modified). Omitting an existing key DELETES that node's SLA. If the user asks to "set SLA on node X", include X **plus all other existing nodes' SLA** from draftSummary.sla.perNode. Keys are node ids (only approval / userTask / serviceTask nodes are meaningful).
+
+**v2 simplification**:
+- \`duration\` and \`escalation.after\` are **absolute hours only**, e.g. "1h", "8h", "24h". Relative "%" syntax is no longer accepted — pre-compute absolute hours from draftSummary.sla.perNode if the user says "50% of duration".
+- \`noteZh\` (optional) is a free-text instruction for chef when structured duration / escalation can't express the rule (譬如「夜班 SLA 算法不同」「跨時區員工放寬 2 小時」). End-users don't see this.`,
     input_schema: {
       type: 'object',
       required: ['perNode'],
@@ -374,16 +378,17 @@ const slaTool: StepToolBinding = {
             type: 'object',
             required: ['duration'],
             properties: {
-              duration: { type: 'string', description: 'e.g. "8h", "24h", "2d"' },
+              duration: { type: 'string', description: 'Absolute hours only, e.g. "1h", "8h", "24h". Common: 1h / 2h / 4h / 8h / 16h / 24h / 48h / 72h.' },
               businessHoursOnly: { type: 'boolean' },
               escalation: {
                 type: 'object',
                 required: ['after', 'action'],
                 properties: {
-                  after: { type: 'string', description: 'e.g. "8h" or "50%"' },
+                  after: { type: 'string', description: 'Absolute hours only, e.g. "8h". NO percentages — convert relative forms to absolute.' },
                   action: { type: 'string', enum: ['notify', 'reassign', 'escalate_one_level', 'auto_approve', 'auto_reject'] },
                 },
               },
+              noteZh: { type: 'string', description: 'Optional free-text instruction for chef — use when structured rules can\'t express the case.' },
             },
           },
         },
@@ -391,8 +396,17 @@ const slaTool: StepToolBinding = {
     },
   },
   apply: (draft, raw) => {
-    const input = raw as { perNode: Record<string, NodeSLA> }
-    return { ...draft, sla: { perNode: input.perNode } }
+    type SlaInput = Omit<NodeSLA, 'note'> & { noteZh?: string }
+    const input = raw as { perNode: Record<string, SlaInput> }
+    const perNode: Record<string, NodeSLA> = {}
+    for (const [nodeId, entry] of Object.entries(input.perNode)) {
+      const { noteZh, ...rest } = entry
+      perNode[nodeId] = {
+        ...rest,
+        ...(noteZh ? { note: { 'zh-TW': noteZh } } : {}),
+      }
+    }
+    return { ...draft, sla: { perNode } }
   },
 }
 

@@ -148,6 +148,7 @@ function summarizeDraft(d: DraftSpec) {
           duration: (cfg as { duration?: string }).duration,
           businessHoursOnly: (cfg as { businessHoursOnly?: boolean }).businessHoursOnly,
           escalation: (cfg as { escalation?: { after?: string; action?: string } }).escalation,
+          note: (cfg as { note?: { 'zh-TW'?: string } }).note?.['zh-TW'],
         }]))
       : {},
     testCaseCount: d.testCases.length,
