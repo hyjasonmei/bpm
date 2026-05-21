@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, CheckCircle2, Code2, Eye, ListChecks, Pencil, Plus, Send, StickyNote, Trash2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Code2, Eye, LayoutGrid, ListChecks, Pencil, Plus, Send, StickyNote, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Field, Input, Select, Checkbox } from '@/components/ui/form'
 import { OptionsEditorModal } from '@/components/options-editor/OptionsEditorModal'
 import { ExpressionEditorModal } from '@/components/expression-editor/ExpressionEditorModal'
 import { FormPreviewModal } from '@/components/form-preview/FormPreviewModal'
+import { FormLayoutEditor } from '@/components/form-layout-editor/FormLayoutEditor'
 import { NoteEditorModal } from '@/components/note-editor/NoteEditorModal'
 import type { ExpressionShape } from '@/lib/expressions'
 import type { DraftSpec, FormField, UserTask, FieldType } from '@/lib/onboarding'
@@ -208,6 +209,20 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
               ))}
             </div>
           )}
+        </div>
+
+        {/* Tier 1 layout editor — sections / rows / banners over the
+            fields list above. chef reads `userTask.layout` to lay out
+            the generated React component. */}
+        <div className="border-t border-rule pt-3">
+          <div className="mb-2 flex items-center gap-1.5">
+            <LayoutGrid className="h-3.5 w-3.5 text-ink-muted" />
+            <span className="text-xs font-semibold text-ink">Layout</span>
+            <span className="font-mono text-[10px] text-ink-faint">
+              chef 排版時讀這棵樹
+            </span>
+          </div>
+          <FormLayoutEditor task={activeTask} onChange={upsertTask} />
         </div>
       </div>
 

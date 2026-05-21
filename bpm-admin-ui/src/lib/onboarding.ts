@@ -71,11 +71,101 @@ export interface FormField {
 export interface UserTask {
   id: string
   formCode: string
+  /** Flat source-of-truth for every field on this form. Validators,
+   *  AI tools, and chef all key off `fields[]`. The optional `layout`
+   *  below describes how to arrange / group / conditionally show them;
+   *  when absent, chef renders them as a flat one-per-row list. */
   fields: FormField[]
+  /** Tier 1 visual layout tree. References fields by id; never embeds
+   *  the field def itself. Missing field refs render as a flat fallback. */
+  layout?: LayoutChild[]
   permissions: {
     submitter: 'self' | string
     viewers: string[]
   }
+}
+
+/* ── Form layout (Tier 1 element set) ───────────────────────────
+ *
+ * Authoring lives in StepForms; chef reads this tree to write the
+ * generated React component. The tree is parallel to `fields[]` so
+ * existing validators / AI tools don't need to walk into nested
+ * groups to find field metadata.
+ */
+
+/** Width hint for a field inside a `FormRow` — maps onto a CSS
+ *  12-column grid. 6 ≈ half, 4 ≈ third, 12 ≈ full. */
+export type FieldColSpan = 1 | 2 | 3 | 4 | 6 | 8 | 12
+
+export interface FieldRef {
+  kind: 'fieldRef'
+  /** Matches `FormField.id` on the owning UserTask. */
+  id: string
+  /** Defaults to 12 (full row) when this fieldRef is a direct child
+   *  of a section; defaults to whatever divides the row evenly when
+   *  inside a FormRow. */
+  colSpan?: FieldColSpan
+}
+
+export interface FormSection {
+  kind: 'section'
+  id: string
+  title: { 'zh-TW': string; en?: string }
+  /** Optional CEL — when false the whole section is hidden at runtime. */
+  condition?: string
+  children: LayoutChild[]
+}
+
+export interface FormRow {
+  kind: 'row'
+  id: string
+  condition?: string
+  /** Cells in this row. Use FieldRef.colSpan to size; total per row
+   *  should sum to 12 (renderer wraps over rows if larger). Only
+   *  fieldRefs sit inside a row — banners and nested sections must
+   *  live at the section / root level. */
+  children: FieldRef[]
+}
+
+export type BannerSeverity = 'info' | 'warn' | 'danger'
+
+export interface FormBanner {
+  kind: 'banner'
+  id: string
+  severity: BannerSeverity
+  text: { 'zh-TW': string; en?: string }
+  condition?: string
+}
+
+export type LayoutChild = FieldRef | FormSection | FormRow | FormBanner
+
+/** Walk a layout tree and collect every fieldRef id in render order.
+ *  Used by chef to verify it has every field defined, and by the
+ *  wizard to spot orphan fields not yet placed in the layout. */
+export function collectLayoutFieldIds(layout: LayoutChild[] | undefined): string[] {
+  if (!layout) return []
+  const out: string[] = []
+  const walk = (nodes: LayoutChild[]) => {
+    for (const n of nodes) {
+      if (n.kind === 'fieldRef') out.push(n.id)
+      else if (n.kind === 'section') walk(n.children)
+      else if (n.kind === 'row') for (const c of n.children) out.push(c.id)
+    }
+  }
+  walk(layout)
+  return out
+}
+
+/** Build a default single-section layout containing every field on the
+ *  task. Used when the user first opens a task that has fields but no
+ *  hand-authored layout. */
+export function buildDefaultLayout(fields: FormField[]): LayoutChild[] {
+  return [{
+    kind: 'section',
+    id: 'section_main',
+    title: { 'zh-TW': '主要欄位' },
+    children: fields.map(f => ({ kind: 'fieldRef', id: f.id })),
+  }]
 }
 
 export interface FlowNode {

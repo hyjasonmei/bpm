@@ -6,18 +6,25 @@ import { CreateIndex } from '@/screens/CreateIndex'
 import { Search } from '@/screens/Search'
 import { Report } from '@/screens/Report'
 import { Attendance } from '@/screens/Attendance'
-import { LeaveForm } from '@/screens/forms/LeaveForm'
-import { GEEForm } from '@/screens/forms/GEEForm'
-import { GEVForm } from '@/screens/forms/GEVForm'
-import { APEForm } from '@/screens/forms/APEForm'
-import { HWPForm } from '@/screens/forms/HWPForm'
-import { TRQView } from '@/screens/forms/TRQView'
-import { TEOView } from '@/screens/forms/TEOView'
-import { ITPRView } from '@/screens/forms/ITPRView'
-import { EXTOBView } from '@/screens/forms/EXTOBView'
-import { ResignForm } from '@/screens/forms/ResignForm'
-import { DeptxForm } from '@/screens/forms/DeptxForm'
+import { LeaveForm } from '@/screens/forms/Reference_LeaveForm'
+import { GEEForm } from '@/screens/forms/Reference_GEEForm'
+import { GEVForm } from '@/screens/forms/Reference_GEVForm'
+import { APEForm } from '@/screens/forms/Reference_APEForm'
+import { HWPForm } from '@/screens/forms/Reference_HWPForm'
+import { TRQView } from '@/screens/forms/Reference_TRQView'
+import { TEOView } from '@/screens/forms/Reference_TEOView'
+import { ITPRView } from '@/screens/forms/Reference_ITPRView'
+import { EXTOBView } from '@/screens/forms/Reference_EXTOBView'
+import { ResignForm } from '@/screens/forms/Reference_ResignForm'
+import { DeptxForm } from '@/screens/forms/Reference_DeptxForm'
+import { NotCookedYet } from '@/screens/forms/NotCookedYet'
 import { SandboxMailbox } from '@/screens/SandboxMailbox'
+
+// Hand-coded forms were renamed Reference_* to mark them as the
+// reference set chef reads when generating new flows; their UI is
+// hidden by default. Flip VITE_SHOW_LEGACY=true to expose them for
+// local development / regression checks.
+const SHOW_LEGACY_FORMS = import.meta.env.VITE_SHOW_LEGACY === 'true'
 
 const SCREEN_KEY = 'bpm_screen'
 
@@ -50,11 +57,14 @@ export default function App() {
     case 'attendance': body = <Attendance />; break
     case 'sandbox-mailbox': body = <SandboxMailbox />; break
     case 'form': {
-      // PR-L2 plumbing: when the screen carries a taskId we render the form
-      // in task mode (runtime drives Approve/Reject/Return). Without taskId
-      // the form stays in create mode (existing behaviour). PR-L3 will wire
-      // the inbox click → 'form' + taskId; for now this prop is set only by
-      // dev navigation.
+      if (!SHOW_LEGACY_FORMS) {
+        body = <NotCookedYet code={screen.code} onHome={() => setScreen({ kind: 'home' })} />
+        break
+      }
+      // Legacy hand-coded path (VITE_SHOW_LEGACY=true). Each screen.code
+      // routes to the renamed Reference_* component; once chef ships the
+      // generated form for a flow code, that case should drop out and the
+      // flag should default back to off.
       const formMode = screen.taskId ? 'task' : 'create'
       const onSubmitted = () => setScreen({ kind: 'home' })
       switch (screen.code) {
