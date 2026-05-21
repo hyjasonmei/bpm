@@ -11,7 +11,10 @@ const TRIGGERS: NotifyTrigger[] = [
 
 const CHANNELS = ['email', 'in_app', 'teams'] as const
 
-const RECIPIENT_TYPES = ['submitter', 'current_approver', 'role', 'user'] as const
+// v2 simplification: the ad-hoc role/user picker collapsed into
+// 'principal' (free-text ref for now; step 6 polish will swap in the
+// shared PrincipalPicker modal).
+const RECIPIENT_TYPES = ['submitter', 'current_approver', 'principal'] as const
 
 export function StepNotify({ draft, setDraft }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void }) {
   const [expandedId, setExpandedId] = useState<string | null>(draft.notifications[0]?.id ?? null)
@@ -136,21 +139,19 @@ function recipientLabel(r: NotifyRecipient): string {
   switch (r.type) {
     case 'submitter':        return 'submitter'
     case 'current_approver': return 'current_approver'
-    case 'role':             return `role:${r.code || '(unset)'}`
-    case 'user':             return `user:${(r.id || '(unset)').slice(0, 8)}`
-    case 'group':            return `group:${(r.id || '(unset)').slice(0, 8)}`
+    case 'principal':        return `principal:${r.ref || '(unset)'}`
     case 'expr':             return `expr:${r.path}`
     case 'conditional':      return 'conditional'
     case 'collection':       return `${r.mode}(${r.actors.length})`
+    case 'natural_language': return `nl:${r.text.slice(0, 16) || '(empty)'}`
   }
 }
 
-function emptyRecipient(type: 'submitter' | 'current_approver' | 'role' | 'user'): NotifyRecipient {
+function emptyRecipient(type: 'submitter' | 'current_approver' | 'principal'): NotifyRecipient {
   switch (type) {
     case 'submitter':        return { type: 'submitter' }
     case 'current_approver': return { type: 'current_approver' }
-    case 'role':             return { type: 'role', code: '' }
-    case 'user':             return { type: 'user', id: '' }
+    case 'principal':        return { type: 'principal', ref: '' }
   }
 }
 
@@ -168,32 +169,20 @@ function RecipientsEditor({
               value={r.type}
               onChange={e => {
                 const updated = [...recipients]
-                updated[i] = emptyRecipient(e.target.value as 'submitter' | 'current_approver' | 'role' | 'user')
+                updated[i] = emptyRecipient(e.target.value as 'submitter' | 'current_approver' | 'principal')
                 onChange(updated)
               }}
             >
               {RECIPIENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </Select>
-            {r.type === 'role' && (
+            {r.type === 'principal' && (
               <Input
                 className="h-7 text-xs"
-                placeholder="HR / VP / Finance"
-                value={r.code}
+                placeholder="role:HR / user:<uuid> / dept:<uuid> / group:<uuid>"
+                value={r.ref}
                 onChange={e => {
                   const updated = [...recipients]
-                  updated[i] = { type: 'role', code: e.target.value }
-                  onChange(updated)
-                }}
-              />
-            )}
-            {r.type === 'user' && (
-              <Input
-                className="h-7 text-xs"
-                placeholder="user GUID"
-                value={r.id}
-                onChange={e => {
-                  const updated = [...recipients]
-                  updated[i] = { type: 'user', id: e.target.value }
+                  updated[i] = { type: 'principal', ref: e.target.value }
                   onChange(updated)
                 }}
               />

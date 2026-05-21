@@ -1,31 +1,39 @@
 /**
- * ActorRefEditor — single recursive component for spec.json's
- * `ActorRef` discriminated union (see bpm/spec_schema.md §2.10).
+ * ActorRefEditor — single recursive component for the v2 ActorRef DSL.
  *
- * Switches on `value.type` to render the right child editor. Recurses
- * for `conditional` and `collection`. The validator-side rules
- * (path whitelist, conditional depth ≤ 3, fallback chain ≤ 1,
- * collection actors non-empty, min_approvals ≤ actors.length) are
- * enforced inline.
+ *   v2 types: expr | principal | conditional | collection | natural_language
+ *   v2 fallback: { text: string }  (no longer recursive)
+ *
+ * Structured types are surfaced first; `natural_language` renders below
+ * a visual separator as a「最後手段」option per flowcook-wizard spec.
+ *
+ * The sub-editor for `expr` is still the v1 whitelist dropdown — a
+ * dedicated ActorPathBuilderModal lands in a follow-up. `principal` is a
+ * free-text `kind:id` input for now; swapping in the shared
+ * PrincipalPicker (single-select mode) is the next polish pass.
  */
-import { useId } from 'react'
 import { Field, Input, Select } from '@/components/ui/form'
-import { ACTOR_PATH_WHITELIST, ACTOR_TYPE_LABELS, type ActorRef, type ActorRefCondition, type ActorRefType } from '@/lib/onboarding'
+import { NoteEditorModal } from '@/components/note-editor/NoteEditorModal'
+import { Pencil, StickyNote } from 'lucide-react'
+import { useState } from 'react'
+import { cn } from '@/lib/cn'
+import {
+  ACTOR_PATH_WHITELIST,
+  ACTOR_STRUCTURED_TYPES,
+  ACTOR_TYPE_LABELS,
+  type ActorRef,
+  type ActorRefCondition,
+  type ActorRefFallback,
+  type ActorRefType,
+} from '@/lib/onboarding'
 
 const MAX_CONDITIONAL_DEPTH = 3
-const MAX_FALLBACK_DEPTH = 1
-
-const TYPES: ActorRefType[] = ['expr', 'role', 'group', 'user', 'conditional', 'collection']
 
 export interface ActorRefEditorProps {
   value: ActorRef
   onChange: (next: ActorRef) => void
   /** Current conditional nesting depth (managed internally on recursion). */
   conditionalDepth?: number
-  /** Current fallback chain depth. */
-  fallbackDepth?: number
-  /** Hide the fallback editor (used when we ARE the fallback editor). */
-  hideFallback?: boolean
   /** Visual heading for this slot. */
   label?: string
 }
@@ -34,11 +42,8 @@ export function ActorRefEditor({
   value,
   onChange,
   conditionalDepth = 0,
-  fallbackDepth = 0,
-  hideFallback = false,
   label,
 }: ActorRefEditorProps) {
-  const headingId = useId()
   const handleTypeChange = (next: ActorRefType) => {
     if (next === value.type) return
     onChange(emptyActor(next))
@@ -47,93 +52,186 @@ export function ActorRefEditor({
   return (
     <div className="rounded-md border border-rule bg-white">
       {label && (
-        <div id={headingId} className="border-b border-rule bg-slate-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+        <div className="border-b border-rule bg-slate-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
           {label}
         </div>
       )}
       <div className="space-y-3 p-3">
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="型別 / Type">
-            <Select value={value.type} onChange={e => handleTypeChange(e.target.value as ActorRefType)}>
-              {TYPES.map(t => (
-                <option key={t} value={t}>{ACTOR_TYPE_LABELS[t].zh} ({t})</option>
+        <Field label="型別 / Type" hint={ACTOR_TYPE_LABELS[value.type].brief}>
+          <Select value={value.type} onChange={e => handleTypeChange(e.target.value as ActorRefType)}>
+            <optgroup label="結構化">
+              {ACTOR_STRUCTURED_TYPES.map(t => (
+                <option key={t} value={t}>{ACTOR_TYPE_LABELS[t].zh}</option>
               ))}
-            </Select>
-          </Field>
-          <div className="self-end text-[10.5px] text-ink-faint">
-            {value.type === 'user' && '⚠ 寫死 user id 僅限測試用，正式 spec 應改用 expr / role'}
-            {value.type === 'conditional' && conditionalDepth >= MAX_CONDITIONAL_DEPTH - 1 && '已接近最大嵌套深度 (3)'}
-          </div>
-        </div>
+            </optgroup>
+            <optgroup label="最後手段">
+              <option value="natural_language">{ACTOR_TYPE_LABELS.natural_language.zh}（最後手段）</option>
+            </optgroup>
+          </Select>
+        </Field>
 
-        <BodyEditor value={value} onChange={onChange} conditionalDepth={conditionalDepth} fallbackDepth={fallbackDepth} />
+        <BodyEditor value={value} onChange={onChange} conditionalDepth={conditionalDepth} />
 
-        {!hideFallback && fallbackDepth < MAX_FALLBACK_DEPTH && (
-          <FallbackBlock
-            value={value.fallback}
-            onChange={fb => onChange({ ...value, fallback: fb } as ActorRef)}
-            conditionalDepth={conditionalDepth}
-            fallbackDepth={fallbackDepth + 1}
-          />
-        )}
+        <FallbackBlock
+          value={value.fallback}
+          onChange={fb => onChange({ ...value, fallback: fb } as ActorRef)}
+          actorType={value.type}
+        />
       </div>
     </div>
   )
 }
 
 function BodyEditor({
-  value, onChange, conditionalDepth, fallbackDepth,
-}: { value: ActorRef; onChange: (n: ActorRef) => void; conditionalDepth: number; fallbackDepth: number }) {
+  value, onChange, conditionalDepth,
+}: { value: ActorRef; onChange: (n: ActorRef) => void; conditionalDepth: number }) {
   switch (value.type) {
     case 'expr':
       return (
-        <Field label="路徑 / Path">
+        <Field label="路徑 / Path" hint="從 submitter 走 org chart；接 .manager / .department / .head / .parent">
           <Select value={value.path} onChange={e => onChange({ ...value, path: e.target.value as typeof ACTOR_PATH_WHITELIST[number] })}>
             {ACTOR_PATH_WHITELIST.map(p => <option key={p} value={p}>{p}</option>)}
           </Select>
         </Field>
       )
 
-    case 'role':
+    case 'principal':
       return (
-        <Field label="角色代碼 / Role code" hint="如 Finance / CEO / VP / HR / admin / designer / viewer">
-          <Input value={value.code} onChange={e => onChange({ ...value, code: e.target.value })} placeholder="Finance" />
-        </Field>
-      )
-
-    case 'group':
-      return (
-        <Field label="群組 ID / Group id" hint="GUID — Phase B 改成 group code 自動完成">
-          <Input value={value.id} onChange={e => onChange({ ...value, id: e.target.value })} placeholder="00000000-0000-0000-0000-000000000000" />
-        </Field>
-      )
-
-    case 'user':
-      return (
-        <Field label="使用者 ID / User id" hint="僅供測試 — 正式 spec 不該寫死">
-          <Input value={value.id} onChange={e => onChange({ ...value, id: e.target.value })} placeholder="00000000-..." />
+        <Field label="Principal ref" hint="格式 kind:id，kind ∈ user/dept/group/role。下版會接 PrincipalPicker modal。">
+          <Input
+            value={value.ref}
+            onChange={e => onChange({ ...value, ref: e.target.value })}
+            placeholder="role:HR / user:<uuid> / dept:<uuid> / group:<uuid>"
+          />
         </Field>
       )
 
     case 'conditional':
       return (
-        <ConditionalEditor value={value} onChange={onChange} conditionalDepth={conditionalDepth} fallbackDepth={fallbackDepth} />
+        <ConditionalEditor value={value} onChange={onChange} conditionalDepth={conditionalDepth} />
       )
 
     case 'collection':
       return (
-        <CollectionEditor value={value} onChange={onChange} conditionalDepth={conditionalDepth} fallbackDepth={fallbackDepth} />
+        <CollectionEditor value={value} onChange={onChange} conditionalDepth={conditionalDepth} />
+      )
+
+    case 'natural_language':
+      return (
+        <NaturalLanguageBody value={value} onChange={onChange} />
       )
   }
 }
 
+function NaturalLanguageBody({
+  value, onChange,
+}: { value: Extract<ActorRef, { type: 'natural_language' }>; onChange: (n: ActorRef) => void }) {
+  const [open, setOpen] = useState(false)
+  const empty = !value.text.trim()
+  return (
+    <div>
+      <p className="mb-2 rounded border border-warn/30 bg-warn/5 px-2 py-1 text-[11px] text-ink">
+        ⚠ 最後手段：自然語言會犧牲精準度與可重現性。優先試結構化（路徑 / principal / conditional / collection）。
+      </p>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn(
+          'group flex w-full items-start gap-2 rounded border bg-white px-2 py-1.5 text-left hover:border-primary',
+          empty ? 'border-dashed border-rule' : 'border-rule',
+        )}
+      >
+        <StickyNote className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', empty ? 'text-ink-faint' : 'text-primary')} />
+        <span className={cn('flex-1 whitespace-pre-line text-[11px] leading-relaxed', empty ? 'text-ink-faint' : 'text-ink')}>
+          {empty ? '點此寫下這個 actor 的自然語言描述…（chef 會用 LLM 處理）' : value.text}
+        </span>
+        <span className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] text-ink-faint group-hover:text-primary">
+          <Pencil className="h-3 w-3" /> 編輯
+        </span>
+      </button>
+      <NoteEditorModal
+        open={open}
+        title="自然語言 actor 描述"
+        initial={value.text}
+        helper={
+          <>
+            chef 會看這段文字，自己用 LLM 寫對應的 actor resolver code。<br />
+            盡量寫具體：「找有空的副總」「同部門連續 3 件以上 → HR review」這種。
+          </>
+        }
+        onCancel={() => setOpen(false)}
+        onCommit={(v) => { onChange({ ...value, text: v }); setOpen(false) }}
+      />
+    </div>
+  )
+}
+
+function FallbackBlock({
+  value, onChange, actorType,
+}: {
+  value: ActorRefFallback | undefined
+  onChange: (next: ActorRefFallback | undefined) => void
+  actorType: ActorRefType
+}) {
+  const [open, setOpen] = useState(false)
+  // natural_language already IS the LLM escape hatch — adding another
+  // natural-language fallback wouldn't carry meaning, so suppress.
+  if (actorType === 'natural_language') return null
+
+  const empty = !value?.text?.trim()
+  return (
+    <div className="border-t border-rule pt-2">
+      <p className="mb-1 font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
+        Fallback — 主規則找不到人時用（自然語言，chef 處理）
+      </p>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn(
+          'group flex w-full items-start gap-2 rounded border bg-white px-2 py-1.5 text-left hover:border-primary',
+          empty ? 'border-dashed border-rule' : 'border-rule',
+        )}
+      >
+        <StickyNote className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', empty ? 'text-ink-faint' : 'text-primary')} />
+        <span className={cn('flex-1 whitespace-pre-line text-[11px] leading-relaxed', empty ? 'text-ink-faint' : 'text-ink')}>
+          {empty ? '點此寫下找不到人時的備援邏輯…（可選）' : value!.text}
+        </span>
+        <span className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] text-ink-faint group-hover:text-primary">
+          <Pencil className="h-3 w-3" /> 編輯
+        </span>
+      </button>
+      {!empty && (
+        <button
+          type="button"
+          onClick={() => onChange(undefined)}
+          className="mt-1 text-[10px] text-ink-faint hover:text-danger"
+        >
+          移除 fallback
+        </button>
+      )}
+      <NoteEditorModal
+        open={open}
+        title="Fallback — 主規則找不到人時用"
+        initial={value?.text ?? ''}
+        helper={
+          <>
+            v2 後 fallback 不再是另一條結構化規則，而是給 chef 看的自然語言補充。<br />
+            譬如「若主管離職，請 chef 找直屬向上 2 級代理」「找不到時通知 HR 指派」。
+          </>
+        }
+        onCancel={() => setOpen(false)}
+        onCommit={(v) => { onChange(v ? { text: v } : undefined); setOpen(false) }}
+      />
+    </div>
+  )
+}
+
 function ConditionalEditor({
-  value, onChange, conditionalDepth, fallbackDepth,
+  value, onChange, conditionalDepth,
 }: {
   value: Extract<ActorRef, { type: 'conditional' }>
   onChange: (n: ActorRef) => void
   conditionalDepth: number
-  fallbackDepth: number
 }) {
   const setCondition = (patch: Partial<ActorRefCondition>) =>
     onChange({ ...value, condition: { ...value.condition, ...patch } })
@@ -177,14 +275,12 @@ function ConditionalEditor({
             value={value.then}
             onChange={t => onChange({ ...value, then: t })}
             conditionalDepth={innerDepth}
-            fallbackDepth={fallbackDepth}
             label="THEN — 條件成立"
           />
           <ActorRefEditor
             value={value.else}
             onChange={el => onChange({ ...value, else: el })}
             conditionalDepth={innerDepth}
-            fallbackDepth={fallbackDepth}
             label="ELSE — 條件不成立"
           />
         </>
@@ -194,12 +290,11 @@ function ConditionalEditor({
 }
 
 function CollectionEditor({
-  value, onChange, conditionalDepth, fallbackDepth,
+  value, onChange, conditionalDepth,
 }: {
   value: Extract<ActorRef, { type: 'collection' }>
   onChange: (n: ActorRef) => void
   conditionalDepth: number
-  fallbackDepth: number
 }) {
   const updateActor = (i: number, next: ActorRef) => {
     const actors = [...value.actors]
@@ -256,7 +351,6 @@ function CollectionEditor({
               value={a}
               onChange={n => updateActor(i, n)}
               conditionalDepth={conditionalDepth}
-              fallbackDepth={fallbackDepth}
               label={`Actor #${i + 1}`}
             />
           </div>
@@ -278,60 +372,23 @@ function CollectionEditor({
   )
 }
 
-function FallbackBlock({
-  value, onChange, conditionalDepth, fallbackDepth,
-}: {
-  value: ActorRef | undefined
-  onChange: (next: ActorRef | undefined) => void
-  conditionalDepth: number
-  fallbackDepth: number
-}) {
-  if (!value) {
-    return (
-      <button
-        type="button"
-        onClick={() => onChange(emptyActor('role'))}
-        className="text-[11px] text-blue-600 hover:underline"
-      >
-        + 新增 fallback (主規則找不到人時用)
-      </button>
-    )
-  }
-  return (
-    <div className="space-y-2">
-      <ActorRefEditor
-        value={value}
-        onChange={onChange}
-        conditionalDepth={conditionalDepth}
-        fallbackDepth={fallbackDepth}
-        hideFallback
-        label="FALLBACK — 主規則找不到人時用 (限 1 層)"
-      />
-      <button type="button" onClick={() => onChange(undefined)} className="text-[11px] text-danger hover:underline">
-        移除 fallback
-      </button>
-    </div>
-  )
-}
-
 export function emptyActor(type: ActorRefType): ActorRef {
   switch (type) {
-    case 'expr':        return { type: 'expr', path: 'submitter.manager' }
-    case 'role':        return { type: 'role', code: '' }
-    case 'group':       return { type: 'group', id: '' }
-    case 'user':        return { type: 'user', id: '' }
-    case 'conditional': return {
+    case 'expr':             return { type: 'expr', path: 'submitter.manager' }
+    case 'principal':        return { type: 'principal', ref: '' }
+    case 'conditional':      return {
       type: 'conditional',
       condition: { field: 'amount', op: '>=', value: 0 },
       then: { type: 'expr', path: 'submitter.manager' },
       else: { type: 'expr', path: 'submitter.manager' },
     }
-    case 'collection':  return {
+    case 'collection':       return {
       type: 'collection',
       mode: 'any',
       min_approvals: 1,
       actors: [{ type: 'expr', path: 'submitter.manager' }],
     }
+    case 'natural_language': return { type: 'natural_language', text: '' }
   }
 }
 

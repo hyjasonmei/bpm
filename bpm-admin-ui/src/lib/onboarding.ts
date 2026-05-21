@@ -124,35 +124,51 @@ export type ActorRefCondition = {
   value: unknown
 }
 
+/**
+ * Fallback — natural-language description of what to do when the
+ * primary ActorRef resolves to no one (e.g. "主管離職時，請 chef 找代理人").
+ *
+ * v2 (this revision) drops the v1.1 recursive ActorRef fallback chain.
+ * Structured fallback chains belong in the primary `conditional`; the
+ * fallback slot is reserved for the LLM escape hatch chef reads at
+ * build time. See `flowcook-wizard` spec §APPROVERS for the framing.
+ */
+export interface ActorRefFallback {
+  text: string
+}
+
 export type ActorRef =
-  | { type: 'expr'; path: ActorPath; fallback?: ActorRef }
-  | { type: 'role'; code: string; fallback?: ActorRef }
-  | { type: 'group'; id: string; fallback?: ActorRef }
-  | { type: 'user'; id: string; fallback?: ActorRef }
+  | { type: 'expr'; path: ActorPath; fallback?: ActorRefFallback }
+  | { type: 'principal'; ref: string; fallback?: ActorRefFallback }
   | {
       type: 'conditional'
       condition: ActorRefCondition
       then: ActorRef
       else: ActorRef
-      fallback?: ActorRef
+      fallback?: ActorRefFallback
     }
   | {
       type: 'collection'
       mode: 'any' | 'all'
       min_approvals?: number
       actors: ActorRef[]
-      fallback?: ActorRef
+      fallback?: ActorRefFallback
     }
+  | { type: 'natural_language'; text: string; fallback?: ActorRefFallback }
 
 export type ActorRefType = ActorRef['type']
 
-export const ACTOR_TYPE_LABELS: Record<ActorRefType, { en: string; zh: string }> = {
-  expr:        { en: 'Org-chart path', zh: '組織路徑' },
-  role:        { en: 'Role',           zh: '角色' },
-  group:       { en: 'Group',          zh: '群組' },
-  user:        { en: 'Specific user',  zh: '指定使用者 (測試用)' },
-  conditional: { en: 'Conditional',    zh: '條件式' },
-  collection:  { en: 'Collection',     zh: '合議' },
+/** Display order — structured options on top, natural_language as a
+ *  visually deprioritised last resort (renders below a separator). */
+export const ACTOR_STRUCTURED_TYPES: readonly ActorRefType[] = ['expr', 'principal', 'conditional', 'collection']
+export const ACTOR_LAST_RESORT_TYPE: ActorRefType = 'natural_language'
+
+export const ACTOR_TYPE_LABELS: Record<ActorRefType, { en: string; zh: string; brief: string }> = {
+  expr:             { en: 'Org-chart path',  zh: '路徑（從提案人走）',   brief: '譬如：提案人的主管 / 部門主管' },
+  principal:        { en: 'Specific principal', zh: '指定 user / dept / group / 角色', brief: '從清單挑特定對象' },
+  conditional:      { en: 'Conditional',     zh: '依條件分流',            brief: '譬如：金額大走 CEO，否則走主管' },
+  collection:       { en: 'Collection',      zh: '多人會簽',              brief: 'any (任一通過) / all (全簽)' },
+  natural_language: { en: 'Natural language', zh: '自然語言描述',         brief: '最後手段：上面都寫不下時用，會犧牲精準度' },
 }
 
 /* Approvals — mirrors spec_schema.md §2.5 (v1.1) */
@@ -454,15 +470,106 @@ export function migrateDraft(d: unknown): DraftSpec {
     }),
   }))
 
+  // Legacy: ActorRef DSL revision — v1.1 had `role` / `user` / `group`
+  // as separate types and `fallback?: ActorRef` (recursive chain).
+  // v2 collapses the first three into `principal` (ref = `${kind}:${id|code}`)
+  // and turns `fallback` into `{ text: string }`. Walk approvals[] so
+  // existing drafts open without crashing or losing the approver.
+  const approvals = (partial.approvals ?? []).map(a => ({
+    ...a,
+    approver: migrateActorRef(a.approver),
+  })) as Approval[]
+
   return {
     ...EMPTY_DRAFT,
     ...partial,
     userTasks,
+    approvals,
     sampleOrg: (partial.sampleOrg && (partial.sampleOrg as SampleOrgSnapshot).users)
       ? (partial.sampleOrg as SampleOrgSnapshot)
       : emptySampleOrg(),
     testCases,
   } as DraftSpec
+}
+
+/** Recursive migrator: maps any legacy ActorRef shape (or modern shape
+ *  passed through unchanged) into the v2 schema. */
+function migrateActorRef(raw: unknown): ActorRef {
+  if (!raw || typeof raw !== 'object') {
+    return { type: 'expr', path: 'submitter.manager' }
+  }
+  const r = raw as { type?: string; [k: string]: unknown }
+
+  // v1.1 legacy types — collapse to `principal` with prefixed ref.
+  if (r.type === 'role' && typeof r.code === 'string') {
+    return { type: 'principal', ref: `role:${r.code}`, ...migratedFallback(r) }
+  }
+  if (r.type === 'user' && typeof r.id === 'string') {
+    return { type: 'principal', ref: `user:${r.id}`, ...migratedFallback(r) }
+  }
+  if (r.type === 'group' && typeof r.id === 'string') {
+    return { type: 'principal', ref: `group:${r.id}`, ...migratedFallback(r) }
+  }
+
+  // Modern shapes — recurse into conditional/collection children but
+  // strip out recursive fallback (if present).
+  if (r.type === 'conditional' && r.then && r.else && r.condition) {
+    return {
+      type: 'conditional',
+      condition: r.condition as ActorRefCondition,
+      then: migrateActorRef(r.then),
+      else: migrateActorRef(r.else),
+      ...migratedFallback(r),
+    }
+  }
+  if (r.type === 'collection' && Array.isArray(r.actors)) {
+    return {
+      type: 'collection',
+      mode: (r.mode === 'all' ? 'all' : 'any') as 'any' | 'all',
+      min_approvals: typeof r.min_approvals === 'number' ? r.min_approvals : undefined,
+      actors: (r.actors as unknown[]).map(migrateActorRef),
+      ...migratedFallback(r),
+    }
+  }
+  if (r.type === 'expr' && typeof r.path === 'string') {
+    return { type: 'expr', path: r.path as ActorPath, ...migratedFallback(r) }
+  }
+  if (r.type === 'principal' && typeof r.ref === 'string') {
+    return { type: 'principal', ref: r.ref, ...migratedFallback(r) }
+  }
+  if (r.type === 'natural_language' && typeof r.text === 'string') {
+    return { type: 'natural_language', text: r.text, ...migratedFallback(r) }
+  }
+
+  // Unknown shape — fall back to a placeholder so the UI doesn't crash.
+  return { type: 'expr', path: 'submitter.manager' }
+}
+
+/** Turn a legacy recursive `fallback: ActorRef` into the v2
+ *  `fallback: { text }` shape with a human-readable summary; passes
+ *  through a modern `{ text }` fallback unchanged. Returns an
+ *  object spread-friendly partial (either `{ fallback }` or `{}`). */
+function migratedFallback(r: { type?: string; [k: string]: unknown }): { fallback?: ActorRefFallback } {
+  const f = r.fallback as { text?: unknown } | undefined
+  if (!f) return {}
+  if (typeof f.text === 'string') return { fallback: { text: f.text } }
+  // Legacy recursive shape — flatten to a one-line summary so the
+  // information isn't silently lost. chef will surface it as a note.
+  return { fallback: { text: `(legacy fallback: ${summarizeLegacyActor(f)})` } }
+}
+
+function summarizeLegacyActor(raw: unknown): string {
+  if (!raw || typeof raw !== 'object') return 'unknown'
+  const r = raw as { type?: string; code?: string; id?: string; path?: string }
+  switch (r.type) {
+    case 'expr':        return `expr:${r.path ?? '?'}`
+    case 'role':        return `role:${r.code ?? '?'}`
+    case 'user':        return `user:${r.id ?? '?'}`
+    case 'group':       return `group:${r.id ?? '?'}`
+    case 'conditional': return 'conditional'
+    case 'collection':  return 'collection'
+    default:            return r.type ?? 'unknown'
+  }
 }
 
 /* ── Validators (gate to next step) ── */
@@ -644,7 +751,7 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
       approver: {
         type: 'expr',
         path: 'submitter.department.head',
-        fallback: { type: 'role', code: 'VP' },
+        fallback: { text: '若部門主管不在，請走 VP 角色（v1 結構化 fallback 已收回，由 chef 處理）' },
       },
     },
   ],
@@ -800,8 +907,8 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
   ],
   approvals: [
     { id: 'approval_manager', approver: { type: 'expr', path: 'submitter.manager' } },
-    { id: 'approval_finance', approver: { type: 'role', code: 'Finance' } },
-    { id: 'approval_ceo', approver: { type: 'role', code: 'CEO', fallback: { type: 'role', code: 'VP' } } },
+    { id: 'approval_finance', approver: { type: 'principal', ref: 'role:Finance' } },
+    { id: 'approval_ceo', approver: { type: 'principal', ref: 'role:CEO', fallback: { text: '若 CEO 不在，請改 VP 角色簽核' } } },
   ],
   notifications: [
     {
@@ -819,7 +926,7 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
       id: 'notify_assign_purchase',
       trigger: 'on_assign',
       channel: ['email', 'in_app'],
-      recipients: [{ type: 'role', code: 'Purchase' }],
+      recipients: [{ type: 'principal', ref: 'role:Purchase' }],
       template: {
         subject: { 'zh-TW': '【採購待處理】{{purchase.vendor}} - {{purchase.amount}} 元' },
         body: { 'zh-TW': '案件已核准完畢，請開立 PO。\n供應商: {{purchase.vendor}}\n金額: {{purchase.amount}} 元\n\n處理頁面: {{caseUrl}}' },

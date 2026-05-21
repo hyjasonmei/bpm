@@ -59,11 +59,10 @@ export function StepApprovers({ draft, setDraft }: { draft: DraftSpec; setDraft:
 
 function summarize(a: ActorRef): string {
   switch (a.type) {
-    case 'expr':        return `expr:${a.path}`
-    case 'role':        return `role:${a.code || '(unset)'}`
-    case 'group':       return `group:${a.id?.slice(0, 8) || '(unset)'}`
-    case 'user':        return `user:${a.id?.slice(0, 8) || '(unset)'}`
-    case 'conditional': return `if ${a.condition.field}${a.condition.op}${String(a.condition.value)}`
-    case 'collection':  return `${a.mode}(${a.actors.length}${a.mode === 'any' ? `, ≥${a.min_approvals ?? 1}` : ''})`
+    case 'expr':             return `expr:${a.path}`
+    case 'principal':        return a.ref || 'principal:(unset)'
+    case 'conditional':      return `if ${a.condition.field}${a.condition.op}${String(a.condition.value)}`
+    case 'collection':       return `${a.mode}(${a.actors.length}${a.mode === 'any' ? `, ≥${a.min_approvals ?? 1}` : ''})`
+    case 'natural_language': return a.text ? `nl:「${a.text.slice(0, 20)}${a.text.length > 20 ? '…' : ''}」` : 'nl:(empty)'
   }
 }

@@ -14,7 +14,7 @@ import {
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { Onboarding } from '@/screens/onboarding/Onboarding'
-import { EMPTY_DRAFT, type DraftSpec } from '@/lib/onboarding'
+import { EMPTY_DRAFT, migrateDraft, type DraftSpec } from '@/lib/onboarding'
 import { flowToBpmnXml } from '@/lib/bpmnXml'
 import {
   cancelFlow,
@@ -390,10 +390,13 @@ function WizardView({
   // Parse initial spec into a DraftSpec; tolerate parse errors by falling
   // back to EMPTY_DRAFT (a partial spec from chef-on-hold or an external
   // import is the only realistic way to land here with bad JSON).
+  // Route through migrateDraft so legacy schema (hint→note, role/user/group
+  // → principal, recursive ActorRef fallback → text) is normalised on load
+  // and the rest of the UI never sees the old shapes.
   const initialDraft: DraftSpec = (() => {
     try {
       if (!flow.specJson || flow.specJson === '{}') return EMPTY_DRAFT
-      return { ...EMPTY_DRAFT, ...JSON.parse(flow.specJson) }
+      return migrateDraft(JSON.parse(flow.specJson))
     } catch {
       return EMPTY_DRAFT
     }
