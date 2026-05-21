@@ -280,7 +280,7 @@ const approversTool: StepToolBinding = {
 const notifyTool: StepToolBinding = {
   tool: {
     name: 'emit_notifications',
-    description: 'Replace the entire notifications[] array. Each notification has a trigger, channels, recipients, and a 繁體中文 template with Mustache {{variables}}. Variables[] must list every {{var}} appearing in subject + body.',
+    description: 'Replace the entire notifications[] array. Each notification has a trigger, channels, recipients, and a 繁體中文 template with Mustache {{variables}}. Variables[] must list every {{var}} appearing in subject + body. Recipients accept three ergonomic types: submitter / current_approver / principal (`ref` is `kind:id`, kind ∈ user|dept|group|role).',
     input_schema: {
       type: 'object',
       required: ['notifications'],
@@ -300,8 +300,14 @@ const notifyTool: StepToolBinding = {
                   oneOf: [
                     { type: 'object', required: ['type'], properties: { type: { const: 'submitter' } } },
                     { type: 'object', required: ['type'], properties: { type: { const: 'current_approver' } } },
-                    { type: 'object', required: ['type', 'code'], properties: { type: { const: 'role' }, code: { type: 'string', description: 'Role code, e.g. HR / Finance / VP' } } },
-                    { type: 'object', required: ['type', 'id'], properties: { type: { const: 'user' }, id: { type: 'string', description: 'User Guid (test-only — production specs should use role)' } } },
+                    {
+                      type: 'object',
+                      required: ['type', 'ref'],
+                      properties: {
+                        type: { const: 'principal' },
+                        ref: { type: 'string', description: 'Prefixed `kind:id` where kind ∈ user|dept|group|role. Use `role:HR`, `role:Finance` etc. for role-based sends.' },
+                      },
+                    },
                   ],
                 },
               },
