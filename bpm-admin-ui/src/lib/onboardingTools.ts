@@ -280,7 +280,13 @@ const approversTool: StepToolBinding = {
 const notifyTool: StepToolBinding = {
   tool: {
     name: 'emit_notifications',
-    description: 'Replace the entire notifications[] array. Each notification has a trigger, channels, recipients, and a 繁體中文 template with Mustache {{variables}}. Variables[] must list every {{var}} appearing in subject + body. Recipients accept three ergonomic types: submitter / current_approver / principal (`ref` is `kind:id`, kind ∈ user|dept|group|role). Optional `nodeId` binds a notification to a BPMN `notify` node — when set, the notification fires when the flow reaches that node (position-based) instead of on the cross-cutting trigger event.',
+    description: `Replace the entire notifications[] array. **Critical**: Pass the COMPLETE list — every notification that should exist after the change (existing + newly added + modified). Omitting an existing entry will DELETE it. If the user asks to "add" a notification, include all current notifications PLUS the new one. Each notification has a trigger, channels, recipients, and a 繁體中文 template with Mustache {{variables}}. Variables[] must list every {{var}} appearing in subject + body. Recipients accept three ergonomic types: submitter / current_approver / principal (\`ref\` is \`kind:id\`, kind ∈ user|dept|group|role).
+
+**Two notification kinds — do not conflate**:
+- **node-bound** (set \`nodeId\` to a BPMN \`notify\` node id): fires when the flow reaches that node. There is exactly one notification per notify node; do not create event-triggered ones for the same node.
+- **event-triggered** (no \`nodeId\`): fires on the cross-cutting trigger event (on_submit / on_assign / etc.). When the user asks to "add a new notification on on_complete", they almost always mean event-triggered — do NOT attach it to an unrelated notify node.
+
+If a notification's \`nodeId\` is already set in draftSummary, treat it as node-bound and only modify trigger/recipients/template — never reassign its nodeId.`,
     input_schema: {
       type: 'object',
       required: ['notifications'],
@@ -357,7 +363,7 @@ const notifyTool: StepToolBinding = {
 const slaTool: StepToolBinding = {
   tool: {
     name: 'emit_sla_config',
-    description: 'Replace sla.perNode. Keys are node ids (only approval / userTask / serviceTask nodes are meaningful). Duration uses suffix h or d, e.g. "8h", "2d". escalation.after may also be a percentage like "50%" of the duration.',
+    description: `Replace sla.perNode. **Critical**: Pass the COMPLETE map — every node that should have SLA after the change (existing entries that should stay + new + modified). Omitting an existing key DELETES that node's SLA. If the user asks to "set SLA on node X", include X **plus all other existing nodes' SLA** from draftSummary.sla.perNode. Keys are node ids (only approval / userTask / serviceTask nodes are meaningful). Duration uses suffix h or d, e.g. "8h", "2d". escalation.after may also be a percentage like "50%" of the duration.`,
     input_schema: {
       type: 'object',
       required: ['perNode'],

@@ -134,7 +134,22 @@ function summarizeDraft(d: DraftSpec) {
     })),
     approvalCount: d.approvals.length,
     decisionCount: d.decisions.length,
-    notificationCount: d.notifications.length,
+    // Surface current notifications + SLA so emit_notifications /
+    // emit_sla_config can preserve existing entries when the model is
+    // asked to "add"/"modify". Without this the model commonly drops
+    // unmentioned entries because the tools have「replace COMPLETE
+    // list」semantics.
+    notifications: d.notifications.map(n => ({
+      id: n.id, trigger: n.trigger, nodeId: n.nodeId,
+      recipients: n.recipients.length, channel: n.channel,
+    })),
+    sla: d.sla?.perNode
+      ? Object.fromEntries(Object.entries(d.sla.perNode).map(([nodeId, cfg]) => [nodeId, {
+          duration: (cfg as { duration?: string }).duration,
+          businessHoursOnly: (cfg as { businessHoursOnly?: boolean }).businessHoursOnly,
+          escalation: (cfg as { escalation?: { after?: string; action?: string } }).escalation,
+        }]))
+      : {},
     testCaseCount: d.testCases.length,
   }
 }
