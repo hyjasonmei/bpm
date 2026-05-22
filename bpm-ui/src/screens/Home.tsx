@@ -7,7 +7,8 @@ import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { StatusBadge, TypeChip, type StatusKind } from '@/components/ui/badge'
-import { MOCK_ACTIVITY } from '@/lib/mocks'
+// MOCK_ACTIVITY retired in Phase 2.2 — ActivityFeedPanel now reads from
+// the same useMyInstances feed as the rest of the page.
 import { PERSONAS, type PersonaCode } from '@/lib/role'
 import type { Screen } from '@/components/AppLayout'
 import { FORMS, type FormCode } from '@/lib/workflow'
@@ -80,7 +81,7 @@ export function Home({ persona, setScreen }: HomeProps) {
         </div>
         <div className="min-w-0 space-y-4">
           <QuickActionsPanel setScreen={setScreen} />
-          <ActivityFeedPanel />
+          <ActivityFeedPanel cases={myCases.data ?? []} loading={myCases.loading} />
         </div>
       </div>
     </div>
@@ -333,21 +334,40 @@ function QuickActionsPanel({ setScreen }: { setScreen: (s: Screen) => void }) {
   )
 }
 
-function ActivityFeedPanel() {
+function ActivityFeedPanel({ cases, loading }: { cases: MyInstanceSummaryDto[]; loading: boolean }) {
+  const recent = [...cases]
+    .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt))
+    .slice(0, 8)
+
   return (
     <SectionCard>
-      <SectionTitle right={<span className="text-[10.5px] uppercase tracking-wider text-ink-faint">demo</span>}>Activity Feed</SectionTitle>
+      <SectionTitle>Activity Feed</SectionTitle>
       <div className="divide-y divide-slate-100">
-        {MOCK_ACTIVITY.map((a, i) => {
-          const meta = ICON_FOR_ACTIVITY[a.type]
+        {loading && recent.length === 0 && (
+          <p className="px-3 py-6 text-center text-[11px] text-ink-faint">Loading…</p>
+        )}
+        {!loading && recent.length === 0 && (
+          <p className="px-3 py-6 text-center text-[11px] text-ink-faint">
+            尚無近期活動 — 從上方 Quick Actions 開新流程後會出現。
+          </p>
+        )}
+        {recent.map(c => {
+          const meta = ICON_FOR_ACTIVITY[statusToActivityKind(c.status)]
+          const formLabel = FORMS[c.specCode as FormCode]?.zhLabel ?? c.specCode
           return (
-            <div key={i} className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-slate-50/60">
+            <div key={c.id} className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-slate-50/60">
               <span className={cn('mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full', meta.bg, meta.color)}>
                 <meta.Icon className="h-3 w-3" strokeWidth={2.5} />
               </span>
               <div className="min-w-0 flex-1 text-xs">
-                <p className="text-ink"><span className="font-medium">{a.msg}</span> <span className="font-mono text-[10.5px] text-ink-muted">{a.doc}</span></p>
-                <p className="mt-0.5 text-[10.5px] text-ink-faint">{a.time}</p>
+                <p className="text-ink truncate">
+                  <span className="font-medium">{formLabel}</span>
+                  <span className="ml-1 text-ink-muted">{instanceLineFor(c)}</span>
+                </p>
+                <p className="mt-0.5 text-[10.5px] text-ink-faint">
+                  <span className="font-mono">{c.id.slice(0, 8)}</span>
+                  {' · '}{formatActivityTime(c.lastActivityAt)}
+                </p>
               </div>
             </div>
           )
@@ -355,6 +375,35 @@ function ActivityFeedPanel() {
       </div>
     </SectionCard>
   )
+}
+
+function statusToActivityKind(status: InstanceStatus): keyof typeof ICON_FOR_ACTIVITY {
+  switch (status) {
+    case 'Completed': return 'approved'
+    case 'Cancelled': return 'rejected'
+    case 'Errored':   return 'returned'
+    case 'Running':   return 'submitted'
+    default:          return 'created'
+  }
+}
+
+function instanceLineFor(c: MyInstanceSummaryDto): string {
+  if (c.status === 'Completed') return '已完成'
+  if (c.status === 'Cancelled') return '已取消'
+  if (c.status === 'Errored') return '錯誤待處理'
+  if (c.currentNodeLabel) return `· ${c.currentNodeLabel}`
+  return `· ${c.openTaskCount} task open`
+}
+
+function formatActivityTime(iso: string): string {
+  const d = new Date(iso)
+  const diffMs = Date.now() - d.getTime()
+  const mins = Math.floor(diffMs / 60_000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins} min ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} h ago`
+  return d.toISOString().slice(0, 10)
 }
 
 /* ── helpers ────────────────────────────────────────────── */
