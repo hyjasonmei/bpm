@@ -1,0 +1,63 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+
+// Use cases — partner-brought real flows. Each entry will pair with
+// a Phase D-style screenshot once chef produces the real form for that
+// flow code. For now, copy-only.
+const cases = [
+  { code: 'LEAVE',  title: '請假申請',        zh: '員工 → 主管 → HR',                  blurb: '最常見的入門流程。含天數計算、假別規則、HR 餘額顯示。' },
+  { code: 'GEE',    title: '員工費用申請',    zh: '員工 → 主管 → 會計',                blurb: '多筆發票、貨幣換算、附件、金額分流核准。' },
+  { code: 'GEV',    title: '廠商費用申請',    zh: '採購 → 財務 → 會計',                blurb: '多筆發票含合約勾稽、稅金合計、付款條件。' },
+  { code: 'APE',    title: '預支費用',        zh: '員工 → 主管 → 會計 → 員工結算',     blurb: '出差預支、後期費用結算回沖。' },
+  { code: 'HWP',    title: '硬體採購',        zh: '需求 → IT → 主管 → 採購',           blurb: '表格式採購單，多筆設備、規格、報價。' },
+  { code: 'ITPR',   title: 'IT 採購',         zh: '需求 → IT 規格 → IT 報價 → 採購',  blurb: '多階段 IT 採購，每階段不同表單。' },
+  { code: 'TRQ',    title: '差旅申請',        zh: '員工 → 主管 → 行政',                blurb: '行程安排、接送需求、住宿、票務。' },
+  { code: 'TEO',    title: '對外往來',        zh: '員工 → 主管 → 財務',                blurb: '對外請款、金額分流二人會簽。' },
+  { code: 'EXTOB',  title: '對外贈禮',        zh: '員工 → 主管 → HR 紀錄',             blurb: '對外饋贈、合規紀錄。' },
+  { code: 'RESIGN', title: '離職申請',        zh: '員工 → 主管 → HR → 各部門',         blurb: '多部門會簽、交接清單、設備回收。' },
+  { code: 'DEPTX',  title: '異動申請',        zh: '員工 → 主管 → HR',                  blurb: '部門 / 職位 / 主管異動。' },
+]
+---
+<BaseLayout title="主廚推薦 — flowcook">
+  <section class="bg-gradient-to-b from-brand-cream to-brand-plate/40 py-16 sm:py-24">
+    <div class="container-narrow max-w-3xl">
+      <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-muted">Use cases</p>
+      <h1 class="mt-3 font-display text-5xl font-semibold leading-tight sm:text-6xl">
+        主廚推薦菜單
+      </h1>
+      <p class="mt-6 text-lg leading-relaxed text-brand-night/85">
+        合作夥伴從前公司帶回 10+ 個真實流程 —— 從 HR 到財務、從 IT 到行政。
+        每一道菜，我們都實際走過、做過、上桌過。
+      </p>
+      <p class="mt-3 text-sm text-brand-muted italic">
+        TODO: 每張卡之後接 Phase D demo 之後 chef 產出的真實 form 截圖。
+      </p>
+    </div>
+  </section>
+
+  <section class="py-12 sm:py-20">
+    <div class="container-wide grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {cases.map(c => (
+        <article class="group rounded-2xl border border-brand-rule/70 bg-white p-6 transition-all hover:border-brand-flame hover:shadow-lg hover:shadow-brand-flame/5">
+          <div class="flex items-baseline justify-between">
+            <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-brand-muted">{c.code}</span>
+            <span class="text-xs text-brand-muted">{c.zh}</span>
+          </div>
+          <h3 class="mt-3 font-display text-xl font-semibold text-brand-midnight">{c.title}</h3>
+          <p class="mt-2 text-sm leading-relaxed text-brand-night/80">{c.blurb}</p>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <section class="bg-brand-plate/40 py-16 sm:py-20">
+    <div class="container-narrow max-w-2xl text-center">
+      <h2 class="font-display text-3xl font-semibold">你的流程不在菜單上？</h2>
+      <p class="mt-4 text-base text-brand-night/85">
+        這 11 道是夥伴從前公司帶來的「常見」，但 flowcook 不是預先寫死的 11 條 ——
+        AI 廚房可以做任何你描述得清楚的流程。
+      </p>
+      <a href="#contact" class="btn-flame mt-6">告訴我們你的菜</a>
+    </div>
+  </section>
+</BaseLayout>

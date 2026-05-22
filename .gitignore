@@ -17,3 +17,8 @@ bpm-admin-ui/node_modules/
 
 # Claude Code per-project local settings
 .claude/settings.local.json
+
+# bpm-www (Astro)
+bpm-www/node_modules/
+bpm-www/dist/
+bpm-www/.astro/

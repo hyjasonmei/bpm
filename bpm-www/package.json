@@ -1,0 +1,22 @@
+{
+  "name": "bpm-www",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "description": "flowcook marketing site — Astro + Tailwind. Customer-facing copy only; no product runtime here.",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@astrojs/tailwind": "^6.0.0",
+    "astro": "^5.0.0",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2"
+  }
+}

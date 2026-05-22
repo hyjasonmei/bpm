@@ -1,0 +1,38 @@
+---
+const navItems = [
+  { href: '/how-it-works',  label: '一道菜的旅程' },
+  { href: '/use-cases',     label: '主廚推薦' },
+  { href: '/features',      label: '廚房工具' },
+  { href: '/why-flowcook',  label: '為什麼選我們' },
+  { href: '/pricing',       label: '點餐方式' },
+  { href: '/about',         label: '廚房介紹' },
+]
+
+const currentPath = Astro.url.pathname
+---
+<header class="border-b border-brand-rule/60 bg-brand-cream/80 backdrop-blur sticky top-0 z-30">
+  <div class="container-wide flex h-16 items-center justify-between">
+    <a href="/" class="flex items-baseline gap-2">
+      <span class="font-display text-xl font-semibold text-brand-midnight">flowcook</span>
+      <span class="text-[10px] uppercase tracking-[0.18em] text-brand-muted">AI 廚房</span>
+    </a>
+
+    <nav class="hidden items-center gap-8 md:flex">
+      {navItems.map(item => (
+        <a
+          href={item.href}
+          class:list={[
+            'text-sm font-medium transition-colors',
+            currentPath.startsWith(item.href)
+              ? 'text-brand-flame'
+              : 'text-brand-night/80 hover:text-brand-flame',
+          ]}
+        >
+          {item.label}
+        </a>
+      ))}
+    </nav>
+
+    <a href="#contact" class="btn-flame text-xs">預約試吃</a>
+  </div>
+</header>
