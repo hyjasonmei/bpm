@@ -128,6 +128,30 @@ Render rules:
 
 Failing tests block the commit — don't merge red.
 
+### Spec ⇄ sampleOrg drift
+
+The wizard's PrincipalPicker reads principals from admin's live
+`Admin_Principals` table, so `ActorRef.principal.ref = user:<uuid>`
+in `spec.json` carries a UUID that exists in production but is
+**not guaranteed to be in `sampleOrg.users[]`** (the bundle's test
+fixture). When you find such drift:
+
+1. **Production code (handler / controller / dispatcher)** — use the
+   spec's literal UUID as-is. Hand it to `IActorResolver` and let
+   runtime resolve against real admin org. Do NOT rewrite the spec.
+2. **Integration tests** — substitute the missing principal with the
+   nearest semantic match from `sampleOrg.users[]` when seeding the
+   in-memory scenario (e.g. spec wants `user:02724add-…` for the VP
+   approver → test seeds `user:33333333-…` "Vera VP" from sampleOrg).
+   Comment the substitution so the next reader knows why test ≠ prod.
+3. **Final report** — list every drift instance under a
+   "spec ⇄ sampleOrg drift" bullet. Each one is a wizard followup
+   (PrincipalPicker should append picked principals into sampleOrg
+   automatically so spec + sampleOrg round-trip).
+
+This rule covers `ActorRef.principal` ⊕ `ActorRef.collection.actors`
+⊕ `recipients[]` — anything that names a principal by UUID.
+
 ## Commit shape
 
 One commit per logical step is easier for Jason to review in GitKraken
