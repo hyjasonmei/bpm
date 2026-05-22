@@ -2,6 +2,7 @@ using System.Text.Json;
 using Bpm.Application.Notifications;
 using Bpm.Application.Process.Runtime;
 using Bpm.Application.Sandbox;
+using Bpm.Domain.Entities.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -52,35 +53,69 @@ public sealed class SandboxCapturingNotificationDispatcher(
     {
         var settings = await db.TenantSettings.AsNoTracking()
             .FirstOrDefaultAsync(s => s.TenantCode == DefaultTenant, ct);
+        var sandbox = settings is not null && settings.SandboxMode;
 
-        if (settings is null || !settings.SandboxMode)
+        var matched = snapshot.GetNotifications(trigger);
+
+        if (!sandbox)
         {
-            // Mirror the legacy LoggingNotificationDispatcher contract — log and
-            // return so non-sandbox runs stay observable but don't write rows.
-            var matched = snapshot.GetNotifications(trigger);
             logger.LogInformation(
                 "Notification dispatch (sandbox off): trigger={Trigger} instance={Instance} spec={Spec} matchedSpecs={Count}",
                 trigger, ctx.InstanceId, ctx.SpecCode, matched.Count);
-            return;
         }
 
-        foreach (var notif in snapshot.GetNotifications(trigger))
+        foreach (var notif in matched)
         {
             var (subject, bodyHtml, bodyText) = RenderTemplates(notif.Raw);
             var recipients = ResolveRecipientMarkers(notif.Raw);
+            var status = sandbox ? "captured" : "dispatched";
+            string? error = null;
 
-            var msg = new EmailMessage(
-                To: recipients,
-                Cc: Array.Empty<string>(),
-                Bcc: Array.Empty<string>(),
-                Subject: subject,
-                BodyHtml: bodyHtml,
-                BodyText: bodyText,
-                OriginatingNotificationId: notif.Id,
-                ProcessInstanceId: ctx.InstanceId);
+            if (sandbox)
+            {
+                try
+                {
+                    var msg = new EmailMessage(
+                        To: recipients,
+                        Cc: Array.Empty<string>(),
+                        Bcc: Array.Empty<string>(),
+                        Subject: subject,
+                        BodyHtml: bodyHtml,
+                        BodyText: bodyText,
+                        OriginatingNotificationId: notif.Id,
+                        ProcessInstanceId: ctx.InstanceId);
+                    await gate.ApplyAsync(msg, ct);
+                }
+                catch (Exception ex)
+                {
+                    status = "failed";
+                    error = ex.Message;
+                    logger.LogError(ex, "Sandbox capture failed for notification {NotifId}", notif.Id);
+                }
+            }
 
-            await gate.ApplyAsync(msg, ct);
+            // Append-only audit row per notification, regardless of sandbox
+            // mode. Production observability + compliance leans on this.
+            db.NotificationDispatchAudits.Add(new NotificationDispatchAudit
+            {
+                Id = Guid.NewGuid(),
+                InstanceId = ctx.InstanceId,
+                TaskId = null,
+                SpecCode = ctx.SpecCode,
+                Trigger = trigger,
+                NotificationId = notif.Id,
+                Channel = "email",
+                Recipient = recipients.Count > 0 ? string.Join(",", recipients) : null,
+                Subject = string.IsNullOrEmpty(subject) ? null : subject,
+                Body = string.IsNullOrEmpty(bodyText) ? null : bodyText,
+                Status = status,
+                Error = error,
+                DispatchedAt = DateTime.UtcNow,
+            });
         }
+
+        if (matched.Count > 0)
+            await db.SaveChangesAsync(ct);
     }
 
     /// <summary>

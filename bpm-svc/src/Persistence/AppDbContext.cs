@@ -5,6 +5,7 @@ using Bpm.Domain.Entities.Audit;
 using Bpm.Domain.Entities.Authz;
 using Bpm.Domain.Entities.HrFlows;
 using Bpm.Domain.Entities.Impersonation;
+using Bpm.Domain.Entities.Notifications;
 using Bpm.Domain.Entities.Org;
 using Bpm.Domain.Entities.Process;
 using Bpm.Domain.Entities.Sandbox;
@@ -45,6 +46,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TaskHistory> TaskHistory => Set<TaskHistory>();
 
     public DbSet<SpecBundle> SpecBundles => Set<SpecBundle>();
+
+    public DbSet<NotificationDispatchAudit> NotificationDispatchAudits => Set<NotificationDispatchAudit>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
