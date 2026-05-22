@@ -1,0 +1,166 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "tenant": "acme",
+    "flowName": "員工費用申請",
+    "flowCode": "GEE",
+    "flowVersion": 1,
+    "createdAt": "2026-05-11T00:00:00Z",
+    "createdBy": "u_demo",
+    "language": "zh-TW",
+    "notes": "Per workflow.ts GEE: employee → manager → finance(confirm) → finance(fin_review) → close. Line items collapsed to scalars for v1 (see openspec extend-field-types-line-items)."
+  },
+  "flow": {
+    "nodes": [
+      { "id": "start_1", "type": "startEvent", "label": "開始" },
+      { "id": "task_apply", "type": "userTask", "label": "員工申請" },
+      { "id": "approval_manager", "type": "approval", "label": "主管簽核" },
+      { "id": "task_finance_confirm", "type": "userTask", "label": "確認列印" },
+      { "id": "task_finance_review", "type": "userTask", "label": "財務審查" },
+      { "id": "end_1", "type": "endEvent", "label": "結案" }
+    ],
+    "edges": [
+      { "id": "e1", "source": "start_1", "target": "task_apply" },
+      { "id": "e2", "source": "task_apply", "target": "approval_manager" },
+      { "id": "e3", "source": "approval_manager", "target": "task_finance_confirm" },
+      { "id": "e4", "source": "task_finance_confirm", "target": "task_finance_review" },
+      { "id": "e5", "source": "task_finance_review", "target": "end_1" }
+    ]
+  },
+  "userTasks": [
+    {
+      "id": "task_apply",
+      "formCode": "GEE_APPLY",
+      "fields": [
+        {
+          "id": "category",
+          "label": { "zh-TW": "費用類別", "en": "Category" },
+          "type": "select",
+          "required": true,
+          "options": [
+            { "value": "business", "label": "業務" },
+            { "value": "misc", "label": "雜支" },
+            { "value": "equipment", "label": "設備" },
+            { "value": "other", "label": "其他" }
+          ]
+        },
+        { "id": "expense_date", "label": { "zh-TW": "費用日期", "en": "Expense Date" }, "type": "date", "required": true },
+        { "id": "amount", "label": { "zh-TW": "金額", "en": "Amount" }, "type": "number", "required": true, "validator": "value > 0" },
+        {
+          "id": "currency",
+          "label": { "zh-TW": "幣別", "en": "Currency" },
+          "type": "select",
+          "required": true,
+          "options": [
+            { "value": "TWD", "label": "TWD" },
+            { "value": "USD", "label": "USD" },
+            { "value": "JPY", "label": "JPY" }
+          ]
+        },
+        { "id": "invoice_no", "label": { "zh-TW": "收據編號", "en": "Invoice No." }, "type": "text", "required": false },
+        { "id": "description", "label": { "zh-TW": "用途說明", "en": "Description" }, "type": "textarea", "required": true },
+        { "id": "receipt", "label": { "zh-TW": "收據", "en": "Receipt" }, "type": "file", "required": false }
+      ],
+      "permissions": { "submitter": "self", "viewers": ["self", "manager", "role:Finance"] }
+    },
+    {
+      "id": "task_finance_confirm",
+      "formCode": "GEE_FINANCE_CONFIRM",
+      "fields": [
+        { "id": "print_no", "label": { "zh-TW": "列印單號", "en": "Print No." }, "type": "text", "required": true },
+        { "id": "confirm_note", "label": { "zh-TW": "確認備註", "en": "Note" }, "type": "textarea", "required": false }
+      ],
+      "permissions": { "submitter": "role:Finance", "viewers": ["role:Finance", "self", "manager"] }
+    },
+    {
+      "id": "task_finance_review",
+      "formCode": "GEE_FINANCE_REVIEW",
+      "fields": [
+        { "id": "review_note", "label": { "zh-TW": "審查備註", "en": "Review Note" }, "type": "textarea", "required": false },
+        { "id": "paid_at", "label": { "zh-TW": "撥款日期", "en": "Paid At" }, "type": "date", "required": true }
+      ],
+      "permissions": { "submitter": "role:Finance", "viewers": ["role:Finance", "self", "manager"] }
+    }
+  ],
+  "decisions": [],
+  "approvals": [
+    { "id": "approval_manager", "approver": { "type": "expr", "path": "submitter.manager" } }
+  ],
+  "notifications": [
+    {
+      "id": "notify_assign",
+      "trigger": "on_assign",
+      "channel": ["email", "in_app"],
+      "recipients": [{ "type": "current_approver" }],
+      "template": {
+        "subject": { "zh-TW": "【員工費用待簽】{{applicant.name}} - {{expense.amount}} {{expense.currency}}" },
+        "body": { "zh-TW": "申請人: {{applicant.name}}\n類別: {{expense.category}}\n金額: {{expense.amount}} {{expense.currency}}\n用途: {{expense.description}}\n\n請點此核准: {{caseUrl}}" },
+        "variables": ["applicant.name", "expense.category", "expense.amount", "expense.currency", "expense.description", "caseUrl"]
+      }
+    },
+    {
+      "id": "notify_complete",
+      "trigger": "on_complete",
+      "channel": ["email"],
+      "recipients": [{ "type": "submitter" }],
+      "template": {
+        "subject": { "zh-TW": "您的員工費用申請已完成" },
+        "body": { "zh-TW": "您於 {{submitDate}} 提交的 {{expense.amount}} {{expense.currency}} 員工費用已核銷完畢。" },
+        "variables": ["submitDate", "expense.amount", "expense.currency"]
+      }
+    }
+  ],
+  "sla": {
+    "perNode": {
+      "approval_manager": { "duration": "8h", "businessHoursOnly": true, "escalation": { "after": "8h", "action": "notify" } },
+      "task_finance_confirm": { "duration": "16h", "businessHoursOnly": true },
+      "task_finance_review": { "duration": "24h", "businessHoursOnly": true }
+    }
+  },
+  "integrations": {
+    "identityProvider": "csv",
+    "csvSource": { "url": "s3://bpm-tenants/acme/employees-2026-05-11.csv" },
+    "fieldMappings": {
+      "employeeId": "empId",
+      "displayName": "name",
+      "email": "email",
+      "reportsTo": "manager",
+      "department": "department",
+      "title": "title"
+    }
+  },
+  "testCases": [
+    {
+      "id": "tc_happy_business_meal",
+      "name": "業務餐費 1,200 元、主管核准",
+      "inputs": {
+        "category": "business",
+        "expense_date": "2026-05-08",
+        "amount": 1200,
+        "currency": "TWD",
+        "invoice_no": "AA-12345678",
+        "description": "5/7 客戶午餐"
+      },
+      "expectedTrace": ["start_1", "task_apply", "approval_manager", "task_finance_confirm", "task_finance_review", "end_1"],
+      "expectedFinalStatus": "Completed",
+      "expectedNotifications": [
+        { "trigger": "on_assign", "recipientCount": 1 },
+        { "trigger": "on_complete", "recipientCount": 1 }
+      ]
+    },
+    {
+      "id": "tc_reject_by_manager",
+      "name": "主管退件 → 流程結束於 Errored",
+      "inputs": {
+        "category": "misc",
+        "expense_date": "2026-05-08",
+        "amount": 800,
+        "currency": "TWD",
+        "description": "missing receipt"
+      },
+      "managerDecision": "reject",
+      "expectedTrace": ["start_1", "task_apply", "approval_manager"],
+      "expectedFinalStatus": "Errored"
+    }
+  ]
+}

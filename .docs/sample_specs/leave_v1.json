@@ -1,0 +1,191 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "tenant": "acme",
+    "flowName": "請假",
+    "flowCode": "LEAVE",
+    "flowVersion": 1,
+    "createdAt": "2026-05-02T03:30:00Z",
+    "createdBy": "u_mary",
+    "language": "zh-TW"
+  },
+  "flow": {
+    "nodes": [
+      { "id": "start_1", "type": "startEvent", "label": "開始" },
+      { "id": "task_apply", "type": "userTask", "label": "員工申請" },
+      { "id": "approval_manager", "type": "approval", "label": "主管核准" },
+      { "id": "gateway_days", "type": "gateway", "label": "超過 7 天？" },
+      { "id": "approval_vp", "type": "approval", "label": "副總核准" },
+      { "id": "task_hr_archive", "type": "userTask", "label": "HR 備案" },
+      { "id": "end_1", "type": "endEvent", "label": "完成" }
+    ],
+    "edges": [
+      { "id": "e1", "source": "start_1", "target": "task_apply" },
+      { "id": "e2", "source": "task_apply", "target": "approval_manager" },
+      { "id": "e3", "source": "approval_manager", "target": "gateway_days" },
+      { "id": "e4", "source": "gateway_days", "target": "approval_vp", "condition": "days >= 7" },
+      { "id": "e5", "source": "gateway_days", "target": "task_hr_archive", "condition": "days < 7", "isDefault": true },
+      { "id": "e6", "source": "approval_vp", "target": "task_hr_archive" },
+      { "id": "e7", "source": "task_hr_archive", "target": "end_1" }
+    ]
+  },
+  "userTasks": [
+    {
+      "id": "task_apply",
+      "formCode": "LEAVE_APPLY",
+      "fields": [
+        {
+          "id": "leave_type",
+          "label": { "zh-TW": "假別" },
+          "type": "select",
+          "required": true,
+          "options": [
+            { "value": "特休", "label": "特休" },
+            { "value": "病假", "label": "病假" },
+            { "value": "事假", "label": "事假" },
+            { "value": "公假", "label": "公假" }
+          ]
+        },
+        { "id": "date_range", "label": { "zh-TW": "起訖時間" }, "type": "daterange", "required": true },
+        {
+          "id": "days",
+          "label": { "zh-TW": "天數" },
+          "type": "derived",
+          "required": false,
+          "derivedFrom": "businessDaysBetween(date_range.start, date_range.end)"
+        },
+        {
+          "id": "reason",
+          "label": { "zh-TW": "事由", "en": "Reason" },
+          "type": "textarea",
+          "required": true,
+          "hint": { "zh-TW": "中英文皆可" }
+        },
+        {
+          "id": "cert",
+          "label": { "zh-TW": "證明文件" },
+          "type": "file",
+          "required": true,
+          "conditional": "leave_type == '病假' || leave_type == '公假'"
+        }
+      ],
+      "permissions": {
+        "submitter": "self",
+        "viewers": ["self", "manager", "role:HR"]
+      }
+    },
+    {
+      "id": "task_hr_archive",
+      "formCode": "LEAVE_ARCHIVE",
+      "fields": [
+        { "id": "archive_note", "label": { "zh-TW": "備案備註" }, "type": "textarea", "required": true, "hint": { "zh-TW": "HR 留下處理紀錄供日後追溯" } }
+      ],
+      "permissions": {
+        "submitter": "role:HR",
+        "viewers": ["role:HR", "self"]
+      }
+    }
+  ],
+  "decisions": [
+    {
+      "id": "gateway_days",
+      "type": "exclusive",
+      "branches": [
+        { "edgeId": "e4", "condition": "days >= 7" },
+        { "edgeId": "e5", "condition": "days < 7", "isDefault": true }
+      ]
+    }
+  ],
+  "approvals": [
+    { "id": "approval_manager", "approver": { "type": "expr", "path": "submitter.manager" } },
+    {
+      "id": "approval_vp",
+      "approver": {
+        "type": "expr",
+        "path": "submitter.department.head",
+        "fallback": { "type": "role", "code": "VP" }
+      }
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notify_assign_manager",
+      "trigger": "on_assign",
+      "channel": ["email", "in_app"],
+      "recipients": [{ "type": "current_approver" }],
+      "template": {
+        "subject": { "zh-TW": "【請假待簽】{{applicant.name}} 申請 {{leave.days}} 天 {{leave.type}}" },
+        "body": { "zh-TW": "申請人: {{applicant.name}}\n假別: {{leave.type}}\n期間: {{leave.start}} - {{leave.end}}\n事由: {{leave.reason}}\n\n請點此核准: {{caseUrl}}" },
+        "variables": ["applicant.name", "leave.days", "leave.type", "leave.start", "leave.end", "leave.reason", "caseUrl"]
+      }
+    },
+    {
+      "id": "notify_complete",
+      "trigger": "on_complete",
+      "channel": ["email"],
+      "recipients": [{ "type": "submitter" }],
+      "template": {
+        "subject": { "zh-TW": "您的請假已備案" },
+        "body": { "zh-TW": "您於 {{submitDate}} 申請的 {{leave.days}} 天 {{leave.type}} 已完成備案。" },
+        "variables": ["submitDate", "leave.days", "leave.type"]
+      }
+    }
+  ],
+  "sla": {
+    "perNode": {
+      "approval_manager": {
+        "duration": "8h",
+        "businessHoursOnly": true,
+        "escalation": { "after": "8h", "action": "notify" }
+      },
+      "approval_vp": {
+        "duration": "24h",
+        "businessHoursOnly": true,
+        "escalation": { "after": "24h", "action": "notify" }
+      }
+    }
+  },
+  "integrations": {
+    "identityProvider": "csv",
+    "csvSource": { "url": "s3://bpm-tenants/acme/employees-2026-05-02.csv" },
+    "fieldMappings": {
+      "employeeId": "empId",
+      "displayName": "name",
+      "email": "email",
+      "reportsTo": "manager",
+      "department": "department",
+      "title": "title"
+    }
+  },
+  "testCases": [
+    {
+      "id": "tc_1",
+      "name": "5 天特休、直屬主管核准",
+      "inputs": { "leave_type": "特休", "date_range": { "start": "2026-05-10", "end": "2026-05-12" }, "reason": "家裡有事" },
+      "expectedPath": ["start_1", "task_apply", "approval_manager", "gateway_days", "task_hr_archive", "end_1"],
+      "expectedApprovers": [{ "nodeId": "approval_manager", "userIds": ["u_wang_manager"] }],
+      "expectedNotifications": [
+        { "trigger": "on_assign", "recipientCount": 1 },
+        { "trigger": "on_complete", "recipientCount": 1 }
+      ]
+    },
+    {
+      "id": "tc_2",
+      "name": "8 天事假、需副總加簽",
+      "inputs": { "leave_type": "事假", "date_range": { "start": "2026-06-01", "end": "2026-06-10" }, "reason": "出國" },
+      "expectedPath": ["start_1", "task_apply", "approval_manager", "gateway_days", "approval_vp", "task_hr_archive", "end_1"],
+      "expectedApprovers": [
+        { "nodeId": "approval_manager", "userIds": ["u_wang_manager"] },
+        { "nodeId": "approval_vp", "userIds": ["u_chen_vp"] }
+      ],
+      "expectedNotifications": []
+    },
+    {
+      "id": "tc_3",
+      "name": "病假需附證明",
+      "inputs": { "leave_type": "病假", "date_range": { "start": "2026-05-15", "end": "2026-05-15" }, "reason": "流感", "cert": "certificate.pdf" },
+      "expectedPath": ["start_1", "task_apply", "approval_manager", "gateway_days", "task_hr_archive", "end_1"],
+      "expectedApprovers": [{ "nodeId": "approval_manager", "userIds": ["u_wang_manager"] }]
+    }
+  ]
+}

@@ -1,12 +1,17 @@
 import { useState } from 'react'
-import { Workflow as WorkflowIcon, ExternalLink, Printer } from 'lucide-react'
+import { Workflow as WorkflowIcon, ExternalLink, Printer, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { Stepper } from '@/components/Stepper'
 import { BpmnView } from '@/components/BpmnView'
+import { Textarea } from '@/components/ui/form'
 import { FORMS, type FormCode, ownerLabel } from '@/lib/workflow'
 import { PERSONAS, type PersonaCode } from '@/lib/role'
+import type { NodeKind } from '@/types/process'
+
+/** Mode the form is operating in. Default 'create' preserves the current UX. */
+export type FormMode = 'create' | 'task'
 
 interface FormShellProps {
   code: FormCode
@@ -17,12 +22,15 @@ interface FormShellProps {
   infoRow?: React.ReactNode
   copySelector?: boolean
   rightActions?: React.ReactNode
+  /** When 'task', the demo "jump-to-step" debug bar is hidden — runtime owns the state. */
+  mode?: FormMode
   children: React.ReactNode
 }
 
 export function FormShell({
   code, activeStep, setActiveStep, persona,
   infoRow, copySelector = true, rightActions, children,
+  mode = 'create',
 }: FormShellProps) {
   const def = FORMS[code]
   const [bpmnOpen, setBpmnOpen] = useState(false)
@@ -38,24 +46,27 @@ export function FormShell({
           </Button>
         </div>
 
-        {/* simulated 'jump-to-step' control for the demo so the user can see different roles' surfaces */}
-        <div className="flex items-center gap-2 border-b border-rule bg-amber-50/40 px-4 py-1.5 text-[11px] text-amber-800">
-          <span className="font-semibold uppercase tracking-wider">Demo</span>
-          <span>jump to step:</span>
-          {def.steps.map((s, i) => (
-            <button
-              key={s.id}
-              onClick={() => setActiveStep(i)}
-              className={cn(
-                'rounded px-1.5 py-0.5 text-[10.5px] font-medium uppercase transition-colors',
-                i === activeStep ? 'bg-accent text-white' : 'hover:bg-amber-100 text-amber-700',
-              )}
-              title={`Owned by ${ownerLabel(def.ownerByStep[i])}`}
-            >
-              {s.en}
-            </button>
-          ))}
-        </div>
+        {/* simulated 'jump-to-step' control for the demo when running standalone (create mode).
+            In task mode the runtime owns step state, so the debug bar is hidden. */}
+        {mode === 'create' && (
+          <div className="flex items-center gap-2 border-b border-rule bg-amber-50/40 px-4 py-1.5 text-[11px] text-amber-800">
+            <span className="font-semibold uppercase tracking-wider">Demo</span>
+            <span>jump to step:</span>
+            {def.steps.map((s, i) => (
+              <button
+                key={s.id}
+                onClick={() => setActiveStep(i)}
+                className={cn(
+                  'rounded px-1.5 py-0.5 text-[10.5px] font-medium uppercase transition-colors',
+                  i === activeStep ? 'bg-accent text-white' : 'hover:bg-amber-100 text-amber-700',
+                )}
+                title={`Owned by ${ownerLabel(def.ownerByStep[i])}`}
+              >
+                {s.en}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="px-5 py-4">
           {/* Title + copy selector / read-only actions */}
@@ -66,7 +77,7 @@ export function FormShell({
             </div>
             <div className="flex items-center gap-2">
               {rightActions}
-              {copySelector && (
+              {copySelector && mode === 'create' && (
                 <select className="h-8 rounded-md border border-rule bg-white px-3 text-sm text-ink-muted">
                   <option>Copy from my existing requests</option>
                 </select>
@@ -118,25 +129,51 @@ function DefaultInfoRow({ persona }: { persona: PersonaCode }) {
   )
 }
 
-/** Bottom action bar that adapts to the active persona's relationship to the active step. */
-export function ActionBar({
-  code, activeStep, persona,
-  onSubmit, onApprove, onReject, onClose,
-}: {
+interface ActionBarProps {
   code: FormCode
   activeStep: number
   persona: PersonaCode
+  /** 'create' (default) keeps today's submit-only UX; 'task' renders Approve/Reject/Return. */
+  mode?: FormMode
+  /** Required when mode === 'task'; controls whether Approve/Reject (Approval) or Submit (UserTask) is shown. */
+  nodeKind?: NodeKind
+  /** True while a runtime call is in-flight; disables buttons + shows spinner. */
+  pending?: boolean
   onSubmit?: () => void
-  onApprove?: () => void
-  onReject?: () => void
+  onApprove?: (comment: string) => void
+  onReject?: (comment: string) => void
+  onReturnTask?: (comment: string) => void
   onClose?: () => void
-}) {
+}
+
+/** Bottom action bar that adapts to the active persona's relationship to the active step. */
+export function ActionBar({
+  code, activeStep, persona, mode = 'create', nodeKind, pending = false,
+  onSubmit, onApprove, onReject, onReturnTask, onClose,
+}: ActionBarProps) {
   const def = FORMS[code]
   const owner = def.ownerByStep[activeStep]
   const isAdmin = persona === 'admin'
   const isOwner = owner === persona || isAdmin
   const isTerminal = owner === null
 
+  // ── Task mode: runtime owns state. Always render Approve/Reject/Return (Approval)
+  // or Submit/Return (UserTask). The parent screen decides which task to load.
+  // ────────────────────────────────────────────────────────────────────────
+  if (mode === 'task') {
+    return (
+      <TaskActionBar
+        nodeKind={nodeKind}
+        pending={pending}
+        onApprove={onApprove}
+        onReject={onReject}
+        onReturnTask={onReturnTask}
+        onSubmit={onSubmit}
+      />
+    )
+  }
+
+  // ── Create mode: keep the legacy persona/step-aware demo behavior. ─────
   if (isTerminal) {
     return (
       <SectionCard>
@@ -174,21 +211,152 @@ export function ActionBar({
       <SectionCard>
         <div className="flex items-center justify-end gap-2 px-4 py-3">
           <Button variant="outline" size="md">Save as Draft</Button>
-          <Button variant="primary" size="md" onClick={onSubmit}>Submit</Button>
+          <Button variant="primary" size="md" onClick={onSubmit} disabled={pending}>
+            {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Submit
+          </Button>
         </div>
       </SectionCard>
     )
   }
 
-  // Approver / reviewer surface
+  // Approver / reviewer surface (legacy mock: no comment, just advance)
   return (
     <SectionCard>
       <div className="flex items-center justify-end gap-2 px-4 py-3">
-        <Button variant="destructive" size="md" onClick={onReject}>Reject</Button>
-        <Button variant="primary" size="md" onClick={onApprove}>
+        <Button variant="destructive" size="md" onClick={() => onReject?.('')}>Reject</Button>
+        <Button variant="primary" size="md" onClick={() => onApprove?.('')}>
           {owner === 'finance' ? 'Confirm & Forward' : owner === 'hr' ? 'Record & Close' : owner === 'it' ? 'Submit Spec' : 'Approve'}
         </Button>
       </div>
+    </SectionCard>
+  )
+}
+
+/** Comment-collecting modal used for Reject / Return flows. */
+function CommentDialog({
+  open, title, description, confirmText, tone, requireComment, onCancel, onConfirm,
+}: {
+  open: boolean
+  title: string
+  description?: string
+  confirmText: string
+  tone: 'danger' | 'default'
+  requireComment: boolean
+  onCancel: () => void
+  onConfirm: (comment: string) => void
+}) {
+  const [comment, setComment] = useState('')
+  const [touched, setTouched] = useState(false)
+
+  if (!open) return null
+
+  const empty = !comment.trim()
+  const blockSubmit = requireComment && empty
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onCancel}>
+      <div className="w-full max-w-md rounded-lg bg-white shadow-2xl" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="p-6">
+          <h3 className="text-base font-bold text-ink">{title}</h3>
+          {description && <p className="mt-2 text-sm leading-relaxed text-slate-600">{description}</p>}
+          <div className="mt-4">
+            <label className="mb-1 block text-sm font-medium text-ink">
+              Comment {requireComment ? <span className="text-danger">*</span> : <span className="text-ink-faint">(optional)</span>}
+            </label>
+            <Textarea rows={3} value={comment} onChange={e => { setComment(e.target.value); setTouched(true) }} />
+            {touched && blockSubmit && (
+              <p className="mt-1 text-xs text-danger">Comment is required.</p>
+            )}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 rounded-b-lg border-t border-rule bg-slate-50/50 px-6 py-3">
+          <Button variant="ghost" onClick={() => { setComment(''); setTouched(false); onCancel() }}>Cancel</Button>
+          <Button
+            variant={tone === 'danger' ? 'destructive' : 'primary'}
+            disabled={blockSubmit}
+            onClick={() => {
+              if (blockSubmit) { setTouched(true); return }
+              const value = comment
+              setComment(''); setTouched(false)
+              onConfirm(value)
+            }}
+          >
+            {confirmText}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TaskActionBar({
+  nodeKind, pending, onApprove, onReject, onReturnTask, onSubmit,
+}: {
+  nodeKind?: NodeKind
+  pending: boolean
+  onApprove?: (comment: string) => void
+  onReject?: (comment: string) => void
+  onReturnTask?: (comment: string) => void
+  onSubmit?: () => void
+}) {
+  // openKind: which dialog (if any) is currently open.
+  const [openKind, setOpenKind] = useState<null | 'approve' | 'reject' | 'return'>(null)
+
+  // For UserTask kind, show Submit + Return only (execution, not decision).
+  // For Approval kind (default), show Approve + Reject + Return.
+  const isUserTask = nodeKind === 'UserTask'
+
+  return (
+    <SectionCard>
+      <div className="flex items-center justify-end gap-2 px-4 py-3">
+        <Button variant="outline" size="md" disabled={pending} onClick={() => setOpenKind('return')}>Return</Button>
+        {isUserTask ? (
+          <Button variant="primary" size="md" disabled={pending} onClick={onSubmit}>
+            {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Submit
+          </Button>
+        ) : (
+          <>
+            <Button variant="destructive" size="md" disabled={pending} onClick={() => setOpenKind('reject')}>Reject</Button>
+            <Button variant="primary" size="md" disabled={pending} onClick={() => setOpenKind('approve')}>
+              {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Approve
+            </Button>
+          </>
+        )}
+      </div>
+
+      <CommentDialog
+        open={openKind === 'approve'}
+        title="Approve this step?"
+        description="An optional comment will be recorded in the task history."
+        confirmText="Confirm approve"
+        tone="default"
+        requireComment={false}
+        onCancel={() => setOpenKind(null)}
+        onConfirm={c => { setOpenKind(null); onApprove?.(c) }}
+      />
+      <CommentDialog
+        open={openKind === 'reject'}
+        title="Reject this step?"
+        description="The instance will end in Errored state. A comment is required."
+        confirmText="Confirm reject"
+        tone="danger"
+        requireComment={true}
+        onCancel={() => setOpenKind(null)}
+        onConfirm={c => { setOpenKind(null); onReject?.(c) }}
+      />
+      <CommentDialog
+        open={openKind === 'return'}
+        title="Return to previous step?"
+        description="The previous owner will be re-assigned to revise. A comment is required."
+        confirmText="Confirm return"
+        tone="danger"
+        requireComment={true}
+        onCancel={() => setOpenKind(null)}
+        onConfirm={c => { setOpenKind(null); onReturnTask?.(c) }}
+      />
     </SectionCard>
   )
 }

@@ -1,19 +1,20 @@
-import { useMemo } from "react"
 import {
   Plus, FileText, Plane, Send, Laptop, DollarSign, Building2,
-  Check, AlertCircle, Inbox, Pencil, Calendar, ExternalLink,
-  Clock, RefreshCw, Briefcase,
+  Check, AlertCircle, Inbox, Pencil, Calendar,
+  Briefcase,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
-import { StatusBadge, TypeChip } from '@/components/ui/badge'
-import {
-  MOCK_CASES, MOCK_ACTIVITY, MOCK_REMINDERS, casesCreatedBy, casesPendingForPersona,
-} from '@/lib/mocks'
+import { StatusBadge, TypeChip, type StatusKind } from '@/components/ui/badge'
+// MOCK_ACTIVITY retired in Phase 2.2 — ActivityFeedPanel now reads from
+// the same useMyInstances feed as the rest of the page.
 import { PERSONAS, type PersonaCode } from '@/lib/role'
 import type { Screen } from '@/components/AppLayout'
-import type { FormCode } from '@/lib/workflow'
+import { FORMS, type FormCode } from '@/lib/workflow'
+import { useMyTasks } from '@/hooks/useMyTasks'
+import { useMyInstances } from '@/hooks/useMyInstances'
+import type { InstanceStatus, MyInstanceSummaryDto, ProcessTaskDto } from '@/types/process'
 
 const QUICK_ACTIONS: Array<{ id: FormCode; label: string; Icon: React.ComponentType<{ className?: string }> }> = [
   { id: 'LEAVE', label: 'Leave Request',     Icon: Calendar },
@@ -35,13 +36,6 @@ const ICON_FOR_ACTIVITY = {
   rejected:  { Icon: AlertCircle, color: 'text-red-600',  bg: 'bg-red-50'   },
 } as const
 
-const ICON_FOR_REMINDER = {
-  draft:    { Icon: Pencil,      color: 'text-slate-500', bg: 'bg-slate-100' },
-  return:   { Icon: Calendar,    color: 'text-amber-600', bg: 'bg-amber-50' },
-  travel:   { Icon: Plane,       color: 'text-blue-600',  bg: 'bg-blue-50' },
-  contract: { Icon: AlertCircle, color: 'text-amber-600', bg: 'bg-amber-50' },
-} as const
-
 interface HomeProps {
   persona: PersonaCode
   setScreen: (s: Screen) => void
@@ -49,9 +43,13 @@ interface HomeProps {
 
 export function Home({ persona, setScreen }: HomeProps) {
   const personaInfo = PERSONAS[persona]
-  const myPending = useMemo(() => casesPendingForPersona(persona), [persona])
-  const myCases = useMemo(() => casesCreatedBy('wilson'), []) // demo: requester is always Wilson
-  const today = '2026/04/24'
+  // PR-L3: real backend data — open tasks the caller owns + instances they
+  // initiated. Polling cadence is 30s (see hook); manual refresh on action
+  // is left to PR-L5 once we wire actionable rows.
+  const inbox = useMyTasks('open')
+  const myCases = useMyInstances('all')
+
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '/')
 
   return (
     <div className="space-y-4">
@@ -62,27 +60,28 @@ export function Home({ persona, setScreen }: HomeProps) {
             {greetingFor(persona)}
           </h1>
           <p className="mt-0.5 text-sm text-ink-muted">
-            {persona === 'admin'
-              ? `System overview. ${MOCK_CASES.length} total cases tracked across all personas.`
-              : `You have ${myPending.length} cases pending your action today.`}
+            {inbox.loading
+              ? 'Loading inbox…'
+              : inbox.error
+              ? `Inbox unavailable (${inbox.error.message})`
+              : `You have ${inbox.data?.length ?? 0} cases pending your action.`}
           </p>
         </div>
         <div className="font-mono text-sm text-ink-faint">{today} · {personaInfo.displayName}</div>
       </div>
 
       {/* Stat cards */}
-      <StatCards persona={persona} />
+      <StatCards persona={persona} inboxCount={inbox.data?.length ?? 0} myCases={myCases.data ?? []} />
 
       {/* Two-column grid */}
       <div className="grid grid-cols-[1fr_320px] gap-4">
         <div className="min-w-0 space-y-4">
-          <PendingTable persona={persona} cases={myPending} setScreen={setScreen} />
-          <MyCasesTable cases={myCases} setScreen={setScreen} />
+          <PendingTable persona={persona} tasks={inbox.data ?? []} loading={inbox.loading} error={inbox.error} setScreen={setScreen} />
+          <MyCasesTable cases={myCases.data ?? []} loading={myCases.loading} error={myCases.error} />
         </div>
         <div className="min-w-0 space-y-4">
           <QuickActionsPanel setScreen={setScreen} />
-          <ActivityFeedPanel />
-          <RemindersPanel />
+          <ActivityFeedPanel cases={myCases.data ?? []} loading={myCases.loading} />
         </div>
       </div>
     </div>
@@ -102,53 +101,57 @@ function greetingFor(persona: PersonaCode) {
 }
 
 /* ── Stat cards ─────────────────────────────────────────── */
-function StatCards({ persona }: { persona: PersonaCode }) {
-  // Generic counts derived from the mock dataset, then re-labeled per persona.
-  const drafts = MOCK_CASES.filter(c => c.status === 'draft').length
-  const myApproved30d = MOCK_CASES.filter(c => c.status === 'approved' || c.status === 'closed').length
-  const myTotal = MOCK_CASES.length
-  const pendingCount = casesPendingForPersona(persona).length
+function StatCards({ persona, inboxCount, myCases }: { persona: PersonaCode; inboxCount: number; myCases: MyInstanceSummaryDto[] }) {
+  // PR-L3: derived from the live inbox + my-instances. The downstream
+  // counters (Approved Today / Closed Today / Onboardings 30d / etc.) are
+  // not exposed by today's API surface — they're scoreboard widgets that
+  // belong to the add-real-reporting proposal. Keep the visual but hard-
+  // wire to 0 until that proposal lands.
+  const myActive = myCases.filter(c => c.status === 'Running' || c.status === 'Errored').length
+  const myCompleted = myCases.filter(c => c.status === 'Completed').length
+  const myCancelled = myCases.filter(c => c.status === 'Cancelled').length
+  const myTotal = myCases.length
 
   const cards: Array<{ title: string; value: number; tone: string; Icon: React.ComponentType<{ className?: string }>; sub?: string }> = persona === 'employee'
     ? [
-      { title: 'My Pending Actions',  value: pendingCount,    tone: 'amber', Icon: Inbox,     sub: 'Cases awaiting your action' },
-      { title: 'My Drafts',           value: drafts,          tone: 'blue',  Icon: Pencil,    sub: 'Saved but not yet submitted' },
-      { title: 'Approved (30d)',      value: myApproved30d,   tone: 'green', Icon: Check,     sub: 'Last 30 days' },
-      { title: 'My Total Cases',      value: myTotal,         tone: 'slate', Icon: FileText,  sub: 'All-time submissions' },
+      { title: 'My Pending Actions',  value: inboxCount,    tone: 'amber', Icon: Inbox,     sub: 'Cases awaiting your action' },
+      { title: 'My Active Cases',     value: myActive,      tone: 'blue',  Icon: Pencil,    sub: 'Open cases you started' },
+      { title: 'Completed (all-time)',value: myCompleted,   tone: 'green', Icon: Check,     sub: 'Cases that closed cleanly' },
+      { title: 'My Total Cases',      value: myTotal,       tone: 'slate', Icon: FileText,  sub: 'All-time submissions' },
     ]
     : persona === 'manager'
     ? [
-      { title: 'Pending My Approval', value: pendingCount,    tone: 'amber', Icon: Inbox,     sub: 'Awaiting your approval' },
-      { title: 'Approved Today',      value: 4,               tone: 'green', Icon: Check },
-      { title: 'Returned',            value: 1,               tone: 'orange',Icon: RefreshCw },
-      { title: 'Team Cases (30d)',    value: 27,              tone: 'slate', Icon: FileText },
+      { title: 'Pending My Approval', value: inboxCount,    tone: 'amber', Icon: Inbox,     sub: 'Awaiting your approval' },
+      { title: 'My Active Cases',     value: myActive,      tone: 'blue',  Icon: Pencil },
+      { title: 'My Completed Cases',  value: myCompleted,   tone: 'green', Icon: Check },
+      { title: 'My Total Cases',      value: myTotal,       tone: 'slate', Icon: FileText },
     ]
     : persona === 'finance'
     ? [
-      { title: 'FIN Review Queue',    value: pendingCount,    tone: 'violet', Icon: Inbox },
-      { title: 'PO Processing',       value: 2,               tone: 'blue',   Icon: DollarSign },
-      { title: 'Closed Today',        value: 6,               tone: 'green',  Icon: Check },
-      { title: 'Total This Month',    value: 42,              tone: 'slate',  Icon: FileText },
+      { title: 'FIN Review Queue',    value: inboxCount,    tone: 'violet', Icon: Inbox },
+      { title: 'My Active Cases',     value: myActive,      tone: 'blue',   Icon: DollarSign },
+      { title: 'My Completed Cases',  value: myCompleted,   tone: 'green',  Icon: Check },
+      { title: 'My Total Cases',      value: myTotal,       tone: 'slate',  Icon: FileText },
     ]
     : persona === 'it'
     ? [
-      { title: 'IT Spec Queue',       value: pendingCount,    tone: 'cyan',   Icon: Laptop },
-      { title: 'Awaiting Quotation',  value: 1,               tone: 'amber',  Icon: Clock },
-      { title: 'Closed (30d)',        value: 12,              tone: 'green',  Icon: Check },
-      { title: 'Total Hardware Cases',value: 26,              tone: 'slate',  Icon: FileText },
+      { title: 'IT Spec Queue',       value: inboxCount,    tone: 'cyan',   Icon: Laptop },
+      { title: 'My Active Cases',     value: myActive,      tone: 'blue',   Icon: Pencil },
+      { title: 'My Completed Cases',  value: myCompleted,   tone: 'green',  Icon: Check },
+      { title: 'My Total Cases',      value: myTotal,       tone: 'slate',  Icon: FileText },
     ]
     : persona === 'hr'
     ? [
-      { title: 'HR Queue',            value: pendingCount,    tone: 'amber',  Icon: Inbox },
-      { title: 'Onboardings (30d)',   value: 4,               tone: 'blue',   Icon: Building2 },
-      { title: 'Leave Cases (30d)',   value: 18,              tone: 'green',  Icon: Calendar },
-      { title: 'Terminations (30d)',  value: 1,               tone: 'red',    Icon: AlertCircle },
+      { title: 'HR Queue',            value: inboxCount,    tone: 'amber',  Icon: Inbox },
+      { title: 'My Active Cases',     value: myActive,      tone: 'blue',   Icon: Building2 },
+      { title: 'My Completed Cases',  value: myCompleted,   tone: 'green',  Icon: Calendar },
+      { title: 'My Cancelled Cases',  value: myCancelled,   tone: 'red',    Icon: AlertCircle },
     ]
-    : [ // admin
-      { title: 'Open Cases',          value: MOCK_CASES.filter(c => c.status !== 'closed' && c.status !== 'rejected').length, tone: 'amber',  Icon: Inbox },
-      { title: 'Drafts',              value: drafts,                                                                          tone: 'blue',   Icon: Pencil },
-      { title: 'Closed (this month)', value: MOCK_CASES.filter(c => c.status === 'closed').length,                            tone: 'green',  Icon: Check },
-      { title: 'Total Tracked',       value: myTotal,                                                                         tone: 'slate',  Icon: FileText },
+    : [ // admin — for now derives from the same caller-scoped data; cross-user roll-up belongs to add-real-reporting.
+      { title: 'Pending My Approval', value: inboxCount,    tone: 'amber',  Icon: Inbox },
+      { title: 'My Active Cases',     value: myActive,      tone: 'blue',   Icon: Pencil },
+      { title: 'My Completed Cases',  value: myCompleted,   tone: 'green',  Icon: Check },
+      { title: 'My Total Cases',      value: myTotal,       tone: 'slate',  Icon: FileText },
     ]
 
   return (
@@ -159,18 +162,7 @@ function StatCards({ persona }: { persona: PersonaCode }) {
 }
 
 function StatCard({ title, value, tone, Icon, sub }: { title: string; value: number; tone: string; Icon: React.ComponentType<{ className?: string }>; sub?: string }) {
-  const ring = {
-    amber:  'border-amber-200 bg-amber-50/30',
-    blue:   'border-blue-200 bg-blue-50/30',
-    green:  'border-green-200 bg-green-50/30',
-    slate:  'border-slate-200',
-    violet: 'border-violet-200 bg-violet-50/30',
-    cyan:   'border-cyan-200 bg-cyan-50/30',
-    orange: 'border-orange-200 bg-orange-50/30',
-    red:    'border-red-200 bg-red-50/30',
-  }[tone] ?? 'border-slate-200'
-
-  const text = {
+  const iconColor = {
     amber:  'text-amber-700',
     blue:   'text-blue-700',
     green:  'text-green-700',
@@ -182,14 +174,14 @@ function StatCard({ title, value, tone, Icon, sub }: { title: string; value: num
   }[tone] ?? 'text-slate-700'
 
   return (
-    <div className={cn('flex items-center gap-3 rounded-lg border bg-card px-4 py-3', ring)}>
-      <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-md', text, 'bg-white')}>
+    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-card px-4 py-3">
+      <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-50', iconColor)}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted truncate">{title}</div>
         <div className="flex items-baseline gap-1.5">
-          <span className={cn('text-2xl font-bold tabular', text)}>{value}</span>
+          <span className="text-2xl font-bold tabular text-ink">{value}</span>
           {sub && <span className="text-[10.5px] text-ink-faint truncate">{sub}</span>}
         </div>
       </div>
@@ -199,7 +191,13 @@ function StatCard({ title, value, tone, Icon, sub }: { title: string; value: num
 
 /* ── Pending action table ───────────────────────────────── */
 
-function PendingTable({ persona, cases, setScreen }: { persona: PersonaCode; cases: ReturnType<typeof casesPendingForPersona>; setScreen: (s: Screen) => void }) {
+function PendingTable({ persona, tasks, loading, error, setScreen }: {
+  persona: PersonaCode
+  tasks: ProcessTaskDto[]
+  loading: boolean
+  error: Error | null
+  setScreen: (s: Screen) => void
+}) {
   const titlePerPersona: Record<PersonaCode, string> = {
     employee: 'Pending My Action',
     manager:  'Pending My Approval',
@@ -210,41 +208,50 @@ function PendingTable({ persona, cases, setScreen }: { persona: PersonaCode; cas
   }
   return (
     <SectionCard>
-      <SectionTitle right={<span className="text-xs text-ink-muted">{cases.length} cases</span>}>
+      <SectionTitle right={<span className="text-xs text-ink-muted">{tasks.length} task{tasks.length === 1 ? '' : 's'}</span>}>
         {titlePerPersona[persona]}
       </SectionTitle>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50">
             <tr className="border-b border-rule">
-              <Th>Request No.</Th>
+              <Th>Task ID</Th>
               <Th>Type</Th>
-              <Th>Requestor</Th>
-              <Th>Submitted</Th>
-              <Th right>Days</Th>
-              <Th>Action</Th>
+              <Th>Step</Th>
+              <Th>Assigned</Th>
+              <Th>Status</Th>
               <Th right></Th>
             </tr>
           </thead>
           <tbody>
-            {cases.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-ink-faint">✨ Inbox zero. No pending action right now.</td></tr>
-            ) : cases.map(c => {
-              const days = Math.max(1, daysBetween(c.submitted, '2026/04/24'))
+            {loading && tasks.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-ink-faint">Loading inbox…</td></tr>
+            ) : error && tasks.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-red-600">Inbox load failed: {error.message}</td></tr>
+            ) : tasks.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-ink-faint">✨ Inbox zero. No pending action right now.</td></tr>
+            ) : tasks.map(t => {
+              const formCode = isFormCode(t.specCode) ? t.specCode : null
+              const typeLabel = formCode ? FORMS[formCode].label : t.specCode
+              const stepLabel = nodeIdToStepLabel(formCode, t.nodeId)
+              const assignedAgo = t.claimedAt ? humanAgo(t.claimedAt) : '—'
               return (
-                <tr key={c.no} className="border-b border-slate-100 hover:bg-slate-50/60 transition-colors">
-                  <Td><span className="font-mono text-[12px] font-semibold text-ink">{c.no}</span></Td>
-                  <Td><div className="flex items-center gap-2"><TypeChip type={c.type} /><span className="text-xs text-ink-muted">{c.typeLabel}</span></div></Td>
-                  <Td><div><div className="text-sm">{c.requestor}</div><div className="text-[11px] text-ink-faint">{c.dept}</div></div></Td>
-                  <Td className="font-mono text-xs text-ink-muted">{c.submitted}</Td>
+                <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-colors">
+                  <Td><span className="font-mono text-[11px] text-ink-muted">{t.id.slice(0, 8)}</span></Td>
+                  <Td><div className="flex items-center gap-2">{formCode && <TypeChip type={formCode} />}<span className="text-xs text-ink-muted truncate">{typeLabel}</span></div></Td>
+                  <Td className="text-xs text-ink-muted">{stepLabel}</Td>
+                  <Td className="font-mono text-[11px] text-ink-muted">{assignedAgo}</Td>
+                  <Td><StatusBadge kind={taskStatusToBadge(t)} /></Td>
                   <Td right>
-                    <span className={cn(
-                      'inline-flex items-center justify-center rounded px-1.5 py-0.5 font-mono text-xs font-medium',
-                      days > 7 ? 'bg-amber-50 text-amber-700' : days > 14 ? 'bg-red-50 text-red-700' : 'text-ink-muted',
-                    )}>{days}d</span>
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      disabled={!formCode}
+                      onClick={() => formCode && setScreen({ kind: 'form', code: formCode, taskId: t.id })}
+                    >
+                      Open
+                    </Button>
                   </Td>
-                  <Td><span className="text-xs text-ink-muted">Awaiting {labelForOwner(c.currentOwner)}</span></Td>
-                  <Td right><Button variant="primary" size="xs" onClick={() => setScreen({ kind: 'form', code: c.type })}>Open</Button></Td>
                 </tr>
               )
             })}
@@ -255,35 +262,44 @@ function PendingTable({ persona, cases, setScreen }: { persona: PersonaCode; cas
   )
 }
 
-function MyCasesTable({ cases, setScreen }: { cases: ReturnType<typeof casesCreatedBy>; setScreen: (s: Screen) => void }) {
+function MyCasesTable({ cases, loading, error }: { cases: MyInstanceSummaryDto[]; loading: boolean; error: Error | null }) {
   return (
     <SectionCard>
-      <SectionTitle right={<span className="text-xs text-ink-muted">{cases.length} cases</span>}>
+      <SectionTitle right={<span className="text-xs text-ink-muted">{cases.length} case{cases.length === 1 ? '' : 's'}</span>}>
         My Recent Cases
       </SectionTitle>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50">
             <tr className="border-b border-rule">
-              <Th>Request No.</Th>
+              <Th>Case ID</Th>
               <Th>Type</Th>
               <Th>Status</Th>
-              <Th>Submitted</Th>
-              <Th>Updated</Th>
-              <Th right>Amount</Th>
+              <Th>Started</Th>
+              <Th>Last activity</Th>
+              <Th right>Open tasks</Th>
             </tr>
           </thead>
           <tbody>
-            {cases.slice(0, 8).map(c => (
-              <tr key={c.no} className="cursor-pointer border-b border-slate-100 hover:bg-slate-50/60 transition-colors" onClick={() => setScreen({ kind: 'form', code: c.type })}>
-                <Td><span className="font-mono text-[12px] font-semibold text-ink">{c.no}</span></Td>
-                <Td><TypeChip type={c.type} /></Td>
-                <Td><StatusBadge kind={c.status} /></Td>
-                <Td className="font-mono text-xs text-ink-muted">{c.submitted}</Td>
-                <Td className="font-mono text-xs text-ink-muted">{c.updated}</Td>
-                <Td right className="font-mono">{c.amount}</Td>
-              </tr>
-            ))}
+            {loading && cases.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-ink-faint">Loading cases…</td></tr>
+            ) : error && cases.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-red-600">Cases load failed: {error.message}</td></tr>
+            ) : cases.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-ink-faint">No cases yet — start one from Quick Actions.</td></tr>
+            ) : cases.slice(0, 8).map(c => {
+              const formCode = isFormCode(c.specCode) ? c.specCode : null
+              return (
+                <tr key={c.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-colors">
+                  <Td><span className="font-mono text-[11px] text-ink">{c.id.slice(0, 8)}</span></Td>
+                  <Td>{formCode ? <TypeChip type={formCode} /> : <span className="text-xs">{c.specCode}</span>}</Td>
+                  <Td><StatusBadge kind={instanceStatusToBadge(c.status)} /></Td>
+                  <Td className="font-mono text-xs text-ink-muted">{formatDate(c.startedAt)}</Td>
+                  <Td className="font-mono text-xs text-ink-muted">{humanAgo(c.lastActivityAt)}</Td>
+                  <Td right className="font-mono text-xs">{c.openTaskCount}</Td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -310,7 +326,7 @@ function QuickActionsPanel({ setScreen }: { setScreen: (s: Screen) => void }) {
         ))}
       </div>
       <div className="border-t border-rule px-3 py-2 text-center">
-        <button className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
+        <button onClick={() => setScreen({ kind: 'create' })} className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
           <Plus className="h-3 w-3" /> Browse all forms
         </button>
       </div>
@@ -318,21 +334,40 @@ function QuickActionsPanel({ setScreen }: { setScreen: (s: Screen) => void }) {
   )
 }
 
-function ActivityFeedPanel() {
+function ActivityFeedPanel({ cases, loading }: { cases: MyInstanceSummaryDto[]; loading: boolean }) {
+  const recent = [...cases]
+    .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt))
+    .slice(0, 8)
+
   return (
     <SectionCard>
       <SectionTitle>Activity Feed</SectionTitle>
       <div className="divide-y divide-slate-100">
-        {MOCK_ACTIVITY.map((a, i) => {
-          const meta = ICON_FOR_ACTIVITY[a.type]
+        {loading && recent.length === 0 && (
+          <p className="px-3 py-6 text-center text-[11px] text-ink-faint">Loading…</p>
+        )}
+        {!loading && recent.length === 0 && (
+          <p className="px-3 py-6 text-center text-[11px] text-ink-faint">
+            尚無近期活動 — 從上方 Quick Actions 開新流程後會出現。
+          </p>
+        )}
+        {recent.map(c => {
+          const meta = ICON_FOR_ACTIVITY[statusToActivityKind(c.status)]
+          const formLabel = FORMS[c.specCode as FormCode]?.zhLabel ?? c.specCode
           return (
-            <div key={i} className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-slate-50/60">
+            <div key={c.id} className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-slate-50/60">
               <span className={cn('mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full', meta.bg, meta.color)}>
                 <meta.Icon className="h-3 w-3" strokeWidth={2.5} />
               </span>
               <div className="min-w-0 flex-1 text-xs">
-                <p className="text-ink"><span className="font-medium">{a.msg}</span> <span className="font-mono text-[10.5px] text-ink-muted">{a.doc}</span></p>
-                <p className="mt-0.5 text-[10.5px] text-ink-faint">{a.time}</p>
+                <p className="text-ink truncate">
+                  <span className="font-medium">{formLabel}</span>
+                  <span className="ml-1 text-ink-muted">{instanceLineFor(c)}</span>
+                </p>
+                <p className="mt-0.5 text-[10.5px] text-ink-faint">
+                  <span className="font-mono">{c.id.slice(0, 8)}</span>
+                  {' · '}{formatActivityTime(c.lastActivityAt)}
+                </p>
               </div>
             </div>
           )
@@ -342,32 +377,33 @@ function ActivityFeedPanel() {
   )
 }
 
-function RemindersPanel() {
-  return (
-    <SectionCard>
-      <SectionTitle>Reminders</SectionTitle>
-      <div className="divide-y divide-slate-100">
-        {MOCK_REMINDERS.map((r, i) => {
-          const meta = ICON_FOR_REMINDER[r.type]
-          return (
-            <div key={i} className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-slate-50/60">
-              <span className={cn('mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full', meta.bg, meta.color)}>
-                <meta.Icon className="h-3 w-3" strokeWidth={2.5} />
-              </span>
-              <div className="min-w-0 flex-1 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-ink">{r.label}</span>
-                  <span className="font-mono text-[10.5px] text-ink-muted">{r.doc}</span>
-                  <ExternalLink className="ml-auto h-3 w-3 text-ink-faint" />
-                </div>
-                <p className="mt-0.5 text-[10.5px] text-ink-faint">{r.detail}</p>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </SectionCard>
-  )
+function statusToActivityKind(status: InstanceStatus): keyof typeof ICON_FOR_ACTIVITY {
+  switch (status) {
+    case 'Completed': return 'approved'
+    case 'Cancelled': return 'rejected'
+    case 'Errored':   return 'returned'
+    case 'Running':   return 'submitted'
+    default:          return 'created'
+  }
+}
+
+function instanceLineFor(c: MyInstanceSummaryDto): string {
+  if (c.status === 'Completed') return '已完成'
+  if (c.status === 'Cancelled') return '已取消'
+  if (c.status === 'Errored') return '錯誤待處理'
+  if (c.currentNodeLabel) return `· ${c.currentNodeLabel}`
+  return `· ${c.openTaskCount} task open`
+}
+
+function formatActivityTime(iso: string): string {
+  const d = new Date(iso)
+  const diffMs = Date.now() - d.getTime()
+  const mins = Math.floor(diffMs / 60_000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins} min ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} h ago`
+  return d.toISOString().slice(0, 10)
 }
 
 /* ── helpers ────────────────────────────────────────────── */
@@ -391,15 +427,51 @@ function Td({ children, right, className }: { children: React.ReactNode; right?:
   )
 }
 
-function labelForOwner(owner: PersonaCode | null) {
-  if (!owner) return '—'
-  return PERSONAS[owner].displayName
+const FORM_CODES: ReadonlyArray<FormCode> = ['LEAVE', 'GEE', 'GEV', 'APE', 'TRQ', 'TEO', 'HWP', 'ITPR', 'EXTOB', 'RESIGN', 'DEPTX']
+function isFormCode(s: string): s is FormCode {
+  return (FORM_CODES as readonly string[]).includes(s)
 }
 
-function daysBetween(a: string, b: string) {
-  const [y1, m1, d1] = a.split('/').map(Number)
-  const [y2, m2, d2] = b.split('/').map(Number)
-  const A = new Date(y1, m1 - 1, d1).getTime()
-  const B = new Date(y2, m2 - 1, d2).getTime()
-  return Math.round((B - A) / (1000 * 60 * 60 * 24))
+/** Map a runtime nodeId (e.g. "approval_manager") into the prettier
+ *  step label declared in workflow.ts. Falls back to the raw nodeId
+ *  when a spec adds a node we don't model in the workflow.ts FORMS map. */
+function nodeIdToStepLabel(formCode: FormCode | null, nodeId: string): string {
+  if (!formCode) return nodeId
+  const step = FORMS[formCode].steps.find(s => nodeId.startsWith(s.id) || nodeId.includes(s.id))
+  return step?.en ?? nodeId
+}
+
+function taskStatusToBadge(t: ProcessTaskDto): StatusKind {
+  if (t.status === 'Completed') return 'closed'
+  if (t.status === 'Cancelled') return 'rejected'
+  if (t.status === 'InProgress') return 'pending'
+  return 'pending'
+}
+
+function instanceStatusToBadge(s: InstanceStatus): StatusKind {
+  switch (s) {
+    case 'Completed': return 'closed'
+    case 'Cancelled': return 'rejected'
+    case 'Errored':   return 'returned'
+    case 'Running':   return 'pending'
+  }
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toISOString().slice(0, 10).replace(/-/g, '/')
+}
+
+function humanAgo(iso: string): string {
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return iso
+  const diff = Date.now() - then
+  const mins = Math.round(diff / 60_000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.round(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.round(hrs / 24)
+  return `${days}d ago`
 }

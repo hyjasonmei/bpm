@@ -13,6 +13,7 @@ public sealed class ProblemDetailsExceptionHandler : IExceptionHandler
         {
             ValidationException ve => (StatusCodes.Status400BadRequest, BuildValidation(ve)),
             NotFoundException nf => (StatusCodes.Status404NotFound, Build("Not Found", nf.Message, 404)),
+            ForbiddenException fe => (StatusCodes.Status403Forbidden, Build("Forbidden", fe.Message, 403)),
             ConflictException ce => (StatusCodes.Status409Conflict, Build("Conflict", ce.Message, 409)),
             _ => (0, (ProblemDetails?)null)
         };

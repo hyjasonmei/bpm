@@ -1,0 +1,140 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+
+interface ComparisonRow {
+  dimension: string
+  flowcook: string
+  lowcode: string
+  custom: string
+  inhouse: string
+}
+
+const rows: ComparisonRow[] = [
+  {
+    dimension: '上線速度',
+    flowcook: 'AI 從 spec 寫 code，第一條流程 1-2 週',
+    lowcode:  '拖拉式建模，2-4 週（但每條都重做）',
+    custom:   '顧問接案，4-8 週起跳',
+    inhouse:  '看內部資源，常常排不到',
+  },
+  {
+    dimension: '誰能寫流程',
+    flowcook: '業務 / 流程主管直接跟 AI 對話',
+    lowcode:  '需培訓「平台分析師」3-6 個月',
+    custom:   '只能透過顧問轉手',
+    inhouse:  '只能 IT 工程師寫',
+  },
+  {
+    dimension: 'Code Ownership',
+    flowcook: '✓ 真實 React + .NET，code 是你的',
+    lowcode:  '✗ 平台私有檔案，搬不走',
+    custom:   '✓ 顧問交付，但通常難讀',
+    inhouse:  '✓ 自己寫的，自己懂',
+  },
+  {
+    dimension: '修改成本',
+    flowcook: '改 spec 跟 AI 對話、chef 重寫 → diff review',
+    lowcode:  '回平台改，但欄位調整可能要重做',
+    custom:   '叫顧問來，按工時計費',
+    inhouse:  '看工程師排不排得到',
+  },
+  {
+    dimension: '合規 / 稽核',
+    flowcook: '✓ Audit append-only、流程監控、稽核內建',
+    lowcode:  '看平台版本，常要加購',
+    custom:   '每個顧問做法不同',
+    inhouse:  '看寫的工程師有沒有想到',
+  },
+  {
+    dimension: 'UAT / 驗收',
+    flowcook: '✓ Sandbox 假信箱假時鐘，1 人完成',
+    lowcode:  '看平台支援，常需自建測試環境',
+    custom:   '走 client 自有 UAT，慢且風險',
+    inhouse:  '看怎麼寫的',
+  },
+  {
+    dimension: '組織整合',
+    flowcook: '✓ Entra ID 原生對接，零客製',
+    lowcode:  '看平台 SSO 模組',
+    custom:   '案子裡做',
+    inhouse:  '案子裡做',
+  },
+  {
+    dimension: '單筆成本',
+    flowcook: '導入費 + 年費 30% + 顧問點數',
+    lowcode:  '平台授權費按用戶數 / 流程數計',
+    custom:   '專案報價 NT$100 萬 - 數百萬',
+    inhouse:  '人月成本',
+  },
+]
+---
+<BaseLayout title="為什麼選 flowcook — 跟低代碼、客製開發、內部自開的差別">
+  <section class="bg-header py-16 text-white sm:py-24">
+    <div class="container-narrow max-w-3xl">
+      <p class="font-mono text-xs uppercase tracking-[0.2em] text-accent">Why flowcook</p>
+      <h1 class="mt-3 text-5xl font-semibold leading-tight text-white sm:text-6xl">
+        為什麼選我們
+      </h1>
+      <p class="mt-6 text-lg leading-relaxed text-white/85">
+        市面上能做流程的方案不少 —— 低代碼平台、找顧問客製、IT 自己寫。
+        flowcook 的位置在哪？一張表給你看完。
+      </p>
+    </div>
+  </section>
+
+  <!-- Comparison table -->
+  <section class="bg-page py-12 sm:py-16">
+    <div class="container-wide max-w-6xl">
+      <div class="overflow-x-auto rounded-md border border-rule bg-card shadow-sm">
+        <table class="w-full min-w-[800px] border-collapse text-sm">
+          <thead>
+            <tr class="border-b-2 border-rule bg-labelBg text-left">
+              <th class="px-4 py-3 text-base font-semibold text-ink w-44">維度</th>
+              <th class="px-4 py-3 text-base font-semibold text-primary">flowcook</th>
+              <th class="px-4 py-3 text-sm font-medium text-inkMuted">低代碼平台<br/><span class="text-xs">(Mendix / OutSystems)</span></th>
+              <th class="px-4 py-3 text-sm font-medium text-inkMuted">顧問客製開發</th>
+              <th class="px-4 py-3 text-sm font-medium text-inkMuted">內部 IT 自開</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr class:list={['border-b border-rule', i % 2 === 1 && 'bg-page/60']}>
+                <td class="px-4 py-4 font-semibold text-ink">{r.dimension}</td>
+                <td class="px-4 py-4 text-primary">{r.flowcook}</td>
+                <td class="px-4 py-4 text-ink/80">{r.lowcode}</td>
+                <td class="px-4 py-4 text-ink/80">{r.custom}</td>
+                <td class="px-4 py-4 text-ink/80">{r.inhouse}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sweet spot statement -->
+  <section class="bg-card py-16">
+    <div class="container-narrow max-w-3xl">
+      <h2 class="text-3xl font-semibold leading-tight">
+        我們的 sweet spot：<br />
+        <span class="text-primary">中小企業 50-300 人</span>，<br />
+        想要客製靈活度，但不想養 5 人 IT。
+      </h2>
+      <p class="mt-6 text-base leading-relaxed text-ink/85">
+        如果你公司流程數少，買低代碼授權划不來；找顧問動輒百萬；
+        內部 IT 又顧不及。flowcook 用 AI 把客製開發的效率推到能上線的速度 ——
+        付 1 個月的顧問費，得到一個能跑 1 年的系統。
+      </p>
+    </div>
+  </section>
+
+  <section class="bg-page py-16 sm:py-20">
+    <div class="container-narrow max-w-2xl text-center">
+      <h2 class="text-3xl font-semibold">用對比聊不如用 demo 聊</h2>
+      <p class="mt-4 text-base text-ink/85">
+        對比表是參考。最快的判斷方式還是看 30 分鐘 demo，跟我們聊你公司的流程，看放在 flowcook 適不適合。
+      </p>
+      <a href="mailto:hello@flowcook.tw" class="btn-primary mt-6">預約 demo</a>
+    </div>
+  </section>
+</BaseLayout>

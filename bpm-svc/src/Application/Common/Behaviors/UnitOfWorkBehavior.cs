@@ -21,6 +21,8 @@ public sealed class UnitOfWorkBehavior<TRequest, TResponse>(IUnitOfWork uow) : I
     {
         foreach (var iface in request.GetType().GetInterfaces())
         {
+            if (iface == typeof(ICommand))
+                return true;
             if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(ICommand<>))
                 return true;
         }

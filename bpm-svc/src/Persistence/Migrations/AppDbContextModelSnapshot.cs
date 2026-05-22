@@ -17,6 +17,46 @@ namespace Bpm.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.7");
 
+            modelBuilder.Entity("Bpm.Domain.Entities.Attendance.AttendancePunch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("LocalDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("PunchAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PunchType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "LocalDate");
+
+                    b.HasIndex("UserId", "PunchAt");
+
+                    b.ToTable("AttendancePunches", (string)null);
+                });
+
             modelBuilder.Entity("Bpm.Domain.Entities.Audit.ActorResolutionAudit", b =>
                 {
                     b.Property<Guid>("Id")
@@ -43,6 +83,9 @@ namespace Bpm.Persistence.Migrations
                     b.Property<string>("FlowCode")
                         .IsRequired()
                         .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ImpersonatedByUserId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("RequestId")
@@ -193,6 +236,58 @@ namespace Bpm.Persistence.Migrations
                     b.ToTable("RoleAssignments", (string)null);
                 });
 
+            modelBuilder.Entity("Bpm.Domain.Entities.Authz.RoleAssignmentChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ImpersonatedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RoleCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Scope")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ScopeRef")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("TargetUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId", "CreatedAt");
+
+                    b.HasIndex("TargetUserId", "CreatedAt");
+
+                    b.ToTable("RoleAssignmentChanges", (string)null);
+                });
+
             modelBuilder.Entity("Bpm.Domain.Entities.Authz.RolePermission", b =>
                 {
                     b.Property<Guid>("RoleId")
@@ -216,6 +311,222 @@ namespace Bpm.Persistence.Migrations
                     b.HasIndex("PermissionId");
 
                     b.ToTable("RolePermissions", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.HrFlows.HrFlowAction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FromStep")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("ImpersonatedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("InstanceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ToStep")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstanceId", "CreatedAt");
+
+                    b.ToTable("HrFlowActions", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.HrFlows.HrFlowInstance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CurrentStep")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FormDataJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("InitiatorUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastActivityAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ResolvedManagerUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SpecCode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("InitiatorUserId", "LastActivityAt");
+
+                    b.HasIndex("ResolvedManagerUserId", "Status");
+
+                    b.ToTable("HrFlowInstances", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.Impersonation.ImpersonationSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("EndReason")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ImpersonatorUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("TargetUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EndedAt");
+
+                    b.HasIndex("ImpersonatorUserId", "StartedAt");
+
+                    b.ToTable("ImpersonationSessions", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.Notifications.NotificationDispatchAudit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Body")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Channel")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("DispatchedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("InstanceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NotificationId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Recipient")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SpecCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("TaskId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Trigger")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstanceId", "DispatchedAt")
+                        .IsDescending(false, true);
+
+                    b.HasIndex("SpecCode", "DispatchedAt")
+                        .IsDescending(false, true);
+
+                    b.HasIndex("Status", "DispatchedAt")
+                        .IsDescending(false, true);
+
+                    b.ToTable("NotificationDispatchAudits", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Domain.Entities.Org.GroupMember", b =>
@@ -271,6 +582,420 @@ namespace Bpm.Persistence.Migrations
                     b.ToTable("Principals", (string)null);
 
                     b.UseTptMappingStrategy();
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.Process.ProcessInstance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CurrentFormDataJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("InitiatorUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastActivityAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SpecCode")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SpecSnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SpecVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TenantCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InitiatorUserId", "StartedAt");
+
+                    b.HasIndex("SpecCode", "SpecVersion");
+
+                    b.HasIndex("TenantCode", "Status", "LastActivityAt");
+
+                    b.ToTable("ProcessInstances", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.Process.ProcessTask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ActualAssigneeUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CandidateSetJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ClaimedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Decision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DueAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FormDataPatchJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ImpersonatedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NodeId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("NodeKind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("OriginalAssigneeUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ProcessInstanceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("SandboxActualActor")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TenantCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActualAssigneeUserId", "Status");
+
+                    b.HasIndex("ProcessInstanceId", "NodeId");
+
+                    b.HasIndex("Status", "DueAt");
+
+                    b.ToTable("ProcessTasks", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.Process.TaskHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("ImpersonatedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ProcessInstanceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("SandboxActualActor")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("TaskId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TenantCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TaskId");
+
+                    b.HasIndex("EventType", "CreatedAt");
+
+                    b.HasIndex("ProcessInstanceId", "CreatedAt");
+
+                    b.ToTable("TaskHistory", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.Sandbox.SandboxCapturedMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Body")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BodyHtml")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BodyText")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CapturedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Channel")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EventType")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HeadersJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IntendedRecipientsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginatingNotificationId")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginatingWebhookSubscriptionId")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PayloadJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ProcessInstanceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ReadByUserIdsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("TaskId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TenantCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(2048)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventType", "CapturedAt")
+                        .IsDescending(false, true);
+
+                    b.HasIndex("ProcessInstanceId", "CapturedAt")
+                        .IsDescending(false, true);
+
+                    b.HasIndex("TenantCode", "CapturedAt")
+                        .IsDescending(false, true);
+
+                    b.HasIndex("TenantCode", "Channel", "CapturedAt")
+                        .IsDescending(false, false, true);
+
+                    b.ToTable("SandboxCapturedMessages", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.Sandbox.TenantSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SandboxClockOffsetSeconds")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L);
+
+                    b.Property<string>("SandboxConfigJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("SandboxLastToggledAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("SandboxLastToggledByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("SandboxMode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TenantCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantCode")
+                        .IsUnique();
+
+                    b.ToTable("TenantSettings", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.Spec.SpecBundle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FlowCode")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FlowVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("LastReproCheckAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastReproCheckResultJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ManifestChecksum")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ManifestJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ParentManifestChecksum")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TenantCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("ZipBlob")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ManifestChecksum")
+                        .IsUnique();
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("TenantCode", "FlowCode", "FlowVersion")
+                        .IsDescending(false, false, true);
+
+                    b.ToTable("SpecBundles", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Domain.Entities.Org.Department", b =>
@@ -398,6 +1123,17 @@ namespace Bpm.Persistence.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("Bpm.Domain.Entities.HrFlows.HrFlowAction", b =>
+                {
+                    b.HasOne("Bpm.Domain.Entities.HrFlows.HrFlowInstance", "Instance")
+                        .WithMany("Actions")
+                        .HasForeignKey("InstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Instance");
+                });
+
             modelBuilder.Entity("Bpm.Domain.Entities.Org.GroupMember", b =>
                 {
                     b.HasOne("Bpm.Domain.Entities.Org.Group", "Group")
@@ -415,6 +1151,35 @@ namespace Bpm.Persistence.Migrations
                     b.Navigation("Group");
 
                     b.Navigation("Principal");
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.Process.ProcessTask", b =>
+                {
+                    b.HasOne("Bpm.Domain.Entities.Process.ProcessInstance", "Instance")
+                        .WithMany()
+                        .HasForeignKey("ProcessInstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Instance");
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.Process.TaskHistory", b =>
+                {
+                    b.HasOne("Bpm.Domain.Entities.Process.ProcessInstance", "Instance")
+                        .WithMany()
+                        .HasForeignKey("ProcessInstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Bpm.Domain.Entities.Process.ProcessTask", "Task")
+                        .WithMany()
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Instance");
+
+                    b.Navigation("Task");
                 });
 
             modelBuilder.Entity("Bpm.Domain.Entities.Org.Department", b =>
@@ -475,6 +1240,11 @@ namespace Bpm.Persistence.Migrations
             modelBuilder.Entity("Bpm.Domain.Entities.Authz.Role", b =>
                 {
                     b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Entities.HrFlows.HrFlowInstance", b =>
+                {
+                    b.Navigation("Actions");
                 });
 
             modelBuilder.Entity("Bpm.Domain.Entities.Org.Group", b =>

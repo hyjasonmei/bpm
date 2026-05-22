@@ -6,4 +6,6 @@ public sealed class SystemCurrentUser : ICurrentUser
 {
     public string? Id => "system";
     public bool IsAuthenticated => false;
+    public Guid? ImpersonatedById => null;
+    public Guid? ImpersonationSessionId => null;
 }

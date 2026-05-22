@@ -1,8 +1,15 @@
 using System.Reflection;
 using Bpm.Application.Common.Abstractions;
+using Bpm.Domain.Entities.Attendance;
 using Bpm.Domain.Entities.Audit;
 using Bpm.Domain.Entities.Authz;
+using Bpm.Domain.Entities.HrFlows;
+using Bpm.Domain.Entities.Impersonation;
+using Bpm.Domain.Entities.Notifications;
 using Bpm.Domain.Entities.Org;
+using Bpm.Domain.Entities.Process;
+using Bpm.Domain.Entities.Sandbox;
+using Bpm.Domain.Entities.Spec;
 using Microsoft.EntityFrameworkCore;
 
 namespace Bpm.Persistence;
@@ -21,6 +28,26 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RoleAssignment> RoleAssignments => Set<RoleAssignment>();
 
     public DbSet<ActorResolutionAudit> ActorResolutionAudits => Set<ActorResolutionAudit>();
+
+    public DbSet<HrFlowInstance> HrFlowInstances => Set<HrFlowInstance>();
+    public DbSet<HrFlowAction> HrFlowActions => Set<HrFlowAction>();
+
+    public DbSet<AttendancePunch> AttendancePunches => Set<AttendancePunch>();
+
+    public DbSet<ImpersonationSession> ImpersonationSessions => Set<ImpersonationSession>();
+
+    public DbSet<TenantSettings> TenantSettings => Set<TenantSettings>();
+    public DbSet<SandboxCapturedMessage> SandboxCapturedMessages => Set<SandboxCapturedMessage>();
+
+    public DbSet<RoleAssignmentChange> RoleAssignmentChanges => Set<RoleAssignmentChange>();
+
+    public DbSet<ProcessInstance> ProcessInstances => Set<ProcessInstance>();
+    public DbSet<ProcessTask> ProcessTasks => Set<ProcessTask>();
+    public DbSet<TaskHistory> TaskHistory => Set<TaskHistory>();
+
+    public DbSet<SpecBundle> SpecBundles => Set<SpecBundle>();
+
+    public DbSet<NotificationDispatchAudit> NotificationDispatchAudits => Set<NotificationDispatchAudit>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

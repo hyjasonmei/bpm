@@ -2,7 +2,7 @@ using Bpm.Domain.Common;
 
 namespace Bpm.Domain.Entities.Audit;
 
-public sealed class ActorResolutionAudit : AuditableEntity
+public sealed class ActorResolutionAudit : AuditableEntity, IImpersonable
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public DateTime Timestamp { get; set; }
@@ -15,4 +15,5 @@ public sealed class ActorResolutionAudit : AuditableEntity
     public string? ResolvedUserIdsJson { get; set; }
     public string? ErrorKind { get; set; }
     public string? ErrorReason { get; set; }
+    public Guid? ImpersonatedByUserId { get; set; }
 }

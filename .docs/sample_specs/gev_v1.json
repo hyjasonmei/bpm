@@ -1,0 +1,180 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "tenant": "acme",
+    "flowName": "廠商費用申請",
+    "flowCode": "GEV",
+    "flowVersion": 1,
+    "createdAt": "2026-05-11T00:00:00Z",
+    "createdBy": "u_demo",
+    "language": "zh-TW",
+    "notes": "Per workflow.ts GEV: employee → manager → finance(confirm) → finance(fin_review) → close. Same shape as GEE plus vendor info. Line items collapsed to scalars for v1."
+  },
+  "flow": {
+    "nodes": [
+      { "id": "start_1", "type": "startEvent", "label": "開始" },
+      { "id": "task_apply", "type": "userTask", "label": "員工申請" },
+      { "id": "approval_manager", "type": "approval", "label": "主管簽核" },
+      { "id": "task_finance_confirm", "type": "userTask", "label": "確認列印" },
+      { "id": "task_finance_review", "type": "userTask", "label": "財務審查" },
+      { "id": "end_1", "type": "endEvent", "label": "結案" }
+    ],
+    "edges": [
+      { "id": "e1", "source": "start_1", "target": "task_apply" },
+      { "id": "e2", "source": "task_apply", "target": "approval_manager" },
+      { "id": "e3", "source": "approval_manager", "target": "task_finance_confirm" },
+      { "id": "e4", "source": "task_finance_confirm", "target": "task_finance_review" },
+      { "id": "e5", "source": "task_finance_review", "target": "end_1" }
+    ]
+  },
+  "userTasks": [
+    {
+      "id": "task_apply",
+      "formCode": "GEV_APPLY",
+      "fields": [
+        { "id": "vendor_name", "label": { "zh-TW": "廠商名稱", "en": "Vendor Name" }, "type": "text", "required": true },
+        { "id": "vendor_tax_id", "label": { "zh-TW": "統編", "en": "Tax ID" }, "type": "text", "required": false, "hint": { "zh-TW": "8 碼統一編號" } },
+        { "id": "invoice_no", "label": { "zh-TW": "發票號碼", "en": "Invoice No." }, "type": "text", "required": true },
+        { "id": "invoice_date", "label": { "zh-TW": "發票日期", "en": "Invoice Date" }, "type": "date", "required": true },
+        {
+          "id": "category",
+          "label": { "zh-TW": "費用類別", "en": "Category" },
+          "type": "select",
+          "required": true,
+          "options": [
+            { "value": "outside_service", "label": "委外服務" },
+            { "value": "supplies", "label": "耗材" },
+            { "value": "rental", "label": "租金" },
+            { "value": "other", "label": "其他" }
+          ]
+        },
+        { "id": "amount", "label": { "zh-TW": "金額", "en": "Amount" }, "type": "number", "required": true, "validator": "value > 0" },
+        {
+          "id": "currency",
+          "label": { "zh-TW": "幣別", "en": "Currency" },
+          "type": "select",
+          "required": true,
+          "options": [
+            { "value": "TWD", "label": "TWD" },
+            { "value": "USD", "label": "USD" }
+          ]
+        },
+        { "id": "vat_rate", "label": { "zh-TW": "VAT %", "en": "VAT Rate" }, "type": "select", "required": true,
+          "options": [
+            { "value": "0", "label": "0%" },
+            { "value": "5", "label": "5%" }
+          ] },
+        { "id": "description", "label": { "zh-TW": "用途說明", "en": "Description" }, "type": "textarea", "required": true },
+        { "id": "invoice_file", "label": { "zh-TW": "發票影本", "en": "Invoice File" }, "type": "file", "required": true }
+      ],
+      "permissions": { "submitter": "self", "viewers": ["self", "manager", "role:Finance"] }
+    },
+    {
+      "id": "task_finance_confirm",
+      "formCode": "GEV_FINANCE_CONFIRM",
+      "fields": [
+        { "id": "print_no", "label": { "zh-TW": "列印單號", "en": "Print No." }, "type": "text", "required": true },
+        { "id": "confirm_note", "label": { "zh-TW": "確認備註", "en": "Note" }, "type": "textarea", "required": false }
+      ],
+      "permissions": { "submitter": "role:Finance", "viewers": ["role:Finance", "self", "manager"] }
+    },
+    {
+      "id": "task_finance_review",
+      "formCode": "GEV_FINANCE_REVIEW",
+      "fields": [
+        { "id": "review_note", "label": { "zh-TW": "審查備註", "en": "Review Note" }, "type": "textarea", "required": false },
+        { "id": "paid_at", "label": { "zh-TW": "撥款日期", "en": "Paid At" }, "type": "date", "required": true }
+      ],
+      "permissions": { "submitter": "role:Finance", "viewers": ["role:Finance", "self", "manager"] }
+    }
+  ],
+  "decisions": [],
+  "approvals": [
+    { "id": "approval_manager", "approver": { "type": "expr", "path": "submitter.manager" } }
+  ],
+  "notifications": [
+    {
+      "id": "notify_assign",
+      "trigger": "on_assign",
+      "channel": ["email", "in_app"],
+      "recipients": [{ "type": "current_approver" }],
+      "template": {
+        "subject": { "zh-TW": "【廠商費用待簽】{{applicant.name}} - {{vendor.name}} - {{expense.amount}} {{expense.currency}}" },
+        "body": { "zh-TW": "申請人: {{applicant.name}}\n廠商: {{vendor.name}}\n發票: {{invoice.no}}\n金額: {{expense.amount}} {{expense.currency}}\n用途: {{expense.description}}\n\n請點此核准: {{caseUrl}}" },
+        "variables": ["applicant.name", "vendor.name", "invoice.no", "expense.amount", "expense.currency", "expense.description", "caseUrl"]
+      }
+    },
+    {
+      "id": "notify_complete",
+      "trigger": "on_complete",
+      "channel": ["email"],
+      "recipients": [{ "type": "submitter" }],
+      "template": {
+        "subject": { "zh-TW": "廠商費用申請已完成" },
+        "body": { "zh-TW": "您於 {{submitDate}} 提交的 {{vendor.name}} 廠商費用 {{expense.amount}} {{expense.currency}} 已核銷完畢。" },
+        "variables": ["submitDate", "vendor.name", "expense.amount", "expense.currency"]
+      }
+    }
+  ],
+  "sla": {
+    "perNode": {
+      "approval_manager": { "duration": "8h", "businessHoursOnly": true, "escalation": { "after": "8h", "action": "notify" } },
+      "task_finance_confirm": { "duration": "16h", "businessHoursOnly": true },
+      "task_finance_review": { "duration": "24h", "businessHoursOnly": true }
+    }
+  },
+  "integrations": {
+    "identityProvider": "csv",
+    "csvSource": { "url": "s3://bpm-tenants/acme/employees-2026-05-11.csv" },
+    "fieldMappings": {
+      "employeeId": "empId",
+      "displayName": "name",
+      "email": "email",
+      "reportsTo": "manager",
+      "department": "department",
+      "title": "title"
+    }
+  },
+  "testCases": [
+    {
+      "id": "tc_happy_vendor_service",
+      "name": "委外服務 33,000 元、主管核准",
+      "inputs": {
+        "vendor_name": "關貿網路股份有限公司",
+        "vendor_tax_id": "97162640",
+        "invoice_no": "AB-87654321",
+        "invoice_date": "2026-05-08",
+        "category": "outside_service",
+        "amount": 33000,
+        "currency": "TWD",
+        "vat_rate": "5",
+        "description": "GUI2.0 傳輸服務費用 May 2026",
+        "invoice_file": "invoice.pdf"
+      },
+      "expectedTrace": ["start_1", "task_apply", "approval_manager", "task_finance_confirm", "task_finance_review", "end_1"],
+      "expectedFinalStatus": "Completed",
+      "expectedNotifications": [
+        { "trigger": "on_assign", "recipientCount": 1 },
+        { "trigger": "on_complete", "recipientCount": 1 }
+      ]
+    },
+    {
+      "id": "tc_reject_by_manager",
+      "name": "主管退件 → 流程結束於 Errored",
+      "inputs": {
+        "vendor_name": "Test Vendor",
+        "invoice_no": "T-1",
+        "invoice_date": "2026-05-08",
+        "category": "other",
+        "amount": 1000,
+        "currency": "TWD",
+        "vat_rate": "5",
+        "description": "rejected case",
+        "invoice_file": "x.pdf"
+      },
+      "managerDecision": "reject",
+      "expectedTrace": ["start_1", "task_apply", "approval_manager"],
+      "expectedFinalStatus": "Errored"
+    }
+  ]
+}

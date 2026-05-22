@@ -9,3 +9,16 @@ specs-incoming/
 # OS
 .DS_Store
 Thumbs.db
+
+bpm-admin-ui/node_modules/
+
+# Local launcher output (launch.sh writes BE/FE logs + verify screenshots here)
+.launch-logs/
+
+# Claude Code per-project local settings
+.claude/settings.local.json
+
+# bpm-www (Astro)
+bpm-www/node_modules/
+bpm-www/dist/
+bpm-www/.astro/

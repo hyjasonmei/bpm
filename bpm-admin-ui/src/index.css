@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  /* surfaces — aligned with bpm-ui */
+  --color-bg: #F1F5F9;             /* slate-100 page bg */
+  --color-card: #FFFFFF;
+  --color-rule: #E2E8F0;           /* slate-200 hairline */
+  --color-label-bg: #F1F5F9;       /* light blue field-label cells */
+
+  /* TREND BPM dark navy header (shared with bpm-ui) */
+  --color-header: #1E2D3D;
+  --color-header-2: #243849;
+
+  /* status palette */
+  --color-accent: #F59E0B;         /* amber active step */
+  --color-primary: #2563EB;        /* primary CTA */
+  --color-good: #16A34A;           /* completed check */
+  --color-danger: #DC2626;
+  --color-warn: #F59E0B;
+  --color-info: #2563EB;
+
+  /* tones */
+  --color-ink: #0F172A;            /* slate-900 */
+  --color-ink-muted: #64748B;      /* slate-500 */
+  --color-ink-faint: #94A3B8;      /* slate-400 */
+
+  /* fonts */
+  --font-sans: "DM Sans", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+[class*="font-mono"], code, kbd, samp, pre, .tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.fade-in { animation: fade-in .18s ease both; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+/* bpmn-js label legibility: stroke white outline behind glyphs so labels
+   stay readable when an edge happens to route through them. */
+.djs-label tspan {
+  paint-order: stroke fill;
+  stroke: #ffffff;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+/* monospace mini-cap label */
+.cap {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}

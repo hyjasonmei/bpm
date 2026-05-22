@@ -1,0 +1,133 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "tenant": "acme",
+    "flowName": "離職申請",
+    "flowCode": "RESIGN",
+    "flowVersion": 1,
+    "createdAt": "2026-05-11T00:00:00Z",
+    "createdBy": "u_demo",
+    "language": "zh-TW",
+    "notes": "Per workflow.ts RESIGN: employee → manager → hr → close. Coexists with HrFlowsController hard-coded path during Phase 1 (per docs/all-flows-real-plan.md §1)."
+  },
+  "flow": {
+    "nodes": [
+      { "id": "start_1", "type": "startEvent", "label": "開始" },
+      { "id": "task_apply", "type": "userTask", "label": "員工申請" },
+      { "id": "approval_manager", "type": "approval", "label": "主管簽核" },
+      { "id": "approval_hr", "type": "approval", "label": "人資簽核" },
+      { "id": "end_1", "type": "endEvent", "label": "結案" }
+    ],
+    "edges": [
+      { "id": "e1", "source": "start_1", "target": "task_apply" },
+      { "id": "e2", "source": "task_apply", "target": "approval_manager" },
+      { "id": "e3", "source": "approval_manager", "target": "approval_hr" },
+      { "id": "e4", "source": "approval_hr", "target": "end_1" }
+    ]
+  },
+  "userTasks": [
+    {
+      "id": "task_apply",
+      "formCode": "RESIGN_APPLY",
+      "fields": [
+        { "id": "expected_last_day", "label": { "zh-TW": "預計離職日", "en": "Expected Last Day" }, "type": "date", "required": true },
+        {
+          "id": "reason_category",
+          "label": { "zh-TW": "離職原因", "en": "Reason" },
+          "type": "select",
+          "required": true,
+          "options": [
+            { "value": "personal", "label": "個人因素" },
+            { "value": "career", "label": "職涯規劃" },
+            { "value": "family", "label": "家庭因素" },
+            { "value": "health", "label": "健康因素" },
+            { "value": "other", "label": "其他" }
+          ]
+        },
+        { "id": "reason_detail", "label": { "zh-TW": "離職原因說明", "en": "Reason Detail" }, "type": "textarea", "required": false },
+        { "id": "handover_to", "label": { "zh-TW": "工作交接對象", "en": "Handover To" }, "type": "text", "required": true, "hint": { "zh-TW": "同事姓名 / colleague name" } },
+        { "id": "handover_items", "label": { "zh-TW": "待辦交接事項", "en": "Handover Items" }, "type": "textarea", "required": false },
+        { "id": "note", "label": { "zh-TW": "備註", "en": "Note" }, "type": "textarea", "required": false }
+      ],
+      "permissions": { "submitter": "self", "viewers": ["self", "manager", "role:HR"] }
+    }
+  ],
+  "decisions": [],
+  "approvals": [
+    { "id": "approval_manager", "approver": { "type": "expr", "path": "submitter.manager" } },
+    { "id": "approval_hr", "approver": { "type": "role", "code": "HR" } }
+  ],
+  "notifications": [
+    {
+      "id": "notify_assign",
+      "trigger": "on_assign",
+      "channel": ["email", "in_app"],
+      "recipients": [{ "type": "current_approver" }],
+      "template": {
+        "subject": { "zh-TW": "【離職申請待簽】{{applicant.name}} - 預計 {{resign.expectedLastDay}}" },
+        "body": { "zh-TW": "申請人: {{applicant.name}}\n預計離職日: {{resign.expectedLastDay}}\n原因: {{resign.reasonCategory}}\n交接對象: {{resign.handoverTo}}\n\n請點此核准: {{caseUrl}}" },
+        "variables": ["applicant.name", "resign.expectedLastDay", "resign.reasonCategory", "resign.handoverTo", "caseUrl"]
+      }
+    },
+    {
+      "id": "notify_complete",
+      "trigger": "on_complete",
+      "channel": ["email"],
+      "recipients": [{ "type": "submitter" }],
+      "template": {
+        "subject": { "zh-TW": "您的離職申請已完成核簽" },
+        "body": { "zh-TW": "您的離職申請（預計 {{resign.expectedLastDay}}）已完成主管 + HR 核簽，HR 將另行通知後續手續。" },
+        "variables": ["resign.expectedLastDay"]
+      }
+    }
+  ],
+  "sla": {
+    "perNode": {
+      "approval_manager": { "duration": "16h", "businessHoursOnly": true, "escalation": { "after": "16h", "action": "notify" } },
+      "approval_hr": { "duration": "24h", "businessHoursOnly": true, "escalation": { "after": "24h", "action": "notify" } }
+    }
+  },
+  "integrations": {
+    "identityProvider": "csv",
+    "csvSource": { "url": "s3://bpm-tenants/acme/employees-2026-05-11.csv" },
+    "fieldMappings": {
+      "employeeId": "empId",
+      "displayName": "name",
+      "email": "email",
+      "reportsTo": "manager",
+      "department": "department",
+      "title": "title"
+    }
+  },
+  "testCases": [
+    {
+      "id": "tc_happy_resign",
+      "name": "員工提交離職、主管 → HR → 結案",
+      "inputs": {
+        "expected_last_day": "2026-06-30",
+        "reason_category": "career",
+        "reason_detail": "新公司 offer",
+        "handover_to": "Lin Tu",
+        "handover_items": "ProjectX 後端 API、CI pipelines"
+      },
+      "expectedTrace": ["start_1", "task_apply", "approval_manager", "approval_hr", "end_1"],
+      "expectedFinalStatus": "Completed",
+      "expectedNotifications": [
+        { "trigger": "on_assign", "recipientCount": 1 },
+        { "trigger": "on_complete", "recipientCount": 1 }
+      ]
+    },
+    {
+      "id": "tc_reject_by_manager",
+      "name": "主管退件 → 流程結束於 Errored",
+      "inputs": {
+        "expected_last_day": "2026-05-25",
+        "reason_category": "other",
+        "handover_to": "Lin Tu"
+      },
+      "managerDecision": "reject",
+      "expectedTrace": ["start_1", "task_apply", "approval_manager"],
+      "expectedFinalStatus": "Errored"
+    }
+  ]
+}

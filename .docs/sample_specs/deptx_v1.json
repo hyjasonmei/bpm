@@ -1,0 +1,146 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "tenant": "acme",
+    "flowName": "部門異動申請",
+    "flowCode": "DEPTX",
+    "flowVersion": 1,
+    "createdAt": "2026-05-11T00:00:00Z",
+    "createdBy": "u_demo",
+    "language": "zh-TW",
+    "notes": "Per workflow.ts DEPTX: employee → manager → hr → close. Coexists with HrFlowsController hard-coded path during Phase 1."
+  },
+  "flow": {
+    "nodes": [
+      { "id": "start_1", "type": "startEvent", "label": "開始" },
+      { "id": "task_apply", "type": "userTask", "label": "員工申請" },
+      { "id": "approval_manager", "type": "approval", "label": "主管簽核" },
+      { "id": "approval_hr", "type": "approval", "label": "人資簽核" },
+      { "id": "end_1", "type": "endEvent", "label": "結案" }
+    ],
+    "edges": [
+      { "id": "e1", "source": "start_1", "target": "task_apply" },
+      { "id": "e2", "source": "task_apply", "target": "approval_manager" },
+      { "id": "e3", "source": "approval_manager", "target": "approval_hr" },
+      { "id": "e4", "source": "approval_hr", "target": "end_1" }
+    ]
+  },
+  "userTasks": [
+    {
+      "id": "task_apply",
+      "formCode": "DEPTX_APPLY",
+      "fields": [
+        { "id": "current_department", "label": { "zh-TW": "目前部門", "en": "Current Department" }, "type": "text", "required": true, "hint": { "zh-TW": "由發起人帶入" } },
+        {
+          "id": "target_department",
+          "label": { "zh-TW": "異動目標部門", "en": "Target Department" },
+          "type": "select",
+          "required": true,
+          "options": [
+            { "value": "engineering", "label": "Engineering" },
+            { "value": "operations", "label": "Operations" },
+            { "value": "finance", "label": "Finance" },
+            { "value": "it", "label": "IT" },
+            { "value": "hr", "label": "HR" },
+            { "value": "other", "label": "其他" }
+          ]
+        },
+        { "id": "effective_date", "label": { "zh-TW": "異動生效日", "en": "Effective Date" }, "type": "date", "required": true },
+        { "id": "reason", "label": { "zh-TW": "異動原因", "en": "Reason" }, "type": "textarea", "required": true },
+        {
+          "id": "salary_impact",
+          "label": { "zh-TW": "是否影響薪資", "en": "Salary Impact" },
+          "type": "select",
+          "required": true,
+          "options": [
+            { "value": "no", "label": "否" },
+            { "value": "tbd", "label": "待議" }
+          ]
+        },
+        { "id": "new_manager", "label": { "zh-TW": "主管異動 (新主管姓名)", "en": "New Manager" }, "type": "text", "required": false }
+      ],
+      "permissions": { "submitter": "self", "viewers": ["self", "manager", "role:HR"] }
+    }
+  ],
+  "decisions": [],
+  "approvals": [
+    { "id": "approval_manager", "approver": { "type": "expr", "path": "submitter.manager" } },
+    { "id": "approval_hr", "approver": { "type": "role", "code": "HR" } }
+  ],
+  "notifications": [
+    {
+      "id": "notify_assign",
+      "trigger": "on_assign",
+      "channel": ["email", "in_app"],
+      "recipients": [{ "type": "current_approver" }],
+      "template": {
+        "subject": { "zh-TW": "【部門異動待簽】{{applicant.name}}: {{deptx.current}} → {{deptx.target}}" },
+        "body": { "zh-TW": "申請人: {{applicant.name}}\n目前部門: {{deptx.current}}\n目標部門: {{deptx.target}}\n生效日: {{deptx.effectiveDate}}\n原因: {{deptx.reason}}\n\n請點此核准: {{caseUrl}}" },
+        "variables": ["applicant.name", "deptx.current", "deptx.target", "deptx.effectiveDate", "deptx.reason", "caseUrl"]
+      }
+    },
+    {
+      "id": "notify_complete",
+      "trigger": "on_complete",
+      "channel": ["email"],
+      "recipients": [{ "type": "submitter" }],
+      "template": {
+        "subject": { "zh-TW": "您的部門異動已完成核簽" },
+        "body": { "zh-TW": "您的部門異動 ({{deptx.current}} → {{deptx.target}}) 已完成主管 + HR 核簽，{{deptx.effectiveDate}} 起生效。" },
+        "variables": ["deptx.current", "deptx.target", "deptx.effectiveDate"]
+      }
+    }
+  ],
+  "sla": {
+    "perNode": {
+      "approval_manager": { "duration": "16h", "businessHoursOnly": true, "escalation": { "after": "16h", "action": "notify" } },
+      "approval_hr": { "duration": "24h", "businessHoursOnly": true, "escalation": { "after": "24h", "action": "notify" } }
+    }
+  },
+  "integrations": {
+    "identityProvider": "csv",
+    "csvSource": { "url": "s3://bpm-tenants/acme/employees-2026-05-11.csv" },
+    "fieldMappings": {
+      "employeeId": "empId",
+      "displayName": "name",
+      "email": "email",
+      "reportsTo": "manager",
+      "department": "department",
+      "title": "title"
+    }
+  },
+  "testCases": [
+    {
+      "id": "tc_happy_deptx",
+      "name": "員工 ENG → IT 異動、主管 → HR → 結案",
+      "inputs": {
+        "current_department": "Engineering",
+        "target_department": "it",
+        "effective_date": "2026-07-01",
+        "reason": "業務重組，配合 Platform team 集中管理",
+        "salary_impact": "no",
+        "new_manager": "Lin Tu"
+      },
+      "expectedTrace": ["start_1", "task_apply", "approval_manager", "approval_hr", "end_1"],
+      "expectedFinalStatus": "Completed",
+      "expectedNotifications": [
+        { "trigger": "on_assign", "recipientCount": 1 },
+        { "trigger": "on_complete", "recipientCount": 1 }
+      ]
+    },
+    {
+      "id": "tc_reject_by_manager",
+      "name": "主管退件 → 流程結束於 Errored",
+      "inputs": {
+        "current_department": "Engineering",
+        "target_department": "finance",
+        "effective_date": "2026-06-01",
+        "reason": "rejected case",
+        "salary_impact": "tbd"
+      },
+      "managerDecision": "reject",
+      "expectedTrace": ["start_1", "task_apply", "approval_manager"],
+      "expectedFinalStatus": "Errored"
+    }
+  ]
+}

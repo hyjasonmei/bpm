@@ -1,0 +1,88 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import FeatureCard from '../components/FeatureCard.astro'
+import FeatureRow from '../components/FeatureRow.astro'
+---
+<BaseLayout title="廚房工具 — flowcook">
+  <section class="bg-header py-16 text-white sm:py-24">
+    <div class="container-narrow max-w-3xl">
+      <p class="font-mono text-xs uppercase tracking-[0.2em] text-accent">Features</p>
+      <h1 class="mt-3 text-5xl font-semibold leading-tight text-white sm:text-6xl">
+        廚房工具
+      </h1>
+      <p class="mt-6 text-lg leading-relaxed text-white/85">
+        AI Kitchen 跟主廚推薦頁已經介紹了「為什麼用」。這頁補充「用什麼做的」 ——
+        三大主題：業界標準技術、無痛驗收、合規即用。
+      </p>
+    </div>
+  </section>
+
+  <!-- 業界標準 -->
+  <section class="bg-page py-16 sm:py-20">
+    <div class="container-narrow max-w-4xl">
+      <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">業界標準</p>
+      <h2 class="mt-3 text-4xl font-semibold leading-tight">不重新發明輪子</h2>
+      <p class="mt-4 text-base leading-relaxed text-ink/85">
+        平台廠商最愛賣的私有 DSL、私有規則引擎，flowcook 都不做。
+        我們用業界開放標準把所有東西串起來 —— 你今天能查到的文件、明天找到的工程師，都認得這些東西。
+      </p>
+
+      <div class="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FeatureCard icon="📐" name="BPMN 2.0" desc="流程結構用業界標準 BPMN 2.0 描述。任何 BPMN 編輯器都能打開來看。" />
+        <FeatureCard icon="🧮" name="CEL" desc="條件、決策、衍生欄位都用 Google 開放的 Common Expression Language。可審、可測、可在多個語言間共享。" />
+        <FeatureCard icon="🔌" name="OpenAPI" desc="對外整合用 OpenAPI 描述，匯入 swagger.json 就會自動產生 client。" />
+        <FeatureCard icon="🔐" name="Entra ID" desc="原生對接微軟 Entra ID（Azure AD）—— SSO 跟組織同步零客製。" />
+        <FeatureCard icon="📨" name="Email / Teams / Webhook" desc="通知走標準通道。Teams、Slack、自訂 webhook 都接得起來。" />
+        <FeatureCard icon="🗃" name="Postgres / SQL Server" desc="storage 走標準關聯式 DB。POC 跑 SQLite，正式環境一行 connection string 切換。" />
+      </div>
+    </div>
+  </section>
+
+  <!-- 無痛驗收 -->
+  <section class="bg-card py-16 sm:py-20">
+    <div class="container-narrow max-w-4xl">
+      <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">無痛驗收</p>
+      <h2 class="mt-3 text-4xl font-semibold leading-tight">Sandbox 即試吃</h2>
+      <p class="mt-4 text-base leading-relaxed text-ink/85">
+        傳統 BPM 上線最痛的不是寫 code，是 UAT —— 真實信箱不能寄、真實時間不能調、真實員工不能借來測。
+        Sandbox 把這些痛點全部包掉。
+      </p>
+
+      <div class="mt-10 space-y-4">
+        <FeatureRow icon="📬" name="Mail Capture" desc="所有 outbound email 進入 sandbox mailbox，不會真的寄出。驗收員一邊跑流程、一邊在 admin 介面看「假信箱」收到什麼。" />
+        <FeatureRow icon="⏰" name="Clock Freeze" desc="假時鐘可以前進、後退、跳到任意時間點。測 SLA 24 小時到期？秒跳 24 小時看會發生什麼。" />
+        <FeatureRow icon="👥" name="Persona Switch" desc="一鍵切換員工 / 主管 / HR / 財務 身份，不用登入 5 個帳號。" />
+        <FeatureRow icon="🔄" name="State Reset" desc="把所有測試資料一鍵清掉重來。下個驗收員拿乾淨環境繼續。" />
+        <FeatureRow icon="🛑" name="Outbound Gate" desc="所有對外 API 呼叫進入 capture 模式 —— 不會真的打到 ERP、不會真的扣款。" />
+      </div>
+    </div>
+  </section>
+
+  <!-- 合規即用 -->
+  <section class="bg-page py-16 sm:py-20">
+    <div class="container-narrow max-w-4xl">
+      <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">合規即用</p>
+      <h2 class="mt-3 text-4xl font-semibold leading-tight">監控 × 稽核</h2>
+      <p class="mt-4 text-base leading-relaxed text-ink/85">
+        合規不是事後補的，是預設就在那。flowcook 從第一天就把 audit trail、流程監控、外部對接的稽核軌跡內建。
+      </p>
+
+      <div class="mt-10 space-y-4">
+        <FeatureRow icon="📜" name="Append-Only Audit Trail" desc="每一筆送出、核准、駁回、撤回，全部 append-only 留痕。資料庫層面禁止 UPDATE/DELETE —— 改不了、刪不掉。" />
+        <FeatureRow icon="📊" name="Process Admin Dashboard" desc="所有 in-flight 流程實時可查 —— 卡在誰、卡多久、誰超 SLA。" />
+        <FeatureRow icon="🔍" name="Notification Audit" desc="每一則發出的 email、Teams、webhook 都留紀錄。誰收到、何時收到、收到什麼。" />
+        <FeatureRow icon="🛡" name="Role-based Access" desc="每個流程、每個動作的權限都跟組織 role 綁。離職員工 role 撤掉，自動失去存取。" />
+      </div>
+    </div>
+  </section>
+
+  <section class="bg-header py-16 text-white">
+    <div class="container-narrow max-w-2xl">
+      <h2 class="text-3xl font-semibold text-white">想知道更多技術細節？</h2>
+      <p class="mt-4 text-base text-white/80">
+        我們有完整的 architecture 文件、實作 spec、合規對應表。預約 demo 時告訴我們你的 IT / 合規同事在意什麼，準備對應材料給你看。
+      </p>
+      <a href="mailto:hello@flowcook.tw" class="btn-primary mt-6">寫信約 demo</a>
+    </div>
+  </section>
+</BaseLayout>

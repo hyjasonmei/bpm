@@ -1,0 +1,15 @@
+---
+interface Props {
+  icon: string
+  name: string
+  desc: string
+}
+const { icon, name, desc } = Astro.props
+---
+<div class="flex gap-4 rounded-md border border-rule bg-card p-5">
+  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xl" aria-hidden="true">{icon}</span>
+  <div>
+    <h3 class="text-lg font-semibold text-ink">{name}</h3>
+    <p class="mt-1 text-sm leading-relaxed text-ink/80">{desc}</p>
+  </div>
+</div>

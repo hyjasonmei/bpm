@@ -1,55 +1,61 @@
-import { useMemo, useRef, useState, useEffect } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search as SearchIcon, X, Filter } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
 import { Input, Select, FieldLabel } from '@/components/ui/form'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { StatusBadge, TypeChip, type StatusKind } from '@/components/ui/badge'
-import { MOCK_CASES } from '@/lib/mocks'
-import type { FormCode } from '@/lib/workflow'
+import { FORMS, type FormCode } from '@/lib/workflow'
+import { useMyInstances } from '@/hooks/useMyInstances'
+import type { InstanceStatus, MyInstanceSummaryDto } from '@/types/process'
 
-const FORM_TYPES: FormCode[] = ['LEAVE', 'GEE', 'GEV', 'APE', 'HWP', 'ITPR', 'TRQ', 'TEO', 'EXTOB']
-const ALL_STATUSES: StatusKind[] = ['draft', 'pending', 'approved', 'fin_review', 'it_spec_review', 'returned', 'closed', 'rejected']
+const FORM_TYPES: FormCode[] = ['LEAVE', 'GEE', 'GEV', 'APE', 'HWP', 'ITPR', 'TRQ', 'TEO', 'EXTOB', 'RESIGN', 'DEPTX']
+const ALL_STATUSES: InstanceStatus[] = ['Running', 'Completed', 'Cancelled', 'Errored']
 
 export function Search() {
+  // PR-L3: Search is currently scoped to "my own initiated cases" because
+  // the backend hasn't shipped a cross-user instance index yet (that's the
+  // add-real-search proposal). Filters apply client-side over the polled
+  // myInstances list — fast for an inbox-sized result set, and the parameter
+  // shape stays compatible when the proper search endpoint lands.
+  const myCases = useMyInstances('all')
+
   const [keyword, setKeyword] = useState('')
-  const [reqNo, setReqNo] = useState('')
+  const [caseId, setCaseId] = useState('')
   const [formTypes, setFormTypes] = useState<FormCode[]>([])
-  const [statuses, setStatuses] = useState<StatusKind[]>([])
-  const [requestor, setRequestor] = useState('')
+  const [statuses, setStatuses] = useState<InstanceStatus[]>([])
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(10)
-  const [searched, setSearched] = useState(true) // start showing all rows for demo
 
-  const allRequestors = useMemo(() => Array.from(new Set(MOCK_CASES.map(c => c.requestor))).sort(), [])
+  const all = myCases.data ?? []
 
   const results = useMemo(() => {
-    let r = MOCK_CASES
-    if (!searched) return []
-    if (keyword) r = r.filter(c =>
-      c.no.toLowerCase().includes(keyword.toLowerCase()) ||
-      c.typeLabel.toLowerCase().includes(keyword.toLowerCase()) ||
-      c.requestor.toLowerCase().includes(keyword.toLowerCase()) ||
-      c.dept.toLowerCase().includes(keyword.toLowerCase()))
-    if (reqNo) r = r.filter(c => c.no.toLowerCase().includes(reqNo.toLowerCase()))
-    if (formTypes.length) r = r.filter(c => formTypes.includes(c.type))
+    let r = all
+    if (caseId) r = r.filter(c => c.id.toLowerCase().includes(caseId.toLowerCase()))
+    if (keyword) {
+      const k = keyword.toLowerCase()
+      r = r.filter(c =>
+        c.id.toLowerCase().includes(k)
+        || c.specCode.toLowerCase().includes(k)
+        || (c.currentNodeLabel ?? '').toLowerCase().includes(k))
+    }
+    if (formTypes.length) r = r.filter(c => formTypes.includes(c.specCode as FormCode))
     if (statuses.length) r = r.filter(c => statuses.includes(c.status))
-    if (requestor) r = r.filter(c => c.requestor === requestor)
-    if (dateFrom) r = r.filter(c => c.submitted.replace(/\//g, '-') >= dateFrom)
-    if (dateTo)   r = r.filter(c => c.submitted.replace(/\//g, '-') <= dateTo)
+    if (dateFrom) r = r.filter(c => c.startedAt.slice(0, 10) >= dateFrom)
+    if (dateTo)   r = r.filter(c => c.startedAt.slice(0, 10) <= dateTo)
     return r
-  }, [keyword, reqNo, formTypes, statuses, requestor, dateFrom, dateTo, searched])
+  }, [all, keyword, caseId, formTypes, statuses, dateFrom, dateTo])
 
   const totalPages = Math.max(1, Math.ceil(results.length / pageSize))
   const pageRows = results.slice(page * pageSize, page * pageSize + pageSize)
 
   const toggleType = (t: FormCode) => setFormTypes(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t])
-  const toggleStatus = (s: StatusKind) => setStatuses(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s])
+  const toggleStatus = (s: InstanceStatus) => setStatuses(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s])
   const clearAll = () => {
-    setKeyword(''); setReqNo(''); setFormTypes([]); setStatuses([])
-    setRequestor(''); setDateFrom(''); setDateTo(''); setPage(0); setSearched(true)
+    setKeyword(''); setCaseId(''); setFormTypes([]); setStatuses([])
+    setDateFrom(''); setDateTo(''); setPage(0)
   }
 
   return (
@@ -57,9 +63,14 @@ export function Search() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-lg font-bold text-ink">Search</h1>
-          <p className="text-sm text-ink-muted">搜尋公司全域所有表單</p>
+          <p className="text-sm text-ink-muted">
+            搜尋我發起過的所有案件
+            <span className="ml-2 text-[11px] text-ink-faint">(cross-user search 預定 add-real-search 提案)</span>
+          </p>
         </div>
-        <p className="font-mono text-sm text-ink-faint">{MOCK_CASES.length} cases indexed</p>
+        <p className="font-mono text-sm text-ink-faint">
+          {myCases.loading && all.length === 0 ? 'loading…' : `${all.length} cases indexed`}
+        </p>
       </div>
 
       {/* Filters */}
@@ -74,23 +85,16 @@ export function Search() {
             <FieldLabel>Keyword</FieldLabel>
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
-              <Input className="pl-9" placeholder="Search by request no., type label, requestor, department…" value={keyword} onChange={e => setKeyword(e.target.value)} />
+              <Input className="pl-9" placeholder="Search by case id, spec code, current step…" value={keyword} onChange={e => setKeyword(e.target.value)} />
             </div>
           </div>
           <div>
-            <FieldLabel>Request No.</FieldLabel>
-            <Input placeholder="e.g. TW-GEE-26-001342" value={reqNo} onChange={e => setReqNo(e.target.value)} />
+            <FieldLabel>Case ID prefix</FieldLabel>
+            <Input placeholder="e.g. 5b3a8e2c" value={caseId} onChange={e => setCaseId(e.target.value)} />
           </div>
-          <div>
-            <FieldLabel>Requestor</FieldLabel>
-            <Select value={requestor} onChange={e => setRequestor(e.target.value)}>
-              <option value="">All</option>
-              {allRequestors.map(r => <option key={r}>{r}</option>)}
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 col-span-2">
             <div>
-              <FieldLabel>Submitted from</FieldLabel>
+              <FieldLabel>Started from</FieldLabel>
               <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
             </div>
             <div>
@@ -129,8 +133,8 @@ export function Search() {
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-rule px-4 py-3">
           <Button variant="outline" size="md" onClick={clearAll}>Reset</Button>
-          <Button variant="primary" size="md" onClick={() => { setSearched(true); setPage(0) }}>
-            <SearchIcon className="h-3.5 w-3.5" /> Search
+          <Button variant="primary" size="md" onClick={() => { void myCases.refresh(); setPage(0) }}>
+            <SearchIcon className="h-3.5 w-3.5" /> Refresh
           </Button>
         </div>
       </SectionCard>
@@ -146,31 +150,41 @@ export function Search() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50">
               <tr className="border-b border-rule">
-                <Th>Request No.</Th>
+                <Th>Case ID</Th>
                 <Th>Type</Th>
-                <Th>Requestor</Th>
-                <Th>Department</Th>
-                <Th>Submitted</Th>
-                <Th>Updated</Th>
-                <Th right>Amount</Th>
+                <Th>Current step</Th>
+                <Th>Started</Th>
+                <Th>Last activity</Th>
+                <Th right>Open tasks</Th>
                 <Th>Status</Th>
               </tr>
             </thead>
             <tbody>
-              {pageRows.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-ink-faint">No matches.</td></tr>
-              ) : pageRows.map(c => (
-                <tr key={c.no} className="border-b border-slate-100 hover:bg-slate-50/60">
-                  <Td><span className="font-mono text-[12px] font-semibold text-ink">{c.no}</span></Td>
-                  <Td><div className="flex items-center gap-2"><TypeChip type={c.type} /><span className="text-xs text-ink-muted">{c.typeLabel}</span></div></Td>
-                  <Td>{c.requestor}</Td>
-                  <Td className="text-xs text-ink-muted">{c.dept}</Td>
-                  <Td className="font-mono text-xs">{c.submitted}</Td>
-                  <Td className="font-mono text-xs">{c.updated}</Td>
-                  <Td right className="font-mono">{c.amount}</Td>
-                  <Td><StatusBadge kind={c.status} /></Td>
-                </tr>
-              ))}
+              {myCases.loading && results.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-ink-faint">Loading cases…</td></tr>
+              ) : myCases.error && results.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-red-600">Search failed: {myCases.error.message}</td></tr>
+              ) : pageRows.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-ink-faint">No matches.</td></tr>
+              ) : pageRows.map(c => {
+                const formCode = isFormCode(c.specCode) ? c.specCode : null
+                return (
+                  <tr key={c.id} className="border-b border-slate-100 hover:bg-slate-50/60">
+                    <Td><span className="font-mono text-[12px] font-semibold text-ink">{c.id.slice(0, 8)}</span></Td>
+                    <Td>
+                      <div className="flex items-center gap-2">
+                        {formCode ? <TypeChip type={formCode} /> : <span className="text-xs">{c.specCode}</span>}
+                        {formCode && <span className="text-xs text-ink-muted truncate">{FORMS[formCode].label}</span>}
+                      </div>
+                    </Td>
+                    <Td className="text-xs text-ink-muted">{c.currentNodeLabel ?? (c.openTaskCount === 0 ? '—' : '?')}</Td>
+                    <Td className="font-mono text-xs">{formatDate(c.startedAt)}</Td>
+                    <Td className="font-mono text-xs">{formatDate(c.lastActivityAt)}</Td>
+                    <Td right className="font-mono text-xs">{c.openTaskCount}</Td>
+                    <Td><StatusBadge kind={instanceStatusToBadge(c.status)} /></Td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -207,9 +221,30 @@ function Td({ children, right, className }: { children: React.ReactNode; right?:
   return <td className={cn('px-4 py-3 align-middle text-ink', right ? 'text-right' : 'text-left', className)}>{children}</td>
 }
 
+const FORM_CODES: ReadonlyArray<FormCode> = ['LEAVE', 'GEE', 'GEV', 'APE', 'TRQ', 'TEO', 'HWP', 'ITPR', 'EXTOB', 'RESIGN', 'DEPTX']
+function isFormCode(s: string): s is FormCode {
+  return (FORM_CODES as readonly string[]).includes(s)
+}
+
+function instanceStatusToBadge(s: InstanceStatus): StatusKind {
+  switch (s) {
+    case 'Completed': return 'closed'
+    case 'Cancelled': return 'rejected'
+    case 'Errored':   return 'returned'
+    case 'Running':   return 'pending'
+  }
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toISOString().slice(0, 10).replace(/-/g, '/')
+}
+
 /* ───────── Search Modal ───────── */
 
 export function SearchModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const myCases = useMyInstances('all')
   const inputRef = useRef<HTMLInputElement>(null)
   const [q, setQ] = useState('')
 
@@ -222,13 +257,14 @@ export function SearchModal({ open, onClose }: { open: boolean; onClose: () => v
   }, [open, onClose])
 
   const matches = useMemo(() => {
-    if (!q) return []
-    return MOCK_CASES.filter(c =>
-      c.no.toLowerCase().includes(q.toLowerCase()) ||
-      c.typeLabel.toLowerCase().includes(q.toLowerCase()) ||
-      c.requestor.toLowerCase().includes(q.toLowerCase()),
+    if (!q) return [] as MyInstanceSummaryDto[]
+    const k = q.toLowerCase()
+    return (myCases.data ?? []).filter(c =>
+      c.id.toLowerCase().includes(k)
+      || c.specCode.toLowerCase().includes(k)
+      || (c.currentNodeLabel ?? '').toLowerCase().includes(k),
     ).slice(0, 8)
-  }, [q])
+  }, [q, myCases.data])
 
   if (!open) return null
 
@@ -237,26 +273,29 @@ export function SearchModal({ open, onClose }: { open: boolean; onClose: () => v
       <div className="w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-2xl" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className="flex items-center gap-3 border-b border-rule px-4 py-3">
           <SearchIcon className="h-4 w-4 text-ink-faint" />
-          <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} placeholder="Quick search… try TW-GEE / Wilson / Travel" className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none" />
+          <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} placeholder="Quick search… try case id prefix or LEAVE / GEE" className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none" />
           <button onClick={onClose} className="rounded p-1 text-ink-faint hover:bg-slate-100"><X className="h-4 w-4" /></button>
         </div>
         <div className="max-h-[420px] overflow-y-auto">
           {q && matches.length === 0 ? (
             <p className="px-4 py-12 text-center text-sm text-ink-faint">No matches for "{q}".</p>
           ) : !q ? (
-            <p className="px-4 py-12 text-center text-sm text-ink-faint">Type to search across all cases. <span className="font-mono">Esc</span> to close.</p>
-          ) : matches.map(c => (
-            <button key={c.no} className="flex w-full items-center justify-between gap-3 border-b border-slate-50 px-4 py-2.5 text-left hover:bg-blue-50/40">
-              <div className="flex items-center gap-3">
-                <TypeChip type={c.type} />
-                <div>
-                  <p className="font-mono text-[12px] font-semibold text-ink">{c.no}</p>
-                  <p className="text-xs text-ink-muted">{c.typeLabel} · {c.requestor}</p>
+            <p className="px-4 py-12 text-center text-sm text-ink-faint">Type to search across your cases. <span className="font-mono">Esc</span> to close.</p>
+          ) : matches.map(c => {
+            const formCode = isFormCode(c.specCode) ? c.specCode : null
+            return (
+              <button key={c.id} className="flex w-full items-center justify-between gap-3 border-b border-slate-50 px-4 py-2.5 text-left hover:bg-blue-50/40">
+                <div className="flex items-center gap-3">
+                  {formCode ? <TypeChip type={formCode} /> : <span className="text-xs">{c.specCode}</span>}
+                  <div>
+                    <p className="font-mono text-[12px] font-semibold text-ink">{c.id.slice(0, 8)}</p>
+                    <p className="text-xs text-ink-muted">{formCode ? FORMS[formCode].label : c.specCode} · {c.currentNodeLabel ?? '—'}</p>
+                  </div>
                 </div>
-              </div>
-              <StatusBadge kind={c.status} />
-            </button>
-          ))}
+                <StatusBadge kind={instanceStatusToBadge(c.status)} />
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>
