@@ -82,9 +82,21 @@ cd ~/claude/bpm/bpm-ui
 npm run dev
 ```
 
-First boot: `bpm-svc` auto-migrates + auto-seeds (13 users / 6 depts /
-14 roles) into `db/bpm.db`. `admin-svc` auto-migrates its
-`Admin_*` tables into the same file. Verify both ports listen:
+First boot:
+- `bpm-svc` auto-migrates + auto-seeds (13 users / 6 depts / 14 roles)
+  into `db/bpm.db`. Persona switcher uses these — emails like
+  `wilson@acme.test` / `yang@acme.test`.
+- `admin-svc` auto-migrates `Admin_*` tables into the same file AND
+  auto-seeds the admin org graph (13 users / 6 depts / 14 roles) the
+  first time `Admin_Principals` is empty. Login uses these — emails
+  like `alice@acme.example`. Password is `flowcook2026`.
+
+(Per the post-commit `f87e5d2` fix — earlier versions of this runbook
+required running `Bpm.Admin.SeedCli -- seed --org` by hand or login
+would return 401. Auto-seed on startup makes that manual step
+unnecessary in Development.)
+
+Verify both ports listen:
 
 ```bash
 lsof -i :5266 -i :5290 -i :5174 -i :5175 | grep LISTEN
