@@ -2,62 +2,62 @@
 import BaseLayout from '../layouts/BaseLayout.astro'
 ---
 <BaseLayout title="一道菜的旅程 — flowcook">
-  <section class="bg-gradient-to-b from-brand-cream to-brand-plate/40 py-16 sm:py-24">
+  <section class="bg-header py-16 text-white sm:py-24">
     <div class="container-narrow max-w-3xl">
-      <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-muted">How it works</p>
-      <h1 class="mt-3 font-display text-5xl font-semibold leading-tight sm:text-6xl">
+      <p class="font-mono text-xs uppercase tracking-[0.2em] text-accent">How it works</p>
+      <h1 class="mt-3 text-5xl font-semibold leading-tight text-white sm:text-6xl">
         一道菜的旅程
       </h1>
-      <p class="mt-6 text-lg leading-relaxed text-brand-night/85">
+      <p class="mt-6 text-lg leading-relaxed text-white/85">
         從你說「我們想做一個請假流程」，到員工真的在公司用它請假 ——
         flowcook 把這條路徑切成 11 個你看得懂、AI 幫你跑的步驟。
       </p>
-      <p class="mt-3 text-sm text-brand-muted italic">
+      <p class="mt-3 text-sm text-white/60 italic">
         TODO: 這頁要走過 AI Kitchen 11 step 的真實流程，配每一步的 admin 截圖。等 Phase D demo 跑完拿截圖。
       </p>
     </div>
   </section>
 
-  <section class="py-16 sm:py-20">
-    <div class="container-narrow max-w-3xl space-y-12">
-      <article>
-        <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-flame">Step 1 · SOURCE</p>
-        <h2 class="mt-2 font-display text-3xl font-semibold">從一張圖、一份 PDF、一句話開始</h2>
-        <p class="mt-3 text-base text-brand-night/85">
+  <section class="bg-page py-16 sm:py-20">
+    <div class="container-narrow max-w-3xl space-y-8">
+      <article class="rounded-lg border border-rule bg-card p-8 shadow-sm">
+        <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">Step 1 · SOURCE</p>
+        <h2 class="mt-2 text-3xl font-semibold">從一張圖、一份 PDF、一句話開始</h2>
+        <p class="mt-3 text-base text-ink/85">
           上傳老闆畫的流程圖、HR 給的 PDF SOP、或者你自己用一段話描述。
           AI 把它變成 BPMN 骨架 —— 起點、終點、節點、線通通畫好。
         </p>
-        <p class="mt-2 text-sm text-brand-muted italic">[圖：admin wizard Step 1 截圖]</p>
+        <p class="mt-2 text-sm text-inkMuted italic">[圖：admin wizard Step 1 截圖]</p>
       </article>
 
-      <article>
-        <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-flame">Step 2 · FORMS</p>
-        <h2 class="mt-2 font-display text-3xl font-semibold">每個任務的表單 —— 細到欄位寬度</h2>
-        <p class="mt-3 text-base text-brand-night/85">
+      <article class="rounded-lg border border-rule bg-card p-8 shadow-sm">
+        <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">Step 2 · FORMS</p>
+        <h2 class="mt-2 text-3xl font-semibold">每個任務的表單 —— 細到欄位寬度</h2>
+        <p class="mt-3 text-base text-ink/85">
           區塊、多欄列、條件顯示、提示文字、發票多筆 —— 真實 BPM form 該有的版面元素都在。
           chef 之後寫 code 時，照這個 layout 渲染。
         </p>
-        <p class="mt-2 text-sm text-brand-muted italic">[圖：admin wizard FORMS 截圖含 Tier 1+2]</p>
+        <p class="mt-2 text-sm text-inkMuted italic">[圖：admin wizard FORMS 截圖含 Tier 1+2]</p>
       </article>
 
-      <article>
-        <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-flame">Step 3-11</p>
-        <h2 class="mt-2 font-display text-3xl font-semibold">存取、決策、審核、通知、SLA、整合、變數、翻譯、備註</h2>
-        <p class="mt-3 text-base text-brand-night/85">
+      <article class="rounded-lg border border-rule bg-card p-8 shadow-sm">
+        <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">Step 3-11</p>
+        <h2 class="mt-2 text-3xl font-semibold">存取、決策、審核、通知、SLA、整合、變數、翻譯、備註</h2>
+        <p class="mt-3 text-base text-ink/85">
           每一步都是 AI 邊問邊填，最後產出一份完整 spec。
           這份 spec 是 chef 進廚房的食譜 —— 也是給 IT 部門 review 的合約。
         </p>
-        <p class="mt-2 text-sm text-brand-muted italic">[圖：admin wizard step stepper 截圖]</p>
+        <p class="mt-2 text-sm text-inkMuted italic">[圖：admin wizard step stepper 截圖]</p>
       </article>
 
-      <article class="rounded-2xl border border-brand-flame/30 bg-brand-flame/5 p-8">
-        <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-flame">Chef 進廚房</p>
-        <h2 class="mt-2 font-display text-3xl font-semibold">spec 交出去 —— AI 寫真實代碼</h2>
-        <p class="mt-3 text-base text-brand-night/85">
+      <article class="rounded-lg border border-accent/30 bg-accent/5 p-8">
+        <p class="font-mono text-xs uppercase tracking-[0.2em] text-accent">Chef 進廚房</p>
+        <h2 class="mt-2 text-3xl font-semibold">spec 交出去 —— AI 寫真實代碼</h2>
+        <p class="mt-3 text-base text-ink/85">
           chef 讀 spec、讀現有 reference code、寫出新的 React + .NET。
           所有變更落在獨立 git branch；你 review 完才 merge。
         </p>
-        <p class="mt-2 text-sm text-brand-muted italic">[圖：chef branch diff 截圖]</p>
+        <p class="mt-2 text-sm text-inkMuted italic">[圖：chef branch diff 截圖]</p>
       </article>
     </div>
   </section>

@@ -10,22 +10,22 @@ const navItems = [
 
 const currentPath = Astro.url.pathname
 ---
-<header class="border-b border-brand-rule/60 bg-brand-cream/80 backdrop-blur sticky top-0 z-30">
+<header class="sticky top-0 z-30 border-b border-header2 bg-header text-white">
   <div class="container-wide flex h-16 items-center justify-between">
     <a href="/" class="flex items-baseline gap-2">
-      <span class="font-display text-xl font-semibold text-brand-midnight">flowcook</span>
-      <span class="text-[10px] uppercase tracking-[0.18em] text-brand-muted">AI 廚房</span>
+      <span class="text-xl font-semibold tracking-tight text-white">flowcook</span>
+      <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-white/55">AI 廚房</span>
     </a>
 
-    <nav class="hidden items-center gap-8 md:flex">
+    <nav class="hidden items-center gap-7 md:flex">
       {navItems.map(item => (
         <a
           href={item.href}
           class:list={[
             'text-sm font-medium transition-colors',
             currentPath.startsWith(item.href)
-              ? 'text-brand-flame'
-              : 'text-brand-night/80 hover:text-brand-flame',
+              ? 'text-accent'
+              : 'text-white/80 hover:text-white',
           ]}
         >
           {item.label}
@@ -33,6 +33,6 @@ const currentPath = Astro.url.pathname
       ))}
     </nav>
 
-    <a href="#contact" class="btn-flame text-xs">預約試吃</a>
+    <a href="#contact" class="btn-primary text-xs">預約 demo</a>
   </div>
 </header>

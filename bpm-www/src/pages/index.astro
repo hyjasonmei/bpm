@@ -3,45 +3,40 @@ import BaseLayout from '../layouts/BaseLayout.astro'
 import KitchenAct from '../components/KitchenAct.astro'
 ---
 <BaseLayout>
-  <!-- Hero -->
-  <section class="relative overflow-hidden bg-gradient-to-b from-brand-cream via-brand-cream to-brand-plate/40">
+  <!-- Hero — TREND BPM dark navy band (echo bpm-ui top header) -->
+  <section class="relative overflow-hidden bg-header text-white">
     <div class="container-narrow py-20 sm:py-28">
       <div class="max-w-3xl">
-        <span class="inline-flex items-center gap-2 rounded-full border border-brand-flame/30 bg-brand-flame/10 px-3 py-1 text-xs font-mono uppercase tracking-[0.18em] text-brand-flame">
-          <span aria-hidden="true">🔥</span>
+        <span class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1 font-mono text-xs uppercase tracking-[0.18em] text-accent">
+          <span aria-hidden="true">🍳</span>
           AI 廚房 · BPM
         </span>
-        <h1 class="mt-6 font-display text-5xl font-semibold leading-[1.1] tracking-tight text-brand-midnight sm:text-6xl">
+        <h1 class="mt-6 text-5xl font-semibold leading-[1.1] tracking-tight text-white sm:text-6xl">
           你點流程，<br class="hidden sm:block" />
           AI 上菜。
         </h1>
-        <p class="mt-6 text-lg leading-relaxed text-brand-night/85 sm:text-xl">
+        <p class="mt-6 text-lg leading-relaxed text-white/85 sm:text-xl">
           將商業流程規格料理成代碼，<br class="hidden sm:block" />
-          就交給 <strong class="text-brand-flame">Flowcook AI 廚房</strong>。
+          就交給 <strong class="text-accent">Flowcook AI 廚房</strong>。
         </p>
         <div class="mt-10 flex flex-wrap items-center gap-4">
-          <a href="#contact" class="btn-flame">預約一份試吃</a>
-          <a href="/how-it-works" class="btn-ghost">看一道菜怎麼做 →</a>
+          <a href="#contact" class="btn-primary">預約一份試吃</a>
+          <a href="/how-it-works" class="btn-ghost border-white/30 bg-white/5 text-white hover:bg-white hover:text-ink">看一道菜怎麼做 →</a>
         </div>
       </div>
     </div>
-
-    <!-- decorative steam wave -->
-    <svg class="pointer-events-none absolute -bottom-1 left-0 w-full text-brand-plate/60" viewBox="0 0 1440 64" fill="currentColor" aria-hidden="true">
-      <path d="M0,32 C240,64 480,0 720,32 C960,64 1200,0 1440,32 L1440,64 L0,64 Z" />
-    </svg>
   </section>
 
   <!-- Three acts -->
-  <section class="bg-brand-plate/30 py-20 sm:py-28">
+  <section class="bg-page py-20 sm:py-28">
     <div class="container-narrow">
       <div class="mb-14 max-w-2xl">
-        <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-muted">三道工序，一桌好菜</p>
-        <h2 class="mt-3 font-display text-4xl font-semibold leading-tight sm:text-5xl">
+        <p class="kicker">三道工序，一桌好菜</p>
+        <h2 class="mt-3 text-4xl font-semibold leading-tight sm:text-5xl">
           備料、烹調、上菜 —— <br class="hidden sm:block" />
           AI 廚房一條龍。
         </h2>
-        <p class="mt-4 text-base text-brand-night/80">
+        <p class="mt-4 text-base text-ink/80">
           從你描述「想做請假流程」，到 BPM 真正在公司跑起來。中間每一步，AI 都在。
         </p>
       </div>
@@ -79,28 +74,28 @@ import KitchenAct from '../components/KitchenAct.astro'
   </section>
 
   <!-- Why flowcook -->
-  <section class="py-20 sm:py-28">
+  <section class="bg-card py-20 sm:py-28">
     <div class="container-narrow grid grid-cols-1 gap-12 md:grid-cols-3">
       <div>
-        <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-muted">業界標準</p>
-        <h3 class="mt-3 font-display text-2xl font-semibold">不重新發明輪子</h3>
-        <p class="mt-3 text-sm leading-relaxed text-brand-night/80">
+        <p class="kicker">業界標準</p>
+        <h3 class="mt-3 text-2xl font-semibold">不重新發明輪子</h3>
+        <p class="mt-3 text-sm leading-relaxed text-ink/80">
           BPMN 2.0 描述流程、CEL 寫條件、OpenAPI 描述整合、Entra ID 對接組織 —— 全是業界開放標準。
           沒有奇怪的私有 DSL 綁架你。
         </p>
       </div>
       <div>
-        <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-muted">無痛驗收</p>
-        <h3 class="mt-3 font-display text-2xl font-semibold">Sandbox 即試吃</h3>
-        <p class="mt-3 text-sm leading-relaxed text-brand-night/80">
+        <p class="kicker">無痛驗收</p>
+        <h3 class="mt-3 text-2xl font-semibold">Sandbox 即試吃</h3>
+        <p class="mt-3 text-sm leading-relaxed text-ink/80">
           假信箱、假時鐘、persona 切換、state reset —— 驗收員一個人就跑完 UAT。
           不必為了測 SLA 把時間調回上週。
         </p>
       </div>
       <div>
-        <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-muted">合規即用</p>
-        <h3 class="mt-3 font-display text-2xl font-semibold">監控 × 稽核</h3>
-        <p class="mt-3 text-sm leading-relaxed text-brand-night/80">
+        <p class="kicker">合規即用</p>
+        <h3 class="mt-3 text-2xl font-semibold">監控 × 稽核</h3>
+        <p class="mt-3 text-sm leading-relaxed text-ink/80">
           每一筆動作 append-only 留痕、流程狀態實時可查、外部通知整合監控。
           IT 治理跟法遵不用事後補。
         </p>
@@ -109,20 +104,20 @@ import KitchenAct from '../components/KitchenAct.astro'
   </section>
 
   <!-- CTA -->
-  <section id="contact" class="bg-brand-midnight py-20 text-brand-cream">
+  <section id="contact" class="bg-header py-20 text-white">
     <div class="container-narrow">
       <div class="max-w-2xl">
-        <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-flame">預約 demo</p>
-        <h2 class="mt-3 font-display text-4xl font-semibold leading-tight text-white sm:text-5xl">
+        <p class="font-mono text-xs uppercase tracking-[0.2em] text-accent">預約 demo</p>
+        <h2 class="mt-3 text-4xl font-semibold leading-tight text-white sm:text-5xl">
           下一頓飯，<br class="hidden sm:block" />
           交給 AI 廚房。
         </h2>
-        <p class="mt-4 text-base text-brand-cream/80">
+        <p class="mt-4 text-base text-white/80">
           告訴我們你手上有哪些流程，我們示範一條完整的 demo —— 從備料到上菜，30 分鐘看完。
         </p>
         <div class="mt-8 flex flex-wrap items-center gap-4">
-          <a href="mailto:hello@flowcook.tw" class="btn-flame">寫信約 demo</a>
-          <a href="/use-cases" class="text-sm font-medium text-brand-cream/90 underline-offset-4 hover:underline">
+          <a href="mailto:hello@flowcook.tw" class="btn-primary">寫信約 demo</a>
+          <a href="/use-cases" class="text-sm font-medium text-white/90 underline-offset-4 hover:underline">
             或先看一下主廚推薦菜單 →
           </a>
         </div>

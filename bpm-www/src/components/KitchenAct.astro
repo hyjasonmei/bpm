@@ -11,13 +11,14 @@ interface Props {
 
 const { act, icon, english, zh, headline, body, note } = Astro.props
 
+// Per-act accent uses the admin palette (good / primary / accent).
 const tone = {
-  prep:  { bar: 'bg-emerald-500',   chipBg: 'bg-emerald-500/10',  chipText: 'text-emerald-700' },
-  cook:  { bar: 'bg-brand-flame',   chipBg: 'bg-brand-flame/10',  chipText: 'text-brand-flame' },
-  serve: { bar: 'bg-amber-500',     chipBg: 'bg-amber-500/10',    chipText: 'text-amber-700' },
+  prep:  { bar: 'bg-good',    chipBg: 'bg-good/10',    chipText: 'text-good' },
+  cook:  { bar: 'bg-primary', chipBg: 'bg-primary/10', chipText: 'text-primary' },
+  serve: { bar: 'bg-accent',  chipBg: 'bg-accent/15',  chipText: 'text-accent' },
 }[act]
 ---
-<article class="relative grid grid-cols-1 gap-6 rounded-2xl border border-brand-rule/70 bg-white/70 p-8 md:grid-cols-[80px_1fr]">
+<article class="relative grid grid-cols-1 gap-6 rounded-lg border border-rule bg-card p-8 shadow-sm md:grid-cols-[80px_1fr]">
   <div class="flex flex-col items-start gap-2">
     <div class={`flex h-14 w-14 items-center justify-center rounded-full text-2xl ${tone.chipBg}`}>
       <span aria-hidden="true">{icon}</span>
@@ -25,14 +26,14 @@ const tone = {
     <span class={`mt-1 font-mono text-[10px] uppercase tracking-[0.18em] ${tone.chipText}`}>
       {english}
     </span>
-    <span class="font-display text-sm text-brand-muted">{zh}</span>
+    <span class="text-sm text-inkMuted">{zh}</span>
   </div>
   <div>
-    <h3 class="font-display text-2xl font-semibold leading-tight md:text-3xl">{headline}</h3>
-    <p class="mt-3 text-base leading-relaxed text-brand-night/85">{body}</p>
+    <h3 class="text-2xl font-semibold leading-tight text-ink md:text-3xl">{headline}</h3>
+    <p class="mt-3 text-base leading-relaxed text-ink/85">{body}</p>
     {note && (
-      <p class="mt-3 text-sm text-brand-muted italic">{note}</p>
+      <p class="mt-3 text-sm text-inkMuted italic">{note}</p>
     )}
   </div>
-  <div class={`absolute left-0 top-0 h-full w-1 rounded-l-2xl ${tone.bar}`}></div>
+  <div class={`absolute left-0 top-0 h-full w-1 rounded-l-lg ${tone.bar}`}></div>
 </article>

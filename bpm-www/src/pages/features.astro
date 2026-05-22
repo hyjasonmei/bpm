@@ -4,13 +4,13 @@ import FeatureCard from '../components/FeatureCard.astro'
 import FeatureRow from '../components/FeatureRow.astro'
 ---
 <BaseLayout title="廚房工具 — flowcook">
-  <section class="bg-gradient-to-b from-brand-cream to-brand-plate/40 py-16 sm:py-24">
+  <section class="bg-header py-16 text-white sm:py-24">
     <div class="container-narrow max-w-3xl">
-      <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-muted">Features</p>
-      <h1 class="mt-3 font-display text-5xl font-semibold leading-tight sm:text-6xl">
+      <p class="font-mono text-xs uppercase tracking-[0.2em] text-accent">Features</p>
+      <h1 class="mt-3 text-5xl font-semibold leading-tight text-white sm:text-6xl">
         廚房工具
       </h1>
-      <p class="mt-6 text-lg leading-relaxed text-brand-night/85">
+      <p class="mt-6 text-lg leading-relaxed text-white/85">
         AI Kitchen 跟主廚推薦頁已經介紹了「為什麼用」。這頁補充「用什麼做的」 ——
         三大主題：業界標準技術、無痛驗收、合規即用。
       </p>
@@ -18,11 +18,11 @@ import FeatureRow from '../components/FeatureRow.astro'
   </section>
 
   <!-- 業界標準 -->
-  <section class="py-16 sm:py-20">
+  <section class="bg-page py-16 sm:py-20">
     <div class="container-narrow max-w-4xl">
-      <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-flame">業界標準</p>
-      <h2 class="mt-3 font-display text-4xl font-semibold leading-tight">不重新發明輪子</h2>
-      <p class="mt-4 text-base leading-relaxed text-brand-night/85">
+      <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">業界標準</p>
+      <h2 class="mt-3 text-4xl font-semibold leading-tight">不重新發明輪子</h2>
+      <p class="mt-4 text-base leading-relaxed text-ink/85">
         平台廠商最愛賣的私有 DSL、私有規則引擎，flowcook 都不做。
         我們用業界開放標準把所有東西串起來 —— 你今天能查到的文件、明天找到的工程師，都認得這些東西。
       </p>
@@ -39,11 +39,11 @@ import FeatureRow from '../components/FeatureRow.astro'
   </section>
 
   <!-- 無痛驗收 -->
-  <section class="bg-brand-plate/30 py-16 sm:py-20">
+  <section class="bg-card py-16 sm:py-20">
     <div class="container-narrow max-w-4xl">
-      <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-flame">無痛驗收</p>
-      <h2 class="mt-3 font-display text-4xl font-semibold leading-tight">Sandbox 即試吃</h2>
-      <p class="mt-4 text-base leading-relaxed text-brand-night/85">
+      <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">無痛驗收</p>
+      <h2 class="mt-3 text-4xl font-semibold leading-tight">Sandbox 即試吃</h2>
+      <p class="mt-4 text-base leading-relaxed text-ink/85">
         傳統 BPM 上線最痛的不是寫 code，是 UAT —— 真實信箱不能寄、真實時間不能調、真實員工不能借來測。
         Sandbox 把這些痛點全部包掉。
       </p>
@@ -59,11 +59,11 @@ import FeatureRow from '../components/FeatureRow.astro'
   </section>
 
   <!-- 合規即用 -->
-  <section class="py-16 sm:py-20">
+  <section class="bg-page py-16 sm:py-20">
     <div class="container-narrow max-w-4xl">
-      <p class="font-mono text-xs uppercase tracking-[0.2em] text-brand-flame">合規即用</p>
-      <h2 class="mt-3 font-display text-4xl font-semibold leading-tight">監控 × 稽核</h2>
-      <p class="mt-4 text-base leading-relaxed text-brand-night/85">
+      <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">合規即用</p>
+      <h2 class="mt-3 text-4xl font-semibold leading-tight">監控 × 稽核</h2>
+      <p class="mt-4 text-base leading-relaxed text-ink/85">
         合規不是事後補的，是預設就在那。flowcook 從第一天就把 audit trail、流程監控、外部對接的稽核軌跡內建。
       </p>
 
@@ -76,13 +76,13 @@ import FeatureRow from '../components/FeatureRow.astro'
     </div>
   </section>
 
-  <section class="bg-brand-midnight py-16 text-brand-cream">
+  <section class="bg-header py-16 text-white">
     <div class="container-narrow max-w-2xl">
-      <h2 class="font-display text-3xl font-semibold text-white">想知道更多技術細節？</h2>
-      <p class="mt-4 text-base text-brand-cream/80">
+      <h2 class="text-3xl font-semibold text-white">想知道更多技術細節？</h2>
+      <p class="mt-4 text-base text-white/80">
         我們有完整的 architecture 文件、實作 spec、合規對應表。預約 demo 時告訴我們你的 IT / 合規同事在意什麼，準備對應材料給你看。
       </p>
-      <a href="mailto:hello@flowcook.tw" class="btn-flame mt-6">寫信約 demo</a>
+      <a href="mailto:hello@flowcook.tw" class="btn-primary mt-6">寫信約 demo</a>
     </div>
   </section>
 </BaseLayout>

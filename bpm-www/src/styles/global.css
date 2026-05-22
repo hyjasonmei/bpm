@@ -4,14 +4,14 @@
 
 @layer base {
   html {
-    @apply font-body antialiased;
+    @apply font-sans antialiased;
     text-rendering: optimizeLegibility;
   }
   body {
-    @apply bg-brand-cream text-brand-night;
+    @apply bg-page text-ink;
   }
   h1, h2, h3 {
-    @apply font-display tracking-tight text-brand-midnight;
+    @apply font-sans tracking-tight text-ink;
   }
 }
 
@@ -22,16 +22,19 @@
   .container-wide {
     @apply mx-auto w-full max-w-6xl px-6 sm:px-8;
   }
-  .btn-flame {
-    @apply inline-flex items-center justify-center gap-2 rounded-full
-           bg-brand-flame px-5 py-2.5 text-sm font-semibold text-white
-           transition-colors hover:bg-brand-ember focus:outline-none
-           focus:ring-2 focus:ring-brand-flame/40;
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md
+           bg-primary px-5 py-2.5 text-sm font-semibold text-white
+           shadow-sm transition-colors hover:bg-blue-700
+           focus:outline-none focus:ring-2 focus:ring-primary/40;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-full
-           border border-brand-rule bg-white/60 px-5 py-2.5 text-sm
-           font-semibold text-brand-night transition-colors
-           hover:border-brand-flame hover:text-brand-flame;
+    @apply inline-flex items-center justify-center gap-2 rounded-md
+           border border-rule bg-white px-5 py-2.5 text-sm
+           font-semibold text-ink transition-colors
+           hover:border-primary hover:text-primary;
+  }
+  .kicker {
+    @apply font-mono text-xs uppercase tracking-[0.18em] text-inkMuted;
   }
 }
