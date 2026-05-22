@@ -23,9 +23,22 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<AuditingSaveChangesInterceptor>();
 builder.Services.AddDbContext<AdminDbContext>((sp, options) =>
 {
+    // Single shared db with bpm-svc: both services connect to the same
+    // <repoRoot>/db/bpm.db via DbPathResolver. AdminDbContext owns its
+    // own table set so there's no schema collision; sharing the file
+    // means a chef worktree only has one db to migrate and seed.
+    // The legacy "Admin" connection-string key is honoured for
+    // override, but defaults to the shared "Default" / "Data Source=bpm.db".
     var connectionString = builder.Configuration.GetConnectionString("Admin")
-        ?? "Data Source=admin.db";
-    options.UseSqlite(connectionString);
+        ?? builder.Configuration.GetConnectionString("Default")
+        ?? "Data Source=bpm.db";
+    options.UseSqlite(DbPathResolver.Normalize(connectionString), sqlite =>
+    {
+        // Keep admin migrations in their own history table so bpm-svc
+        // and admin-svc can both apply migrations against the same
+        // physical file without EF rejecting "unknown" rows.
+        sqlite.MigrationsHistoryTable("__AdminEFMigrationsHistory");
+    });
     options.AddInterceptors(sp.GetRequiredService<AuditingSaveChangesInterceptor>());
 });
 
@@ -69,6 +82,25 @@ builder.Services.AddSingleton<IAiBackend>(sp => aiBackendName switch
 
 var app = builder.Build();
 app.Logger.LogInformation("AI backend: {Backend} (set FLOWCOOK_AI_BACKEND=api|cli to switch)", aiBackendName);
+
+// Auto-apply admin migrations on startup so admin's `Admin_*` tables
+// exist on the shared db (post-Phase 1.1 db merge). Mirrors bpm-svc's
+// own auto-migrate. No collision with bpm-svc's tables because admin
+// uses an `Admin_` prefix and its own MigrationsHistoryTable.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        await db.Database.MigrateAsync();
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Admin DB migration failed on startup");
+        throw;
+    }
+}
 
 if (app.Environment.IsDevelopment())
 {

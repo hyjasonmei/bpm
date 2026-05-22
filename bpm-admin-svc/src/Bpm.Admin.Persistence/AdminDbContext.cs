@@ -35,6 +35,27 @@ public class AdminDbContext : DbContext
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AdminDbContext).Assembly);
 
         ApplySoftDeleteQueryFilter(modelBuilder);
+        ApplyAdminTablePrefix(modelBuilder);
+    }
+
+    /// <summary>
+    /// Every admin table gets an `Admin_` prefix so it never collides
+    /// with bpm-svc's tables when both DbContexts target the same
+    /// SQLite file (post-db-merge per flowcook-mvp Phase 1.1).
+    /// bpm-svc has its own <c>Principals</c>, <c>Roles</c>, etc. with
+    /// a different schema — without this rename the two contexts
+    /// would silently stomp on each other.
+    /// </summary>
+    private static void ApplyAdminTablePrefix(ModelBuilder modelBuilder)
+    {
+        const string prefix = "Admin_";
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var tableName = entityType.GetTableName();
+            if (string.IsNullOrEmpty(tableName)) continue;
+            if (tableName.StartsWith(prefix, StringComparison.Ordinal)) continue;
+            entityType.SetTableName(prefix + tableName);
+        }
     }
 
     public override int SaveChanges()

@@ -11,14 +11,123 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Bpm.Admin.Persistence.Migrations
 {
     [DbContext(typeof(AdminDbContext))]
-    [Migration("20260517142847_CoreEntities")]
-    partial class CoreEntities
+    [Migration("20260522102932_InitialAdmin")]
+    partial class InitialAdmin
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
+
+            modelBuilder.Entity("Bpm.Admin.Domain.Audit.AuditEvent", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ActorPrincipalId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AfterJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BeforeJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceSystem")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetId")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("EventId");
+
+                    b.HasIndex("ActionType");
+
+                    b.HasIndex("SourceSystem");
+
+                    b.HasIndex("Timestamp");
+
+                    b.HasIndex("TargetType", "TargetId");
+
+                    b.ToTable("Admin_AuditEvents", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Admin.Domain.Auth.UserCredential", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PasswordChangedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("Admin_UserCredentials", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Admin.Domain.Auth.UserSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserAgent")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Admin_UserSessions", (string)null);
+                });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Delegations.Delegation", b =>
                 {
@@ -59,7 +168,65 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasIndex("DelegatorPrincipalId", "Active", "StartAt", "EndAt");
 
-                    b.ToTable("Delegations", (string)null);
+                    b.ToTable("Admin_Delegations", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Admin.Domain.Flows.Flow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FlowCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("LineageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SpecJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("State")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LineageId");
+
+                    b.HasIndex("State");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.HasIndex("LineageId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("Admin_Flows", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Principals.DeptParent", b =>
@@ -75,7 +242,7 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasIndex("ParentDeptId");
 
-                    b.ToTable("DeptParents", (string)null);
+                    b.ToTable("Admin_DeptParents", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Principals.GroupMember", b =>
@@ -95,7 +262,7 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasIndex("MemberPrincipalId");
 
-                    b.ToTable("GroupMembers", (string)null);
+                    b.ToTable("Admin_GroupMembers", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Principals.Principal", b =>
@@ -135,7 +302,7 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasIndex("Type");
 
-                    b.ToTable("Principals", (string)null);
+                    b.ToTable("Admin_Principals", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Principals.UserDept", b =>
@@ -155,7 +322,7 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UserDepts", (string)null);
+                    b.ToTable("Admin_UserDepts", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Roles.PrincipalRole", b =>
@@ -181,7 +348,7 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("PrincipalRoles", (string)null);
+                    b.ToTable("Admin_PrincipalRoles", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Roles.Role", b =>
@@ -206,7 +373,7 @@ namespace Bpm.Admin.Persistence.Migrations
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("Roles", (string)null);
+                    b.ToTable("Admin_Roles", (string)null);
                 });
 #pragma warning restore 612, 618
         }

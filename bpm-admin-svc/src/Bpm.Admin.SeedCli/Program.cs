@@ -18,8 +18,13 @@ var config = new ConfigurationBuilder()
     .AddCommandLine(args)
     .Build();
 
-var connectionString = config.GetConnectionString("Admin")
-    ?? "Data Source=admin.dev.db";
+// Default to the shared bpm db so admin + bpm + SeedCli all land on
+// <repoRoot>/db/bpm.db (per DbPathResolver). Honour the legacy "Admin"
+// key for explicit override.
+var connectionString = DbPathResolver.Normalize(
+    config.GetConnectionString("Admin")
+    ?? config.GetConnectionString("Default")
+    ?? "Data Source=bpm.db");
 
 var sub = args.Length > 0 ? args[0] : "help";
 var includeOrg = args.Any(a => a == "--org");
@@ -28,8 +33,8 @@ switch (sub)
 {
     case "clear":
         await Clear(connectionString);
-        Console.WriteLine("Admin DB dropped + recreated.");
-        Console.WriteLine("(bpm DB drop will be wired once flowcook-step4 lands.)");
+        Console.WriteLine("Admin-owned tables truncated (Principals / Roles / Flows / etc).");
+        Console.WriteLine("bpm-owned tables in the shared db file are LEFT IN PLACE — run bpm-svc SeedCli to reset those.");
         break;
 
     case "seed":
@@ -67,15 +72,31 @@ return 0;
 
 static async Task Clear(string connectionString)
 {
-    var options = new DbContextOptionsBuilder<AdminDbContext>().UseSqlite(connectionString).Options;
+    // Post-db-merge: admin and bpm share one SQLite file. EnsureDeleted
+    // would nuke bpm tables too. Truncate only admin-owned tables via
+    // raw SQL, in FK-safe reverse order, then re-run the admin
+    // migration set to make sure schema is current.
+    var options = AdminOptions(connectionString);
     await using var ctx = new AdminDbContext(options);
-    await ctx.Database.EnsureDeletedAsync();
     await ctx.Database.MigrateAsync();
+    await ctx.Database.ExecuteSqlRawAsync(@"
+        DELETE FROM UserSessions;
+        DELETE FROM UserCredentials;
+        DELETE FROM AuditEvents;
+        DELETE FROM Delegations;
+        DELETE FROM PrincipalRoles;
+        DELETE FROM GroupMembers;
+        DELETE FROM UserDepts;
+        DELETE FROM DeptParents;
+        DELETE FROM Flows;
+        DELETE FROM Roles;
+        DELETE FROM Principals;
+    ");
 }
 
 static async Task Status(string connectionString)
 {
-    var options = new DbContextOptionsBuilder<AdminDbContext>().UseSqlite(connectionString).Options;
+    var options = AdminOptions(connectionString);
     await using var ctx = new AdminDbContext(options);
     Console.WriteLine($"Connection: {connectionString}");
     Console.WriteLine($"Principals: {await ctx.Principals.CountAsync()}");
@@ -88,3 +109,13 @@ static async Task Status(string connectionString)
     Console.WriteLine($"UserCredentials: {await ctx.UserCredentials.CountAsync()}");
     Console.WriteLine($"AuditEvents: {await ctx.AuditEvents.CountAsync()}");
 }
+
+static DbContextOptions<AdminDbContext> AdminOptions(string connectionString) =>
+    new DbContextOptionsBuilder<AdminDbContext>()
+        .UseSqlite(connectionString, sqlite =>
+        {
+            // Match the API's MigrationsHistoryTable rename so SeedCli
+            // sees the same migration history rows as the running API.
+            sqlite.MigrationsHistoryTable("__AdminEFMigrationsHistory");
+        })
+        .Options;

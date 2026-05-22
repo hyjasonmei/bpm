@@ -71,7 +71,7 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasIndex("TargetType", "TargetId");
 
-                    b.ToTable("AuditEvents", (string)null);
+                    b.ToTable("Admin_AuditEvents", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Auth.UserCredential", b =>
@@ -93,7 +93,7 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasKey("UserId");
 
-                    b.ToTable("UserCredentials", (string)null);
+                    b.ToTable("Admin_UserCredentials", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Auth.UserSession", b =>
@@ -123,7 +123,7 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UserSessions", (string)null);
+                    b.ToTable("Admin_UserSessions", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Delegations.Delegation", b =>
@@ -165,7 +165,7 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasIndex("DelegatorPrincipalId", "Active", "StartAt", "EndAt");
 
-                    b.ToTable("Delegations", (string)null);
+                    b.ToTable("Admin_Delegations", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Flows.Flow", b =>
@@ -223,7 +223,7 @@ namespace Bpm.Admin.Persistence.Migrations
                     b.HasIndex("LineageId", "Version")
                         .IsUnique();
 
-                    b.ToTable("Flows", (string)null);
+                    b.ToTable("Admin_Flows", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Principals.DeptParent", b =>
@@ -239,7 +239,7 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasIndex("ParentDeptId");
 
-                    b.ToTable("DeptParents", (string)null);
+                    b.ToTable("Admin_DeptParents", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Principals.GroupMember", b =>
@@ -259,7 +259,7 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasIndex("MemberPrincipalId");
 
-                    b.ToTable("GroupMembers", (string)null);
+                    b.ToTable("Admin_GroupMembers", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Principals.Principal", b =>
@@ -299,7 +299,7 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasIndex("Type");
 
-                    b.ToTable("Principals", (string)null);
+                    b.ToTable("Admin_Principals", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Principals.UserDept", b =>
@@ -319,7 +319,7 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UserDepts", (string)null);
+                    b.ToTable("Admin_UserDepts", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Roles.PrincipalRole", b =>
@@ -345,7 +345,7 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("PrincipalRoles", (string)null);
+                    b.ToTable("Admin_PrincipalRoles", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Roles.Role", b =>
@@ -370,7 +370,7 @@ namespace Bpm.Admin.Persistence.Migrations
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("Roles", (string)null);
+                    b.ToTable("Admin_Roles", (string)null);
                 });
 #pragma warning restore 612, 618
         }

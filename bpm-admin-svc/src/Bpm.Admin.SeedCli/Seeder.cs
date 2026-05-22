@@ -19,7 +19,10 @@ public static class Seeder
     /// </summary>
     public static async Task SeedOrgAsync(string connectionString)
     {
-        var options = new DbContextOptionsBuilder<AdminDbContext>().UseSqlite(connectionString).Options;
+        var options = new DbContextOptionsBuilder<AdminDbContext>()
+            .UseSqlite(connectionString, sqlite =>
+                sqlite.MigrationsHistoryTable("__AdminEFMigrationsHistory"))
+            .Options;
         await using var ctx = new AdminDbContext(options);
         var hasher = new PasswordHasher();
 
