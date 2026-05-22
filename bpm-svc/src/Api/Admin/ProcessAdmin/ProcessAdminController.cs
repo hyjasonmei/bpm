@@ -349,6 +349,58 @@ public sealed class ProcessAdminController(
         return Ok(report);
     }
 
+    /// <summary>
+    /// Paginated read of the append-only <c>NotificationDispatchAudits</c>
+    /// table written by <c>SandboxCapturingNotificationDispatcher</c> in
+    /// Phase 2.1. Powers the FlowNotifications tab; replaces the
+    /// PR-K5 v1 surface that read from SandboxCapturedMessages and was
+    /// blind to non-sandbox dispatches.
+    ///
+    /// Filters all optional:
+    /// - <c>specCode</c> — narrow to one flow code
+    /// - <c>status</c> — captured / dispatched / failed
+    /// - <c>instanceId</c> — "what went out for this instance?"
+    /// - <c>limit</c> — page size (default 50, max 500)
+    /// </summary>
+    [HttpGet("notification-audits")]
+    public async Task<IReadOnlyList<NotificationAuditDto>> ListNotificationAudits(
+        [FromQuery] string? specCode,
+        [FromQuery] string? status,
+        [FromQuery] Guid? instanceId,
+        [FromQuery] int limit = 50,
+        CancellationToken ct = default)
+    {
+        var capped = Math.Clamp(limit, 1, 500);
+        var q = db.NotificationDispatchAudits.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(specCode))
+            q = q.Where(a => a.SpecCode == specCode);
+        if (!string.IsNullOrWhiteSpace(status))
+            q = q.Where(a => a.Status == status);
+        if (instanceId.HasValue)
+            q = q.Where(a => a.InstanceId == instanceId.Value);
+
+        var rows = await q
+            .OrderByDescending(a => a.DispatchedAt)
+            .Take(capped)
+            .Select(a => new NotificationAuditDto(
+                a.Id,
+                a.InstanceId,
+                a.TaskId,
+                a.SpecCode,
+                a.Trigger,
+                a.NotificationId,
+                a.Channel,
+                a.Recipient,
+                a.Subject,
+                a.Body,
+                a.Status,
+                a.Error,
+                a.DispatchedAt))
+            .ToListAsync(ct);
+
+        return rows;
+    }
+
     private static bool TryParsePeriod(string raw, out ReportPeriod period)
     {
         switch ((raw ?? string.Empty).Trim().ToLowerInvariant())
@@ -513,3 +565,22 @@ public sealed record ForceReassignRequest(Guid NewAssigneeUserId, string? Reason
 public sealed record ForceReturnRequest(string? TargetNodeId, string? Reason);
 public sealed record ForceSubmitRequest(JsonElement? FormDataPatch, Decision? Decision, string? Reason);
 public sealed record TerminateRequest(string? Reason);
+
+/// <summary>
+/// One row out of <see cref="AppDbContext.NotificationDispatchAudits"/>.
+/// Read-only projection consumed by bpm-admin-ui FlowNotifications.
+/// </summary>
+public sealed record NotificationAuditDto(
+    Guid Id,
+    Guid InstanceId,
+    Guid? TaskId,
+    string SpecCode,
+    string Trigger,
+    string NotificationId,
+    string? Channel,
+    string? Recipient,
+    string? Subject,
+    string? Body,
+    string Status,
+    string? Error,
+    DateTime DispatchedAt);

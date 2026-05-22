@@ -380,3 +380,41 @@ export async function getPerSpecReport(specCode: string, period: ReportPeriodTok
   const res = await apiFetch(`/api/admin/process-admin/reports/per-spec?${params}`)
   return jsonOrThrow<PerSpecReportDto>(res)
 }
+
+/* ─── Phase 2.1b: NotificationDispatchAudits ──────────────────── */
+
+export type NotificationAuditStatus = 'captured' | 'dispatched' | 'failed'
+
+export interface NotificationAuditDto {
+  id: string
+  instanceId: string
+  taskId: string | null
+  specCode: string
+  trigger: string
+  notificationId: string
+  channel: string | null
+  recipient: string | null
+  subject: string | null
+  body: string | null
+  status: NotificationAuditStatus
+  error: string | null
+  dispatchedAt: string
+}
+
+export interface NotificationAuditQuery {
+  specCode?: string
+  status?: NotificationAuditStatus
+  instanceId?: string
+  limit?: number
+}
+
+export async function listNotificationAudits(q: NotificationAuditQuery = {}): Promise<NotificationAuditDto[]> {
+  const params = new URLSearchParams()
+  if (q.specCode) params.set('specCode', q.specCode)
+  if (q.status) params.set('status', q.status)
+  if (q.instanceId) params.set('instanceId', q.instanceId)
+  if (q.limit != null && q.limit > 0) params.set('limit', String(q.limit))
+  const qs = params.toString()
+  const res = await apiFetch(`/api/admin/process-admin/notification-audits${qs ? `?${qs}` : ''}`)
+  return jsonOrThrow<NotificationAuditDto[]>(res)
+}
