@@ -1,3 +1,13 @@
+> **Status: superseded 2026-05-22.** Repeater support landed in a
+> different shape: instead of adding `'repeater'` to `FieldType` with
+> nested `subFields`, the Tier 2 form-layout work (Phase B commit
+> `7e7986f`) introduced `FormRepeater` as a `LayoutChild` kind with
+> its own `itemFields[]` + `itemLayout[]` namespace and optional
+> `totals[]` CEL aggregations. The new shape is documented in
+> `openspec/specs/flowcook-wizard/spec.md` under "Step 2 (FORMS)
+> carries a Tier 1 + Tier 2 layout tree". Keep this proposal archived
+> as the design rationale; do not implement.
+
 ## Why
 
 The current `FormField.type` enum is `text | textarea | number | date | daterange | select | multiselect | file | user_picker | derived` — flat scalars. Real flows need to capture **a variable-length list of structured rows**: each expense line has its own category / amount / description / receipt; each purchase order item has its own SKU / quantity / unit price / spec.

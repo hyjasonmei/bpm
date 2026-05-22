@@ -84,9 +84,13 @@ Each picker uses the shared `PrincipalPicker` modal (USER / DEPT / GROUP / ROLE 
 
 ### Requirement: Step 2 (FORMS) lays out user tasks with a pill row
 
-FORMS SHALL render a pill row above the editor — one pill per user task node — with status icon (✓ when at least 1 required field, ⚠ otherwise) + label + field count. Clicking a pill activates that task's editor below. Only the active task's editor is mounted at any time.
+FORMS SHALL render a pill row above the editor — one pill per user task node — with status icon (✓ when at least 1 required field, ⚠ otherwise) + label + field count. Clicking a pill activates that task's editor below. Only the active task's editor is mounted at any time. The first user task SHALL carry a「送單」accent chip on its pill, marking it as the task whose `formCode` is the auto-derived trigger.
 
 Each field row SHALL expose: id (snake_case, auto-derived from label), label (zh-TW + optional en), type (text / textarea / number / date / daterange / select / multiselect / file / user_picker / derived), required toggle, optional conditional / validator / derivedFrom CEL expressions (each opens `ExpressionEditorModal` — see DECISIONS requirement), an options sub-modal for select / multiselect types, and an always-visible `note` row (see next requirement).
+
+The first user task's `Form Code` input SHALL be required, accept `e.g. LEAVE_APPLY` as placeholder, and surface a hint that this formCode becomes the trigger id. Subsequent tasks SHALL display the same field with a shorter hint explaining chef uses it for class / table naming.
+
+On mount, the FORMS step SHALL auto-bootstrap a default `UserTask` entry for every user task node in `draft.flow.nodes` (formCode `${flowCode}_APPLY` for the first task, `${flowCode}_TASK<N>` for the rest) so visiting FORMS persists a usable `formCode` even when the user doesn't open the field editor.
 
 A 「預覽」button SHALL open `FormPreviewModal` rendering the active task as live HTML inputs (text / textarea / number / date / daterange / select / multiselect / file / user_picker / derived). Conditional fields are rendered with a「⚠ 依條件顯示」note (not hidden); derived fields show the formula inline. Submit is disabled — the preview never sends data.
 
@@ -94,6 +98,52 @@ A 「預覽」button SHALL open `FormPreviewModal` rendering the active task as 
 - **WHEN** the admin adds a field to "員工申請" user task
 - **THEN** that pill's field count increments
 - **AND** the pill switches from ⚠ to ✓ once a required field exists
+
+#### Scenario: First task pill marks the trigger
+- **WHEN** the FORMS step renders with 3 user tasks
+- **THEN** only the first task's pill SHALL carry a「送單」chip
+- **AND** that task's Form Code input SHALL show the trigger-relevance hint
+
+### Requirement: Step 2 (FORMS) carries a Tier 1 + Tier 2 layout tree
+
+Beyond the flat `fields[]` set, each `UserTask` SHALL carry an optional `layout: LayoutChild[]` describing the visual structure chef reads to lay out the generated component. `fields[]` remains the source of truth for type / required / CEL; `layout[]` references fields by id and groups them.
+
+`LayoutChild` is a discriminated union of four element kinds (Tier 1) plus one repeater kind (Tier 2):
+
+- **`FormSection`** — titled card (`title.zh-TW` required, optional `en`), optional CEL `condition` for show/hide, children = `LayoutChild[]`. Sections are the top-level grouping; nested sections are permitted by the schema but the authoring UI SHALL NOT expose nesting controls in MVP.
+- **`FormRow`** — 12-column grid; each child is a `FieldRef` with `colSpan: 1 | 2 | 3 | 4 | 6 | 8 | 12`. Optional CEL `condition`. The editor SHALL surface the running `colSpan` total as `N/12` (green when balanced at 12, warn otherwise). Rows MUST NOT contain banners, sections, or repeaters.
+- **`FormBanner`** — info / warn / danger inline note (`text.zh-TW` required), optional CEL `condition`. Sits at section level or top level; not inside a row.
+- **`FieldRef`** — leaf pointing at a `fields[].id` with optional `colSpan` (only meaningful inside a row). Refs to missing field ids SHALL be highlighted as broken in the editor and SHALL be a stop-and-ask trigger for chef.
+- **`FormRepeater`** (Tier 2) — bounded list with `title`, optional `condition`, `minCount` / `maxCount`, its own `itemFields: FormField[]` namespace (independent from the outer task's `fields[]`), `itemLayout: LayoutChild[]` (no nested repeaters or sections), and optional `totals: FormTotal[]`.
+- **`FormTotal`** — summary row at the bottom of a repeater: `label`, `formula` (CEL evaluated with `items` bound to the runtime list and `${var}` resolving to flow variables), optional `format: 'currency' | 'number' | 'percent'`.
+
+`collectLayoutFieldIds(layout)` SHALL NOT descend into a `FormRepeater` — repeater `itemFields[]` live in their own namespace and MUST NOT collide with the outer task's fields.
+
+When `layout` is `undefined` on a task, chef SHALL render the flat `fields[]` as a one-per-row list. When `layout` is present but a `fields[]` entry is not referenced anywhere in the tree, the missing field SHALL be surfaced as an "unplaced fields" warning in the authoring UI; chef falls it through as a full-width row at the end of the last section rather than dropping it silently.
+
+#### Scenario: Default layout bootstraps a single-section structure
+- **WHEN** the admin opens FORMS for a task that has `fields[]` but no `layout[]`
+- **THEN** the editor calls `buildDefaultLayout(fields)` and persists a layout containing one `FormSection { title: '主要欄位', children: fields.map(f => fieldRef(f.id)) }`
+
+#### Scenario: Row colSpan total signals balance
+- **WHEN** a row has two `FieldRef`s with `colSpan: 6` each
+- **THEN** the editor renders the row's badge as `12/12` in good colour
+- **WHEN** a third field with `colSpan: 4` is added
+- **THEN** the badge becomes `16/12` in warn colour and the renderer wraps onto a second visual row
+
+#### Scenario: Repeater isolates its item namespace
+- **WHEN** the outer task has a field `amount` (number) and a repeater also contains an `amount` item field
+- **THEN** `collectLayoutFieldIds` returns only the outer `amount`
+- **AND** chef's generated code uses two distinct types — `OuterFormData.amount` and `RepeaterItemData.amount`
+
+#### Scenario: Repeater total references items.amount
+- **WHEN** a repeater has `itemFields: [{ id: 'amount', type: 'number' }, ...]` and a total `{ label: '合計', formula: 'sum(items.amount)', format: 'currency' }`
+- **THEN** chef SHALL emit a derived row that sums the runtime `items[].amount` and renders as a currency-formatted total
+
+#### Scenario: Removing a field strips its layout refs
+- **WHEN** the admin deletes a field from `fields[]`
+- **THEN** every `FieldRef` pointing at that id SHALL be removed from `layout[]` (recursively into `FormRow.children` for the repeater's `itemLayout[]`)
+- **AND** the editor never leaves a dangling pointer behind
 
 ### Requirement: FormField.note carries free-text chef instructions
 

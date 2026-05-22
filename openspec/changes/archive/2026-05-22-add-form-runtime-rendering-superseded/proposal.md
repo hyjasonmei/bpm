@@ -1,3 +1,12 @@
+> **Status: superseded 2026-05-22.** The flowcook MVP picks a
+> different shape — chef writes a bespoke per-flow React component
+> from the spec instead of a generic `<DynamicForm spec={...} />`
+> runtime interpreting the spec at render time. See
+> `archive/2026-05-22-flowcook-mvp-chef-bootstrap/proposal.md` for
+> the new approach. The "AI engineer writes you a working app" sell
+> is stronger than "AI engineer writes a JSON the renderer
+> interprets", so this proposal is retired.
+
 ## Why
 
 Today every flow has a hand-coded React form (`LeaveForm.tsx`, `GEEForm.tsx`, ...). Adding a new flow requires writing a new form component. This breaks the "spec is the source of truth" promise: when an admin edits the spec to add a field, no form picks it up automatically.
