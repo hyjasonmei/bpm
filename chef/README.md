@@ -15,9 +15,12 @@ The first cut of chef is **not a service**. Operating chef in v0 means:
    `chef-codegen` skill, and hands chef the bundle path.
 4. chef reads the skill + the bundle + the relevant repo references,
    then writes:
-   - `bpm-svc/features/<CODE>/V<N>/**` — handlers, controllers, DTOs,
-     EF migrations, tests
-   - `bpm-ui/src/features/<CODE>/V<N>/**` — React component + tests
+   - `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` — entities,
+     EF configurations, handlers
+   - `bpm-svc/src/Api/Features/<CODE>/V<N>/**` — controllers + DTOs
+   - `bpm-svc/src/Persistence/Migrations/<CODE>_V<N>_*.cs` — EF migration
+   - `bpm-svc/tests/Bpm.Tests/Features/<CODE>/V<N>/**` — tests
+   - `bpm-ui/src/features/<CODE>/V<N>/**` — React component + manifest
 5. chef commits to the worktree branch.
 6. Jason reviews the diff in GitKraken, runs `tsc` / `dotnet test`
    himself if needed, pushes the branch when satisfied.
@@ -33,33 +36,36 @@ will follow. v1 (queue puller + Claude Code SDK runner) lives in
 chef/
 ├── README.md           ← this file
 └── skill/
-    ├── SKILL.md        ← the "system prompt source of truth" per
-    │                     flowcook-chef §5. Read this first.
-    ├── conventions.md  ← naming, paths, feature flag, variables
+    ├── SKILL.md        ← the canonical system prompt — read this first
+    ├── conventions.md  ← naming, paths, variables
     └── workflow.md     ← step-by-step MVP run
-```
 
-The skill is also mirrored at `.claude/skills/chef-codegen/SKILL.md`
-so the Claude Code Skill tool can load it by name (`/chef-codegen`)
-when Jason is inside a chef session.
+.claude/skills/chef-codegen/SKILL.md
+    ← thin dispatch sign that gives Claude Code's Skill tool a
+      `/chef-codegen` entry point; its job is just to tell chef "go
+      read chef/skill/SKILL.md". All actual rules live in chef/skill/
+      — single source, no drift surface.
+```
 
 ## Boundary
 
-chef writes only inside:
+chef writes only inside the per-version `Features/<CODE>/V<N>/`
+subtree of an existing csproj — never creates new csproj files or
+edits `bpm-svc.slnx`. Allowed write paths:
 
-- `bpm-svc/features/<CODE>/V<N>/**`
+- `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**`
+- `bpm-svc/src/Api/Features/<CODE>/V<N>/**`
+- `bpm-svc/src/Persistence/Migrations/<CODE>_V<N>_*.cs`
+- `bpm-svc/tests/Bpm.Tests/Features/<CODE>/V<N>/**`
 - `bpm-ui/src/features/<CODE>/V<N>/**`
 
-chef reads but never modifies:
+chef reads but never modifies anything else under `bpm-svc/src/**`,
+`bpm-admin-svc/**`, `bpm-admin-ui/**`, `syncer/**`, `chef/**`,
+`bpm-www/**`, `docs/**`, `openspec/**`.
 
-- `bpm-svc/{Core,Runtime,Bundle,Principal,Sandbox,Application,Api}/**`
-- `bpm-admin-svc/**`
-- `bpm-admin-ui/**`
-- `syncer/**`
-- `chef/**` itself
-
-Anything outside the allowed-write set must be flagged to Jason — chef
-never silently expands its remit.
+Anything outside the allowed-write set must be flagged to Jason —
+chef never silently expands its remit. The canonical breakdown lives
+in `chef/skill/SKILL.md` §1 / `chef/skill/conventions.md` "Path map".
 
 ## References
 
