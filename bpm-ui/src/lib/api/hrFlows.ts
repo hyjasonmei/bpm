@@ -1,75 +1,57 @@
-import { apiFetch } from '@/lib/apiFetch'
+/*
+ * `/api/hr-flows/*` was retired in Phase 1.3 — HrFlowsController and
+ * IHrFlowService are deleted from bpm-svc. RESIGN / DEPTX flows go
+ * through `ProcessRuntime` (`/api/processes`) the same as every other
+ * flow now.
+ *
+ * The Reference_*Form.tsx components still import these helpers and
+ * still compile, so we keep the function shapes in place but throw a
+ * loud runtime error if anyone actually calls them. Reference forms
+ * are dev-only (VITE_SHOW_LEGACY=true) and exist as chef's visual
+ * reference — their data submission paths are intentionally dead.
+ */
 import type {
   HrFlowInstanceDto,
   HrFlowSpecCode,
   HrFlowSummaryDto,
 } from '@/types/hrFlows'
 
-async function jsonOrThrow<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    let detail = `${res.status} ${res.statusText}`
-    try {
-      const body = await res.json()
-      if (body?.detail) detail = body.detail
-      else if (body?.title) detail = body.title
-    } catch { /* ignore */ }
-    throw new Error(detail)
-  }
-  return await res.json() as T
+function retired(name: string): never {
+  throw new Error(
+    `[hrFlows api retired] ${name} — HrFlowsController removed in Phase 1.3. ` +
+    `RESIGN/DEPTX now go through /api/processes (ProcessRuntime). ` +
+    `Reference_*Form.tsx are visual reference only; their submit paths are dead.`,
+  )
 }
 
-export async function startHrFlow(specCode: HrFlowSpecCode, formData: unknown): Promise<HrFlowInstanceDto> {
-  const res = await apiFetch(`/api/hr-flows/${specCode}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ formData }),
-  })
-  return jsonOrThrow<HrFlowInstanceDto>(res)
+export async function startHrFlow(_specCode: HrFlowSpecCode, _formData: unknown): Promise<HrFlowInstanceDto> {
+  retired('startHrFlow')
 }
 
-export async function getHrFlow(id: string): Promise<HrFlowInstanceDto> {
-  const res = await apiFetch(`/api/hr-flows/${id}`)
-  return jsonOrThrow<HrFlowInstanceDto>(res)
+export async function getHrFlow(_id: string): Promise<HrFlowInstanceDto> {
+  retired('getHrFlow')
 }
 
 export async function getMyHrFlows(): Promise<HrFlowSummaryDto[]> {
-  const res = await apiFetch(`/api/hr-flows/mine`)
-  return jsonOrThrow<HrFlowSummaryDto[]>(res)
+  retired('getMyHrFlows')
 }
 
 export async function getMyHrFlowTodos(): Promise<HrFlowSummaryDto[]> {
-  const res = await apiFetch(`/api/hr-flows/todo`)
-  return jsonOrThrow<HrFlowSummaryDto[]>(res)
+  retired('getMyHrFlowTodos')
 }
 
-export async function approveHrFlow(id: string, comment?: string): Promise<HrFlowInstanceDto> {
-  const res = await apiFetch(`/api/hr-flows/${id}/approve`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ comment: comment ?? null }),
-  })
-  return jsonOrThrow<HrFlowInstanceDto>(res)
+export async function approveHrFlow(_id: string, _comment?: string): Promise<HrFlowInstanceDto> {
+  retired('approveHrFlow')
 }
 
-export async function returnHrFlow(id: string, comment: string): Promise<HrFlowInstanceDto> {
-  const res = await apiFetch(`/api/hr-flows/${id}/return`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ comment }),
-  })
-  return jsonOrThrow<HrFlowInstanceDto>(res)
+export async function returnHrFlow(_id: string, _comment: string): Promise<HrFlowInstanceDto> {
+  retired('returnHrFlow')
 }
 
-export async function resubmitHrFlow(id: string, formData: unknown): Promise<HrFlowInstanceDto> {
-  const res = await apiFetch(`/api/hr-flows/${id}/resubmit`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ formData }),
-  })
-  return jsonOrThrow<HrFlowInstanceDto>(res)
+export async function resubmitHrFlow(_id: string, _formData: unknown): Promise<HrFlowInstanceDto> {
+  retired('resubmitHrFlow')
 }
 
-export async function cancelHrFlow(id: string): Promise<HrFlowInstanceDto> {
-  const res = await apiFetch(`/api/hr-flows/${id}/cancel`, { method: 'POST' })
-  return jsonOrThrow<HrFlowInstanceDto>(res)
+export async function cancelHrFlow(_id: string): Promise<HrFlowInstanceDto> {
+  retired('cancelHrFlow')
 }

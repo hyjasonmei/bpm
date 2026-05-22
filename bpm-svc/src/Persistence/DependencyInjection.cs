@@ -3,7 +3,6 @@ using Bpm.Application.Attendance;
 using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Services;
 using Bpm.Application.Delegation;
-using Bpm.Application.HrFlows;
 using Bpm.Application.Impersonation;
 using Bpm.Application.Notifications;
 using Bpm.Application.Org;
@@ -19,7 +18,6 @@ using Bpm.Persistence.Admin;
 using Bpm.Persistence.Attendance;
 using Bpm.Persistence.Common;
 using Bpm.Persistence.Delegation;
-using Bpm.Persistence.HrFlows;
 using Bpm.Persistence.Impersonation;
 using Bpm.Persistence.Interceptors;
 using Bpm.Persistence.Notifications;
@@ -79,7 +77,11 @@ public static class DependencyInjection
         services.AddScoped<IActorResolver, ActorResolver>();
         services.AddSingleton<ActorRefValidator>();
 
-        services.AddScoped<IHrFlowService, HrFlowService>();
+        // IHrFlowService / HrFlowService deleted in Phase 1.3 retirement
+        // (RESIGN/DEPTX no longer use the interim controller). Entity
+        // classes + tables intentionally retained as inert until the
+        // next drop-tables migration so existing seed data doesn't
+        // need a destructive migration today.
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IImpersonationService, ImpersonationService>();
         services.AddScoped<ISandboxService, SandboxService>();

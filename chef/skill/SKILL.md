@@ -131,13 +131,33 @@ bpm-svc/features/LEAVE/V1/
 bpm-ui/src/features/LEAVE/V1/
 ├── LEAVE_V1_LeaveForm.tsx                ← React component (renders spec.layout)
 ├── LEAVE_V1_LeaveForm.types.ts           ← form-data types from spec.fields
-├── LEAVE_V1_routes.tsx                   ← flag-gated route registration
+├── manifest.ts                           ← { code, version, component } — plugs into the registry
 └── tests/
     ├── LEAVE_V1_layout.test.tsx          ← layout structure assertions
     └── LEAVE_V1_validation.test.tsx
 ```
 
-The React component is **bespoke per flow** — you do NOT write a
+`manifest.ts` is how chef's component plugs into bpm-ui — there is
+**no central App.tsx switch to edit**. `bpm-ui/src/features/registry.ts`
+globs every `features/*/V*/manifest.ts` at startup and registers
+`{code → highest-version component}` automatically. Shape:
+
+```ts
+import type { FormManifest } from '@/features/registry'
+import { LEAVE_V1_LeaveForm } from './LEAVE_V1_LeaveForm'
+
+const manifest: FormManifest = {
+  code: 'LEAVE',
+  version: 1,
+  component: LEAVE_V1_LeaveForm,
+}
+export default manifest
+```
+
+If a later session generates V2 alongside an existing V1, the registry
+picks V2 automatically — no need to delete the older folder.
+
+The React component itself is **bespoke per flow** — do NOT write a
 generic `<DynamicForm spec />` runtime. The wizard's `spec.layout` is
 your blueprint for what JSX to emit. Use the corresponding hand-coded
 form under `bpm-ui/src/screens/forms/Reference_*.tsx` as the visual
