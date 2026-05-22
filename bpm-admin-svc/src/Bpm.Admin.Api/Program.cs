@@ -87,6 +87,13 @@ app.Logger.LogInformation("AI backend: {Backend} (set FLOWCOOK_AI_BACKEND=api|cl
 // exist on the shared db (post-Phase 1.1 db merge). Mirrors bpm-svc's
 // own auto-migrate. No collision with bpm-svc's tables because admin
 // uses an `Admin_` prefix and its own MigrationsHistoryTable.
+//
+// Phase 2.1c: also auto-seed the org graph (13 users / 6 depts / etc)
+// when the Principals table is empty AND the env is Development OR
+// `FLOWCOOK_ADMIN_SEED_ON_STARTUP=true`. Without this the very first
+// boot lands an empty admin table set and every login returns 401 —
+// the SeedCli must be run by hand. Matches bpm-svc's
+// `BPM_SEED_ON_STARTUP` ergonomics.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
@@ -94,10 +101,20 @@ using (var scope = app.Services.CreateScope())
     try
     {
         await db.Database.MigrateAsync();
+
+        var allowSeed = (Environment.GetEnvironmentVariable("FLOWCOOK_ADMIN_SEED_ON_STARTUP")
+            ?? (app.Environment.IsDevelopment() ? "true" : "false")).ToLowerInvariant() == "true";
+        if (allowSeed && !await db.Principals.AnyAsync())
+        {
+            var conn = db.Database.GetDbConnection().ConnectionString;
+            logger.LogInformation("Admin DB empty — seeding org graph (13 users / 6 depts / 14 roles)");
+            await Bpm.Admin.Persistence.Seed.Seeder.SeedOrgAsync(conn);
+            logger.LogInformation("Admin seed complete. Demo password: {DemoPassword}", Bpm.Admin.Persistence.Seed.Seeder.DemoPassword);
+        }
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Admin DB migration failed on startup");
+        logger.LogError(ex, "Admin DB migration / seed failed on startup");
         throw;
     }
 }

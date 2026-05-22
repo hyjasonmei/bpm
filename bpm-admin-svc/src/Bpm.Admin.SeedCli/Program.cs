@@ -1,5 +1,5 @@
 using Bpm.Admin.Persistence;
-using Bpm.Admin.SeedCli;
+using Bpm.Admin.Persistence.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 

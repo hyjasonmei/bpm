@@ -3,10 +3,9 @@ using Bpm.Admin.Domain.Auth;
 using Bpm.Admin.Domain.Delegations;
 using Bpm.Admin.Domain.Principals;
 using Bpm.Admin.Domain.Roles;
-using Bpm.Admin.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace Bpm.Admin.SeedCli;
+namespace Bpm.Admin.Persistence.Seed;
 
 public static class Seeder
 {
