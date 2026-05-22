@@ -42,7 +42,14 @@ public static class DbPathResolver
         var probe = System.AppContext.BaseDirectory;
         for (var i = 0; i < 10; i++)
         {
-            if (Directory.Exists(Path.Combine(probe, ".git"))) return probe;
+            var gitPath = Path.Combine(probe, ".git");
+            // Main checkout: `.git` is a directory.
+            if (Directory.Exists(gitPath)) return probe;
+            // Worktree: `.git` is a file containing `gitdir: <abs path to
+            // main repo's .git/worktrees/<name>>`. The worktree IS its
+            // own root from chef's perspective — db / artefacts should
+            // live alongside it, not in the main checkout.
+            if (File.Exists(gitPath)) return probe;
             var parent = Path.GetDirectoryName(probe);
             if (string.IsNullOrEmpty(parent) || parent == probe) break;
             probe = parent;

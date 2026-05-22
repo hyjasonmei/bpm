@@ -51,8 +51,6 @@ This skill file is the **dispatch point**. When you're invoked:
 - Don't edit `bpm-admin-svc/`, `bpm-admin-ui/`, `syncer/`, or
   anything outside the feature folders.
 - Don't push to remote — Jason pushes via GitKraken.
-- Don't run `dotnet ef database update` — write the migration class
-  only; Jason runs it after merge from main checkout.
 - Don't open a PR — branch is enough; Jason reviews and opens the PR
   himself.
 - Don't add new top-level dependencies without asking.
@@ -61,6 +59,20 @@ This skill file is the **dispatch point**. When you're invoked:
 - Don't read every existing form for inspiration. One reference (the
   closest matching `bpm-ui/src/screens/forms/Reference_*.tsx`) is
   enough; deeper lookup is on-demand.
+
+## What you CAN do (inside your worktree)
+
+- Run `dotnet ef database update` — the worktree has its own
+  `db/bpm.db` (resolved by `DbPathResolver` because git treats the
+  worktree's `.git` file as a repo root).
+- Run `SeedCli seed --include-bundles` to populate persona + flow
+  library on your db.
+- Boot dev servers (`dotnet run --project src/Api` + `npm run dev`)
+  to click through the form at `/apply/<CODE>` and verify the happy
+  path. Main's dev stack must be shut down first — chef and main
+  share ports.
+- Drive chrome-devtools to take screenshots of the running form and
+  attach them to your final report.
 
 ## When in doubt
 

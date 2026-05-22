@@ -24,6 +24,10 @@ spec wins — flag the inconsistency before you continue.
    If the spec implies you need to touch a forbidden path, stop and
    tell Jason — never silently expand the boundary.
 
+   The worktree's `db/` directory is yours — `DbPathResolver` lands
+   SQLite under `<worktreeRoot>/db/bpm.db` so you can run migrations,
+   seed, and exercise the runtime without touching main's db.
+
 2. **Name everything with the `<CODE>_V<N>_` prefix.** Classes, tables,
    migrations, files, React components, feature flags. The prefix is
    part of the identifier — no namespacing trick.
@@ -195,17 +199,24 @@ resume.
 Before you tell Jason "the branch is ready":
 
 - [ ] `cd bpm-svc && dotnet build` clean
-- [ ] `cd bpm-svc && dotnet test` green for the new `LEAVE_V1_*` tests
+- [ ] `cd bpm-svc && dotnet test` green for the new `<CODE>_V<N>_*` tests
 - [ ] `cd bpm-ui && npx tsc -p tsconfig.app.json --noEmit` clean
 - [ ] Every file you wrote lives under an allowed-write path
 - [ ] Every identifier carries the `<CODE>_V<N>_` prefix
 - [ ] Feature flag `<CODE>_V<N>` exists and gates every entry point
 - [ ] No string literal contains a URL / token — all via `${var}`
 - [ ] `git status` shows only files inside the allowed-write set
+      (the worktree's `db/bpm.db` is fine — it's a runtime artefact,
+      add it to `.gitignore` if it lands tracked)
+- [ ] `dotnet ef database update` ran clean against the worktree db
+- [ ] `SeedCli seed --include-bundles` seeded persona + flow library
+- [ ] Booted dev server (`bpm-svc/src/Api` + `bpm-ui`) and clicked
+      through the form at `/apply/<CODE>` with the flag on — happy
+      path submits and lands an instance row
 - [ ] One commit per logical step (entity / handler / form / tests) so
       Jason can review in GitKraken slice by slice
 - [ ] The branch is `chef/<CODE>-v<N>-<ts>` and you're on it
 - [ ] You wrote one summary message to Jason: what's done, what wasn't
-      possible from the spec, what tests pass
+      possible from the spec, what tests pass, what you E2E'd
 
 If any item fails, you're not done — fix or escalate before stopping.
