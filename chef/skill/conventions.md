@@ -1,16 +1,28 @@
-# chef conventions — naming, paths, flag, variables
+# chef conventions — naming, paths, variables
 
 Distilled from `openspec/specs/flowcook-chef` for quick lookup during
 a chef session. The spec wins if these drift.
 
 ## Path map
 
-| Allowed (write + read) | Read-only | Never touch |
-|---|---|---|
-| `bpm-svc/features/<CODE>/V<N>/**` | `bpm-svc/{Core,Runtime,Bundle,Principal,Sandbox,Application,Api}/**` | `chef/**` |
-| `bpm-ui/src/features/<CODE>/V<N>/**` | `bpm-admin-svc/**`, `bpm-admin-ui/**`, `syncer/**` | anywhere else |
-|   | `bpm-ui/src/screens/forms/Reference_*.tsx` (visual reference) |   |
-|   | `openspec/specs/**` + `*/CLAUDE.md` (rules) |   |
+chef writes inside csprojs the solution already references —
+specifically inside `Features/<CODE>/V<N>/` subtrees of those csprojs.
+Don't create new csproj files or edit `bpm-svc.slnx`.
+
+| Allowed (write) | Why this csproj |
+|---|---|
+| `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` | EF entity + configuration + handlers live with the rest of Persistence so they participate in `OnModelCreating` via `ApplyConfigurationsFromAssembly` |
+| `bpm-svc/src/Api/Features/<CODE>/V<N>/**` | Controllers + on-the-wire DTOs auto-pick up from Api's `MapControllers` |
+| `bpm-svc/src/Persistence/Migrations/*.cs` | EF migrations stay in the existing `Migrations/` folder so `dotnet ef` finds them; file name still carries the `<CODE>_V<N>_` prefix |
+| `bpm-svc/tests/Bpm.Tests/Features/<CODE>/V<N>/**` | tests folder mirrors the feature layout |
+| `bpm-ui/src/features/<CODE>/V<N>/**` | the registry globs `*/V*/manifest.ts` here automatically |
+
+| Read-only | Notes |
+|---|---|
+| `bpm-svc/src/{Api,Application,Domain,Persistence,Functions,SeedCli}/**` outside `Features/<CODE>/V<N>/` | runtime + framework |
+| `bpm-admin-svc/**`, `bpm-admin-ui/**` | admin tooling — not chef's territory |
+| `bpm-www/**`, `syncer/**`, `chef/**`, `docs/**`, `openspec/**` | docs / sibling services / self |
+| `bpm-ui/src/screens/forms/Reference_*.tsx` | hand-coded visual reference set |
 
 If you need to read something that isn't listed, it's probably fine —
 the read list is "you'll need these"; the forbidden list is hard.
@@ -28,7 +40,6 @@ spec's `meta.flowVersion` integer.
 | EF migration | `<CODE>_V<N>_<PurposeCamel>` | `LEAVE_V1_InitialCreate` |
 | React component | `<CODE>_V<N>_<PurposeCamel>` | `LEAVE_V1_LeaveForm` |
 | React file | matches component | `LEAVE_V1_LeaveForm.tsx` |
-| Feature flag | `<CODE>_V<N>` (exactly) | `LEAVE_V1` |
 | Test file (C#) | `<CODE>_V<N>_<Aspect>Tests.cs` | `LEAVE_V1_ApprovalTests.cs` |
 | Test file (TS) | `<CODE>_V<N>_<aspect>.test.tsx` | `LEAVE_V1_layout.test.tsx` |
 
@@ -36,20 +47,24 @@ The prefix is part of the identifier — no `namespace LEAVE.V1`,
 no `LeaveForm` "inside the LEAVE folder it's obvious". Flat prefix,
 everywhere.
 
-## Feature flag
+## Versioning (no feature-flag service in MVP)
 
-One flag per version: `<CODE>_V<N>`.
+`<CODE>_V<N>_` is the only isolation chef needs in MVP:
 
-- Controllers and minimal-API endpoints: 404 when off.
-- Event handlers and background services: no-op (still process the
-  event but emit no side effects).
-- UI routes: render a placeholder or `<Navigate to="/" />`.
+- **Backend**: prefix means `LEAVE_V1_LeaveRequest` and
+  `LEAVE_V2_LeaveRequest` are different classes mapped to different
+  tables (`LEAVE_V1_leave_request` vs `LEAVE_V2_leave_request`). The
+  V2 controller has its own route. Old and new coexist on the same
+  process without colliding; the V2 work can ship without touching
+  V1's wiring at all.
+- **Frontend**: `bpm-ui/src/features/registry.ts` globs every
+  `features/*/V*/manifest.ts` at startup and resolves a flow code to
+  its **highest** version automatically. Drop a V2 manifest folder
+  and the registry picks it up on next dev-server reload.
 
-Implementation lives in `<CODE>_V<N>_FeatureFlag.cs`. It reads from
-the bpm-svc `IFeatureFlagService` (existing infra). UI side reads from
-`import.meta.env.VITE_FEATURE_<CODE>_V<N>` — chef adds that env var
-to `bpm-ui/.env.example` and `bpm-ui/.env.local` as part of the
-generated change set.
+There is no `IFeatureFlagService` and chef does NOT invent one. If
+you genuinely need "toggle V2 off without redeploying" later, that's
+a separate change request — not chef's call to scaffold.
 
 ## Variables
 

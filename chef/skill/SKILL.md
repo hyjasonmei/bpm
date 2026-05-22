@@ -11,15 +11,27 @@ spec wins — flag the inconsistency before you continue.
 
 ## 1. Hard rules (no exceptions)
 
-1. **Write only inside the per-version feature folders.** Allowed:
-   - `bpm-svc/features/<CODE>/V<N>/**`
-   - `bpm-ui/src/features/<CODE>/V<N>/**`
+1. **Write only inside the per-version feature folders inside the
+   csprojs the solution already references.** chef does NOT create new
+   csproj files or edit `bpm-svc.slnx` — every file lands inside an
+   existing project's `Features/` subtree so the build picks it up
+   without scaffolding. Allowed write paths:
+   - `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` — entities, EF
+     configurations, handlers, the EF migration class
+   - `bpm-svc/src/Api/Features/<CODE>/V<N>/**` — controllers + the
+     request/response DTOs that hit the wire
+   - `bpm-ui/src/features/<CODE>/V<N>/**` — React component +
+     `manifest.ts` (the registry globs this folder automatically)
 
    Forbidden writes (read-only):
-   - `bpm-svc/{Core,Runtime,Bundle,Principal,Sandbox,Application,Api}/**`
-   - `bpm-admin-svc/**`, `bpm-admin-ui/**`
-   - `syncer/**`, `chef/**`
-   - The hand-coded references in `bpm-ui/src/screens/forms/Reference_*.tsx`
+   - Anything outside the three `Features/<CODE>/V<N>/` subtrees
+     above — concretely, everything else under
+     `bpm-svc/src/{Api,Application,Domain,Persistence,Functions,SeedCli}/`
+     EXCEPT `Persistence/Features/` and `Api/Features/`.
+   - `bpm-admin-svc/**`, `bpm-admin-ui/**`, `syncer/**`, `chef/**`,
+     `bpm-www/**`, `docs/**`, `openspec/**`.
+   - The hand-coded references in
+     `bpm-ui/src/screens/forms/Reference_*.tsx`.
 
    If the spec implies you need to touch a forbidden path, stop and
    tell Jason — never silently expand the boundary.
@@ -29,12 +41,15 @@ spec wins — flag the inconsistency before you continue.
    seed, and exercise the runtime without touching main's db.
 
 2. **Name everything with the `<CODE>_V<N>_` prefix.** Classes, tables,
-   migrations, files, React components, feature flags. The prefix is
-   part of the identifier — no namespacing trick.
+   migrations, files, React components. The prefix is part of the
+   identifier — no namespacing trick.
 
-3. **Wrap the whole version in exactly one feature flag** named
-   `<CODE>_V<N>`. Every controller, handler, and UI route checks the
-   flag and short-circuits to 404 / no-op when off.
+3. **No feature-flag service in MVP.** Version isolation comes for
+   free from the `<CODE>_V<N>_` prefix (back-end classes / tables
+   don't collide) plus `bpm-ui/src/features/registry.ts` picking the
+   highest version automatically. There is no `IFeatureFlagService`
+   today; don't invent one. When the time comes to toggle a version
+   off without redeploying, that's a separate change.
 
 4. **Never hardcode external values.** URLs, tokens, env-specific
    constants → `${var_name}` references resolved from
@@ -112,21 +127,28 @@ canonical source.
 For a flow code `LEAVE` at version `V1`, the deliverables look like:
 
 ```
-bpm-svc/features/LEAVE/V1/
+bpm-svc/src/Persistence/Features/LEAVE/V1/
 ├── LEAVE_V1_LeaveRequest.cs              ← request DTO
 ├── LEAVE_V1_LeaveRequestEntity.cs        ← EF entity
-├── LEAVE_V1_LeaveRequestConfiguration.cs ← EF mapping (table leave_v1_leave_request)
-├── Migrations/LEAVE_V1_InitialCreate.cs  ← EF migration
+├── LEAVE_V1_LeaveRequestConfiguration.cs ← EF mapping (table LEAVE_V1_leave_request)
 ├── LEAVE_V1_SubmitHandler.cs             ← submit logic
 ├── LEAVE_V1_ApprovalHandler.cs           ← approval node
-├── LEAVE_V1_NotificationTemplates/       ← .razor + tests
-├── LEAVE_V1_Controller.cs                ← POST/GET endpoints (flag-gated)
-├── Tests/
-│   ├── LEAVE_V1_SubmitTests.cs
-│   ├── LEAVE_V1_ManagerApprovalTests.cs
-│   ├── LEAVE_V1_HrRecordTests.cs
-│   └── LEAVE_V1_E2EHappyPathTests.cs
-└── FeatureFlag.cs                        ← reads LEAVE_V1 flag
+└── LEAVE_V1_NotificationTemplates/       ← rendered templates
+
+bpm-svc/src/Persistence/Migrations/
+└── 20260522nnnnnn_LEAVE_V1_InitialCreate.cs   ← EF migration lives in
+                                                  the existing Migrations/
+                                                  folder so `dotnet ef`
+                                                  picks it up automatically
+
+bpm-svc/src/Api/Features/LEAVE/V1/
+└── LEAVE_V1_Controller.cs                ← POST/GET endpoints
+
+bpm-svc/tests/Bpm.Tests/Features/LEAVE/V1/
+├── LEAVE_V1_SubmitTests.cs
+├── LEAVE_V1_ManagerApprovalTests.cs
+├── LEAVE_V1_HrRecordTests.cs
+└── LEAVE_V1_E2EHappyPathTests.cs
 
 bpm-ui/src/features/LEAVE/V1/
 ├── LEAVE_V1_LeaveForm.tsx                ← React component (renders spec.layout)
@@ -223,7 +245,6 @@ Before you tell Jason "the branch is ready":
 - [ ] `cd bpm-ui && npx tsc -p tsconfig.app.json --noEmit` clean
 - [ ] Every file you wrote lives under an allowed-write path
 - [ ] Every identifier carries the `<CODE>_V<N>_` prefix
-- [ ] Feature flag `<CODE>_V<N>` exists and gates every entry point
 - [ ] No string literal contains a URL / token — all via `${var}`
 - [ ] `git status` shows only files inside the allowed-write set
       (the worktree's `db/bpm.db` is fine — it's a runtime artefact,
@@ -231,8 +252,8 @@ Before you tell Jason "the branch is ready":
 - [ ] `dotnet ef database update` ran clean against the worktree db
 - [ ] `SeedCli seed --include-bundles` seeded persona + flow library
 - [ ] Booted dev server (`bpm-svc/src/Api` + `bpm-ui`) and clicked
-      through the form at `/apply/<CODE>` with the flag on — happy
-      path submits and lands an instance row
+      through the form at `/apply/<CODE>` — happy path submits and
+      lands an instance row
 - [ ] One commit per logical step (entity / handler / form / tests) so
       Jason can review in GitKraken slice by slice
 - [ ] The branch is `chef/<CODE>-v<N>-<ts>` and you're on it

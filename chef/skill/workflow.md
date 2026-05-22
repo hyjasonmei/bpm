@@ -119,8 +119,12 @@ cd bpm-svc && dotnet run --project src/Api
 
 # Terminal B — bpm-ui
 cd bpm-ui
-echo "VITE_FEATURE_<CODE>_V<N>=true" >> .env.local
 npm run dev
+# No feature-flag env var needed — the registry globs
+# features/*/V*/manifest.ts on dev-server start. If you added the
+# folder while Vite was already running and /apply/<CODE> still shows
+# NotCookedYet, restart `npm run dev` so it picks up the new
+# manifest module.
 ```
 
 chef opens chrome-devtools (or asks Jason to open

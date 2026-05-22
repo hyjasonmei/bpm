@@ -1,6 +1,6 @@
 ---
 name: chef-codegen
-description: Use when running a chef session — turning a flowcook admin spec.json into per-flow code under bpm-svc/features and bpm-ui/src/features. Invoke when Jason hands over a bundle path. The skill enforces flowcook-chef boundaries (allowed paths, naming, feature flag, variable handling, stop-and-ask triggers).
+description: Use when running a chef session — turning a flowcook admin spec.json into per-flow code under bpm-svc/src/{Persistence,Api}/Features/<CODE>/V<N>/ and bpm-ui/src/features/<CODE>/V<N>/. Invoke when Jason hands over a bundle path. The skill enforces flowcook-chef boundaries (allowed paths, naming, variable handling, stop-and-ask triggers).
 license: MIT
 metadata:
   author: flowcook
@@ -36,10 +36,14 @@ This skill file is the **dispatch point**. When you're invoked:
 
 ## Hard guardrails (cite SKILL.md if you violate)
 
-- Write only under `bpm-svc/features/<CODE>/V<N>/**` and
-  `bpm-ui/src/features/<CODE>/V<N>/**`.
+- Write only under `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**`,
+  `bpm-svc/src/Api/Features/<CODE>/V<N>/**`, and
+  `bpm-ui/src/features/<CODE>/V<N>/**`. Don't create new csprojs or
+  edit `bpm-svc.slnx` — every file lands inside csprojs the solution
+  already references.
 - Every identifier carries the `<CODE>_V<N>_` prefix.
-- Every entry point is gated by the `<CODE>_V<N>` feature flag.
+- No feature-flag service in MVP — version isolation comes from the
+  prefix + the bpm-ui registry's highest-version-wins lookup.
 - No URL / token / env literal in source — always `${var}` from
   `spec.variables[]`.
 - Failing tests block the commit. Never `[Skip]`.
