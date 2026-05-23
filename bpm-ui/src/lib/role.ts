@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react'
-import { apiFetch, setJwt, clearJwt, getJwt } from './apiFetch'
+import { useState, useCallback } from 'react'
+import { apiFetch, setJwt, clearJwt } from './apiFetch'
 
 export type PersonaCode = 'employee' | 'manager' | 'finance' | 'it' | 'hr' | 'admin'
 
@@ -118,22 +118,9 @@ export function useActivePersona() {
     }
   }, [])
 
-  // On first mount: if no JWT yet, mint one for the saved persona so demo
-  // works zero-click. If we already have a JWT we trust it (validated on
-  // first API call; 401 clears it).
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (getJwt()) return
-    void setCode(code)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Re-mint when something downstream clears the token (401 from any call).
-  useEffect(() => {
-    const onCleared = () => { void setCode(code) }
-    window.addEventListener('bpm:auth-cleared', onCleared as EventListener)
-    return () => window.removeEventListener('bpm:auth-cleared', onCleared as EventListener)
-  }, [code, setCode])
+  // No auto-mint: AuthGate in App.tsx redirects to /Login when no JWT.
+  // /api/dev/login persona switching is now a manual dev shortcut only,
+  // triggered by the IdentitySwitcher dropdown.
 
   return { persona: PERSONAS[code], code, setCode, authedUser, pending, error, clearAuth: clearJwt }
 }
