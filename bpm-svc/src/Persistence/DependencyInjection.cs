@@ -28,7 +28,6 @@ using Bpm.Persistence.Process.Reporting;
 using Bpm.Persistence.Process.Simulator;
 using Bpm.Persistence.Sandbox;
 using Bpm.Persistence.Spec;
-using Bpm.Persistence.Spec.Bundle;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -124,10 +123,6 @@ public static class DependencyInjection
         services.AddScoped<IProcessReportingService>(sp => new CachedProcessReportingService(
             (IProcessReportingService)sp.GetRequiredService<ProcessReportingService>(),
             sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>()));
-
-        // Spec Bundle runtime (PR-I4): scratch-tenant seeder + replay runner.
-        services.AddScoped<IBundleRuntimeLoader, BundleRuntimeLoader>();
-        services.AddScoped<IBundleReproducibilityRunner, BundleReproducibilityRunner>();
 
         return services;
     }
