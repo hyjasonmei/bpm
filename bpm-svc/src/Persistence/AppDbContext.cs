@@ -10,6 +10,7 @@ using Bpm.Domain.Entities.Org;
 using Bpm.Domain.Entities.Process;
 using Bpm.Domain.Entities.Sandbox;
 using Bpm.Domain.Entities.Spec;
+using Bpm.Persistence.SharedIdentity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Bpm.Persistence;
@@ -48,6 +49,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SpecBundle> SpecBundles => Set<SpecBundle>();
 
     public DbSet<NotificationDispatchAudit> NotificationDispatchAudits => Set<NotificationDispatchAudit>();
+
+    // Shared identity — mappings onto admin-svc's Admin_* tables. bpm-svc
+    // doesn't own these schemas; admin-svc runs the migrations. Added by
+    // openspec/changes/unify-user-store-and-real-auth. The legacy bpm-local
+    // identity DbSets above stay live during the U1→U2 transition and get
+    // removed in the DropBpmIdentityTables migration once consumers swap over.
+    public DbSet<SharedPrincipal> SharedPrincipals => Set<SharedPrincipal>();
+    public DbSet<SharedUserCredential> SharedUserCredentials => Set<SharedUserCredential>();
+    public DbSet<SharedRole> SharedRoles => Set<SharedRole>();
+    public DbSet<SharedPrincipalRole> SharedPrincipalRoles => Set<SharedPrincipalRole>();
+    public DbSet<SharedUserDept> SharedUserDepts => Set<SharedUserDept>();
+    public DbSet<SharedDeptParent> SharedDeptParents => Set<SharedDeptParent>();
+    public DbSet<SharedGroupMember> SharedGroupMembers => Set<SharedGroupMember>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
