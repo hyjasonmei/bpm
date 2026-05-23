@@ -18,7 +18,9 @@ public class AdminDbContext : DbContext
 
     public DbSet<Principal> Principals => Set<Principal>();
     public DbSet<UserDept> UserDepts => Set<UserDept>();
+    public DbSet<UserManager> UserManagers => Set<UserManager>();
     public DbSet<DeptParent> DeptParents => Set<DeptParent>();
+    public DbSet<DeptHead> DeptHeads => Set<DeptHead>();
     public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<PrincipalRole> PrincipalRoles => Set<PrincipalRole>();

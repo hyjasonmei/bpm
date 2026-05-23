@@ -60,7 +60,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SharedRole> SharedRoles => Set<SharedRole>();
     public DbSet<SharedPrincipalRole> SharedPrincipalRoles => Set<SharedPrincipalRole>();
     public DbSet<SharedUserDept> SharedUserDepts => Set<SharedUserDept>();
+    public DbSet<SharedUserManager> SharedUserManagers => Set<SharedUserManager>();
     public DbSet<SharedDeptParent> SharedDeptParents => Set<SharedDeptParent>();
+    public DbSet<SharedDeptHead> SharedDeptHeads => Set<SharedDeptHead>();
     public DbSet<SharedGroupMember> SharedGroupMembers => Set<SharedGroupMember>();
 
     protected override void OnModelCreating(ModelBuilder builder)
