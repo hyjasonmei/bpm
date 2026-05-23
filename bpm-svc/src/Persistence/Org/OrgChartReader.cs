@@ -1,52 +1,71 @@
 using Bpm.Application.Org;
-using Bpm.Domain.Entities.Authz;
-using Bpm.Domain.Entities.Org;
+using Bpm.Persistence.SharedIdentity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Bpm.Persistence.Org;
 
+/// Reads against the unified Admin_* identity tables (SharedIdentity)
+/// instead of the retired bpm-local Principals / Users / Departments
+/// tables.
 public sealed class OrgChartReader(AppDbContext db) : IOrgChartReader
 {
-    public Task<User?> GetUserAsync(Guid userId, CancellationToken ct = default)
-        => db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
-
-    public async Task<User?> GetManagerAsync(Guid userId, CancellationToken ct = default)
+    public async Task<Guid?> GetUserIdAsync(Guid userId, CancellationToken ct = default)
     {
-        var u = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId, ct);
-        if (u?.ManagerId is null) return null;
-        return await db.Users.FirstOrDefaultAsync(x => x.Id == u.ManagerId, ct);
+        var exists = await db.SharedPrincipals.AsNoTracking()
+            .AnyAsync(p => p.Id == userId
+                        && p.Type == SharedPrincipalType.User
+                        && p.DeletedAt == null, ct);
+        return exists ? userId : null;
     }
 
-    public async Task<Department?> GetDepartmentOfAsync(Guid userId, CancellationToken ct = default)
+    public async Task<Guid?> GetManagerIdAsync(Guid userId, CancellationToken ct = default)
     {
-        var u = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId, ct);
-        if (u?.DepartmentId is null) return null;
-        return await db.Departments.FirstOrDefaultAsync(d => d.Id == u.DepartmentId, ct);
+        var managerId = await db.SharedUserManagers.AsNoTracking()
+            .Where(m => m.UserId == userId)
+            .Select(m => (Guid?)m.ManagerUserId)
+            .FirstOrDefaultAsync(ct);
+        return managerId;
     }
 
-    public Task<Department?> GetDepartmentAsync(Guid deptId, CancellationToken ct = default)
-        => db.Departments.FirstOrDefaultAsync(d => d.Id == deptId, ct);
-
-    public async Task<Department?> GetDepartmentParentAsync(Guid deptId, CancellationToken ct = default)
+    public async Task<Guid?> GetPrimaryDepartmentIdAsync(Guid userId, CancellationToken ct = default)
     {
-        var d = await db.Departments.AsNoTracking().FirstOrDefaultAsync(x => x.Id == deptId, ct);
-        if (d?.ParentId is null) return null;
-        return await db.Departments.FirstOrDefaultAsync(x => x.Id == d.ParentId, ct);
+        return await db.SharedUserDepts.AsNoTracking()
+            .Where(ud => ud.UserId == userId && ud.IsPrimary)
+            .Select(ud => (Guid?)ud.DeptId)
+            .FirstOrDefaultAsync(ct);
     }
 
-    public async Task<User?> GetDepartmentHeadAsync(Guid deptId, CancellationToken ct = default)
+    public async Task<Guid?> GetDepartmentIdAsync(Guid deptId, CancellationToken ct = default)
     {
-        var d = await db.Departments.AsNoTracking().FirstOrDefaultAsync(x => x.Id == deptId, ct);
-        if (d?.HeadUserId is null) return null;
-        return await db.Users.FirstOrDefaultAsync(u => u.Id == d.HeadUserId, ct);
+        var exists = await db.SharedPrincipals.AsNoTracking()
+            .AnyAsync(p => p.Id == deptId
+                        && p.Type == SharedPrincipalType.Dept
+                        && p.DeletedAt == null, ct);
+        return exists ? deptId : null;
+    }
+
+    public async Task<Guid?> GetDepartmentParentIdAsync(Guid deptId, CancellationToken ct = default)
+    {
+        return await db.SharedDeptParents.AsNoTracking()
+            .Where(dp => dp.DeptId == deptId)
+            .Select(dp => dp.ParentDeptId)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<Guid?> GetDepartmentHeadIdAsync(Guid deptId, CancellationToken ct = default)
+    {
+        return await db.SharedDeptHeads.AsNoTracking()
+            .Where(dh => dh.DeptId == deptId)
+            .Select(dh => (Guid?)dh.HeadUserId)
+            .FirstOrDefaultAsync(ct);
     }
 
     public async Task<GroupExpansion> ExpandGroupAsync(Guid groupId, CancellationToken ct = default)
     {
-        // BFS over group→members. Members may themselves be Groups, in which
-        // case we enqueue them and continue. Cycle detection via visited set
-        // of group ids; if we meet a previously-visited group we abort and
-        // surface the cycle path so the caller can audit.
+        // BFS over group → members. Members may themselves be Groups, in
+        // which case we enqueue them. Departments expand to all primary-
+        // dept members. Cycle detection via visitedGroups; if we meet a
+        // previously-visited group we abort and surface the cycle path.
         var users = new HashSet<Guid>();
         var visitedGroups = new HashSet<Guid>();
         var queue = new Queue<Guid>();
@@ -63,32 +82,28 @@ public sealed class OrgChartReader(AppDbContext db) : IOrgChartReader
             }
             pathStack.Add(gid);
 
-            var members = await db.GroupMembers.AsNoTracking()
+            var members = await db.SharedGroupMembers.AsNoTracking()
                 .Where(m => m.GroupId == gid)
-                .Select(m => m.PrincipalId)
                 .ToListAsync(ct);
 
-            foreach (var pid in members)
+            foreach (var m in members)
             {
-                // Determine principal type by probing the typed tables.
-                if (await db.Users.AnyAsync(u => u.Id == pid, ct))
+                if (m.MemberType == SharedPrincipalType.User)
                 {
-                    users.Add(pid);
+                    users.Add(m.MemberPrincipalId);
                 }
-                else if (await db.Groups.AnyAsync(g => g.Id == pid, ct))
+                else if (m.MemberType == SharedPrincipalType.Group)
                 {
-                    queue.Enqueue(pid);
+                    queue.Enqueue(m.MemberPrincipalId);
                 }
-                else if (await db.Departments.AnyAsync(d => d.Id == pid, ct))
+                else if (m.MemberType == SharedPrincipalType.Dept)
                 {
-                    // Department member of group → expand to all users in the dept
-                    var deptUsers = await db.Users.AsNoTracking()
-                        .Where(u => u.DepartmentId == pid)
-                        .Select(u => u.Id)
+                    var deptUsers = await db.SharedUserDepts.AsNoTracking()
+                        .Where(ud => ud.DeptId == m.MemberPrincipalId)
+                        .Select(ud => ud.UserId)
                         .ToListAsync(ct);
                     foreach (var uid in deptUsers) users.Add(uid);
                 }
-                // Unknown principal type → silently skip (FK should prevent this)
             }
         }
 
@@ -96,14 +111,16 @@ public sealed class OrgChartReader(AppDbContext db) : IOrgChartReader
     }
 
     public async Task<IReadOnlyList<(Guid PrincipalId, Guid RoleId)>> GetRoleAssigneesAsync(
-        string roleCode, string? flowCode = null, CancellationToken ct = default)
+        string roleName, string? flowCode = null, CancellationToken ct = default)
     {
-        var q = from ra in db.RoleAssignments.AsNoTracking()
-                join r in db.Roles.AsNoTracking() on ra.RoleId equals r.Id
-                where r.Code == roleCode
-                   && (r.Scope == RoleScope.System
-                       || (r.Scope == RoleScope.Flow && r.FlowCode == flowCode))
-                select new { ra.PrincipalId, ra.RoleId };
+        // After unify, admin's Admin_Roles is keyed by Name (no Code column,
+        // no Scope/FlowCode columns either). flowCode is currently ignored;
+        // chef-shipped flows reuse the same admin role names.
+        _ = flowCode;
+        var q = from pr in db.SharedPrincipalRoles.AsNoTracking()
+                join r in db.SharedRoles.AsNoTracking() on pr.RoleId equals r.Id
+                where r.Name == roleName
+                select new { pr.PrincipalId, pr.RoleId };
         var rows = await q.ToListAsync(ct);
         return rows.Select(x => (x.PrincipalId, x.RoleId)).ToList();
     }
