@@ -109,6 +109,45 @@ public static class Seeder
             new PrincipalRole { PrincipalId = users[0].Id, RoleId = roleIds["Director"], InheritToMembers = false }
         );
 
+        // ---- Dept heads (added by unify-user-store change so bpm-svc
+        //      IOrgChartReader.GetDepartmentHeadAsync resolves cleanly).
+        //      One head per dept; the spec library's dept_head actor reads
+        //      this table.
+        ctx.DeptHeads.AddRange(
+            new DeptHead { DeptId = deptCompany,  HeadUserId = users[9].Id,  AssignedAt = DateTime.UtcNow },   // Jack runs Acme Corp
+            new DeptHead { DeptId = deptEng,      HeadUserId = users[4].Id,  AssignedAt = DateTime.UtcNow },   // Erin heads Engineering
+            new DeptHead { DeptId = deptBackend,  HeadUserId = users[0].Id,  AssignedAt = DateTime.UtcNow },   // Alice heads Backend
+            new DeptHead { DeptId = deptFrontend, HeadUserId = users[2].Id,  AssignedAt = DateTime.UtcNow },   // Carol heads Frontend
+            new DeptHead { DeptId = deptProduct,  HeadUserId = users[5].Id,  AssignedAt = DateTime.UtcNow },   // Frank heads Product
+            new DeptHead { DeptId = deptHR,       HeadUserId = users[7].Id,  AssignedAt = DateTime.UtcNow }    // Henry heads HR
+        );
+
+        // ---- User → direct manager edges. Models the "reports to" line
+        //      for spec-library `actor.manager` resolution. Heads of depts
+        //      report up to the parent dept's head; top-of-org users have
+        //      no manager row (Jack is the CEO).
+        ctx.UserManagers.AddRange(
+            // Backend members → Alice
+            new UserManager { UserId = users[1].Id,  ManagerUserId = users[0].Id, AssignedAt = DateTime.UtcNow }, // Bob → Alice
+            new UserManager { UserId = users[11].Id, ManagerUserId = users[0].Id, AssignedAt = DateTime.UtcNow }, // Leo → Alice
+            // Frontend members → Carol
+            new UserManager { UserId = users[3].Id,  ManagerUserId = users[2].Id, AssignedAt = DateTime.UtcNow }, // Dave → Carol
+            // Engineering members → Erin
+            new UserManager { UserId = users[12].Id, ManagerUserId = users[4].Id, AssignedAt = DateTime.UtcNow }, // Mia → Erin
+            // Product members → Frank
+            new UserManager { UserId = users[6].Id,  ManagerUserId = users[5].Id, AssignedAt = DateTime.UtcNow }, // Grace → Frank
+            // HR members → Henry
+            new UserManager { UserId = users[8].Id,  ManagerUserId = users[7].Id, AssignedAt = DateTime.UtcNow }, // Iris → Henry
+            // Dept heads → CEO (Jack)
+            new UserManager { UserId = users[0].Id,  ManagerUserId = users[9].Id, AssignedAt = DateTime.UtcNow }, // Alice → Jack
+            new UserManager { UserId = users[2].Id,  ManagerUserId = users[9].Id, AssignedAt = DateTime.UtcNow }, // Carol → Jack
+            new UserManager { UserId = users[4].Id,  ManagerUserId = users[9].Id, AssignedAt = DateTime.UtcNow }, // Erin → Jack
+            new UserManager { UserId = users[5].Id,  ManagerUserId = users[9].Id, AssignedAt = DateTime.UtcNow }, // Frank → Jack
+            new UserManager { UserId = users[7].Id,  ManagerUserId = users[9].Id, AssignedAt = DateTime.UtcNow }, // Henry → Jack
+            // Kate (admin) reports to Jack
+            new UserManager { UserId = users[10].Id, ManagerUserId = users[9].Id, AssignedAt = DateTime.UtcNow }
+        );
+
         // ---- 1 delegation example (Alice → Bob next week)
         ctx.Delegations.Add(new Delegation
         {
