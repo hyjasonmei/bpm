@@ -1,31 +1,19 @@
 import {
-  Plus, FileText, Plane, Send, Laptop, DollarSign, Building2,
+  Plus, FileText, Laptop, DollarSign, Building2,
   Check, AlertCircle, Inbox, Pencil, Calendar,
-  Briefcase,
+  ChefHat,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { StatusBadge, TypeChip, type StatusKind } from '@/components/ui/badge'
-// MOCK_ACTIVITY retired in Phase 2.2 — ActivityFeedPanel now reads from
-// the same useMyInstances feed as the rest of the page.
 import { PERSONAS, type PersonaCode } from '@/lib/role'
 import type { Screen } from '@/components/AppLayout'
 import { FORMS, type FormCode } from '@/lib/workflow'
+import { formRegistry } from '@/features/registry'
 import { useMyTasks } from '@/hooks/useMyTasks'
 import { useMyInstances } from '@/hooks/useMyInstances'
 import type { InstanceStatus, MyInstanceSummaryDto, ProcessTaskDto } from '@/types/process'
-
-const QUICK_ACTIONS: Array<{ id: FormCode; label: string; Icon: React.ComponentType<{ className?: string }> }> = [
-  { id: 'LEAVE', label: 'Leave Request',     Icon: Calendar },
-  { id: 'GEE',   label: 'Employee Expense',  Icon: DollarSign },
-  { id: 'GEV',   label: 'Vendor Expense',    Icon: FileText },
-  { id: 'TRQ',   label: 'Travel Request',    Icon: Plane },
-  { id: 'TEO',   label: 'Travel Expense',    Icon: Send },
-  { id: 'APE',   label: 'Advance Payment',   Icon: DollarSign },
-  { id: 'HWP',   label: 'Hardware Purchase', Icon: Laptop },
-  { id: 'EXTOB', label: 'External Onboarding', Icon: Briefcase },
-]
 
 const ICON_FOR_ACTIVITY = {
   approved:  { Icon: Check,       color: 'text-good',    bg: 'bg-green-50' },
@@ -310,21 +298,35 @@ function MyCasesTable({ cases, loading, error }: { cases: MyInstanceSummaryDto[]
 /* ── Right rail ─────────────────────────────────────────── */
 
 function QuickActionsPanel({ setScreen }: { setScreen: (s: Screen) => void }) {
+  // Registry-driven: each chef-shipped manifest under
+  // features/<CODE>/V<N>/ surfaces as one Quick Action. The FORMS
+  // metadata map is consulted for display label only — it is NOT a
+  // gate for what appears here.
+  const actions = [...formRegistry.values()]
+    .map(m => ({ code: m.code, label: FORMS[m.code]?.zhLabel ?? m.code }))
+    .sort((a, b) => a.code.localeCompare(b.code))
+
   return (
     <SectionCard>
       <SectionTitle>Quick Actions</SectionTitle>
-      <div className="grid grid-cols-2 gap-2 p-3">
-        {QUICK_ACTIONS.map(a => (
-          <button
-            key={a.id}
-            onClick={() => setScreen({ kind: 'form', code: a.id })}
-            className="flex items-center gap-2 rounded-md border border-rule bg-white px-2.5 py-2 text-left text-xs font-medium text-ink-muted transition-colors hover:bg-slate-50 hover:text-ink"
-          >
-            <a.Icon className="h-4 w-4 shrink-0 text-primary" />
-            <span className="truncate">{a.label}</span>
-          </button>
-        ))}
-      </div>
+      {actions.length === 0 ? (
+        <div className="px-3 py-6 text-center text-[11px] text-ink-faint">
+          目前沒有可用的流程 — 請聯絡管理員建置新流程。
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 p-3">
+          {actions.map(a => (
+            <button
+              key={a.code}
+              onClick={() => setScreen({ kind: 'form', code: a.code })}
+              className="flex items-center gap-2 rounded-md border border-rule bg-white px-2.5 py-2 text-left text-xs font-medium text-ink-muted transition-colors hover:bg-slate-50 hover:text-ink"
+            >
+              <ChefHat className="h-4 w-4 shrink-0 text-primary" />
+              <span className="truncate">{a.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="border-t border-rule px-3 py-2 text-center">
         <button onClick={() => setScreen({ kind: 'create' })} className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
           <Plus className="h-3 w-3" /> Browse all forms
