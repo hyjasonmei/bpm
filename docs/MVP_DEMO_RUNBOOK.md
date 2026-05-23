@@ -170,10 +170,11 @@ Paste this prompt verbatim (substitute the bundle date):
    （或讀 .claude/skills/chef-codegen/SKILL.md 全文）
 2. 讀 chef/skill/SKILL.md 全文
 3. 確認 bundle 路徑存在：
-   /Users/jason/claude/flowcook-bundles/LEAVE-v1-<把這替換成今天日期>
-4. 讀 bundle/spec.json，向我回報你的 plan
+   bundles/LEAVE_v1-<把這替換成今天日期>
+4. 讀 bundle/**，向我回報你的 plan
    （一段話：幾個 user task、幾個 approval、有沒有 integration、估計幾個 commit）
 5. 等我說 go 才開始寫 code
+6. 直接做完, build, test, e2etest (using chrome mcp with seed account)，有需要釐清才停下來
 ```
 
 chef should reply with something like:
