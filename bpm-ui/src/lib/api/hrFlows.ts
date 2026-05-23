@@ -7,7 +7,7 @@
  * The Reference_*Form.tsx components still import these helpers and
  * still compile, so we keep the function shapes in place but throw a
  * loud runtime error if anyone actually calls them. Reference forms
- * are dev-only (VITE_SHOW_LEGACY=true) and exist as chef's visual
+ * are no longer mounted in App.tsx and exist purely as chef's visual
  * reference — their data submission paths are intentionally dead.
  */
 import type {
