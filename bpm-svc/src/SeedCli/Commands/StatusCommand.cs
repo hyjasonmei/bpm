@@ -25,10 +25,14 @@ public static class StatusCommand
 
             var migrations = (await db.Database.GetAppliedMigrationsAsync(ct)).Count();
 
-            var users = await db.Users.CountAsync(ct);
-            var depts = await db.Departments.CountAsync(ct);
-            var roles = await db.Roles.CountAsync(ct);
-            var roleAssignments = await db.RoleAssignments.CountAsync(ct);
+            // Identity counts after unify-user-store: read from the
+            // SharedX entity mappings onto Admin_* tables.
+            var users = await db.SharedPrincipals
+                .CountAsync(p => p.Type == SharedIdentity.SharedPrincipalType.User && p.DeletedAt == null, ct);
+            var depts = await db.SharedPrincipals
+                .CountAsync(p => p.Type == SharedIdentity.SharedPrincipalType.Dept && p.DeletedAt == null, ct);
+            var roles = await db.SharedRoles.CountAsync(ct);
+            var roleAssignments = await db.SharedPrincipalRoles.CountAsync(ct);
 
             var instActive = await db.ProcessInstances.CountAsync(i => i.Status == InstanceStatus.Running, ct);
             var instCompleted = await db.ProcessInstances.CountAsync(i => i.Status == InstanceStatus.Completed, ct);

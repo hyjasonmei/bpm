@@ -107,11 +107,11 @@ public sealed class ProcessReportingService(AppDbContext db, IClock clock) : IPr
             .Select(t => t.ActualAssigneeUserId!.Value)
             .Distinct()
             .ToList();
-        var emails = await db.Users.AsNoTracking()
+        var emails = await db.SharedPrincipals.AsNoTracking()
             .Where(u => assigneeIds.Contains(u.Id))
             .Select(u => new { u.Id, u.Email })
             .ToListAsync(ct);
-        var emailLookup = emails.ToDictionary(u => u.Id, u => u.Email);
+        var emailLookup = emails.ToDictionary(u => u.Id, u => u.Email ?? string.Empty);
 
         var loads = taskRows
             .Where(t => t.ActualAssigneeUserId.HasValue)

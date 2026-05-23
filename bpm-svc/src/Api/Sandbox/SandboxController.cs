@@ -4,6 +4,7 @@ using Bpm.Application.Sandbox;
 using Bpm.Application.Sandbox.Dtos;
 using Bpm.Domain.Entities.Sandbox;
 using Bpm.Persistence;
+using Bpm.Persistence.SharedIdentity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -105,24 +106,23 @@ public sealed class SandboxController(
         var actorEmail = User?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email)?.Value
             ?? "unknown@sandbox";
 
-        var persona = await db.Users.AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == req.UserId, ct);
+        var persona = await db.SharedPrincipals.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == req.UserId && u.Type == SharedPrincipalType.User, ct);
         if (persona is null)
             return NotFound(new { error = "user_not_found", userId = req.UserId });
 
-        // Resolve persona's role codes the same way DevLogin does — go through
-        // RoleAssignment + Role tables. Inactive role assignments are skipped.
-        var roleCodes = await (
-            from ra in db.RoleAssignments.AsNoTracking()
-            join r in db.Roles.AsNoTracking() on ra.RoleId equals r.Id
-            where ra.PrincipalId == persona.Id
-            select r.Code).Distinct().ToListAsync(ct);
+        // Resolve persona's role names via the unified Admin_PrincipalRoles + Admin_Roles.
+        var roleNames = await (
+            from pr in db.SharedPrincipalRoles.AsNoTracking()
+            join r in db.SharedRoles.AsNoTracking() on pr.RoleId equals r.Id
+            where pr.PrincipalId == persona.Id
+            select r.Name).Distinct().ToListAsync(ct);
 
         var (token, expiresAt) = jwt.IssueSandboxPersonaToken(
             personaUserId: persona.Id,
-            personaEmail: persona.Email,
-            personaFullName: persona.FullName,
-            personaRoles: roleCodes,
+            personaEmail: persona.Email ?? string.Empty,
+            personaFullName: persona.DisplayName,
+            personaRoles: roleNames,
             actualActorUserId: actor,
             actualActorEmail: actorEmail);
 
@@ -130,7 +130,7 @@ public sealed class SandboxController(
         {
             token,
             expiresAt,
-            persona = new { id = persona.Id, email = persona.Email, fullName = persona.FullName, roles = roleCodes },
+            persona = new { id = persona.Id, email = persona.Email, fullName = persona.DisplayName, roles = roleNames },
             actualActor = new { id = actor, email = actorEmail },
         });
     }
@@ -149,15 +149,22 @@ public sealed class SandboxController(
         var clock = await clockService.GetAsync(ct);
         if (!clock.SandboxOn) return Array.Empty<SandboxPersonaDto>();
 
-        var rows = await (
-            from u in db.Users.AsNoTracking()
-            where u.IsActive
-            join d in db.Departments.AsNoTracking() on u.DepartmentId equals d.Id into dj
-            from d in dj.DefaultIfEmpty()
-            orderby u.FullName
-            select new SandboxPersonaDto(u.Id, u.Email, u.FullName, d != null ? d.Name : null)
-        ).Take(200).ToListAsync(ct);
+        var users = await db.SharedPrincipals.AsNoTracking()
+            .Where(p => p.Type == SharedPrincipalType.User && p.Active && p.DeletedAt == null)
+            .OrderBy(u => u.DisplayName)
+            .Take(200)
+            .ToListAsync(ct);
 
+        var rows = new List<SandboxPersonaDto>(users.Count);
+        foreach (var u in users)
+        {
+            var deptName = await (
+                from ud in db.SharedUserDepts.AsNoTracking()
+                where ud.UserId == u.Id && ud.IsPrimary
+                join d in db.SharedPrincipals.AsNoTracking() on ud.DeptId equals d.Id
+                select (string?)d.DisplayName).FirstOrDefaultAsync(ct);
+            rows.Add(new SandboxPersonaDto(u.Id, u.Email ?? string.Empty, u.DisplayName, deptName));
+        }
         return rows;
     }
 

@@ -100,50 +100,70 @@ public sealed class BundleSeedFixture(
     /// </summary>
     private async Task<SampleOrgSnapshot> BuildSampleOrgFromSeedAsync(CancellationToken ct)
     {
-        var users = await db.Users
-            .AsNoTracking()
-            .Select(u => new UserSnapshot(u.Id, u.Email, u.FullName, u.ManagerId, u.DepartmentId))
+        // After unify-user-store: identity comes from admin-svc's seed via
+        // SharedX entity mappings on the shared db. The legacy
+        // ManagerId / DepartmentId / Department.Code / Group.Code / Role.Code
+        // columns no longer exist — translate through SharedUserManagers,
+        // SharedUserDepts(IsPrimary), SharedDeptParents, SharedDeptHeads, etc.
+        var principals = await db.SharedPrincipals.AsNoTracking()
+            .Where(p => p.DeletedAt == null)
             .ToListAsync(ct);
 
-        var depts = await db.Departments
-            .AsNoTracking()
-            .Select(d => new DepartmentSnapshot(d.Id, d.Code, d.Name, d.ParentId, d.HeadUserId))
-            .ToListAsync(ct);
+        var primaryDeptByUser = await db.SharedUserDepts.AsNoTracking()
+            .Where(ud => ud.IsPrimary)
+            .ToDictionaryAsync(ud => ud.UserId, ud => ud.DeptId, ct);
+        var managerByUser = await db.SharedUserManagers.AsNoTracking()
+            .ToDictionaryAsync(m => m.UserId, m => (Guid?)m.ManagerUserId, ct);
 
-        var groupRows = await db.Groups
-            .AsNoTracking()
-            .Select(g => new { g.Id, g.Code, g.Name })
-            .ToListAsync(ct);
-        var memberRows = await db.GroupMembers
-            .AsNoTracking()
-            .Select(m => new { m.GroupId, m.PrincipalId })
+        var users = principals
+            .Where(p => p.Type == SharedIdentity.SharedPrincipalType.User)
+            .Select(u => new UserSnapshot(
+                u.Id,
+                u.Email ?? string.Empty,
+                u.DisplayName,
+                managerByUser.GetValueOrDefault(u.Id),
+                primaryDeptByUser.TryGetValue(u.Id, out var dId) ? dId : (Guid?)null))
+            .ToList();
+
+        var parentByDept = await db.SharedDeptParents.AsNoTracking()
+            .ToDictionaryAsync(dp => dp.DeptId, dp => dp.ParentDeptId, ct);
+        var headByDept = await db.SharedDeptHeads.AsNoTracking()
+            .ToDictionaryAsync(dh => dh.DeptId, dh => (Guid?)dh.HeadUserId, ct);
+
+        var depts = principals
+            .Where(p => p.Type == SharedIdentity.SharedPrincipalType.Dept)
+            .Select(d => new DepartmentSnapshot(
+                d.Id,
+                d.DisplayName,
+                d.DisplayName,
+                parentByDept.TryGetValue(d.Id, out var pId) ? pId : null,
+                headByDept.TryGetValue(d.Id, out var hId) ? hId : null))
+            .ToList();
+
+        var memberRows = await db.SharedGroupMembers.AsNoTracking()
+            .Select(m => new { m.GroupId, m.MemberPrincipalId })
             .ToListAsync(ct);
         var membersByGroup = memberRows
             .GroupBy(m => m.GroupId)
-            .ToDictionary(g => g.Key, g => (IReadOnlyList<Guid>)g.Select(x => x.PrincipalId).ToList());
-        var groups = groupRows
-            .Select(g => new GroupSnapshot(g.Id, g.Code, g.Name,
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<Guid>)g.Select(x => x.MemberPrincipalId).ToList());
+        var groups = principals
+            .Where(p => p.Type == SharedIdentity.SharedPrincipalType.Group)
+            .Select(g => new GroupSnapshot(g.Id, g.DisplayName, g.DisplayName,
                 membersByGroup.GetValueOrDefault(g.Id, Array.Empty<Guid>())))
             .ToList();
 
         var raRows = await (
-            from ra in db.RoleAssignments.AsNoTracking()
-            join r in db.Roles.AsNoTracking() on ra.RoleId equals r.Id
-            select new { RoleCode = r.Code, ra.PrincipalId, ra.Scope, ra.ScopeRef }
+            from pr in db.SharedPrincipalRoles.AsNoTracking()
+            join r in db.SharedRoles.AsNoTracking() on pr.RoleId equals r.Id
+            select new { RoleName = r.Name, pr.PrincipalId }
         ).ToListAsync(ct);
         var assignments = raRows
-            .Select(x => new RoleAssignmentSnapshot(
-                x.RoleCode,
-                x.PrincipalId,
-                x.Scope == AssignmentScope.Tenant ? "tenant" : x.Scope.ToString().ToLowerInvariant(),
-                x.ScopeRef))
+            .Select(x => new RoleAssignmentSnapshot(x.RoleName, x.PrincipalId, "tenant", null))
             .ToList();
 
-        // BundleBuildValidator requires >=1 user — assert here so the caller
-        // gets a clean message rather than a deep stack from inside Build.
         if (users.Count == 0)
             throw new InvalidOperationException(
-                "BundleSeedFixture: no users seeded. Run 'seed' before 'seed --include-bundles'.");
+                "BundleSeedFixture: no users seeded. Boot admin-svc once to populate the unified seed.");
 
         return new SampleOrgSnapshot(users, depts, groups, assignments);
     }

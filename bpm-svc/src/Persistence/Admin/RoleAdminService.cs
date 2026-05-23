@@ -2,46 +2,59 @@ using Bpm.Application.Admin;
 using Bpm.Application.Admin.Dtos;
 using Bpm.Application.Common.Exceptions;
 using Bpm.Domain.Entities.Authz;
+using Bpm.Persistence.SharedIdentity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Bpm.Persistence.Admin;
 
+/// <summary>
+/// Thin admin tool that reads + writes the unified Admin_* identity
+/// tables via SharedX. Audit lives in bpm-svc's local
+/// RoleAssignmentChanges table (runtime-side, not duplicated in admin).
+/// </summary>
 public sealed class RoleAdminService(AppDbContext db) : IRoleAdminService
 {
-    private const string AdminRoleCode = "admin";
+    // Admin role name in the unified seed (admin-svc Seeder). Renamed from
+    // bpm-local "admin" → admin-svc's "SystemAdmin" by unify-user-store.
+    private const string AdminRoleName = "SystemAdmin";
 
     public async Task<IReadOnlyList<RoleSummaryDto>> ListRolesAsync(CancellationToken ct = default)
     {
         var rows = await (
-            from r in db.Roles
+            from r in db.SharedRoles.AsNoTracking()
             select new RoleSummaryDto(
-                r.Id, r.Code, r.Name, r.Scope,
-                db.RoleAssignments.Count(ra => ra.RoleId == r.Id))
+                r.Id, r.Name, r.IsSystem,
+                db.SharedPrincipalRoles.Count(pr => pr.RoleId == r.Id))
         ).ToListAsync(ct);
         return rows;
     }
 
-    public async Task<PagedResult<UserSummaryDto>> ListUsersAsync(string? q, int page, int pageSize, string? roleCode, CancellationToken ct = default)
+    public async Task<PagedResult<UserSummaryDto>> ListUsersAsync(string? q, int page, int pageSize, string? roleName, CancellationToken ct = default)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 1;
         if (pageSize > 200) pageSize = 200;
 
-        var query = db.Users.AsQueryable();
+        var query = db.SharedPrincipals.AsNoTracking()
+            .Where(p => p.Type == SharedPrincipalType.User && p.DeletedAt == null);
         if (!string.IsNullOrWhiteSpace(q))
         {
             var pattern = $"%{q.Trim()}%";
-            query = query.Where(u => EF.Functions.Like(u.FullName, pattern) || EF.Functions.Like(u.Email, pattern));
+            query = query.Where(u =>
+                EF.Functions.Like(u.DisplayName, pattern)
+                || (u.Email != null && EF.Functions.Like(u.Email, pattern)));
         }
-        if (!string.IsNullOrWhiteSpace(roleCode))
+        if (!string.IsNullOrWhiteSpace(roleName))
         {
-            var code = roleCode.Trim();
-            query = query.Where(u => db.RoleAssignments.Any(ra => ra.PrincipalId == u.Id && ra.Role!.Code == code));
+            var name = roleName.Trim();
+            query = query.Where(u => db.SharedPrincipalRoles.Any(pr =>
+                pr.PrincipalId == u.Id
+                && db.SharedRoles.Any(r => r.Id == pr.RoleId && r.Name == name)));
         }
 
         var total = await query.CountAsync(ct);
         var users = await query
-            .OrderBy(u => u.FullName)
+            .OrderBy(u => u.DisplayName)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(ct);
@@ -49,119 +62,135 @@ public sealed class RoleAdminService(AppDbContext db) : IRoleAdminService
         var items = new List<UserSummaryDto>(users.Count);
         foreach (var u in users)
         {
-            var roleCount = await db.RoleAssignments.CountAsync(ra => ra.PrincipalId == u.Id, ct);
-            items.Add(new UserSummaryDto(u.Id, u.FullName, u.Email, u.Department?.Code, u.IsActive, roleCount));
+            var roleCount = await db.SharedPrincipalRoles.CountAsync(pr => pr.PrincipalId == u.Id, ct);
+            var deptCode = await (
+                from ud in db.SharedUserDepts.AsNoTracking()
+                where ud.UserId == u.Id && ud.IsPrimary
+                join d in db.SharedPrincipals.AsNoTracking() on ud.DeptId equals d.Id
+                select (string?)d.DisplayName).FirstOrDefaultAsync(ct);
+            items.Add(new UserSummaryDto(u.Id, u.DisplayName, u.Email ?? string.Empty, deptCode, u.Active, roleCount));
         }
         return new PagedResult<UserSummaryDto>(items, page, pageSize, total);
     }
 
     public async Task<UserDetailDto> GetUserDetailAsync(Guid userId, CancellationToken ct = default)
     {
-        var user = await db.Users.Include(u => u.Department).FirstOrDefaultAsync(u => u.Id == userId, ct)
+        var user = await db.SharedPrincipals.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId && u.Type == SharedPrincipalType.User, ct)
             ?? throw new NotFoundException("User", userId);
 
+        var deptCode = await (
+            from ud in db.SharedUserDepts.AsNoTracking()
+            where ud.UserId == user.Id && ud.IsPrimary
+            join d in db.SharedPrincipals.AsNoTracking() on ud.DeptId equals d.Id
+            select (string?)d.DisplayName).FirstOrDefaultAsync(ct);
+
         var assignments = await (
-            from ra in db.RoleAssignments
-            where ra.PrincipalId == userId
-            join r in db.Roles on ra.RoleId equals r.Id
-            select new { ra, r }).ToListAsync(ct);
+            from pr in db.SharedPrincipalRoles.AsNoTracking()
+            where pr.PrincipalId == userId
+            join r in db.SharedRoles.AsNoTracking() on pr.RoleId equals r.Id
+            select new { pr, r }).ToListAsync(ct);
 
         var dtos = new List<AssignmentDto>(assignments.Count);
         foreach (var x in assignments)
         {
-            // assignedBy = actor of the most recent Assign action for this assignment's combo
             var lastAssign = await db.RoleAssignmentChanges.AsNoTracking()
-                .Where(c => c.TargetUserId == userId && c.RoleId == x.ra.RoleId && c.Action == RoleAssignmentChangeAction.Assign)
+                .Where(c => c.TargetUserId == userId && c.RoleId == x.r.Id && c.Action == RoleAssignmentChangeAction.Assign)
                 .OrderByDescending(c => c.CreatedAt)
                 .FirstOrDefaultAsync(ct);
-            dtos.Add(new AssignmentDto(
-                x.ra.Id, x.r.Id, x.r.Code, x.r.Name, x.ra.Scope, x.ra.ScopeRef,
-                x.ra.CreatedAt, lastAssign?.ActorUserId));
+            var synthId = CompositeGuid(x.pr.PrincipalId, x.pr.RoleId);
+            dtos.Add(new AssignmentDto(synthId, x.r.Id, x.r.Name, x.pr.AssignedAt, lastAssign?.ActorUserId));
         }
 
-        var profile = new UserSummaryDto(user.Id, user.FullName, user.Email, user.Department?.Code, user.IsActive, dtos.Count);
+        var profile = new UserSummaryDto(user.Id, user.DisplayName, user.Email ?? string.Empty, deptCode, user.Active, dtos.Count);
         return new UserDetailDto(profile, dtos);
     }
 
     public async Task<AssignmentDto> AssignRoleAsync(Guid actorUserId, Guid targetUserId, AssignRoleRequest req, CancellationToken ct = default)
     {
-        var role = await db.Roles.FirstOrDefaultAsync(r => r.Code == req.RoleCode, ct)
-            ?? throw new NotFoundException("Role", req.RoleCode);
-        var target = await db.Users.FirstOrDefaultAsync(u => u.Id == targetUserId, ct)
+        var role = await db.SharedRoles.FirstOrDefaultAsync(r => r.Name == req.RoleName, ct)
+            ?? throw new NotFoundException("Role", req.RoleName);
+        var target = await db.SharedPrincipals
+            .FirstOrDefaultAsync(p => p.Id == targetUserId && p.Type == SharedPrincipalType.User, ct)
             ?? throw new NotFoundException("User", targetUserId);
 
-        // Idempotent at the (user, role, scope, scopeRef) level
-        var scope = req.Scope ?? AssignmentScope.Tenant;
-        var existing = await db.RoleAssignments.FirstOrDefaultAsync(ra =>
-            ra.PrincipalId == target.Id && ra.RoleId == role.Id && ra.Scope == scope && ra.ScopeRef == req.ScopeRef, ct);
+        var existing = await db.SharedPrincipalRoles
+            .FirstOrDefaultAsync(pr => pr.PrincipalId == target.Id && pr.RoleId == role.Id, ct);
         if (existing is not null)
             throw new ConflictException("user already has this role assignment");
 
-        var ra = new RoleAssignment
+        var pr = new SharedPrincipalRole
         {
             PrincipalId = target.Id,
             RoleId = role.Id,
-            Scope = scope,
-            ScopeRef = req.ScopeRef,
+            InheritToMembers = false,
+            AssignedAt = DateTime.UtcNow,
+            AssignedByUserId = actorUserId,
         };
-        db.RoleAssignments.Add(ra);
+        db.SharedPrincipalRoles.Add(pr);
         db.RoleAssignmentChanges.Add(new RoleAssignmentChange
         {
             ActorUserId = actorUserId,
             TargetUserId = target.Id,
             RoleId = role.Id,
-            RoleCodeSnapshot = role.Code,
+            RoleCodeSnapshot = role.Name,
             Action = RoleAssignmentChangeAction.Assign,
-            Scope = scope,
-            ScopeRef = req.ScopeRef,
+            Scope = AssignmentScope.Tenant,
+            ScopeRef = null,
         });
         await db.SaveChangesAsync(ct);
 
-        return new AssignmentDto(ra.Id, role.Id, role.Code, role.Name, scope, req.ScopeRef, ra.CreatedAt, actorUserId);
+        var synthId = CompositeGuid(pr.PrincipalId, pr.RoleId);
+        return new AssignmentDto(synthId, role.Id, role.Name, pr.AssignedAt, actorUserId);
     }
 
     public async Task RevokeAssignmentAsync(Guid actorUserId, Guid targetUserId, Guid assignmentId, CancellationToken ct = default)
     {
-        var ra = await db.RoleAssignments.FirstOrDefaultAsync(x => x.Id == assignmentId && x.PrincipalId == targetUserId, ct)
+        var rolesForTarget = await db.SharedPrincipalRoles
+            .Where(pr => pr.PrincipalId == targetUserId)
+            .ToListAsync(ct);
+        var pr = rolesForTarget.FirstOrDefault(x => CompositeGuid(x.PrincipalId, x.RoleId) == assignmentId)
             ?? throw new NotFoundException("RoleAssignment", assignmentId);
-        var role = await db.Roles.FirstAsync(r => r.Id == ra.RoleId, ct);
+        var role = await db.SharedRoles.FirstAsync(r => r.Id == pr.RoleId, ct);
 
-        if (role.Code == AdminRoleCode)
+        if (role.Name == AdminRoleName)
         {
-            // Self-revoke own last admin?
             if (actorUserId == targetUserId)
-            {
-                var otherAdminAssignmentsForCaller = await db.RoleAssignments.CountAsync(x =>
-                    x.PrincipalId == actorUserId && x.RoleId == role.Id && x.Id != assignmentId, ct);
-                if (otherAdminAssignmentsForCaller == 0)
-                    throw new ForbiddenException("cannot revoke your own last admin role");
-            }
+                throw new ForbiddenException("cannot revoke your own admin role");
 
-            // Last admin in tenant?
             var totalAdminUsers = await (
-                from a in db.RoleAssignments
-                join r in db.Roles on a.RoleId equals r.Id
-                where r.Code == AdminRoleCode
+                from a in db.SharedPrincipalRoles.AsNoTracking()
+                join r in db.SharedRoles.AsNoTracking() on a.RoleId equals r.Id
+                where r.Name == AdminRoleName
                 select a.PrincipalId
             ).Distinct().CountAsync(ct);
-            // After delete, will any admin remain? If target is the only admin user → block.
-            var targetHasOtherAdminAssignment = await db.RoleAssignments.CountAsync(x =>
-                x.PrincipalId == targetUserId && x.RoleId == role.Id && x.Id != assignmentId, ct) > 0;
-            if (totalAdminUsers <= 1 && !targetHasOtherAdminAssignment)
+            if (totalAdminUsers <= 1)
                 throw new ConflictException("cannot revoke last admin in tenant");
         }
 
-        db.RoleAssignments.Remove(ra);
+        db.SharedPrincipalRoles.Remove(pr);
         db.RoleAssignmentChanges.Add(new RoleAssignmentChange
         {
             ActorUserId = actorUserId,
             TargetUserId = targetUserId,
             RoleId = role.Id,
-            RoleCodeSnapshot = role.Code,
+            RoleCodeSnapshot = role.Name,
             Action = RoleAssignmentChangeAction.Revoke,
-            Scope = ra.Scope,
-            ScopeRef = ra.ScopeRef,
+            Scope = AssignmentScope.Tenant,
+            ScopeRef = null,
         });
         await db.SaveChangesAsync(ct);
+    }
+
+    // SharedPrincipalRole has no standalone Id (composite key on PrincipalId+RoleId);
+    // synthesize a deterministic Guid by XORing the two byte arrays so admin
+    // callers have a stable string to round-trip on revoke.
+    private static Guid CompositeGuid(Guid principalId, Guid roleId)
+    {
+        var a = principalId.ToByteArray();
+        var b = roleId.ToByteArray();
+        var c = new byte[16];
+        for (var i = 0; i < 16; i++) c[i] = (byte)(a[i] ^ b[i]);
+        return new Guid(c);
     }
 }
