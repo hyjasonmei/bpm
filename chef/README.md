@@ -9,9 +9,9 @@ AI Kitchen wizard) into per-flow runtime code under `bpm-svc/` and
 The first cut of chef is **not a service**. Operating chef in v0 means:
 
 1. Jason downloads a bundle `.zip` from admin → unzips somewhere local.
-2. Jason creates an isolated worktree (`git worktree add`) on a fresh
-   `chef/<FLOWCODE>-v<n>-<ts>` branch.
-3. Jason starts a Claude Code session inside that worktree, invokes the
+2. Jason creates a fresh branch off `main` in his normal checkout
+   (e.g. `leave-test-1`).
+3. Jason starts a Claude Code session in the repo, invokes the
    `chef-codegen` skill, and hands chef the bundle path.
 4. chef reads the skill + the bundle + the relevant repo references,
    then writes:
@@ -21,13 +21,14 @@ The first cut of chef is **not a service**. Operating chef in v0 means:
    - `bpm-svc/src/Persistence/Migrations/<CODE>_V<N>_*.cs` — EF migration
    - `bpm-svc/tests/Bpm.Tests/Features/<CODE>/V<N>/**` — tests
    - `bpm-ui/src/features/<CODE>/V<N>/**` — React component + manifest
-5. chef commits to the worktree branch.
+5. chef commits to the chef branch.
 6. Jason reviews the diff in GitKraken, runs `tsc` / `dotnet test`
-   himself if needed, pushes the branch when satisfied.
+   himself if needed, merges into `main` when satisfied.
 
-No queue, no auto-pickup, no service deployment — just a disciplined
-human-in-the-loop run that uses the same conventions a future service
-will follow. v1 (queue puller + Claude Code SDK runner) lives in
+No queue, no auto-pickup, no service deployment, no git worktree —
+just a disciplined human-in-the-loop run on a normal checkout, using
+the same conventions a future service will follow. v1 (queue puller
++ Claude Code SDK runner) lives in
 `openspec/changes/flowcook-step7-chef-v0`; this MVP is its precursor.
 
 ## Layout

@@ -1,31 +1,29 @@
 # chef MVP workflow
 
 The end-to-end run for a single flow version. Jason drives steps 0–3
-manually; chef (Claude session) drives steps 4–6 inside an isolated
-worktree (own SQLite db + own dev server); Jason reviews + ships in
-step 7.
+manually; chef (Claude session) drives steps 4–6 inside a normal
+checkout on a fresh branch; Jason reviews + ships in step 7.
 
-Convention: **only one dev server stack at a time**. main checkout and
-chef worktree share ports, so chef expects main to be shut down before
-it boots dev. Restart main after chef is done.
+There is **no separate git worktree** in this MVP. chef runs against
+the same repo Jason works in, on a per-flow branch (e.g.
+`leave-test-1`), and chef + main bpm stack share the same `db/bpm.db`.
+That's intentional: simplest possible setup, no path juggling, no
+"which checkout am I in?" confusion.
+
+Convention: **only one dev server stack at a time** on the local box
+(they all share ports 5266 / 5290 / 5174 / 5175).
 
 ## 0. Pre-flight (Jason)
 
 Once per machine:
 
 ```bash
-# Where worktrees land — sibling to the main bpm repo
-mkdir -p ~/claude/bpm-chef-worktrees
-
-# Where unzipped bundles land
 mkdir -p ~/claude/flowcook-bundles
 ```
 
-Per chef session — shut main's dev stack down so chef can boot on the
-same ports:
+Per chef session — shut any running dev stack down before chef boots:
 
 ```bash
-# Kill any running dev servers on main's ports
 lsof -ti :5266 :5290 :5174 :5175 | xargs -r kill
 ```
 
@@ -38,25 +36,23 @@ lsof -ti :5266 :5290 :5174 :5175 | xargs -r kill
    `manifest.json` + `forms/` + `sample-org.json` + `test-cases/`
    (see SKILL.md §2 for the full layout).
 
-## 2. Spin up a worktree (Jason, in main repo)
+## 2. Create a chef branch (Jason, in the bpm repo)
 
 ```bash
 cd ~/claude/bpm
-TS=$(date +%Y%m%d-%H%M)
-BRANCH="chef/${FLOWCODE}-v${N}-${TS}"
-WORKTREE="../bpm-chef-worktrees/${FLOWCODE}-v${N}"
-
-git worktree add -b "$BRANCH" "$WORKTREE"
-cd "$WORKTREE"
+git checkout main
+git pull
+BRANCH="<flowcode>-test-1"      # e.g. leave-test-1
+git checkout -b "$BRANCH"
 ```
 
-The worktree shares the same `.git` directory; the new branch is local
-only — no remote push yet.
+You're now on the chef branch in your normal checkout. Everything
+chef does happens here; merge back to `main` after review.
 
 ## 3. Start chef session (Jason)
 
 ```bash
-# Inside the worktree
+# From the repo root
 claude
 ```
 
@@ -64,7 +60,7 @@ In the session, prime chef:
 
 ```
 Read .claude/skills/chef-codegen/SKILL.md and follow it.
-Bundle path: /Users/jason/claude/flowcook-bundles/LEAVE-v1-20260522
+Bundle path: ~/claude/flowcook-bundles/LEAVE-v1-20260522
 ```
 
 That's it — chef takes over from here.
@@ -95,11 +91,10 @@ After each commit, chef:
 Failures: chef investigates the test, fixes the implementation (not
 the test), commits the fix, re-runs. Never papers over with `[Skip]`.
 
-### 5b. Wire migration + seed against the worktree db
+### 5b. Migration + seed
 
-`DbPathResolver` lands the SQLite db at `<worktreeRoot>/db/bpm.db`
-(because git worktree's `.git` file is treated as a repo root). So
-chef can freely:
+`DbPathResolver` lands the SQLite db at `<repoRoot>/db/bpm.db`. chef
+runs the migration + seed against it directly:
 
 ```bash
 cd bpm-svc
@@ -108,8 +103,9 @@ dotnet run --project src/SeedCli -- seed --include-bundles
 ```
 
 The seed populates the 13-user persona shape + flow library bundles.
-chef's own LEAVE_V1 (or whichever) tables now exist on the worktree db
-and don't touch main's db.
+chef's `<CODE>_V<N>_*` tables now exist in the shared db. (Because
+there's only one db file in this MVP, the migration sticks across
+the branch switch — Jason doesn't need to re-run it after merge.)
 
 ### 5c. Boot dev servers + clickthrough
 
@@ -137,7 +133,7 @@ is flagged in the final report.
 
 After the last commit chef tells Jason:
 
-> Done. Branch chef/LEAVE-v1-20260522-1432, 7 commits.
+> Done. Branch leave-test-1, 7 commits.
 > dotnet test: 18/18 green. tsc: clean.
 > Stop-and-ask items: none.
 > Orphan fields (in spec.fields but not spec.layout): none.
@@ -152,42 +148,18 @@ resumes.
 ## 7. Review + ship (Jason)
 
 ```bash
-cd ~/claude/bpm-chef-worktrees/LEAVE-v1
 # Diff in GitKraken or:
 git log --oneline main..HEAD
 git diff main..HEAD
 
 # Local smoke test
-cd bpm-svc && dotnet test --filter LEAVE_V1
+cd bpm-svc && dotnet test --filter <CODE>_V<N>
 cd ../bpm-ui && npx tsc -p tsconfig.app.json --noEmit
-
-# When happy, push via GitKraken (chef can't ssh)
 ```
 
-After push, Jason opens a PR, optionally runs `/ultrareview <PR#>`,
-merges when satisfied, deletes the local worktree:
-
-```bash
-cd ~/claude/bpm
-git worktree remove ../bpm-chef-worktrees/LEAVE-v1
-```
-
-## 8. EF migration on main (Jason, post-merge)
-
-chef already ran `dotnet ef database update` against the worktree db
-in step 5b. After Jason merges the branch and switches back to main,
-the same migration class needs applying to main's db:
-
-```bash
-cd ~/claude/bpm
-git checkout <main-branch>
-git merge chef/<CODE>-v<N>-<ts>
-cd bpm-svc
-dotnet ef database update --project src/Persistence --startup-project src/Api
-```
-
-main's `db/bpm.db` is independent of the worktree's; the migration
-class is the same artefact, but it runs once per db file.
+When happy, merge into main via GitKraken (chef can't ssh — push +
+PR is Jason's job). Since chef wrote against the shared db, no
+extra migration step is needed on main after merge.
 
 ## Failure modes
 
@@ -201,9 +173,9 @@ class is the same artefact, but it runs once per db file.
   Stop-and-ask. The fix may be a new bpm-svc primitive, which means
   this flow waits while a separate change lands.
 - **chef takes too long / hits Claude turn limit.** Restart the
-  session in the same worktree, point at the worktree's git log to
-  show what's already committed, continue.
-- **Two flows in flight at once.** Use two worktrees + two Claude
-  sessions. Branches are independent; only the shared SQLite db
-  could cause friction, so don't run `dotnet ef database update` from
-  either worktree until both are merged.
+  session in the same branch, point at git log to show what's
+  already committed, continue from there.
+- **Two flows in flight at once.** Park one branch, finish the other,
+  then switch back. The shared db means you can't have two chef
+  sessions migrating concurrently — that's a known trade-off of the
+  no-worktree MVP setup.

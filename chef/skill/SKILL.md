@@ -36,9 +36,10 @@ spec wins — flag the inconsistency before you continue.
    If the spec implies you need to touch a forbidden path, stop and
    tell Jason — never silently expand the boundary.
 
-   The worktree's `db/` directory is yours — `DbPathResolver` lands
-   SQLite under `<worktreeRoot>/db/bpm.db` so you can run migrations,
-   seed, and exercise the runtime without touching main's db.
+   The repo's `db/` directory is yours — `DbPathResolver` lands
+   SQLite under `<repoRoot>/db/bpm.db` so you can run migrations,
+   seed, and exercise the runtime without scaffolding anything
+   extra.
 
 2. **Name everything with the `<CODE>_V<N>_` prefix.** Classes, tables,
    migrations, files, React components. The prefix is part of the
@@ -247,16 +248,16 @@ Before you tell Jason "the branch is ready":
 - [ ] Every identifier carries the `<CODE>_V<N>_` prefix
 - [ ] No string literal contains a URL / token — all via `${var}`
 - [ ] `git status` shows only files inside the allowed-write set
-      (the worktree's `db/bpm.db` is fine — it's a runtime artefact,
-      add it to `.gitignore` if it lands tracked)
-- [ ] `dotnet ef database update` ran clean against the worktree db
+      (`db/bpm.db` is a runtime artefact — already gitignored)
+- [ ] `dotnet ef database update` ran clean
 - [ ] `SeedCli seed --include-bundles` seeded persona + flow library
 - [ ] Booted dev server (`bpm-svc/src/Api` + `bpm-ui`) and clicked
       through the form at `/apply/<CODE>` — happy path submits and
       lands an instance row
 - [ ] One commit per logical step (entity / handler / form / tests) so
       Jason can review in GitKraken slice by slice
-- [ ] The branch is `chef/<CODE>-v<N>-<ts>` and you're on it
+- [ ] The branch is `<flow-test>` or whatever Jason created for this
+      session — you only commit on that branch, not on `main`
 - [ ] You wrote one summary message to Jason: what's done, what wasn't
       possible from the spec, what tests pass, what you E2E'd
 

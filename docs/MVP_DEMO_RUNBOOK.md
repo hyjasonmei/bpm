@@ -14,11 +14,12 @@ Three things, in one continuous loop:
 1. **admin** (AI Kitchen) — Jason walks an 11-step wizard, AI helps fill
    detail, output is a portable `.zip` bundle containing
    `spec.json` + form layout + sample org + test cases.
-2. **chef** (manual Claude session in a git worktree) — reads the
-   bundle and writes `bpm-svc/features/<CODE>/V<N>/**` +
-   `bpm-ui/src/features/<CODE>/V<N>/**` code, runs the migration +
-   seed against an isolated db, drives Chrome through `/apply/<CODE>`
-   to verify the happy path.
+2. **chef** (manual Claude session on a fresh branch in the normal
+   checkout) — reads the bundle and writes per-version code under
+   `bpm-svc/src/{Persistence,Api}/Features/<CODE>/V<N>/**` +
+   `bpm-ui/src/features/<CODE>/V<N>/**`, runs the migration + seed
+   against the shared db, drives Chrome through `/apply/<CODE>` to
+   verify the happy path.
 3. **bpm** (employee app + runtime) — the chef-generated form renders
    on the bpm-ui side; submit flows through ProcessRuntime;
    notifications fire and land in `NotificationDispatchAudits` for
@@ -27,7 +28,6 @@ Three things, in one continuous loop:
 ## Pre-requisites (one-time)
 
 ```bash
-mkdir -p ~/claude/bpm-chef-worktrees
 mkdir -p ~/claude/flowcook-bundles
 ```
 
@@ -126,10 +126,11 @@ lsof -i :5266 -i :5290 -i :5174 -i :5175 | grep LISTEN
    # spec.json bpmn.xml manifest.json forms/ test-cases/ notifications/ ...
    ```
 
-## Step 4 — Kill main, open a worktree
+## Step 4 — Kill the running stack + create a chef branch
 
-chef and the main stack share the same dev ports. Shut main down so
-chef can boot freely:
+The dev stack uses fixed ports (5266 / 5290 / 5174 / 5175). chef will
+boot its own dev server in step 6, so shut down anything already
+listening:
 
 ```bash
 lsof -ti :5266 :5290 :5174 :5175 | xargs -r kill
@@ -137,25 +138,19 @@ sleep 2
 lsof -i :5266 -i :5290 -i :5174 -i :5175 | grep LISTEN   # should print nothing
 ```
 
-Spin up a worktree on a fresh branch:
+Create a fresh branch in your normal checkout (no `git worktree` —
+this MVP stays on the simple side):
 
 ```bash
 cd ~/claude/bpm
-TS=$(date +%Y%m%d-%H%M)
-BRANCH="chef/LEAVE-v1-$TS"
-WORKTREE="../bpm-chef-worktrees/LEAVE-v1"
-
-git worktree add -b "$BRANCH" "$WORKTREE"
-cd "$WORKTREE"
-ls            # full repo copy
-ls -la .git   # NOTE: .git here is a FILE not a directory — that's
-              # how worktrees work, and DbPathResolver knows to
-              # treat it as a repo root anyway (Phase 1.1).
+git checkout main
+git pull
+git checkout -b leave-test-1     # or whatever name you want for this flow
 ```
 
 ## Step 5 — Start the chef session
 
-From inside the worktree:
+From the repo root:
 
 ```bash
 claude   # or your usual Claude Code invocation
@@ -188,23 +183,25 @@ If the plan looks right, reply `go`. If chef missed something (e.g.
 
 ## Step 6 — chef writes code, migrates, seeds, smokes
 
-chef should drive the worktree end-to-end without your help:
+chef should drive the chef branch end-to-end without your help:
 
-- writes `bpm-svc/features/LEAVE/V1/**` (entities, handler, controller,
-  notification templates, EF migration, tests, feature flag)
+- writes per-version code under
+  `bpm-svc/src/{Persistence,Api}/Features/LEAVE/V1/**` plus the
+  EF migration in `bpm-svc/src/Persistence/Migrations/` and tests
+  under `bpm-svc/tests/Bpm.Tests/Features/LEAVE/V1/**`
 - writes `bpm-ui/src/features/LEAVE/V1/**` (component +
   `manifest.ts` exporting `{ code: 'LEAVE', version: 1, component }`)
 - runs `dotnet ef database update --project src/Persistence
-  --startup-project src/Api` against the worktree's own
-  `db/bpm.db`
+  --startup-project src/Api` against the shared `db/bpm.db`
 - runs `dotnet run --project bpm-svc/src/SeedCli -- seed
   --include-bundles` to populate persona + flow library
 - boots `dotnet run --project src/Api` and `npm run dev` (in
   `bpm-ui/`)
-- adds `VITE_FEATURE_LEAVE_V1=true` to `bpm-ui/.env.local`
 - drives chrome-devtools through `/apply/LEAVE` — fills the form,
   submits, watches the ProcessInstance show up in admin's Live Cases,
   the notification row land in `NotificationDispatchAudits`
+  (no `VITE_FEATURE_*` env var needed — the bpm-ui registry picks
+  the manifest up automatically on dev-server start)
 
 After each logical commit chef should report a one-liner:
 
@@ -216,7 +213,7 @@ here so we can update the skill.
 ## Step 7 — Review + ship
 
 ```bash
-cd ~/claude/bpm-chef-worktrees/LEAVE-v1
+cd ~/claude/bpm                  # already there — same checkout
 git log --oneline main..HEAD
 git diff main..HEAD --stat
 ```
@@ -230,38 +227,26 @@ cd ../bpm-ui && npx tsc -p tsconfig.app.json --noEmit
 
 Take a screenshot of the running form for the demo deck.
 
-When happy, push the branch with GitKraken (the chef session can't
-ssh github — that's your job). Open a PR if you want
+When happy, push the chef branch with GitKraken (the chef session
+can't ssh github — that's your job). Open a PR if you want
 `/ultrareview` to take a pass; merge into `main` when satisfied.
 
-## Step 8 — Apply the migration on main
+## Step 8 — After merge (no extra migration needed)
 
-The worktree had its own `db/bpm.db`; main's db is independent.
-After the merge:
+Because chef wrote against the shared `db/bpm.db` in step 6, the
+`<CODE>_V<N>_*` tables already exist by the time the branch lands
+on `main`. Just re-boot the four-process stack from Step 2 and visit
+`/apply/LEAVE` — chef's LEAVE_V1 component renders via the feature
+manifest registry (no App.tsx edit, no env-var flag).
 
-```bash
-cd ~/claude/bpm
-git checkout main
-git pull
-cd bpm-svc
-dotnet ef database update --project src/Persistence --startup-project src/Api
-
-cd ../bpm-ui
-grep -q VITE_FEATURE_LEAVE_V1 .env.local || echo "VITE_FEATURE_LEAVE_V1=true" >> .env.local
-
-cd ..   # re-boot the four-process stack from Step 2 to test on main
-```
-
-`/apply/LEAVE` on main's `bpm-ui` should now render chef's LEAVE_V1
-component (via the feature manifest registry — no App.tsx edit
-needed) and submit successfully.
+If you ever spin up a brand-new checkout (different machine, fresh
+clone), the EF migrations auto-apply on `bpm-svc` startup.
 
 ## Step 9 — Clean up
 
 ```bash
 cd ~/claude/bpm
-git worktree remove ../bpm-chef-worktrees/LEAVE-v1
-git branch -d chef/LEAVE-v1-<your-timestamp>      # if merged
+git branch -d leave-test-1       # if merged
 # or keep the branch if you want to compare against the next chef run
 ```
 
@@ -270,9 +255,9 @@ The chef session can be closed.
 ## Known footguns
 
 1. **`/apply/LEAVE` shows NotCookedYet placeholder.** Either chef
-   didn't write `manifest.ts`, or `VITE_FEATURE_LEAVE_V1=true` is
-   missing from `.env.local`, or the dev server didn't see the new
-   file (kill + restart `npm run dev`).
+   didn't write `manifest.ts`, or the dev server was running before
+   chef created the `features/LEAVE/V1/` folder and Vite hasn't
+   re-globbed it yet — kill + restart `npm run dev`.
 2. **chef wants to edit `bpm-svc/Runtime/...` or `bpm-admin-*`.**
    Reject — that violates SKILL.md §1 rule 1. Tell chef the spec
    is asking for behaviour the runtime doesn't expose, and either
@@ -301,9 +286,9 @@ The chef session can be closed.
 
 ## Iteration loop (what to do when chef stumbles)
 
-Categorise the failure and update the matching file in this repo's
-main branch (not in the chef worktree — keep the skill version-
-controlled separately from feature code):
+Categorise the failure and update the matching file on `main` (not
+the chef branch — skill edits land separately from feature code so
+they apply to every future chef run):
 
 | Failure shape | Fix lives in |
 |---|---|
@@ -312,7 +297,7 @@ controlled separately from feature code):
 | spec was missing info chef genuinely needed | `openspec/specs/flowcook-wizard/spec.md` (and probably bump the wizard UI to capture it) |
 | runtime / infra didn't support what chef tried | `bpm-svc/**` or `bpm-ui/**` accordingly |
 
-Commit the skill / spec edit to `main`. In the chef worktree:
+Commit the skill / spec edit to `main`. On the chef branch:
 
 ```bash
 git fetch
