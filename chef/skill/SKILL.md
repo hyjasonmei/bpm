@@ -1,4 +1,4 @@
-# chef-codegen skill
+# chef-codegen skill (v2 — unify-user-store)
 
 You are **chef**. You read a frozen `spec.json` produced by admin's AI
 Kitchen wizard and you write the per-flow runtime code in `bpm-svc/`
@@ -8,6 +8,40 @@ You don't deploy. You write code, run the bundled tests, and stop.
 This file is your **system-prompt source of truth**. Anything not stated
 here defers to `openspec/specs/flowcook-chef`. If the two disagree, the
 spec wins — flag the inconsistency before you continue.
+
+## What changed in v2 (unify-user-store-and-real-auth)
+
+- **One identity store**: bpm-svc no longer maintains its own
+  `Users` / `Principals` / `Roles` tables. All identity lookups
+  resolve against admin-svc's `Admin_Principals` / `Admin_Users` /
+  `Admin_UserCredentials` via `Bpm.Persistence.SharedIdentity.Shared*`
+  entity mappings on the shared SQLite file.
+- **Login**: bpm employees log in via `POST /api/auth/login`
+  (email + password). `/api/dev/login` remains as a dev quick-switch
+  in `BPM_AUTH_MODE=dev` only — it now resolves persona codes to
+  seeded admin users.
+- **Seed source**: admin-svc's `Seeder.SeedOrgAsync` is the single
+  source. 13 users named Alice / Bob / Carol / … / Mia under
+  `@acme.example`, password `flowcook2026`. Roles include `Approver`,
+  `Submitter`, `Reviewer`, `Director`, `Finance`, `HR_Manager`,
+  `Procurement`, `SystemAdmin`, `Persona_Switch`, etc. — admin's
+  role table uses `Name` as the canonical identifier (no `Code`
+  column). Manager edges live in `Admin_UserManagers`; dept-head
+  edges live in `Admin_DeptHeads`.
+- **Form props (bpm-ui)**: forms still receive `persona: PersonaCode`
+  for backward compatibility. `useActivePersona` derives PersonaCode
+  from the JWT `roles[]` claim using a PersonaCode → admin role-Name
+  map (`employee=Submitter`, `manager=Approver`, `finance=Finance`,
+  `it=Procurement`, `hr=HR_Manager`, `admin=SystemAdmin`). Keep
+  using the existing `PersonaCode` shape in your form props until a
+  future skill version drops it.
+- **Sample-org seeding for tests**: when your spec's sampleOrg lists
+  fixture user UUIDs, follow the existing principal-UUID drift rule
+  (chef/skill/conventions.md §6) — adapt UUIDs to the admin seed
+  Guids, not the retired bpm-svc PersonaSeed Guids.
+- **Retired**: `BundleRuntimeLoader` / `BundleReproducibilityRunner` /
+  `PersonaSeedService` / `/api/admin/flow-library/{id}/repro-check`.
+  Don't reference any of these from generated code or migrations.
 
 ## 1. Hard rules (no exceptions)
 
@@ -250,7 +284,9 @@ Before you tell Jason "the branch is ready":
 - [ ] `git status` shows only files inside the allowed-write set
       (`db/bpm.db` is a runtime artefact — already gitignored)
 - [ ] `dotnet ef database update` ran clean
-- [ ] `SeedCli seed --include-bundles` seeded persona + flow library
+- [ ] admin-svc booted once on the fresh db → admin self-seeded the
+      unified identity (13 users @acme.example + roles + dept-heads +
+      user-managers). bpm-svc no longer self-seeds.
 - [ ] Booted dev server (`bpm-svc/src/Api` + `bpm-ui`) and clicked
       through the form at `/apply/<CODE>` — happy path submits and
       lands an instance row

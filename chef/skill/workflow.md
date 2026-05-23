@@ -94,15 +94,21 @@ the test), commits the fix, re-runs. Never papers over with `[Skip]`.
 ### 5b. Migration + seed
 
 `DbPathResolver` lands the SQLite db at `<repoRoot>/db/bpm.db`. chef
-runs the migration + seed against it directly:
+runs the migration against it directly:
 
 ```bash
 cd bpm-svc
 dotnet ef database update --project src/Persistence --startup-project src/Api
-dotnet run --project src/SeedCli -- seed --include-bundles
 ```
 
-The seed populates the 13-user persona shape + flow library bundles.
+After unify-user-store the **user seed is owned by admin-svc** — boot
+admin-svc once on a fresh db and it self-seeds (13 users
+@acme.example with password `flowcook2026`, plus role / dept-head /
+user-manager edges). bpm-svc's `PersonaSeedService` + SeedCli persona
+seed are retired. SeedCli's `--include-bundles` is still useful for
+seeding spec bundles into the Flow Library table but no longer
+touches identity rows.
+
 chef's `<CODE>_V<N>_*` tables now exist in the shared db. (Because
 there's only one db file in this MVP, the migration sticks across
 the branch switch — Jason doesn't need to re-run it after merge.)
