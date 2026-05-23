@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
-import { apiFetch, setJwt, clearJwt } from './apiFetch'
+import { apiFetch, setJwt, clearJwt, getJwt } from './apiFetch'
+import { decodeJwt, jwtRoles } from './jwt'
 
 export type PersonaCode = 'employee' | 'manager' | 'finance' | 'it' | 'hr' | 'admin'
 
@@ -91,13 +92,31 @@ async function loginAs(personaCode: PersonaCode): Promise<DevLoginUser> {
   return data.user as DevLoginUser
 }
 
+function authedFromJwt(): DevLoginUser | null {
+  if (typeof window === 'undefined') return null
+  const token = getJwt()
+  if (!token) return null
+  const decoded = decodeJwt(token)
+  if (!decoded?.sub) return null
+  return {
+    id: decoded.sub,
+    fullName: decoded.full_name ?? decoded.email ?? '(unknown)',
+    email: decoded.email ?? '',
+    departmentCode: null,
+    personaCode: (decoded.persona_code as PersonaCode) ?? 'employee',
+    roles: jwtRoles(decoded),
+  }
+}
+
 export function useActivePersona() {
   const [code, setCodeState] = useState<PersonaCode>(() => {
     if (typeof window === 'undefined') return 'employee'
     const saved = localStorage.getItem(STORAGE_KEY)
     return saved && saved in PERSONAS ? (saved as PersonaCode) : 'employee'
   })
-  const [authedUser, setAuthedUser] = useState<DevLoginUser | null>(null)
+  // Seed authedUser from the JWT on mount so post-login the header shows the
+  // real identity (e.g. "Alice Chen") instead of the cached PERSONAS entry.
+  const [authedUser, setAuthedUser] = useState<DevLoginUser | null>(() => authedFromJwt())
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
