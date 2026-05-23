@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Bpm.Domain.Entities.Org;
+using Bpm.Persistence.SharedIdentity;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IdentityModel.Tokens;
@@ -95,6 +96,46 @@ public sealed class JwtTokenService(JwtOptions options, IHostEnvironment env, IL
             "Sandbox persona token issued: actor={ActorEmail}({ActorId}) → persona={PersonaEmail}({PersonaId}) roles=[{Roles}] expires={Expires:o}",
             actualActorEmail, actualActorUserId, personaEmail, personaUserId,
             string.Join(",", personaRoles), expires);
+
+        return (new JwtSecurityTokenHandler().WriteToken(token), expires);
+    }
+
+    /// <summary>
+    /// Mint a JWT for a user authenticated against the unified Admin_*
+    /// identity store. Used by /api/auth/login. Persona-code claim is
+    /// dropped (callers should consult `roles[]` claim instead); the
+    /// new `dept_code` claim carries the user's primary dept display
+    /// name for header rendering.
+    /// </summary>
+    public (string Token, DateTime ExpiresAt) MintForUnifiedUser(
+        SharedPrincipal user, IEnumerable<string> roleNames, string? deptCode)
+    {
+        var now = DateTime.UtcNow;
+        var lifetime = env.IsDevelopment() ? options.ExpiryDev : options.ExpiryProd;
+        var expires = now.Add(lifetime);
+
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+            new("tenant_id", "default"),
+            new("full_name", user.DisplayName),
+        };
+        if (!string.IsNullOrEmpty(deptCode))
+            claims.Add(new Claim("dept_code", deptCode));
+        foreach (var role in roleNames)
+            claims.Add(new Claim("roles", role));
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.Secret));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: options.Issuer,
+            audience: options.Audience,
+            claims: claims,
+            notBefore: now,
+            expires: expires,
+            signingCredentials: creds);
 
         return (new JwtSecurityTokenHandler().WriteToken(token), expires);
     }
