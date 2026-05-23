@@ -107,7 +107,7 @@ export function RoleSwitcher({ active, onChange, pending = false, error = null, 
           'hover:bg-white/10',
           open && 'bg-white/10',
         )}
-        title="Switch demo persona"
+        title="Switch user (impersonation)"
       >
         <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-[14px]">
           {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : current.emoji}
@@ -123,8 +123,8 @@ export function RoleSwitcher({ active, onChange, pending = false, error = null, 
       {open && (
         <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-80 origin-top-right rounded-lg border border-rule bg-card shadow-2xl">
           <div className="border-b border-rule px-4 py-2.5">
-            <p className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-faint">Demo Persona</p>
-            <p className="text-xs text-ink-muted">Switch role to see the same data from each persona's perspective.</p>
+            <p className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-faint">Switch identity</p>
+            <p className="text-xs text-ink-muted">Quick-switch login (dev only). Admins can act as any user via the impersonation flow below.</p>
           </div>
           <div className="p-1">
             {all.map(p => {
@@ -212,7 +212,7 @@ export function RoleSwitcher({ active, onChange, pending = false, error = null, 
             </div>
           )}
           <div className="border-t border-rule bg-slate-50/50 px-4 py-2 text-[10.5px] text-ink-faint">
-            Persona 切換會打 /api/dev/login 取 JWT，存於 localStorage.bpm_jwt
+            Quick-switch 走 /api/dev/login（僅 BPM_AUTH_MODE=dev）；Impersonation 走 /api/impersonation/start，含稽核紀錄。
           </div>
         </div>
       )}

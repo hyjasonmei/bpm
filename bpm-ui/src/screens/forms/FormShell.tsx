@@ -46,11 +46,12 @@ export function FormShell({
           </Button>
         </div>
 
-        {/* simulated 'jump-to-step' control for the demo when running standalone (create mode).
-            In task mode the runtime owns step state, so the debug bar is hidden. */}
-        {mode === 'create' && (
+        {/* Dev-only 'jump-to-step' control for previewing layouts on hand-coded
+            create-mode forms. Hidden in production builds and in task mode
+            (where the runtime owns step state). */}
+        {mode === 'create' && import.meta.env.DEV && (
           <div className="flex items-center gap-2 border-b border-rule bg-amber-50/40 px-4 py-1.5 text-[11px] text-amber-800">
-            <span className="font-semibold uppercase tracking-wider">Demo</span>
+            <span className="font-semibold uppercase tracking-wider">Dev</span>
             <span>jump to step:</span>
             {def.steps.map((s, i) => (
               <button
