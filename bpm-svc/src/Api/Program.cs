@@ -4,7 +4,6 @@ using Bpm.Api.Common;
 using Bpm.Application;
 using Bpm.Application.Common.Abstractions;
 using Bpm.Persistence;
-using Bpm.Persistence.Seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;

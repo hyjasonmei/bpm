@@ -2,6 +2,7 @@ using System.Text.Json;
 using Bpm.Application.Spec.Bundle;
 using Bpm.Domain.Entities.Authz;
 using Bpm.Persistence;
+using Bpm.Persistence.SharedIdentity;
 using Bpm.SeedCli.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -116,7 +117,7 @@ public sealed class BundleSeedFixture(
             .ToDictionaryAsync(m => m.UserId, m => (Guid?)m.ManagerUserId, ct);
 
         var users = principals
-            .Where(p => p.Type == SharedIdentity.SharedPrincipalType.User)
+            .Where(p => p.Type == SharedPrincipalType.User)
             .Select(u => new UserSnapshot(
                 u.Id,
                 u.Email ?? string.Empty,
@@ -131,7 +132,7 @@ public sealed class BundleSeedFixture(
             .ToDictionaryAsync(dh => dh.DeptId, dh => (Guid?)dh.HeadUserId, ct);
 
         var depts = principals
-            .Where(p => p.Type == SharedIdentity.SharedPrincipalType.Dept)
+            .Where(p => p.Type == SharedPrincipalType.Dept)
             .Select(d => new DepartmentSnapshot(
                 d.Id,
                 d.DisplayName,
@@ -147,7 +148,7 @@ public sealed class BundleSeedFixture(
             .GroupBy(m => m.GroupId)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<Guid>)g.Select(x => x.MemberPrincipalId).ToList());
         var groups = principals
-            .Where(p => p.Type == SharedIdentity.SharedPrincipalType.Group)
+            .Where(p => p.Type == SharedPrincipalType.Group)
             .Select(g => new GroupSnapshot(g.Id, g.DisplayName, g.DisplayName,
                 membersByGroup.GetValueOrDefault(g.Id, Array.Empty<Guid>())))
             .ToList();

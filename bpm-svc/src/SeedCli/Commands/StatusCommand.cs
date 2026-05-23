@@ -1,6 +1,7 @@
 using Bpm.Domain.Entities.Process;
 using Bpm.Domain.Entities.Spec;
 using Bpm.Persistence;
+using Bpm.Persistence.SharedIdentity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -28,9 +29,9 @@ public static class StatusCommand
             // Identity counts after unify-user-store: read from the
             // SharedX entity mappings onto Admin_* tables.
             var users = await db.SharedPrincipals
-                .CountAsync(p => p.Type == SharedIdentity.SharedPrincipalType.User && p.DeletedAt == null, ct);
+                .CountAsync(p => p.Type == SharedPrincipalType.User && p.DeletedAt == null, ct);
             var depts = await db.SharedPrincipals
-                .CountAsync(p => p.Type == SharedIdentity.SharedPrincipalType.Dept && p.DeletedAt == null, ct);
+                .CountAsync(p => p.Type == SharedPrincipalType.Dept && p.DeletedAt == null, ct);
             var roles = await db.SharedRoles.CountAsync(ct);
             var roleAssignments = await db.SharedPrincipalRoles.CountAsync(ct);
 
