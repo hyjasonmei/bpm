@@ -140,6 +140,45 @@ public sealed class JwtTokenService(JwtOptions options, IHostEnvironment env, IL
         return (new JwtSecurityTokenHandler().WriteToken(token), expires);
     }
 
+    /// <summary>
+    /// Mint an impersonation JWT for a target user authenticated against
+    /// the unified Admin_* identity store. After unify-user-store the
+    /// canonical caller is <see cref="JwtImpersonationTokenMinter"/>.
+    /// </summary>
+    public (string Token, DateTime ExpiresAt) MintImpersonationFromShared(
+        SharedPrincipal target, IEnumerable<string> targetRoleNames, Guid impersonatorUserId, Guid sessionId, TimeSpan? lifetime = null)
+    {
+        var now = DateTime.UtcNow;
+        var ttl = lifetime ?? TimeSpan.FromMinutes(30);
+        var expires = now.Add(ttl);
+
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, target.Id.ToString()),
+            new(JwtRegisteredClaimNames.Email, target.Email ?? string.Empty),
+            new("persona_code", "impersonated"),
+            new("tenant_id", "default"),
+            new("full_name", target.DisplayName),
+            new("impersonated_by", impersonatorUserId.ToString()),
+            new("imp_session_id", sessionId.ToString()),
+        };
+        foreach (var role in targetRoleNames)
+            claims.Add(new Claim("roles", role));
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.Secret));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: options.Issuer,
+            audience: options.Audience,
+            claims: claims,
+            notBefore: now,
+            expires: expires,
+            signingCredentials: creds);
+
+        return (new JwtSecurityTokenHandler().WriteToken(token), expires);
+    }
+
     public (string Token, DateTime ExpiresAt) MintImpersonation(
         User target, IEnumerable<string> targetSystemRoles, Guid impersonatorUserId, Guid sessionId, TimeSpan? lifetime = null)
     {
