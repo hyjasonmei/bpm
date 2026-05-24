@@ -4,9 +4,15 @@ import { Button } from '@/components/ui/button'
 import { Input, Field } from '@/components/ui/form'
 import { login } from '@/lib/api/auth'
 
+// Demo credentials match admin-svc's seeded Bob (employee persona,
+// reports to Alice the Backend dept head). Pre-filling matches the
+// admin-ui Login page UX so the team can fly through dev login.
+const DEMO_EMAIL = 'bob@acme.example'
+const DEMO_PASSWORD = 'flowcook2026'
+
 export function Login({ onLoggedIn }: { onLoggedIn?: () => void }) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState(DEMO_EMAIL)
+  const [password, setPassword] = useState(DEMO_PASSWORD)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -93,7 +99,10 @@ export function Login({ onLoggedIn }: { onLoggedIn?: () => void }) {
             使用 Microsoft 帳號登入（即將推出）
           </button>
 
-          <p className="text-center text-[11px] text-ink-faint pt-1">
+          <p className="text-center text-[11px] text-ink-faint pt-2">
+            Demo · <span className="font-mono">{DEMO_EMAIL}</span> / <span className="font-mono">{DEMO_PASSWORD}</span>
+          </p>
+          <p className="text-center text-[11px] text-ink-faint">
             忘記密碼？請聯絡 <a href="mailto:support@flowcook.example" className="text-primary hover:underline">support@flowcook</a>
           </p>
         </form>
