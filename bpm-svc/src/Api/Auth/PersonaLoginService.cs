@@ -1,6 +1,5 @@
-using Bpm.Domain.Entities.Authz;
-using Bpm.Domain.Entities.Org;
 using Bpm.Persistence;
+using Bpm.Persistence.SharedIdentity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Bpm.Api.Auth;
@@ -14,6 +13,12 @@ public sealed class PersonaLoginException(string code, string message) : Excepti
     public string Code { get; } = code;
 }
 
+/// <summary>
+/// Dev-only persona quick-switch. Maps a persona code → seeded admin-svc
+/// user → real JWT minted via JwtTokenService.MintForUnifiedUser. Used
+/// by the IdentitySwitcher dropdown in bpm-ui (dev mode); production
+/// builds disable /api/dev/login via BPM_AUTH_MODE=prod.
+/// </summary>
 public sealed class PersonaLoginService(AppDbContext db, JwtTokenService tokens, PersonaMappingOptions personas)
 {
     public async Task<LoginResult> LoginAsync(string personaCode, CancellationToken ct = default)
@@ -21,27 +26,44 @@ public sealed class PersonaLoginService(AppDbContext db, JwtTokenService tokens,
         if (!personas.Map.TryGetValue(personaCode, out var mapping) || string.IsNullOrWhiteSpace(mapping))
             throw new PersonaLoginException("persona_mapping_missing", $"No user mapped to persona '{personaCode}' in Personas config");
 
-        User? user;
+        SharedPrincipal? user = null;
         if (Guid.TryParse(mapping, out var id))
         {
-            user = await db.Users.Include(u => u.Department).FirstOrDefaultAsync(u => u.Id == id, ct);
+            user = await db.SharedPrincipals.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == id && p.Type == SharedPrincipalType.User, ct);
         }
         else
         {
-            user = await db.Users.Include(u => u.Department).FirstOrDefaultAsync(u => u.Email == mapping, ct);
+            var emailNorm = mapping.Trim().ToLowerInvariant();
+            user = await db.SharedPrincipals.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Type == SharedPrincipalType.User
+                                       && p.Email != null
+                                       && p.Email.ToLower() == emailNorm, ct);
         }
 
         if (user is null)
-            throw new PersonaLoginException("seed_user_not_found", $"Persona '{personaCode}' maps to '{mapping}' but no matching User row exists");
+            throw new PersonaLoginException("seed_user_not_found", $"Persona '{personaCode}' maps to '{mapping}' but no matching admin-svc User row exists");
 
-        var systemRoleCodes = await (
-            from ra in db.RoleAssignments
-            join r in db.Roles on ra.RoleId equals r.Id
-            where ra.PrincipalId == user.Id && r.Scope == RoleScope.System
-            select r.Code).Distinct().ToListAsync(ct);
+        var roleNames = await (
+            from pr in db.SharedPrincipalRoles.AsNoTracking()
+            join r in db.SharedRoles.AsNoTracking() on pr.RoleId equals r.Id
+            where pr.PrincipalId == user.Id
+            select r.Name).Distinct().ToListAsync(ct);
 
-        var (token, expires) = tokens.Mint(user, personaCode, systemRoleCodes);
-        var summary = new UserSummary(user.Id, user.FullName, user.Email, user.Department?.Code, personaCode, systemRoleCodes);
+        var primaryDept = await (
+            from ud in db.SharedUserDepts.AsNoTracking()
+            where ud.UserId == user.Id && ud.IsPrimary
+            join d in db.SharedPrincipals.AsNoTracking() on ud.DeptId equals d.Id
+            select d.DisplayName).FirstOrDefaultAsync(ct);
+
+        var (token, expires) = tokens.MintForUnifiedUser(user, roleNames, primaryDept);
+        var summary = new UserSummary(
+            user.Id,
+            user.DisplayName,
+            user.Email ?? string.Empty,
+            primaryDept,
+            personaCode,
+            roleNames);
         return new LoginResult(token, expires, summary);
     }
 }

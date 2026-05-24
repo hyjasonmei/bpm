@@ -82,25 +82,46 @@ cd ~/claude/bpm/bpm-ui
 npm run dev
 ```
 
-First boot:
-- `bpm-svc` auto-migrates + auto-seeds (13 users / 6 depts / 14 roles)
-  into `db/bpm.db`. Persona switcher uses these — emails like
-  `wilson@acme.test` / `yang@acme.test`.
-- `admin-svc` auto-migrates `Admin_*` tables into the same file AND
-  auto-seeds the admin org graph (13 users / 6 depts / 14 roles) the
-  first time `Admin_Principals` is empty. Login uses these — emails
-  like `alice@acme.example`. Password is `flowcook2026`.
+First boot (post unify-user-store):
+- `admin-svc` auto-migrates `Admin_*` tables into `db/bpm.db` AND
+  auto-seeds the unified org (13 users / 6 depts / 14 roles +
+  dept-heads + user-managers) the first time `Admin_Principals` is
+  empty. **This is now the single identity seed for the whole
+  system.** Login emails: `alice@acme.example` / `bob@acme.example` /
+  … `mia@acme.example`. Password: `flowcook2026`.
+- `bpm-svc` auto-migrates its runtime tables. It no longer has its
+  own user / principal / role tables — the runtime reads admin's
+  identity store via `SharedIdentity` entity mappings.
+- `bpm-ui` (port 5173) shows a real Login screen on first hit.
+  Email + password lands a JWT via `POST /api/auth/login`. The dev
+  IdentitySwitcher dropdown still exists and resolves persona codes
+  to seeded admin users via `/api/dev/login` (gated on
+  `BPM_AUTH_MODE != prod`).
 
-(Per the post-commit `f87e5d2` fix — earlier versions of this runbook
-required running `Bpm.Admin.SeedCli -- seed --org` by hand or login
-would return 401. Auto-seed on startup makes that manual step
-unnecessary in Development.)
-
-Verify both ports listen:
+Verify all four ports listen:
 
 ```bash
-lsof -i :5266 -i :5290 -i :5174 -i :5175 | grep LISTEN
+lsof -i :5266 -i :5290 -i :5174 -i :5173 | grep LISTEN
 ```
+
+(bpm-ui defaults to Vite port `5173` — the launch script does not pin
+it to `5175` anymore.)
+
+### Reusing a prior bundle vs cooking fresh
+
+Two paths into Step 5+ depending on whether you have a recent
+`LEAVE_v1.zip` lying around:
+
+- **Cook fresh** (recommended for the first run after unify): walk
+  Step 3 below. The new bundle carries a `sample-org.json` referencing
+  admin's `@acme.example` user UUIDs, so chef hits zero principal-UUID
+  drift.
+- **Reuse a pre-unify bundle**: the `spec.json` shape is unchanged so
+  chef-side codegen still works, but the bundled `sample-org.json`
+  references the retired `wilson@acme.test` user ids. chef's
+  `principal-UUID drift` rule (chef/skill/conventions.md §6) tells it
+  to rewrite UUIDs into the current seed — costs chef a handful of
+  extra rewrites at cook time. Tolerable but skip-it-when-possible.
 
 ## Step 3 — Cook LEAVE in admin
 
@@ -193,15 +214,23 @@ chef should drive the chef branch end-to-end without your help:
   `manifest.ts` exporting `{ code: 'LEAVE', version: 1, component }`)
 - runs `dotnet ef database update --project src/Persistence
   --startup-project src/Api` against the shared `db/bpm.db`
-- runs `dotnet run --project bpm-svc/src/SeedCli -- seed
-  --include-bundles` to populate persona + flow library
+- (optional) `dotnet run --project bpm-svc/src/SeedCli -- seed
+  --include-bundles` if you want the spec bundle pre-installed in
+  the Flow Library. Identity rows are seeded by admin-svc on its
+  first boot — bpm-svc no longer owns them.
 - boots `dotnet run --project src/Api` and `npm run dev` (in
   `bpm-ui/`)
-- drives chrome-devtools through `/apply/LEAVE` — fills the form,
-  submits, watches the ProcessInstance show up in admin's Live Cases,
-  the notification row land in `NotificationDispatchAudits`
-  (no `VITE_FEATURE_*` env var needed — the bpm-ui registry picks
-  the manifest up automatically on dev-server start)
+- logs into bpm-ui as `bob@acme.example` / `flowcook2026` via the
+  real Login screen on `http://localhost:5173/` (the dev shortcut
+  IdentitySwitcher also works post-login). Drives chrome-devtools
+  through `/apply/LEAVE` — fills the form, submits, watches the
+  ProcessInstance show up. Manager-approval step lands in
+  `alice@acme.example`'s inbox (Bob's direct manager edge in
+  `Admin_UserManagers`). HR step lands in `henry@acme.example`
+  (HR dept head). Notification row writes to
+  `NotificationDispatchAudits` for the admin Process Admin Console
+  to surface (no `VITE_FEATURE_*` env var — the bpm-ui registry
+  picks the manifest up automatically on dev-server start)
 
 After each logical commit chef should report a one-liner:
 

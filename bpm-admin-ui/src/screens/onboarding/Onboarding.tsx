@@ -16,7 +16,11 @@ import {
 } from '@/lib/onboarding'
 import { listBundles, getBundleDraftHydration } from '@/lib/api/flowLibrary'
 import type { ImportDraftResult } from '@/types/flowLibrary'
-import type { AdminScreen } from '@/components/AdminLayout'
+
+// AdminScreen previously came from the retired AdminLayout. Onboarding
+// only used it for the optional onNavigate prop — kept as an opaque
+// type so the prop shape stays compatible if a caller still wires it.
+type AdminScreen = { kind: string }
 import { CoPilotCanvas } from './CoPilotCanvas'
 import { StepSource } from './steps/StepSource'
 import { StepTriggerAccess } from './steps/StepTriggerAccess'

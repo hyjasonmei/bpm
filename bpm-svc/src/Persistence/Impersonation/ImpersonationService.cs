@@ -1,15 +1,17 @@
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Impersonation;
 using Bpm.Application.Impersonation.Dtos;
-using Bpm.Domain.Entities.Authz;
 using Bpm.Domain.Entities.Impersonation;
+using Bpm.Persistence.SharedIdentity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Bpm.Persistence.Impersonation;
 
 public sealed class ImpersonationService(AppDbContext db, IImpersonationTokenMinter minter) : IImpersonationService
 {
-    private const string AdminRoleCode = "admin";
+    // Admin role name in admin-svc's seed (mirrors Bpm.Admin.Persistence.Seed.Seeder).
+    // Renamed from "admin" → "SystemAdmin" by the unify-user-store change.
+    private const string AdminRoleName = "SystemAdmin";
 
     public async Task<StartImpersonationResult> StartAsync(
         Guid impersonatorUserId, Guid targetUserId, string reason, bool callerIsAlreadyImpersonating, CancellationToken ct = default)
@@ -26,14 +28,18 @@ public sealed class ImpersonationService(AppDbContext db, IImpersonationTokenMin
         if (hasOtherActive)
             throw new ConflictException("you already have an active impersonation session; end it first");
 
-        var callerIsAdmin = await db.RoleAssignments
-            .AnyAsync(ra => ra.PrincipalId == impersonatorUserId && ra.Role!.Code == AdminRoleCode, ct);
+        var callerIsAdmin = await (
+            from pr in db.SharedPrincipalRoles.AsNoTracking()
+            join r in db.SharedRoles.AsNoTracking() on pr.RoleId equals r.Id
+            where pr.PrincipalId == impersonatorUserId && r.Name == AdminRoleName
+            select pr).AnyAsync(ct);
         if (!callerIsAdmin)
             throw new ForbiddenException("only admins can start impersonation");
 
-        var target = await db.Users.FirstOrDefaultAsync(u => u.Id == targetUserId, ct);
+        var target = await db.SharedPrincipals.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == targetUserId && p.Type == SharedPrincipalType.User, ct);
         if (target is null) throw new NotFoundException("User", targetUserId);
-        if (!target.IsActive) throw new ConflictException("target user is inactive");
+        if (!target.Active || target.DeletedAt != null) throw new ConflictException("target user is inactive");
 
         var session = new ImpersonationSession
         {
@@ -46,7 +52,7 @@ public sealed class ImpersonationService(AppDbContext db, IImpersonationTokenMin
         await db.SaveChangesAsync(ct);
 
         var (token, expiresAt) = minter.MintFor(targetUserId, impersonatorUserId, session.Id);
-        return new StartImpersonationResult(token, expiresAt, session.Id, target.Id, target.FullName);
+        return new StartImpersonationResult(token, expiresAt, session.Id, target.Id, target.DisplayName);
     }
 
     public async Task EndAsync(Guid sessionId, Guid byUserId, CancellationToken ct = default)
@@ -102,8 +108,11 @@ public sealed class ImpersonationService(AppDbContext db, IImpersonationTokenMin
 
     public async Task RevokeAsync(Guid sessionId, Guid byUserId, CancellationToken ct = default)
     {
-        var callerIsAdmin = await db.RoleAssignments
-            .AnyAsync(ra => ra.PrincipalId == byUserId && ra.Role!.Code == AdminRoleCode, ct);
+        var callerIsAdmin = await (
+            from pr in db.SharedPrincipalRoles.AsNoTracking()
+            join r in db.SharedRoles.AsNoTracking() on pr.RoleId equals r.Id
+            where pr.PrincipalId == byUserId && r.Name == AdminRoleName
+            select pr).AnyAsync(ct);
         if (!callerIsAdmin) throw new ForbiddenException("only admins can revoke impersonation sessions");
 
         var s = await db.ImpersonationSessions.FirstOrDefaultAsync(x => x.Id == sessionId, ct);
@@ -116,11 +125,11 @@ public sealed class ImpersonationService(AppDbContext db, IImpersonationTokenMin
 
     private async Task<ImpersonationSessionDto> ToDto(ImpersonationSession s, CancellationToken ct)
     {
-        var imp = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == s.ImpersonatorUserId, ct);
-        var tgt = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == s.TargetUserId, ct);
+        var imp = await db.SharedPrincipals.AsNoTracking().FirstOrDefaultAsync(u => u.Id == s.ImpersonatorUserId, ct);
+        var tgt = await db.SharedPrincipals.AsNoTracking().FirstOrDefaultAsync(u => u.Id == s.TargetUserId, ct);
         return new ImpersonationSessionDto(
-            s.Id, s.ImpersonatorUserId, imp?.FullName ?? "(unknown)",
-            s.TargetUserId, tgt?.FullName ?? "(unknown)",
+            s.Id, s.ImpersonatorUserId, imp?.DisplayName ?? "(unknown)",
+            s.TargetUserId, tgt?.DisplayName ?? "(unknown)",
             s.StartedAt, s.EndedAt, s.EndReason, s.Reason);
     }
 }

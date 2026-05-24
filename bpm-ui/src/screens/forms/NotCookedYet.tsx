@@ -16,9 +16,6 @@ export function NotCookedYet({ code, onHome }: { code: FormCode; onHome: () => v
         這個流程的 spec 在 admin wizard 重新設計中。chef（codegen agent）
         產出對應 React component 之前，這裡先閉店。
       </p>
-      <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-faint">
-        VITE_SHOW_LEGACY=true 可解除（dev only）
-      </p>
       <button
         onClick={onHome}
         className="mt-4 inline-flex items-center gap-1.5 rounded border border-rule bg-card px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-primary hover:text-primary"

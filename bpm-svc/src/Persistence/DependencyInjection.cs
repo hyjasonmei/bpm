@@ -27,8 +27,8 @@ using Bpm.Persistence.Process.Admin;
 using Bpm.Persistence.Process.Reporting;
 using Bpm.Persistence.Process.Simulator;
 using Bpm.Persistence.Sandbox;
+using Bpm.Application.Auth;
 using Bpm.Persistence.Spec;
-using Bpm.Persistence.Spec.Bundle;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -125,9 +125,10 @@ public static class DependencyInjection
             (IProcessReportingService)sp.GetRequiredService<ProcessReportingService>(),
             sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>()));
 
-        // Spec Bundle runtime (PR-I4): scratch-tenant seeder + replay runner.
-        services.AddScoped<IBundleRuntimeLoader, BundleRuntimeLoader>();
-        services.AddScoped<IBundleReproducibilityRunner, BundleReproducibilityRunner>();
+        // Real password login (unify-user-store): verifies hashes against
+        // Admin_UserCredentials with the same ASP.NET Identity PasswordHasher
+        // admin-svc seeded with.
+        services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
         return services;
     }

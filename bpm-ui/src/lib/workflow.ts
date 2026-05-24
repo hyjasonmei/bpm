@@ -1,3 +1,22 @@
+/**
+ * FORMS = display metadata, NOT a registry gate.
+ *
+ * What lives here: Chinese / English label, persona ownership per
+ * step, and step-label / step-id mapping used by inbox rows + the
+ * activity feed to render a flow's row regardless of whether chef
+ * has cooked the form component yet.
+ *
+ * What does NOT live here: which flows are available to launch. That
+ * is decided by `features/registry.ts`, which globs the chef-shipped
+ * `manifest.ts` files. Adding a key to this map does NOT make the
+ * flow appear in Quick Actions or in the form dispatch path — only
+ * shipping a manifest does.
+ *
+ * Why both: registry tells the runtime what to render; FORMS tells
+ * the UI what to call it. Inbox / activity rows store a `code` string
+ * and need a static label lookup even before chef has shipped that
+ * flow's component.
+ */
 import type { PersonaCode } from './role'
 
 export interface Step {

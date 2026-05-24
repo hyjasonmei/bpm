@@ -325,14 +325,17 @@ public sealed class ProcessSimulator(
 
     private async Task<Guid> PickDefaultInitiatorAsync(CancellationToken ct)
     {
-        var withMgr = await db.Users.AsNoTracking()
-            .Where(u => u.IsActive && u.ManagerId != null)
-            .OrderBy(u => u.Id)
-            .Select(u => u.Id)
-            .FirstOrDefaultAsync(ct);
+        // Prefer a user with an explicit manager edge so spec.manager
+        // resolution has a chance; fall back to any active user.
+        var withMgr = await (
+            from u in db.SharedPrincipals.AsNoTracking()
+            where u.Type == SharedIdentity.SharedPrincipalType.User && u.Active && u.DeletedAt == null
+            join m in db.SharedUserManagers.AsNoTracking() on u.Id equals m.UserId
+            orderby u.Id
+            select u.Id).FirstOrDefaultAsync(ct);
         if (withMgr != Guid.Empty) return withMgr;
-        return await db.Users.AsNoTracking()
-            .Where(u => u.IsActive)
+        return await db.SharedPrincipals.AsNoTracking()
+            .Where(u => u.Type == SharedIdentity.SharedPrincipalType.User && u.Active && u.DeletedAt == null)
             .OrderBy(u => u.Id)
             .Select(u => u.Id)
             .FirstOrDefaultAsync(ct);
@@ -341,9 +344,9 @@ public sealed class ProcessSimulator(
     private async Task<string?> LookupUserNameAsync(Guid userId, CancellationToken ct)
     {
         if (userId == Guid.Empty) return null;
-        return await db.Users.AsNoTracking()
+        return await db.SharedPrincipals.AsNoTracking()
             .Where(u => u.Id == userId)
-            .Select(u => u.FullName)
+            .Select(u => u.DisplayName)
             .FirstOrDefaultAsync(ct);
     }
 

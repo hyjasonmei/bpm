@@ -1,5 +1,4 @@
 using Bpm.Persistence;
-using Bpm.Persistence.Seed;
 using Bpm.SeedCli.Fixtures;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,13 +7,13 @@ using Microsoft.Extensions.Logging;
 namespace Bpm.SeedCli.Commands;
 
 /// <summary>
-/// Runs the persona seed (always) and optionally builds + installs every
-/// <c>sample_specs/*.json</c> as a SpecBundle row.
+/// Optionally builds + installs every <c>sample_specs/*.json</c> as a
+/// SpecBundle row. Identity seeding is owned by admin-svc post
+/// unify-user-store; bpm-svc no longer maintains a persona seed.
 ///
 /// <para>
-/// Both phases are idempotent — re-running on a populated DB re-applies
-/// nothing. The persona seed is keyed on <c>User.Email</c>; the bundle
-/// seed is keyed on <c>SpecBundle.ManifestChecksum</c>.
+/// Idempotent on <c>SpecBundle.ManifestChecksum</c> — re-running on a
+/// populated DB re-applies nothing.
 /// </para>
 /// </summary>
 public static class SeedCommand
@@ -31,9 +30,6 @@ public static class SeedCommand
         {
             await db.Database.MigrateAsync(ct);
             logger.LogInformation("[OK] migrations up to date");
-
-            await PersonaSeedService.RunAsync(db, logger, ct);
-            logger.LogInformation("[OK] persona seed complete");
 
             if (includeBundles)
             {

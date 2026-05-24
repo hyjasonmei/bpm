@@ -226,6 +226,25 @@ namespace Bpm.Admin.Persistence.Migrations
                     b.ToTable("Admin_Flows", (string)null);
                 });
 
+            modelBuilder.Entity("Bpm.Admin.Domain.Principals.DeptHead", b =>
+                {
+                    b.Property<Guid>("DeptId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("HeadUserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("DeptId");
+
+                    b.HasIndex("HeadUserId");
+
+                    b.ToTable("Admin_DeptHeads", (string)null);
+                });
+
             modelBuilder.Entity("Bpm.Admin.Domain.Principals.DeptParent", b =>
                 {
                     b.Property<Guid>("DeptId")
@@ -320,6 +339,25 @@ namespace Bpm.Admin.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Admin_UserDepts", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Admin.Domain.Principals.UserManager", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ManagerUserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("ManagerUserId");
+
+                    b.ToTable("Admin_UserManagers", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Roles.PrincipalRole", b =>

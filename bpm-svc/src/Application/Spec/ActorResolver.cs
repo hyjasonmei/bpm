@@ -75,11 +75,11 @@ public sealed class ActorResolver(
             {
                 case ("user", "manager"):
                 {
-                    var manager = await org.GetManagerAsync(currentId, ct);
-                    if (manager is null)
+                    var managerId = await org.GetManagerIdAsync(currentId, ct);
+                    if (managerId is null)
                         return ResolutionResult.Fail(ResolutionErrorKind.PathUnresolved,
                             $"user {currentId} has no manager (segment {i} of '{e.Path}')");
-                    currentId = manager.Id;
+                    currentId = managerId.Value;
                     if (!visitedUsers.Add(currentId))
                         return ResolutionResult.Fail(ResolutionErrorKind.Cycle,
                             $"manager chain cycle at user {currentId}", visitedUsers.ToList());
@@ -87,22 +87,22 @@ public sealed class ActorResolver(
                 }
                 case ("user", "department"):
                 {
-                    var dept = await org.GetDepartmentOfAsync(currentId, ct);
-                    if (dept is null)
+                    var deptId = await org.GetPrimaryDepartmentIdAsync(currentId, ct);
+                    if (deptId is null)
                         return ResolutionResult.Fail(ResolutionErrorKind.PathUnresolved,
                             $"user {currentId} has no department");
-                    currentId = dept.Id;
+                    currentId = deptId.Value;
                     currentKind = "department";
                     visitedDepts.Add(currentId);
                     break;
                 }
                 case ("department", "head"):
                 {
-                    var head = await org.GetDepartmentHeadAsync(currentId, ct);
-                    if (head is null)
+                    var headId = await org.GetDepartmentHeadIdAsync(currentId, ct);
+                    if (headId is null)
                         return ResolutionResult.Fail(ResolutionErrorKind.PathUnresolved,
                             $"department {currentId} has no head");
-                    currentId = head.Id;
+                    currentId = headId.Value;
                     currentKind = "user";
                     if (!visitedUsers.Add(currentId))
                         return ResolutionResult.Fail(ResolutionErrorKind.Cycle,
@@ -111,11 +111,11 @@ public sealed class ActorResolver(
                 }
                 case ("department", "parent"):
                 {
-                    var parent = await org.GetDepartmentParentAsync(currentId, ct);
-                    if (parent is null)
+                    var parentId = await org.GetDepartmentParentIdAsync(currentId, ct);
+                    if (parentId is null)
                         return ResolutionResult.Fail(ResolutionErrorKind.PathUnresolved,
                             $"department {currentId} has no parent");
-                    currentId = parent.Id;
+                    currentId = parentId.Value;
                     if (!visitedDepts.Add(currentId))
                         return ResolutionResult.Fail(ResolutionErrorKind.Cycle,
                             $"department parent cycle at {currentId}", visitedDepts.ToList());
@@ -145,18 +145,15 @@ public sealed class ActorResolver(
         foreach (var (principalId, _) in assignees)
         {
             // Each principal could be a User, Group, or Department. Probe in order.
-            var asUser = await org.GetUserAsync(principalId, ct);
+            var asUser = await org.GetUserIdAsync(principalId, ct);
             if (asUser is not null) { users.Add(principalId); continue; }
-            var asDept = await org.GetDepartmentAsync(principalId, ct);
+            var asDept = await org.GetDepartmentIdAsync(principalId, ct);
             if (asDept is not null)
             {
-                // Department assigned a role → all users in dept inherit it
-                // (use a dedicated query rather than per-user lookup)
-                var dept = await org.GetDepartmentAsync(principalId, ct);
-                // For now: pull users via a follow-up query; org reader doesn't expose dept→users yet
-                // but we can lean on the GroupExpansion machinery isn't quite right either, so instead
-                // surface this as a known limitation: dept-assigned roles cascade via a separate path.
-                // (Resolved by ExpandGroup style enumeration in a future change; for POC we skip.)
+                // Department assigned a role → all users in dept inherit it.
+                // POC: not implemented end-to-end yet; org reader does not
+                // expose dept→users on its own. Future: add a dedicated
+                // GetDepartmentMembersAsync.
                 continue;
             }
             var groupExp = await org.ExpandGroupAsync(principalId, ct);

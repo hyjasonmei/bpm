@@ -1,88 +1,28 @@
 /**
- * Flow Library DTOs — mirrors bpm-svc/src/Api/Admin/FlowLibrary/FlowLibraryController.cs
- * + bpm-svc/src/Domain/Spec/Bundle/* + bpm-svc/src/Application/Spec/Bundle/* records.
- *
- * Hand-maintained: any backend DTO change has to land here too. The serializer
- * on the C# side uses camelCase + enums-as-camelCase-strings (see JsonOpts in
- * the controller), so all field names match the backend records exactly.
+ * Bundle DTOs kept after the legacy admin retirement. Only the shapes
+ * still referenced by the V0 AI Kitchen onboarding wizard (which
+ * builds + hydrates spec bundles in-memory) live here. The legacy
+ * Flow Library list / detail / import / repro types were retired
+ * along with their UI.
  */
-
-export type SpecBundleStatus =
-  | 'draft'
-  | 'pending'
-  | 'installed'
-  | 'installedUnverified'
-  | 'failed'
-  | 'softDeleted'
-
-export type BundleFileKind =
-  | 'manifest'
-  | 'spec'
-  | 'bpmnXml'
-  | 'specMd'
-  | 'readme'
-  | 'walkthrough'
-  | 'changelog'
-  | 'form'
-  | 'notification'
-  | 'sla'
-  | 'actors'
-  | 'sampleOrg'
-  | 'testCase'
-  | 'asset'
-  | 'other'
 
 export interface BundleFileEntry {
   path: string
   sha256: string
   sizeBytes: number
-  kind: BundleFileKind
+  kind: string
 }
 
 export interface BundleManifest {
   bundleSchemaVersion: number
   flowCode: string
   flowVersion: number
-  exportedAt: string  // ISO timestamp
+  exportedAt: string
   sourceInstanceId: string
   parent: string | null
   files: BundleFileEntry[]
 }
 
-export interface FlowLibraryItemDto {
-  id: string
-  flowCode: string
-  flowVersion: number
-  status: SpecBundleStatus
-  manifestChecksum: string
-  parentManifestChecksum: string | null
-  exportedAt: string  // ISO timestamp
-  lastReproCheckAt: string | null
-  lastReproCheckSummary: string | null
-}
-
-export type ReproStatus = 'pass' | 'fail'
-
-export interface CaseResult {
-  caseId: string
-  status: ReproStatus
-  expectedTrace: string[]
-  actualTrace: string[]
-  diff: string | null
-}
-
-export interface ReproReport {
-  overallStatus: ReproStatus
-  cases: CaseResult[]
-}
-
-export interface FlowLibraryDetailDto {
-  summary: FlowLibraryItemDto
-  manifest: BundleManifest
-  lastReproReport: ReproReport | null
-}
-
-/* ── Sample-org snapshot (mirrors SampleOrgSnapshot.cs) ── */
 export interface UserSnapshot {
   id: string
   email: string
@@ -120,7 +60,6 @@ export interface SampleOrgSnapshot {
   roleAssignments: RoleAssignmentSnapshot[]
 }
 
-/* ── Test-case snapshot (mirrors TestCaseSnapshot.cs) ── */
 export interface TestCaseSnapshot {
   id: string
   name: string
@@ -129,7 +68,6 @@ export interface TestCaseSnapshot {
   expectedFinalStatus: string
 }
 
-/* ── Bundle validation result (mirrors BundleValidationResult / Error) ── */
 export interface BundleValidationError {
   code: string
   location: string
@@ -139,13 +77,6 @@ export interface BundleValidationError {
 export interface BundleValidationResult {
   valid: boolean
   errors: BundleValidationError[]
-}
-
-/* ── Import endpoint return shapes ── */
-export interface ImportInstallResult {
-  id: string
-  status: SpecBundleStatus
-  reproReport: ReproReport | null
 }
 
 export interface ImportDraftResult {

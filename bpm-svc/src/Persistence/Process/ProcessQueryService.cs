@@ -206,11 +206,11 @@ public sealed class ProcessQueryService(AppDbContext db, IClock clock) : IProces
             .ToList();
         var allUserIds = initiatorIds.Concat(assigneeIds).Distinct().ToList();
 
-        var users = await db.Users.AsNoTracking()
+        var users = await db.SharedPrincipals.AsNoTracking()
             .Where(u => allUserIds.Contains(u.Id))
             .Select(u => new { u.Id, u.Email })
             .ToListAsync(ct);
-        var userEmails = users.ToDictionary(u => u.Id, u => u.Email);
+        var userEmails = users.ToDictionary(u => u.Id, u => u.Email ?? string.Empty);
 
         var openByInstance = openTasks
             .GroupBy(t => t.ProcessInstanceId)
@@ -361,11 +361,11 @@ public sealed class ProcessQueryService(AppDbContext db, IClock clock) : IProces
 
         // Resolve initiator emails in one round-trip.
         var initiatorIds = page.Select(p => p.Instance.InitiatorUserId).Distinct().ToList();
-        var emails = await db.Users.AsNoTracking()
+        var emails = await db.SharedPrincipals.AsNoTracking()
             .Where(u => initiatorIds.Contains(u.Id))
             .Select(u => new { u.Id, u.Email })
             .ToListAsync(ct);
-        var emailLookup = emails.ToDictionary(u => u.Id, u => u.Email);
+        var emailLookup = emails.ToDictionary(u => u.Id, u => u.Email ?? string.Empty);
 
         var rows = page.Select(p =>
         {

@@ -126,41 +126,6 @@ export const MOCK_CASES: CaseMock[] = [
   c('TW-GEE-26-001010',   'GEE',   'Employee Expense',  'returned', 'Frank Kuo',  'Corp IS-SaaS',    '2026/02/01', '2026/02/03', 'NTD 430',    1, 'manager'),
 ]
 
-/* ── Activity feed ───────────────────────────────────────── */
-
-export interface ActivityEntry {
-  type: 'approved' | 'returned' | 'created' | 'closed' | 'submitted' | 'rejected'
-  msg: string
-  doc: string
-  time: string
-}
-
-export const MOCK_ACTIVITY: ActivityEntry[] = [
-  { type: 'approved',  msg: 'Elton Yang approved',         doc: 'TW-GEE-26-001342', time: '2h ago' },
-  { type: 'submitted', msg: 'Alice Chen submitted',        doc: 'TW-LEAVE-26-000043', time: '4h ago' },
-  { type: 'returned',  msg: 'Jean Hsu returned',           doc: 'TW-GEV-26-000891', time: '5h ago' },
-  { type: 'closed',    msg: 'Finance closed',              doc: 'TW-TEO-26-000220', time: '1d ago' },
-  { type: 'created',   msg: 'You submitted',               doc: 'TW-TRQ-26-000160', time: '2d ago' },
-  { type: 'approved',  msg: 'Elton Yang approved',         doc: 'TW-APE-26-000044', time: '3d ago' },
-]
-
-/* ── Reminders ──────────────────────────────────────────── */
-
-export interface Reminder {
-  type: 'draft' | 'return' | 'travel' | 'contract'
-  label: string
-  doc: string
-  detail: string
-}
-
-export const MOCK_REMINDERS: Reminder[] = [
-  { type: 'draft',    label: 'Draft saved',          doc: 'TW-APE-26-000044',   detail: 'Advance Payment — saved 2026/04/08' },
-  { type: 'draft',    label: 'Draft saved',          doc: 'TW-LEAVE-26-000041', detail: 'Leave Request — saved 2026/04/22' },
-  { type: 'return',   label: 'Return due',           doc: 'APE-26-000040',      detail: 'Advance return due 2026/05/01' },
-  { type: 'travel',   label: 'Upcoming trip',        doc: 'TW-TRQ-26-000160',   detail: 'Dubai trip departs 2026/04/29' },
-  { type: 'contract', label: 'Contract expiry',      doc: '230517-AP-0001',     detail: '廉誠資訊 contract expires 2026/05/23' },
-]
-
 /* ── Leave balances (HR view) ───────────────────────────── */
 
 export const MOCK_LEAVE_BALANCES: Record<string, { annual: number; sick: number; personal: number }> = {

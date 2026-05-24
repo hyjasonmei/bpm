@@ -123,119 +123,6 @@ namespace Bpm.Persistence.Migrations
                     b.ToTable("ActorResolutionAudits", (string)null);
                 });
 
-            modelBuilder.Entity("Bpm.Domain.Entities.Authz.Permission", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Resource")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Action", "Resource")
-                        .IsUnique();
-
-                    b.ToTable("Permissions", (string)null);
-                });
-
-            modelBuilder.Entity("Bpm.Domain.Entities.Authz.Role", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FlowCode")
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Scope")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("Roles", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_Roles_ScopeFlowCode", "(\"Scope\" = 1 AND \"FlowCode\" IS NULL) OR (\"Scope\" = 2 AND \"FlowCode\" IS NOT NULL)");
-                        });
-                });
-
-            modelBuilder.Entity("Bpm.Domain.Entities.Authz.RoleAssignment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("PrincipalId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("RoleId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Scope")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ScopeRef")
-                        .HasMaxLength(128)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PrincipalId");
-
-                    b.HasIndex("RoleId", "PrincipalId", "Scope", "ScopeRef");
-
-                    b.ToTable("RoleAssignments", (string)null);
-                });
-
             modelBuilder.Entity("Bpm.Domain.Entities.Authz.RoleAssignmentChange", b =>
                 {
                     b.Property<Guid>("Id")
@@ -286,31 +173,6 @@ namespace Bpm.Persistence.Migrations
                     b.HasIndex("TargetUserId", "CreatedAt");
 
                     b.ToTable("RoleAssignmentChanges", (string)null);
-                });
-
-            modelBuilder.Entity("Bpm.Domain.Entities.Authz.RolePermission", b =>
-                {
-                    b.Property<Guid>("RoleId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("PermissionId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("RoleId", "PermissionId");
-
-                    b.HasIndex("PermissionId");
-
-                    b.ToTable("RolePermissions", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Domain.Entities.HrFlows.HrFlowAction", b =>
@@ -527,61 +389,6 @@ namespace Bpm.Persistence.Migrations
                         .IsDescending(false, true);
 
                     b.ToTable("NotificationDispatchAudits", (string)null);
-                });
-
-            modelBuilder.Entity("Bpm.Domain.Entities.Org.GroupMember", b =>
-                {
-                    b.Property<Guid>("GroupId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("PrincipalId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("GroupId", "PrincipalId");
-
-                    b.HasIndex("PrincipalId");
-
-                    b.ToTable("GroupMembers", (string)null);
-                });
-
-            modelBuilder.Entity("Bpm.Domain.Entities.Org.Principal", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Principals", (string)null);
-
-                    b.UseTptMappingStrategy();
                 });
 
             modelBuilder.Entity("Bpm.Domain.Entities.Process.ProcessInstance", b =>
@@ -998,129 +805,212 @@ namespace Bpm.Persistence.Migrations
                     b.ToTable("SpecBundles", (string)null);
                 });
 
-            modelBuilder.Entity("Bpm.Domain.Entities.Org.Department", b =>
+            modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedDeptHead", b =>
                 {
-                    b.HasBaseType("Bpm.Domain.Entities.Org.Principal");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(64)
+                    b.Property<Guid>("DeptId")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid?>("HeadUserId")
+                    b.Property<DateTime>("AssignedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
+                    b.Property<Guid>("HeadUserId")
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid?>("ParentId")
-                        .HasColumnType("TEXT");
+                    b.HasKey("DeptId");
 
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.HasIndex("HeadUserId");
-
-                    b.HasIndex("ParentId");
-
-                    b.ToTable("Departments", (string)null);
+                    b.ToTable("Admin_DeptHeads", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
                 });
 
-            modelBuilder.Entity("Bpm.Domain.Entities.Org.Group", b =>
+            modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedDeptParent", b =>
                 {
-                    b.HasBaseType("Bpm.Domain.Entities.Org.Principal");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(64)
+                    b.Property<Guid>("DeptId")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Description")
-                        .HasMaxLength(1000)
+                    b.Property<Guid?>("ParentDeptId")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
+                    b.HasKey("DeptId");
 
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("Groups", (string)null);
+                    b.ToTable("Admin_DeptParents", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
                 });
 
-            modelBuilder.Entity("Bpm.Domain.Entities.Org.User", b =>
+            modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedGroupMember", b =>
                 {
-                    b.HasBaseType("Bpm.Domain.Entities.Org.Principal");
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("TEXT");
 
-                    b.Property<Guid?>("DepartmentId")
+                    b.Property<Guid>("MemberPrincipalId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("MemberType")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("GroupId", "MemberPrincipalId");
+
+                    b.ToTable("Admin_GroupMembers", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
+                });
+
+            modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedPrincipal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(254)
+                        .HasMaxLength(320)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsActive")
+                    b.Property<int>("Type")
                         .HasColumnType("INTEGER");
 
-                    b.Property<Guid?>("ManagerId")
+                    b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("TEXT");
 
-                    b.HasIndex("DepartmentId");
+                    b.HasKey("Id");
 
-                    b.HasIndex("Email")
-                        .IsUnique();
-
-                    b.HasIndex("ManagerId");
-
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Admin_Principals", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
                 });
 
-            modelBuilder.Entity("Bpm.Domain.Entities.Authz.RoleAssignment", b =>
+            modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedPrincipalRole", b =>
                 {
-                    b.HasOne("Bpm.Domain.Entities.Org.Principal", "Principal")
-                        .WithMany()
-                        .HasForeignKey("PrincipalId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Property<Guid>("PrincipalId")
+                        .HasColumnType("TEXT");
 
-                    b.HasOne("Bpm.Domain.Entities.Authz.Role", "Role")
-                        .WithMany()
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("TEXT");
 
-                    b.Navigation("Principal");
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("TEXT");
 
-                    b.Navigation("Role");
+                    b.Property<Guid?>("AssignedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("InheritToMembers")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("PrincipalId", "RoleId");
+
+                    b.ToTable("Admin_PrincipalRoles", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
                 });
 
-            modelBuilder.Entity("Bpm.Domain.Entities.Authz.RolePermission", b =>
+            modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedRole", b =>
                 {
-                    b.HasOne("Bpm.Domain.Entities.Authz.Permission", "Permission")
-                        .WithMany()
-                        .HasForeignKey("PermissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
 
-                    b.HasOne("Bpm.Domain.Entities.Authz.Role", "Role")
-                        .WithMany("RolePermissions")
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Property<string>("Description")
+                        .HasColumnType("TEXT");
 
-                    b.Navigation("Permission");
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("INTEGER");
 
-                    b.Navigation("Role");
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Admin_Roles", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
+                });
+
+            modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedUserCredential", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PasswordChangedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("Admin_UserCredentials", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
+                });
+
+            modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedUserDept", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("DeptId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("UserId", "DeptId");
+
+                    b.ToTable("Admin_UserDepts", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
+                });
+
+            modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedUserManager", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ManagerUserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("Admin_UserManagers", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
                 });
 
             modelBuilder.Entity("Bpm.Domain.Entities.HrFlows.HrFlowAction", b =>
@@ -1132,25 +1022,6 @@ namespace Bpm.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Instance");
-                });
-
-            modelBuilder.Entity("Bpm.Domain.Entities.Org.GroupMember", b =>
-                {
-                    b.HasOne("Bpm.Domain.Entities.Org.Group", "Group")
-                        .WithMany("Members")
-                        .HasForeignKey("GroupId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Bpm.Domain.Entities.Org.Principal", "Principal")
-                        .WithMany()
-                        .HasForeignKey("PrincipalId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Group");
-
-                    b.Navigation("Principal");
                 });
 
             modelBuilder.Entity("Bpm.Domain.Entities.Process.ProcessTask", b =>
@@ -1182,74 +1053,9 @@ namespace Bpm.Persistence.Migrations
                     b.Navigation("Task");
                 });
 
-            modelBuilder.Entity("Bpm.Domain.Entities.Org.Department", b =>
-                {
-                    b.HasOne("Bpm.Domain.Entities.Org.User", "Head")
-                        .WithMany()
-                        .HasForeignKey("HeadUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Bpm.Domain.Entities.Org.Principal", null)
-                        .WithOne()
-                        .HasForeignKey("Bpm.Domain.Entities.Org.Department", "Id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Bpm.Domain.Entities.Org.Department", "Parent")
-                        .WithMany()
-                        .HasForeignKey("ParentId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Head");
-
-                    b.Navigation("Parent");
-                });
-
-            modelBuilder.Entity("Bpm.Domain.Entities.Org.Group", b =>
-                {
-                    b.HasOne("Bpm.Domain.Entities.Org.Principal", null)
-                        .WithOne()
-                        .HasForeignKey("Bpm.Domain.Entities.Org.Group", "Id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Bpm.Domain.Entities.Org.User", b =>
-                {
-                    b.HasOne("Bpm.Domain.Entities.Org.Department", "Department")
-                        .WithMany()
-                        .HasForeignKey("DepartmentId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Bpm.Domain.Entities.Org.Principal", null)
-                        .WithOne()
-                        .HasForeignKey("Bpm.Domain.Entities.Org.User", "Id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Bpm.Domain.Entities.Org.User", "Manager")
-                        .WithMany()
-                        .HasForeignKey("ManagerId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Department");
-
-                    b.Navigation("Manager");
-                });
-
-            modelBuilder.Entity("Bpm.Domain.Entities.Authz.Role", b =>
-                {
-                    b.Navigation("RolePermissions");
-                });
-
             modelBuilder.Entity("Bpm.Domain.Entities.HrFlows.HrFlowInstance", b =>
                 {
                     b.Navigation("Actions");
-                });
-
-            modelBuilder.Entity("Bpm.Domain.Entities.Org.Group", b =>
-                {
-                    b.Navigation("Members");
                 });
 #pragma warning restore 612, 618
         }

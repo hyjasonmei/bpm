@@ -4,7 +4,6 @@ using Bpm.Api.Common;
 using Bpm.Application;
 using Bpm.Application.Common.Abstractions;
 using Bpm.Persistence;
-using Bpm.Persistence.Seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -181,9 +180,9 @@ app.MapGet("/health", async (AppDbContext db) =>
 // /api/chat + /api/spec-extract moved to admin-svc in Phase D (AI is
 // flowcook IP, must not ship with the customer-side bpm-svc binary).
 
-// Apply EF migrations and (optionally) seed the org fixture at startup.
-// Seed runs only when BPM_SEED_ON_STARTUP=true (default in dev) so prod
-// boots can't accidentally write fixture data into a real DB.
+// Apply EF migrations at startup. Seed is owned by admin-svc after the
+// unify-user-store change — bpm-svc no longer maintains its own
+// persona/org fixture. BPM_SEED_ON_STARTUP env var is retired.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -191,14 +190,10 @@ using (var scope = app.Services.CreateScope())
     try
     {
         await db.Database.MigrateAsync();
-        var seedOnStartup = (Environment.GetEnvironmentVariable("BPM_SEED_ON_STARTUP")
-            ?? (app.Environment.IsDevelopment() ? "true" : "false")).ToLowerInvariant() == "true";
-        if (seedOnStartup)
-            await PersonaSeedService.RunAsync(db, logger);
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Startup migration/seed failed");
+        logger.LogError(ex, "Startup migration failed");
     }
 }
 
