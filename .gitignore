@@ -22,3 +22,5 @@ bpm-admin-ui/node_modules/
 bpm-www/node_modules/
 bpm-www/dist/
 bpm-www/.astro/
+
+bpm-admin-ui/dist/

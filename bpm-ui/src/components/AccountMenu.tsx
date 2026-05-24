@@ -108,7 +108,15 @@ export function AccountMenu({
   const displayName = authedFullName ?? decoded?.full_name ?? decoded?.email ?? current.user.name.split(' (')[0]
   const initials = computeInitials(displayName)
   const email = decoded?.email ?? null
-  const roles = (decoded?.roles ?? []) as string[]
+  // ASP.NET JWT serializer emits the `roles` claim as a string when there's
+  // exactly one role and a string[] when there's more. Normalize so consumers
+  // always get an array.
+  const rolesClaim = decoded?.roles as unknown
+  const roles: string[] = Array.isArray(rolesClaim)
+    ? (rolesClaim as string[])
+    : typeof rolesClaim === 'string' && rolesClaim.length > 0
+      ? [rolesClaim]
+      : []
 
   async function handleSandboxPersonaSelect(p: SandboxPersonaDto) {
     setSandboxBusy(true)
