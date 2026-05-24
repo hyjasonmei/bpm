@@ -96,20 +96,25 @@ export const FieldLabel = ({ children, required, tip, className }: FieldLabelPro
   </div>
 )
 
-/* Field — label + input wrapper. Two-column form rows. */
+/* Field — label + input wrapper. Two-column form rows.
+   `error` (string) renders an inline red validation message under the
+   input and replaces the hint when both are present. */
 export interface FieldProps {
   label: React.ReactNode
   required?: boolean
   tip?: string
   hint?: React.ReactNode
+  error?: string | null
   children: React.ReactNode
   className?: string
 }
-export const Field = ({ label, required, tip, hint, children, className }: FieldProps) => (
+export const Field = ({ label, required, tip, hint, error, children, className }: FieldProps) => (
   <div className={cn('flex flex-col gap-1', className)}>
     <FieldLabel required={required} tip={tip}>{label}</FieldLabel>
     {children}
-    {hint && <p className="text-[11px] text-ink-faint">{hint}</p>}
+    {error
+      ? <p className="text-[11px] text-danger" role="alert">{error}</p>
+      : hint && <p className="text-[11px] text-ink-faint">{hint}</p>}
   </div>
 )
 

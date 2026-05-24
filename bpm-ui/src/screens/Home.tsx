@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { StatusBadge, TypeChip, type StatusKind } from '@/components/ui/badge'
 import { PERSONAS, type PersonaCode } from '@/lib/role'
+import { getJwt } from '@/lib/apiFetch'
+import { decodeJwt } from '@/lib/jwt'
 import type { Screen } from '@/components/AppLayout'
 import { FORMS, type FormCode } from '@/lib/workflow'
 import { formRegistry } from '@/features/registry'
@@ -45,7 +47,7 @@ export function Home({ persona, setScreen }: HomeProps) {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-lg font-bold text-ink">
-            {greetingFor(persona)}
+            {greetingFor(persona, currentDisplayName())}
           </h1>
           <p className="mt-0.5 text-sm text-ink-muted">
             {inbox.loading
@@ -65,7 +67,7 @@ export function Home({ persona, setScreen }: HomeProps) {
       <div className="grid grid-cols-[1fr_320px] gap-4">
         <div className="min-w-0 space-y-4">
           <PendingTable persona={persona} tasks={inbox.data ?? []} loading={inbox.loading} error={inbox.error} setScreen={setScreen} />
-          <MyCasesTable cases={myCases.data ?? []} loading={myCases.loading} error={myCases.error} />
+          <MyCasesTable cases={myCases.data ?? []} loading={myCases.loading} error={myCases.error} setScreen={setScreen} />
         </div>
         <div className="min-w-0 space-y-4">
           <QuickActionsPanel setScreen={setScreen} />
@@ -76,15 +78,28 @@ export function Home({ persona, setScreen }: HomeProps) {
   )
 }
 
-function greetingFor(persona: PersonaCode) {
-  const u = PERSONAS[persona].user.name.split(' ')[0]
+function currentDisplayName(): string | null {
+  const token = getJwt()
+  if (!token) return null
+  const d = decodeJwt(token)
+  return d?.full_name ?? d?.email ?? null
+}
+
+function greetingFor(persona: PersonaCode, authedFullName?: string | null) {
+  const display = authedFullName ?? PERSONAS[persona].user.name
+  const firstName = display.split(' ')[0]
+  const hour = new Date().getHours()
+  const tod = hour < 5 ? '夜深了'
+    : hour < 12 ? 'Good morning'
+    : hour < 18 ? 'Good afternoon'
+    : 'Good evening'
   switch (persona) {
-    case 'employee': return `👋 Good morning, ${u}`
-    case 'manager':  return `👋 Good morning, ${u} — Manager view`
-    case 'finance':  return `👋 Good morning, ${u} — Finance review queue`
-    case 'it':       return `👋 Good morning, ${u} — IT spec & quoting queue`
-    case 'hr':       return `👋 Good morning, ${u} — HR records queue`
-    case 'admin':    return `👋 Good morning, Admin — All cases`
+    case 'employee': return `👋 ${tod}, ${firstName}`
+    case 'manager':  return `👋 ${tod}, ${firstName} — Manager view`
+    case 'finance':  return `👋 ${tod}, ${firstName} — Finance review queue`
+    case 'it':       return `👋 ${tod}, ${firstName} — IT spec & quoting queue`
+    case 'hr':       return `👋 ${tod}, ${firstName} — HR records queue`
+    case 'admin':    return `👋 ${tod}, ${firstName} — Admin view`
   }
 }
 
@@ -250,7 +265,7 @@ function PendingTable({ persona, tasks, loading, error, setScreen }: {
   )
 }
 
-function MyCasesTable({ cases, loading, error }: { cases: MyInstanceSummaryDto[]; loading: boolean; error: Error | null }) {
+function MyCasesTable({ cases, loading, error, setScreen }: { cases: MyInstanceSummaryDto[]; loading: boolean; error: Error | null; setScreen: (s: Screen) => void }) {
   return (
     <SectionCard>
       <SectionTitle right={<span className="text-xs text-ink-muted">{cases.length} case{cases.length === 1 ? '' : 's'}</span>}>
@@ -278,7 +293,11 @@ function MyCasesTable({ cases, loading, error }: { cases: MyInstanceSummaryDto[]
             ) : cases.slice(0, 8).map(c => {
               const formCode = isFormCode(c.specCode) ? c.specCode : null
               return (
-                <tr key={c.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-colors">
+                <tr
+                  key={c.id}
+                  onClick={() => setScreen({ kind: 'case', instanceId: c.id })}
+                  className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/60"
+                >
                   <Td><span className="font-mono text-[11px] text-ink">{c.id.slice(0, 8)}</span></Td>
                   <Td>{formCode ? <TypeChip type={formCode} /> : <span className="text-xs">{c.specCode}</span>}</Td>
                   <Td><StatusBadge kind={instanceStatusToBadge(c.status)} /></Td>

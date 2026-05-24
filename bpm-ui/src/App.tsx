@@ -8,6 +8,7 @@ import { Search } from '@/screens/Search'
 import { Report } from '@/screens/Report'
 import { Attendance } from '@/screens/Attendance'
 import { Login } from '@/screens/Login'
+import { CaseDetail } from '@/screens/CaseDetail'
 import { NotCookedYet } from '@/screens/forms/NotCookedYet'
 import { SandboxMailbox } from '@/screens/SandboxMailbox'
 import { lookupForm } from '@/features/registry'
@@ -59,6 +60,7 @@ function AppShell() {
     case 'report':     body = <Report />; break
     case 'attendance': body = <Attendance />; break
     case 'sandbox-mailbox': body = <SandboxMailbox />; break
+    case 'case': body = <CaseDetail instanceId={screen.instanceId} onBack={() => setScreen({ kind: 'home' })} />; break
     case 'form': {
       const formMode = screen.taskId ? 'task' : 'create'
       const onSubmitted = () => setScreen({ kind: 'home' })

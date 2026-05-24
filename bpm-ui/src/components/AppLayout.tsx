@@ -23,6 +23,8 @@ export type Screen =
    * PR-L2 wires the prop plumbing; PR-L3 wires inbox click → task screen.
    */
   | { kind: 'form'; code: FormCode; taskId?: string }
+  /** Case detail view: fetches /api/processes/{id} + history, no form interaction. */
+  | { kind: 'case'; instanceId: string }
 
 interface AppLayoutProps {
   screen: Screen

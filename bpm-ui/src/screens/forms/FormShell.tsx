@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { Workflow as WorkflowIcon, ExternalLink, Printer, Loader2 } from 'lucide-react'
-import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
-import { SectionCard, SectionTitle } from '@/components/ui/card'
+import { SectionCard } from '@/components/ui/card'
 import { Stepper } from '@/components/Stepper'
 import { BpmnView } from '@/components/BpmnView'
 import { Textarea } from '@/components/ui/form'
-import { FORMS, type FormCode, ownerLabel } from '@/lib/workflow'
+import { FORMS, type FormCode } from '@/lib/workflow'
 import { PERSONAS, type PersonaCode } from '@/lib/role'
 import type { NodeKind } from '@/types/process'
 
@@ -16,19 +15,22 @@ export type FormMode = 'create' | 'task'
 interface FormShellProps {
   code: FormCode
   activeStep: number
-  setActiveStep: (n: number) => void
+  /** Reserved for future use (e.g. runtime-driven step transitions). Forms
+   *  no longer drive step changes from the header — runtime owns step state. */
+  setActiveStep?: (n: number) => void
   persona: PersonaCode
   /** info row content — overrides default Requestor / Cost Center / Business Unit */
   infoRow?: React.ReactNode
   copySelector?: boolean
   rightActions?: React.ReactNode
-  /** When 'task', the demo "jump-to-step" debug bar is hidden — runtime owns the state. */
+  /** 'create' is the default; 'task' renders read-only summary forms with
+   *  runtime ActionBar buttons (Approve / Reject / Return). */
   mode?: FormMode
   children: React.ReactNode
 }
 
 export function FormShell({
-  code, activeStep, setActiveStep, persona,
+  code, activeStep, persona,
   infoRow, copySelector = true, rightActions, children,
   mode = 'create',
 }: FormShellProps) {
@@ -45,29 +47,6 @@ export function FormShell({
             <WorkflowIcon className="h-3 w-3" /> View BPMN
           </Button>
         </div>
-
-        {/* Dev-only 'jump-to-step' control for previewing layouts on hand-coded
-            create-mode forms. Hidden in production builds and in task mode
-            (where the runtime owns step state). */}
-        {mode === 'create' && import.meta.env.DEV && (
-          <div className="flex items-center gap-2 border-b border-rule bg-amber-50/40 px-4 py-1.5 text-[11px] text-amber-800">
-            <span className="font-semibold uppercase tracking-wider">Dev</span>
-            <span>jump to step:</span>
-            {def.steps.map((s, i) => (
-              <button
-                key={s.id}
-                onClick={() => setActiveStep(i)}
-                className={cn(
-                  'rounded px-1.5 py-0.5 text-[10.5px] font-medium uppercase transition-colors',
-                  i === activeStep ? 'bg-accent text-white' : 'hover:bg-amber-100 text-amber-700',
-                )}
-                title={`Owned by ${ownerLabel(def.ownerByStep[i])}`}
-              >
-                {s.en}
-              </button>
-            ))}
-          </div>
-        )}
 
         <div className="px-5 py-4">
           {/* Title + copy selector / read-only actions */}
@@ -147,91 +126,25 @@ interface ActionBarProps {
   onClose?: () => void
 }
 
-/** Bottom action bar that adapts to the active persona's relationship to the active step. */
+/** Bottom action bar — runtime-driven task mode only. Legacy create-mode
+ *  branches (persona-aware "View only" / "Copy to New") were cut along
+ *  with the Reference_* demo forms; chef-cooked forms render their own
+ *  create-mode submit bar with their own validation + confirm dialog. */
 export function ActionBar({
-  code, activeStep, persona, mode = 'create', nodeKind, pending = false,
-  onSubmit, onApprove, onReject, onReturnTask, onClose,
+  nodeKind, pending = false,
+  onSubmit, onApprove, onReject, onReturnTask,
 }: ActionBarProps) {
-  const def = FORMS[code]
-  const owner = def.ownerByStep[activeStep]
-  const isAdmin = persona === 'admin'
-  const isOwner = owner === persona || isAdmin
-  const isTerminal = owner === null
-
-  // ── Task mode: runtime owns state. Always render Approve/Reject/Return (Approval)
-  // or Submit/Return (UserTask). The parent screen decides which task to load.
-  // ────────────────────────────────────────────────────────────────────────
-  if (mode === 'task') {
-    return (
-      <TaskActionBar
-        nodeKind={nodeKind}
-        pending={pending}
-        onApprove={onApprove}
-        onReject={onReject}
-        onReturnTask={onReturnTask}
-        onSubmit={onSubmit}
-      />
-    )
-  }
-
-  // ── Create mode: keep the legacy persona/step-aware demo behavior. ─────
-  if (isTerminal) {
-    return (
-      <SectionCard>
-        <SectionTitle>Action</SectionTitle>
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <p className="text-sm text-ink-muted">
-            ✓ This case is closed.{' '}
-            {isAdmin && <span className="text-xs text-ink-faint">(Admin can re-open via system console.)</span>}
-          </p>
-          <Button variant="outline" size="sm" onClick={onClose}>Copy to New</Button>
-        </div>
-      </SectionCard>
-    )
-  }
-
-  if (!isOwner) {
-    return (
-      <SectionCard>
-        <div className="flex items-center justify-between gap-3 border-l-4 border-amber-300 bg-amber-50 px-4 py-3">
-          <div>
-            <p className="text-sm font-semibold text-amber-900">View only</p>
-            <p className="text-xs text-amber-800">
-              Awaiting {ownerLabel(owner)} action. Switch persona to act on this step.
-            </p>
-          </div>
-        </div>
-      </SectionCard>
-    )
-  }
-
-  // Owner of the current step — render contextual actions
-  if (activeStep === 0) {
-    // First step = applicant action
-    return (
-      <SectionCard>
-        <div className="flex items-center justify-end gap-2 px-4 py-3">
-          <Button variant="outline" size="md">Save as Draft</Button>
-          <Button variant="primary" size="md" onClick={onSubmit} disabled={pending}>
-            {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Submit
-          </Button>
-        </div>
-      </SectionCard>
-    )
-  }
-
-  // Approver / reviewer surface (legacy mock: no comment, just advance)
   return (
-    <SectionCard>
-      <div className="flex items-center justify-end gap-2 px-4 py-3">
-        <Button variant="destructive" size="md" onClick={() => onReject?.('')}>Reject</Button>
-        <Button variant="primary" size="md" onClick={() => onApprove?.('')}>
-          {owner === 'finance' ? 'Confirm & Forward' : owner === 'hr' ? 'Record & Close' : owner === 'it' ? 'Submit Spec' : 'Approve'}
-        </Button>
-      </div>
-    </SectionCard>
+    <TaskActionBar
+      nodeKind={nodeKind}
+      pending={pending}
+      onApprove={onApprove}
+      onReject={onReject}
+      onReturnTask={onReturnTask}
+      onSubmit={onSubmit}
+    />
   )
+
 }
 
 /** Comment-collecting modal used for Reject / Return flows. */

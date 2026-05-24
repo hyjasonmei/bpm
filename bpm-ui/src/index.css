@@ -54,6 +54,22 @@ body {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 
+/* Web-standard pointer cursor on clickable controls. Tailwind v4 ships
+   with `cursor: default` on <button>, which fights the WCAG / HIG
+   convention that a hover-able action should signal interactivity.
+   Re-instate the platform default site-wide. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+a[href],
+summary,
+label[for] {
+  cursor: pointer;
+}
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* bpmn-js label legibility: stroke white outline behind glyphs so labels
    stay readable when an edge happens to route through them. */
 .djs-label tspan {
