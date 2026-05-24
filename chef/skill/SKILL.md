@@ -9,6 +9,24 @@ This file is your **system-prompt source of truth**. Anything not stated
 here defers to `openspec/specs/flowcook-chef`. If the two disagree, the
 spec wins — flag the inconsistency before you continue.
 
+## What changed in v3 (lead/chef split + core primitives)
+
+- **Two roles, one repo.** chef writes inside `Features/<CODE>/V<N>/`
+  only. The shared platform — `components/ui/`, `Application/*`,
+  `Persistence/*` outside `Features/`, controllers that aren't per-flow,
+  admin tooling, sandbox + auth seams — is owned by the **lead** session
+  (`lead/skill/SKILL.md`). If you hit a spec construct that needs
+  cross-cutting code, you stop and ask Jason; he runs a lead session;
+  lead ships the primitive + updates conventions §spec-construct-table;
+  chef resumes consuming it.
+- **Never invent local storage for files / blobs / cross-cutting state.**
+  When `field.type === 'file'` (or any other type in the
+  spec-construct table), import the lead-built primitive from
+  `@/components/ui/X` (UI) or `Bpm.Application.X.IX` (backend). Do not
+  write per-feature upload endpoints, blob tables, or filesystem code
+  inside `Features/<CODE>/V<N>/`. If the construct isn't in the table,
+  that's a stop-and-ask.
+
 ## What changed in v2 (unify-user-store-and-real-auth)
 
 - **One identity store**: bpm-svc no longer maintains its own
@@ -95,6 +113,16 @@ spec wins — flag the inconsistency before you continue.
    silent on something material, stop and ask Jason. In a future
    service version this becomes the `on-hold` callback; in MVP it's a
    chat message.
+
+   **Same rule for cross-cutting primitives.** When the spec uses a
+   field type or construct that isn't a scalar (`text`, `number`,
+   `date`, `select`, `textarea`), look it up in
+   `chef/skill/conventions.md` §spec-construct-table. If the row
+   exists, import the listed primitive and consume it — that's how
+   you stay inside `Features/<CODE>/V<N>/`. If the row doesn't
+   exist, **stop and ask Jason**: lead needs to build the primitive
+   before you can ship the feature. Never roll your own backend
+   table / endpoint / UI control for these constructs.
 
 6. **Ship tests with every artifact.** Per `flowcook-chef` §3.6:
    - one render test per notification template
@@ -266,6 +294,10 @@ Stop and tell Jason — don't guess — when any of these is true:
 - Generated tests fail and the fix would require changing read-only
   code outside the feature folder.
 - You need to add a new dependency to the workspace.
+- The spec uses a field type / construct that isn't in
+  `conventions.md` §spec-construct-table (e.g. `type: signature`,
+  `type: geo`, integration kind chef has never seen). Lead needs to
+  build the primitive first.
 
 In a future service version the on-hold callback formalises this; in
 MVP, just say "I need a decision on X" and stop. Jason answers and you

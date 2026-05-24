@@ -3,6 +3,7 @@ using Bpm.Application.Attendance;
 using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Services;
 using Bpm.Application.Delegation;
+using Bpm.Application.Files;
 using Bpm.Application.Impersonation;
 using Bpm.Application.Notifications;
 using Bpm.Application.Org;
@@ -18,6 +19,7 @@ using Bpm.Persistence.Admin;
 using Bpm.Persistence.Attendance;
 using Bpm.Persistence.Common;
 using Bpm.Persistence.Delegation;
+using Bpm.Persistence.Files;
 using Bpm.Persistence.Impersonation;
 using Bpm.Persistence.Interceptors;
 using Bpm.Persistence.Notifications;
@@ -129,6 +131,21 @@ public static class DependencyInjection
         // Admin_UserCredentials with the same ASP.NET Identity PasswordHasher
         // admin-svc seeded with.
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
+
+        // Core file-storage primitive — chef-cooked features consume this
+        // via the FilePicker UI primitive (POST /api/files) instead of
+        // rolling their own per-feature upload paths. Bind by hand so this
+        // csproj doesn't need to pull in Configuration.Binder just for one
+        // options record.
+        var fileOptions = new FileStorageOptions();
+        var fileSection = configuration.GetSection("Files");
+        if (long.TryParse(fileSection["MaxBytes"], out var maxBytes) && maxBytes > 0)
+            fileOptions.MaxBytes = maxBytes;
+        var rootPath = fileSection["RootPath"];
+        if (!string.IsNullOrWhiteSpace(rootPath))
+            fileOptions.RootPath = rootPath;
+        services.AddSingleton(fileOptions);
+        services.AddScoped<IFileStorageService, FileStorageService>();
 
         return services;
     }

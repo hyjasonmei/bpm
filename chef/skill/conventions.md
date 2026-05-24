@@ -108,6 +108,28 @@ Every shape may carry a `fallback: { text }` for the "primary
 resolved to nobody" case. The fallback text is natural language for
 the same reason — read it, decide, escalate if ambiguous.
 
+## Spec construct → core primitive table
+
+This is the lookup chef MUST hit when a `userTask.fields[]` entry has a
+non-scalar `type`, or when any other spec construct needs cross-cutting
+machinery. **Scalar types** (`text`, `number`, `date`, `select`,
+`textarea`, `checkbox`, `radio`) render with the inline `components/ui/`
+inputs — no entry needed. Anything more complex MUST be in this table
+before chef ships it.
+
+| Spec construct | UI primitive (import) | Backend pattern | Form-data shape |
+|---|---|---|---|
+| `field.type === 'file'` | `<FilePicker value={…} onChange={…} accept="…" />` from `@/components/ui/FilePicker` | Store the returned `{id}` (Guid string). Handlers read bytes back via `IFileStorageService.OpenReadAsync(id)` (Application). Never write blob tables or filesystem code inside `Features/`. | `{ id: string, fileName: string, contentType: string, sizeBytes: number }` |
+
+When the spec uses a construct that isn't here yet, **stop and ask
+Jason** — lead will ship the primitive (see `lead/skill/SKILL.md`) and
+add a row above. Do not approximate it inside `Features/<CODE>/V<N>/`.
+
+The forms-side import path is always `@/components/ui/<Primitive>`; the
+backend-side import path is always under `Bpm.Application.<Area>` (the
+interface) or, if you need a concrete impl, `Bpm.Persistence.<Area>`.
+Feature code never reaches into another feature folder.
+
 ## Form layout
 
 `userTask.fields[]` is canonical (types / required / CEL).
@@ -129,6 +151,8 @@ Render rules:
   silently — surface the orphan in your summary message).
 - Repeater item fields live in their own namespace; don't conflate
   `outer.amount` with `repeater.amount` even though they share a label.
+- A `field.type` that isn't a scalar AND isn't in the §spec-construct
+  table is a stop-and-ask — lead needs to ship the primitive first.
 
 ## Tests chef must always include
 
