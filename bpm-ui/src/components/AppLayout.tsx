@@ -1,7 +1,9 @@
 import * as React from 'react'
-import { Plus, Search, BarChart3, Home, ChevronDown, Clock, FlaskConical } from 'lucide-react'
+import { Plus, Search, BarChart3, Home as HomeIcon, ChevronDown, Clock, FlaskConical } from 'lucide-react'
+import { Link, NavLink, useMatch } from 'react-router-dom'
+
 import { cn } from '@/lib/cn'
-import { RoleSwitcher } from '@/components/RoleSwitcher'
+import { AccountMenu } from '@/components/AccountMenu'
 import { ImpersonationBanner } from '@/components/ImpersonationBanner'
 import { SandboxBanner } from '@/components/SandboxBanner'
 import { NotificationsMenu } from '@/components/NotificationsMenu'
@@ -10,25 +12,7 @@ import type { PersonaCode } from '@/lib/role'
 import { FORMS, type FormCode } from '@/lib/workflow'
 import { getSandboxStatus } from '@/lib/api/sandbox'
 
-export type Screen =
-  | { kind: 'home' }
-  | { kind: 'create' }
-  | { kind: 'search' }
-  | { kind: 'report' }
-  | { kind: 'attendance' }
-  | { kind: 'sandbox-mailbox' }
-  /**
-   * Form screen. `taskId` makes it a task-mode form (read-only fields, runtime
-   * Approve/Reject/Return); without it the form is in create-mode (default).
-   * PR-L2 wires the prop plumbing; PR-L3 wires inbox click → task screen.
-   */
-  | { kind: 'form'; code: FormCode; taskId?: string }
-  /** Case detail view: fetches /api/processes/{id} + history, no form interaction. */
-  | { kind: 'case'; instanceId: string }
-
 interface AppLayoutProps {
-  screen: Screen
-  setScreen: (s: Screen) => void
   persona: PersonaCode
   setPersona: (p: PersonaCode) => void | Promise<void>
   authedFullName?: string | null
@@ -37,7 +21,7 @@ interface AppLayoutProps {
   children: React.ReactNode
 }
 
-export function AppLayout({ screen, setScreen, persona, setPersona, authedFullName = null, authPending = false, authError = null, children }: AppLayoutProps) {
+export function AppLayout({ persona, setPersona, authedFullName = null, authPending = false, authError = null, children }: AppLayoutProps) {
   const [sandboxOn, setSandboxOn] = React.useState(false)
 
   // PR-J5 §10.5: Sandbox Mailbox link only visible when sandbox is on. Poll
@@ -55,6 +39,12 @@ export function AppLayout({ screen, setScreen, persona, setPersona, authedFullNa
     return () => { cancelled = true; window.clearInterval(handle) }
   }, [])
 
+  // Form sub-header is shown when the URL matches /apply/:code or /tasks/:taskId.
+  // For /tasks/:taskId we don't know the FormCode synchronously — the sub-header
+  // just shows when on an apply path; task pages skip it (the task panel shows
+  // its own context inside the form body).
+  const applyMatch = useMatch('/apply/:code')
+
   return (
     <div className="min-h-screen bg-bg">
       <SandboxBanner />
@@ -63,34 +53,28 @@ export function AppLayout({ screen, setScreen, persona, setPersona, authedFullNa
       <header className="sticky top-0 z-40 bg-header text-white shadow-md">
         <div className="mx-auto flex h-12 max-w-screen-2xl items-center gap-2 px-4">
           {/* Logo */}
-          <button onClick={() => setScreen({ kind: 'home' })} className="mr-4 flex items-center gap-2 transition-opacity hover:opacity-90">
+          <Link to="/" className="mr-4 flex items-center gap-2 transition-opacity hover:opacity-90">
             <div className="flex h-7 w-7 items-center justify-center rounded bg-red-500 text-[10.5px] font-bold tracking-wider text-white">BPM</div>
             <span className="text-sm font-bold tracking-wide">BPM System</span>
-          </button>
+          </Link>
 
           {/* Nav */}
           <div className="flex items-center gap-0.5">
-            <NavBtn active={screen.kind === 'home'} onClick={() => setScreen({ kind: 'home' })} icon={<Home className="h-4 w-4" />}>Home</NavBtn>
-            <NavBtn active={screen.kind === 'create'} onClick={() => setScreen({ kind: 'create' })} icon={<Plus className="h-4 w-4" />}>Create</NavBtn>
-            <NavBtn active={screen.kind === 'search'} onClick={() => setScreen({ kind: 'search' })} icon={<Search className="h-4 w-4" />}>Search</NavBtn>
-            <NavBtn active={screen.kind === 'report'} onClick={() => setScreen({ kind: 'report' })} icon={<BarChart3 className="h-4 w-4" />}>Report</NavBtn>
+            <NavBtnLink to="/" end icon={<HomeIcon className="h-4 w-4" />}>Home</NavBtnLink>
+            <NavBtnLink to="/create" icon={<Plus className="h-4 w-4" />}>Create</NavBtnLink>
+            <NavBtnLink to="/search" icon={<Search className="h-4 w-4" />}>Search</NavBtnLink>
+            <NavBtnLink to="/reports" icon={<BarChart3 className="h-4 w-4" />}>Report</NavBtnLink>
           </div>
 
           {/* Right side */}
           <div className="ml-auto flex items-center gap-1">
             {sandboxOn && (
-              <NavBtn
-                active={screen.kind === 'sandbox-mailbox'}
-                onClick={() => setScreen({ kind: 'sandbox-mailbox' })}
-                icon={<FlaskConical className="h-4 w-4" />}
-              >
-                Sandbox
-              </NavBtn>
+              <NavBtnLink to="/sandbox/mailbox" icon={<FlaskConical className="h-4 w-4" />}>Sandbox</NavBtnLink>
             )}
-            <NavBtn active={screen.kind === 'attendance'} onClick={() => setScreen({ kind: 'attendance' })} icon={<Clock className="h-4 w-4" />}>Attendance</NavBtn>
+            <NavBtnLink to="/attendance" icon={<Clock className="h-4 w-4" />}>Attendance</NavBtnLink>
             <NotificationsMenu />
             <HelpReportMenu />
-            <RoleSwitcher
+            <AccountMenu
               active={persona}
               onChange={setPersona}
               pending={authPending}
@@ -101,10 +85,10 @@ export function AppLayout({ screen, setScreen, persona, setPersona, authedFullNa
         </div>
 
         {/* Stepper bar slot — forms render here via children + portal-like gap */}
-        {screen.kind === 'form' && (
+        {applyMatch?.params.code && (
           <div className="border-t border-white/10 bg-white/5 px-4">
             <div className="mx-auto max-w-screen-2xl">
-              <FormSubHeader code={screen.code} />
+              <FormSubHeader code={applyMatch.params.code as FormCode} />
             </div>
           </div>
         )}
@@ -118,25 +102,26 @@ export function AppLayout({ screen, setScreen, persona, setPersona, authedFullNa
   )
 }
 
-function NavBtn({ active, onClick, icon, children, hasChevron }: {
-  active?: boolean
-  onClick?: () => void
+function NavBtnLink({ to, end, icon, children, hasChevron }: {
+  to: string
+  end?: boolean
   icon?: React.ReactNode
   children: React.ReactNode
   hasChevron?: boolean
 }) {
   return (
-    <button
-      onClick={onClick}
-      className={cn(
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) => cn(
         'flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors',
-        active ? 'bg-white/20 text-white' : 'text-white/80 hover:bg-white/10 hover:text-white',
+        isActive ? 'bg-white/20 text-white' : 'text-white/80 hover:bg-white/10 hover:text-white',
       )}
     >
       {icon}
       {children}
       {hasChevron && <ChevronDown className="h-3.5 w-3.5 opacity-70" />}
-    </button>
+    </NavLink>
   )
 }
 
@@ -144,6 +129,7 @@ function FormSubHeader({ code }: { code: FormCode }) {
   // Stepper is rendered inside the form screen itself.
   // This sub-header just shows a thin breadcrumb for context.
   const def = FORMS[code]
+  if (!def) return null
   return (
     <div className="flex items-center gap-3 py-1.5 text-[11px] text-white/60">
       <span className="font-mono uppercase tracking-wider">FORM</span>

@@ -3,6 +3,7 @@ using Bpm.Application.Common.Abstractions;
 using Bpm.Domain.Entities.Attendance;
 using Bpm.Domain.Entities.Audit;
 using Bpm.Domain.Entities.Authz;
+using Bpm.Domain.Entities.Files;
 using Bpm.Domain.Entities.HrFlows;
 using Bpm.Domain.Entities.Impersonation;
 using Bpm.Domain.Entities.Notifications;
@@ -40,6 +41,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SpecBundle> SpecBundles => Set<SpecBundle>();
 
     public DbSet<NotificationDispatchAudit> NotificationDispatchAudits => Set<NotificationDispatchAudit>();
+
+    public DbSet<FileBlob> FileBlobs => Set<FileBlob>();
 
     // Shared identity — admin-svc owns the Admin_* schemas; bpm-svc reads
     // through these mappings with ExcludeFromMigrations so it never tries

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Clock, CheckCircle2, XCircle, AlertTriangle, FileText } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+
 import { Button } from '@/components/ui/button'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/badge'
@@ -10,10 +12,11 @@ import { FORMS, type FormCode } from '@/lib/workflow'
 
 interface CaseDetailProps {
   instanceId: string
-  onBack: () => void
 }
 
-export function CaseDetail({ instanceId, onBack }: CaseDetailProps) {
+export function CaseDetail({ instanceId }: CaseDetailProps) {
+  const navigate = useNavigate()
+  const onBack = () => navigate('/')
   const [instance, setInstance] = useState<ProcessInstanceDto | null>(null)
   const [history, setHistory] = useState<TaskHistoryDto[]>([])
   const [loading, setLoading] = useState(true)

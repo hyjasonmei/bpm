@@ -11,44 +11,18 @@ namespace Bpm.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_Departments_Principals_Id",
-                table: "Departments");
-
-            migrationBuilder.DropForeignKey(
-                name: "FK_Users_Principals_Id",
-                table: "Users");
-
-            migrationBuilder.DropForeignKey(
-                name: "FK_Departments_Users_HeadUserId",
-                table: "Departments");
-
-            migrationBuilder.DropTable(
-                name: "GroupMembers");
-
-            migrationBuilder.DropTable(
-                name: "RoleAssignments");
-
-            migrationBuilder.DropTable(
-                name: "RolePermissions");
-
-            migrationBuilder.DropTable(
-                name: "Groups");
-
-            migrationBuilder.DropTable(
-                name: "Permissions");
-
-            migrationBuilder.DropTable(
-                name: "Roles");
-
-            migrationBuilder.DropTable(
-                name: "Principals");
-
-            migrationBuilder.DropTable(
-                name: "Users");
-
-            migrationBuilder.DropTable(
-                name: "Departments");
+            // SQLite doesn't support DropForeignKey (no ALTER TABLE DROP CONSTRAINT).
+            // Dropping child tables before parents lets the FK constraints vanish
+            // with the child tables — portable to Postgres too (no CASCADE needed).
+            migrationBuilder.DropTable(name: "GroupMembers");
+            migrationBuilder.DropTable(name: "RoleAssignments");
+            migrationBuilder.DropTable(name: "RolePermissions");
+            migrationBuilder.DropTable(name: "Groups");
+            migrationBuilder.DropTable(name: "Permissions");
+            migrationBuilder.DropTable(name: "Roles");
+            migrationBuilder.DropTable(name: "Departments");
+            migrationBuilder.DropTable(name: "Users");
+            migrationBuilder.DropTable(name: "Principals");
         }
 
         /// <inheritdoc />

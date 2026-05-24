@@ -70,6 +70,11 @@ button:disabled,
   cursor: not-allowed;
 }
 
+/* bpmn-js — diagram.js viewer styles (shipped with the package). */
+@import "bpmn-js/dist/assets/diagram-js.css";
+@import "bpmn-js/dist/assets/bpmn-js.css";
+@import "bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css";
+
 /* bpmn-js label legibility: stroke white outline behind glyphs so labels
    stay readable when an edge happens to route through them. */
 .djs-label tspan {
@@ -77,4 +82,15 @@ button:disabled,
   stroke: #ffffff;
   stroke-width: 3px;
   stroke-linejoin: round;
+}
+
+/* Active / completed task markers driven by canvas.addMarker(). */
+.djs-element.bpm-active .djs-visual > :nth-child(1) {
+  fill: #FEF3C7 !important;
+  stroke: #F59E0B !important;
+  stroke-width: 3px !important;
+}
+.djs-element.bpm-completed .djs-visual > :nth-child(1) {
+  fill: #DCFCE7 !important;
+  stroke: #16A34A !important;
 }

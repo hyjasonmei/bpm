@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { SectionCard } from '@/components/ui/card'
 import { Stepper } from '@/components/Stepper'
 import { BpmnView } from '@/components/BpmnView'
+import { lookupForm } from '@/features/registry'
 import { Textarea } from '@/components/ui/form'
 import { FORMS, type FormCode } from '@/lib/workflow'
 import { PERSONAS, type PersonaCode } from '@/lib/role'
@@ -82,6 +83,7 @@ export function FormShell({
         ownerByStep={def.ownerByStep}
         formLabel={`${def.code} — ${def.label}`}
         onClose={() => setBpmnOpen(false)}
+        bpmnXml={lookupForm(def.code)?.bpmnXml}
       />
     </div>
   )

@@ -62,9 +62,16 @@ export function useMyTasks(filter: 'open' | 'completed' | 'all' = 'open'): UseMy
       void fetchOnce(isCancelled)
     }, POLL_INTERVAL_MS)
 
+    // Listen for the runtime invalidation event so Home picks up the new
+    // task within ~ms of a submit, instead of waiting up to 30 s. See
+    // openspec change `redirect-home-after-submit`.
+    const onInvalidate = () => { void fetchOnce(isCancelled) }
+    window.addEventListener('bpm:tasks-invalidate', onInvalidate)
+
     return () => {
       cancelledRef.current = true
       window.clearInterval(handle)
+      window.removeEventListener('bpm:tasks-invalidate', onInvalidate)
     }
   }, [fetchOnce])
 

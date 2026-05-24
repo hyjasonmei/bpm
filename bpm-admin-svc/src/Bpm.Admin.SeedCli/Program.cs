@@ -80,17 +80,19 @@ static async Task Clear(string connectionString)
     await using var ctx = new AdminDbContext(options);
     await ctx.Database.MigrateAsync();
     await ctx.Database.ExecuteSqlRawAsync(@"
-        DELETE FROM UserSessions;
-        DELETE FROM UserCredentials;
-        DELETE FROM AuditEvents;
-        DELETE FROM Delegations;
-        DELETE FROM PrincipalRoles;
-        DELETE FROM GroupMembers;
-        DELETE FROM UserDepts;
-        DELETE FROM DeptParents;
-        DELETE FROM Flows;
-        DELETE FROM Roles;
-        DELETE FROM Principals;
+        DELETE FROM Admin_UserSessions;
+        DELETE FROM Admin_UserCredentials;
+        DELETE FROM Admin_AuditEvents;
+        DELETE FROM Admin_Delegations;
+        DELETE FROM Admin_PrincipalRoles;
+        DELETE FROM Admin_GroupMembers;
+        DELETE FROM Admin_DeptHeads;
+        DELETE FROM Admin_UserManagers;
+        DELETE FROM Admin_UserDepts;
+        DELETE FROM Admin_DeptParents;
+        DELETE FROM Admin_Flows;
+        DELETE FROM Admin_Roles;
+        DELETE FROM Admin_Principals;
     ");
 }
 

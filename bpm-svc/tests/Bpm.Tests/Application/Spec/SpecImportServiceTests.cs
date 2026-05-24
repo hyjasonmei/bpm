@@ -13,42 +13,10 @@ public sealed class SpecImportServiceTests
         return new SpecImportService(evaluator);
     }
 
-    [Fact]
-    public async Task Valid_leave_v1_spec_passes()
-    {
-        var sut = BuildSut();
-        var json = await File.ReadAllTextAsync("/Users/jason/claude/bpm/sample_specs/leave_v1.json");
-
-        var result = await sut.ValidateAsync(json);
-
-        Assert.True(result.Valid,
-            "leave_v1.json should validate cleanly. Errors: " +
-            string.Join(" | ", result.Errors.Select(e => $"{e.Location}: {e.Message}")));
-        Assert.Empty(result.Errors);
-    }
-
-    [Theory]
-    [InlineData("teo_v1.json")]
-    [InlineData("gee_v1.json")]
-    [InlineData("gev_v1.json")]
-    [InlineData("ape_v1.json")]
-    [InlineData("hwp_v1.json")]
-    [InlineData("itpr_v1.json")]
-    [InlineData("trq_v1.json")]
-    [InlineData("extob_v1.json")]
-    [InlineData("resign_v1.json")]
-    [InlineData("deptx_v1.json")]
-    public async Task Sample_specs_with_cel_helpers_validate_cleanly(string fileName)
-    {
-        var sut = BuildSut();
-        var json = await File.ReadAllTextAsync($"/Users/jason/claude/bpm/sample_specs/{fileName}");
-
-        var result = await sut.ValidateAsync(json);
-
-        Assert.True(result.Valid,
-            $"{fileName} should validate cleanly. Errors: " +
-            string.Join(" | ", result.Errors.Select(e => $"{e.Location}: {e.Message}")));
-    }
+    // Tests that read sample_specs/*.json were cut when the dir was removed
+    // pre-model-B — spec validation isn't load-bearing in the hand-written
+    // per-flow world. Inline-JSON tests below keep the validator itself
+    // exercised.
 
     [Fact]
     public async Task Broken_gateway_condition_surfaces_location_and_parse_message()

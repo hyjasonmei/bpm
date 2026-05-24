@@ -1,14 +1,12 @@
 import { ChefHat } from 'lucide-react'
-import { type Screen } from '@/components/AppLayout'
+import { Link } from 'react-router-dom'
+
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { formRegistry } from '@/features/registry'
 import { FORMS } from '@/lib/workflow'
+import { routes } from '@/router'
 
-interface CreateIndexProps {
-  setScreen: (s: Screen) => void
-}
-
-export function CreateIndex({ setScreen }: CreateIndexProps) {
+export function CreateIndex() {
   // Registry-driven (matches Home Quick Actions). Each chef-shipped
   // manifest under features/<CODE>/V<N>/ surfaces as one option here.
   const actions = [...formRegistry.values()]
@@ -31,9 +29,9 @@ export function CreateIndex({ setScreen }: CreateIndexProps) {
         ) : (
           <div className="grid grid-cols-2 gap-px bg-slate-100 md:grid-cols-3">
             {actions.map(a => (
-              <button
+              <Link
                 key={a.code}
-                onClick={() => setScreen({ kind: 'form', code: a.code })}
+                to={routes.formCreate(a.code)}
                 className="flex flex-col items-start gap-1 bg-white px-4 py-3 text-left transition-colors hover:bg-blue-50"
               >
                 <span className="font-mono text-[10.5px] uppercase tracking-wider text-ink-faint">{a.code}</span>
@@ -41,7 +39,7 @@ export function CreateIndex({ setScreen }: CreateIndexProps) {
                   <ChefHat className="h-3.5 w-3.5 text-primary" />
                   {a.label}
                 </span>
-              </button>
+              </Link>
             ))}
           </div>
         )}
