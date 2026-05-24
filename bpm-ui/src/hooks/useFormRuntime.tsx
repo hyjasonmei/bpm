@@ -43,9 +43,17 @@ export function useFormRuntime(specCode: FormCode, props: FormRuntimeProps) {
     window.setTimeout(() => setToast(null), 3000)
   }, [])
 
+  // Notify `useMyTasks` / `useMyInstances` (Home inbox + cases table) so the
+  // new task appears immediately after a submit rather than waiting up to
+  // 30 s for the next poll. See openspec change `redirect-home-after-submit`.
+  const invalidateTasks = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('bpm:tasks-invalidate'))
+  }, [])
+
   const submitCreate = useCallback(async (formData: unknown) => {
     try {
       const r = await create.submit(specCode, formData)
+      invalidateTasks()
       fireToast(`Submitted! Instance ${r.instanceId.slice(0, 8)} • first task ${r.firstTaskId.slice(0, 8)}`)
       onSubmitted?.({ instanceId: r.instanceId, firstTaskId: r.firstTaskId })
       return r
@@ -54,11 +62,12 @@ export function useFormRuntime(specCode: FormCode, props: FormRuntimeProps) {
       fireToast(`Submit failed: ${msg}`)
       throw e
     }
-  }, [create, specCode, fireToast, onSubmitted])
+  }, [create, specCode, fireToast, invalidateTasks, onSubmitted])
 
   const approve = useCallback(async (comment: string) => {
     try {
       await task.submit({ decision: 'Approve' as Decision, comment: comment || undefined })
+      invalidateTasks()
       fireToast('Approved.')
       onSubmitted?.({})
     } catch (e: unknown) {
@@ -66,11 +75,12 @@ export function useFormRuntime(specCode: FormCode, props: FormRuntimeProps) {
       fireToast(`Approve failed: ${msg}`)
       throw e
     }
-  }, [task, fireToast, onSubmitted])
+  }, [task, fireToast, invalidateTasks, onSubmitted])
 
   const reject = useCallback(async (comment: string) => {
     try {
       await task.submit({ decision: 'Reject' as Decision, comment })
+      invalidateTasks()
       fireToast('Rejected.')
       onSubmitted?.({})
     } catch (e: unknown) {
@@ -78,11 +88,12 @@ export function useFormRuntime(specCode: FormCode, props: FormRuntimeProps) {
       fireToast(`Reject failed: ${msg}`)
       throw e
     }
-  }, [task, fireToast, onSubmitted])
+  }, [task, fireToast, invalidateTasks, onSubmitted])
 
   const returnAct = useCallback(async (comment: string) => {
     try {
       await task.returnTask(comment)
+      invalidateTasks()
       fireToast('Returned to previous step.')
       onSubmitted?.({})
     } catch (e: unknown) {
@@ -90,11 +101,12 @@ export function useFormRuntime(specCode: FormCode, props: FormRuntimeProps) {
       fireToast(`Return failed: ${msg}`)
       throw e
     }
-  }, [task, fireToast, onSubmitted])
+  }, [task, fireToast, invalidateTasks, onSubmitted])
 
   const submitUserTask = useCallback(async (formDataPatch?: unknown) => {
     try {
       await task.submit({ formDataPatch })
+      invalidateTasks()
       fireToast('Submitted.')
       onSubmitted?.({})
     } catch (e: unknown) {
@@ -102,7 +114,7 @@ export function useFormRuntime(specCode: FormCode, props: FormRuntimeProps) {
       fireToast(`Submit failed: ${msg}`)
       throw e
     }
-  }, [task, fireToast, onSubmitted])
+  }, [task, fireToast, invalidateTasks, onSubmitted])
 
   return {
     mode,

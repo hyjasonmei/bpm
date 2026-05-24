@@ -3,6 +3,8 @@ import {
   Check, AlertCircle, Inbox, Pencil, Calendar,
   ChefHat,
 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
@@ -10,11 +12,11 @@ import { StatusBadge, TypeChip, type StatusKind } from '@/components/ui/badge'
 import { PERSONAS, type PersonaCode } from '@/lib/role'
 import { getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
-import type { Screen } from '@/components/AppLayout'
 import { FORMS, type FormCode } from '@/lib/workflow'
 import { formRegistry } from '@/features/registry'
 import { useMyTasks } from '@/hooks/useMyTasks'
 import { useMyInstances } from '@/hooks/useMyInstances'
+import { routes } from '@/router'
 import type { InstanceStatus, MyInstanceSummaryDto, ProcessTaskDto } from '@/types/process'
 
 const ICON_FOR_ACTIVITY = {
@@ -28,10 +30,10 @@ const ICON_FOR_ACTIVITY = {
 
 interface HomeProps {
   persona: PersonaCode
-  setScreen: (s: Screen) => void
 }
 
-export function Home({ persona, setScreen }: HomeProps) {
+export function Home({ persona }: HomeProps) {
+  const navigate = useNavigate()
   const personaInfo = PERSONAS[persona]
   // PR-L3: real backend data — open tasks the caller owns + instances they
   // initiated. Polling cadence is 30s (see hook); manual refresh on action
@@ -66,11 +68,11 @@ export function Home({ persona, setScreen }: HomeProps) {
       {/* Two-column grid */}
       <div className="grid grid-cols-[1fr_320px] gap-4">
         <div className="min-w-0 space-y-4">
-          <PendingTable persona={persona} tasks={inbox.data ?? []} loading={inbox.loading} error={inbox.error} setScreen={setScreen} />
-          <MyCasesTable cases={myCases.data ?? []} loading={myCases.loading} error={myCases.error} setScreen={setScreen} />
+          <PendingTable persona={persona} tasks={inbox.data ?? []} loading={inbox.loading} error={inbox.error} navigate={navigate} />
+          <MyCasesTable cases={myCases.data ?? []} loading={myCases.loading} error={myCases.error} navigate={navigate} />
         </div>
         <div className="min-w-0 space-y-4">
-          <QuickActionsPanel setScreen={setScreen} />
+          <QuickActionsPanel />
           <ActivityFeedPanel cases={myCases.data ?? []} loading={myCases.loading} />
         </div>
       </div>
@@ -194,12 +196,12 @@ function StatCard({ title, value, tone, Icon, sub }: { title: string; value: num
 
 /* ── Pending action table ───────────────────────────────── */
 
-function PendingTable({ persona, tasks, loading, error, setScreen }: {
+function PendingTable({ persona, tasks, loading, error, navigate }: {
   persona: PersonaCode
   tasks: ProcessTaskDto[]
   loading: boolean
   error: Error | null
-  setScreen: (s: Screen) => void
+  navigate: ReturnType<typeof useNavigate>
 }) {
   const titlePerPersona: Record<PersonaCode, string> = {
     employee: 'Pending My Action',
@@ -250,7 +252,7 @@ function PendingTable({ persona, tasks, loading, error, setScreen }: {
                       variant="primary"
                       size="xs"
                       disabled={!formCode}
-                      onClick={() => formCode && setScreen({ kind: 'form', code: formCode, taskId: t.id })}
+                      onClick={() => formCode && navigate(routes.formTask(t.id))}
                     >
                       Open
                     </Button>
@@ -265,7 +267,7 @@ function PendingTable({ persona, tasks, loading, error, setScreen }: {
   )
 }
 
-function MyCasesTable({ cases, loading, error, setScreen }: { cases: MyInstanceSummaryDto[]; loading: boolean; error: Error | null; setScreen: (s: Screen) => void }) {
+function MyCasesTable({ cases, loading, error, navigate }: { cases: MyInstanceSummaryDto[]; loading: boolean; error: Error | null; navigate: ReturnType<typeof useNavigate> }) {
   return (
     <SectionCard>
       <SectionTitle right={<span className="text-xs text-ink-muted">{cases.length} case{cases.length === 1 ? '' : 's'}</span>}>
@@ -295,7 +297,7 @@ function MyCasesTable({ cases, loading, error, setScreen }: { cases: MyInstanceS
               return (
                 <tr
                   key={c.id}
-                  onClick={() => setScreen({ kind: 'case', instanceId: c.id })}
+                  onClick={() => navigate(routes.caseDetail(c.id))}
                   className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/60"
                 >
                   <Td><span className="font-mono text-[11px] text-ink">{c.id.slice(0, 8)}</span></Td>
@@ -316,7 +318,7 @@ function MyCasesTable({ cases, loading, error, setScreen }: { cases: MyInstanceS
 
 /* ── Right rail ─────────────────────────────────────────── */
 
-function QuickActionsPanel({ setScreen }: { setScreen: (s: Screen) => void }) {
+function QuickActionsPanel() {
   // Registry-driven: each chef-shipped manifest under
   // features/<CODE>/V<N>/ surfaces as one Quick Action. The FORMS
   // metadata map is consulted for display label only — it is NOT a
@@ -335,21 +337,21 @@ function QuickActionsPanel({ setScreen }: { setScreen: (s: Screen) => void }) {
       ) : (
         <div className="grid grid-cols-2 gap-2 p-3">
           {actions.map(a => (
-            <button
+            <Link
               key={a.code}
-              onClick={() => setScreen({ kind: 'form', code: a.code })}
+              to={routes.formCreate(a.code)}
               className="flex items-center gap-2 rounded-md border border-rule bg-white px-2.5 py-2 text-left text-xs font-medium text-ink-muted transition-colors hover:bg-slate-50 hover:text-ink"
             >
               <ChefHat className="h-4 w-4 shrink-0 text-primary" />
               <span className="truncate">{a.label}</span>
-            </button>
+            </Link>
           ))}
         </div>
       )}
       <div className="border-t border-rule px-3 py-2 text-center">
-        <button onClick={() => setScreen({ kind: 'create' })} className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
+        <Link to="/create" className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
           <Plus className="h-3 w-3" /> Browse all forms
-        </button>
+        </Link>
       </div>
     </SectionCard>
   )

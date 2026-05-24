@@ -108,6 +108,49 @@ Every shape may carry a `fallback: { text }` for the "primary
 resolved to nobody" case. The fallback text is natural language for
 the same reason — read it, decide, escalate if ambiguous.
 
+## Cross-cutting concerns chef MUST NOT reinvent
+
+Some data is **runtime-wide**, not per-flow. The core platform already
+exposes it; chef-cooked feature code MUST consume the existing surface
+instead of building a parallel per-flow version.
+
+| Concern | Core surface (use this) | What chef MUST NOT build |
+|---|---|---|
+| "Start a new instance" | `POST /api/processes` (+ `useFlowSubmit` / `useFormRuntime.submitCreate`) | `POST /api/<flow>/v<n>/(submit\|apply\|create)` that writes a chef-owned table directly, bypassing `IProcessRuntime` |
+| "What's in the current user's inbox?" | `GET /api/tasks/mine` + `useMyTasks(status)` | `GET /api/<flow>/v<n>/pending`, `<PendingTasksCard>` inside `Features/` |
+| "What did the current user submit?" | `GET /api/processes/mine` + `useMyInstances(status)` | `GET /api/<flow>/v<n>/my-cases`, `<MyCasesList>` inside `Features/` |
+| "What's the status of this instance?" | `GET /api/processes/{id}` + `GET /api/processes/{id}/history` | `GET /api/<flow>/v<n>/case/{id}` returning runtime state |
+| "Approve / reject / return this task" | `POST /api/tasks/{id}/submit` (+ `useFormRuntime`) | Per-flow state-mutation endpoints named after a spec role (`POST /api/<flow>/v<n>/<role>-decision/{caseId}` and friends — `<role>` is spec-defined and varies) |
+| "Track per-step status / current approver / per-role comments" | `ProcessTask` + `TaskHistory` (read via `useFlowTask`) | Per-flow status enum keyed by approver role (`Pending<Role>` / `Approved` / `Rejected` …), per-role assignment columns (`<Role>UserId`), per-role decision columns (`<Role>Approved`, `<Role>Comment`, …) on a chef entity. The `<Role>` placeholder is whatever the spec calls the actor — chef must NOT bake any of them into a column. |
+| Task assignment, delegation, SLA | `ProcessRuntime` does this from the spec | Per-flow assignment / SLA tables |
+
+If the form *needs* extra display data that the spec doesn't already
+inline into form-data (e.g. running quota, dependency lookup), that's
+a per-flow **business data** read — fine. Name the endpoint after the
+business resource (`/api/leave/v1/balance`), not after a runtime
+concept (`/pending`, `/inbox`, `/my-cases`).
+
+When a regression slips in (chef-cooked code grows a `Pending`
+controller or a `<PendingTasksCard>`), it's a stop-and-flag for the
+next chef session — drop the file, swap callers to the global hooks.
+
+## Core UI components chef MUST consume
+
+Lead maintains these in `bpm-ui/src/components/ui/`. Chef forms import
+from these paths — do NOT re-roll an equivalent inside `Features/`.
+
+| Use | Canonical import |
+|---|---|
+| Buttons | `@/components/ui/button` (`<Button variant="primary\|outline\|ghost\|destructive" size="xs\|sm\|md" />`) |
+| Form inputs | `@/components/ui/form` (`<Input>`, `<Textarea>`, `<Select>`, `<Field label hint required error>`, `<InfoBanner>`) |
+| Section cards | `@/components/ui/card` (`<SectionCard>`, `<SectionTitle>`) |
+| Confirm dialog | `@/components/ui/ConfirmDialog` (`<ConfirmDialog open title titleZh description tone onConfirm onCancel />`) |
+| Modal primitive | `@/components/ui/Modal` (wrap Radix Dialog — use this if you need a non-confirm dialog shape, but prefer existing wrappers) |
+| Read-only field | `@/components/ui/readonly` |
+
+If you need a UI control that isn't in this table, that's a stop-and-ask
+for lead — same rule as the spec-construct table below.
+
 ## Spec construct → core primitive table
 
 This is the lookup chef MUST hit when a `userTask.fields[]` entry has a

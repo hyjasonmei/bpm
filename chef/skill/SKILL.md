@@ -124,6 +124,84 @@ spec wins — flag the inconsistency before you continue.
    before you can ship the feature. Never roll your own backend
    table / endpoint / UI control for these constructs.
 
+6. **Chef-cooked code drives `IProcessRuntime`. It does NOT replace it.**
+   This is the single most important rule. The runtime is the engine;
+   chef writes per-flow code that *plugs into* the engine. Concretely:
+
+   - **Submit goes through `POST /api/processes`** (which `ProcessRuntime
+     .StartInstanceAsync` handles) — never a per-flow `POST
+     /api/<flow>/v<n>/*` endpoint that writes a chef-owned table
+     directly.
+   - **Approvals / rejections / returns go through `POST
+     /api/tasks/{id}/submit`** — never a per-flow
+     `POST /api/<flow>/v<n>/*-decision` (or any other per-flow
+     state-mutation endpoint, no matter what the spec calls the role).
+   - **Task assignment / routing / SLA / next-step selection is the
+     runtime's job**, driven from the spec snapshot. Chef does NOT
+     define a per-flow status enum, a per-flow `Current*UserId`
+     column, or per-role `*UserId` / `*Approved` / `*Comment`
+     columns — those role names came from the spec, but the *runtime
+     state* they describe already lives in `ProcessTask`,
+     `TaskHistory`, and the `SpecSnapshot`.
+   - **Chef-owned tables hold business data, not runtime state.**
+     A flow's entity may store the form payload (e.g. `leave_type`,
+     `date_range`, `cert_file_id`, `reason` for LEAVE; `vendor`,
+     `amount`, `line_items` for a purchase flow) — i.e. whatever the
+     user typed. It must NOT store workflow state (status, current
+     approver, per-step decision, per-step comment, per-step
+     timestamp). That state lives in `ProcessInstance` +
+     `ProcessTask` + `TaskHistory`, and is read by the form via the
+     existing `useFormRuntime` + `useFlowTask` hooks.
+
+   Symptoms of this anti-pattern (regression triggers — flag ANY of
+   these on chef output review). The role names are spec-defined and
+   vary per flow; the *shape* of the smell does not:
+   - A controller that injects `AppDbContext` and writes domain rows
+     without going through `IProcessRuntime`
+   - A per-flow status enum keyed by approver role
+     (`Pending<Role>` / `Approved` / `Rejected` / `Completed` — where
+     `<Role>` is anything the spec mentions)
+   - Per-flow state-mutation endpoints named after a spec role
+     (`*-decision`, `*-approve`, `*-archive`, `*-sign-off`, etc.)
+   - A `Current*UserId` / `*UserId` / `*Approved` / `*Comment`
+     column on a chef entity, where `*` matches a spec role
+   - The form posting to `/api/<flow>/v<n>/...` for anything other
+     than a pure business-data read (e.g. a quota lookup)
+
+   Correct shape (see `bpm-form-stepper` spec + `Reference_*` forms):
+   the form imports `useFormRuntime(specCode, { mode, taskId,
+   onSubmitted })`. Create mode → `runtime.submitCreate(formData)` posts
+   to `/api/processes`. Task mode → `runtime.approve/reject/return`
+   posts to `/api/tasks/{taskId}/submit`. Chef-cooked code never
+   touches the wire path for these; it only constructs the form-data
+   payload that the runtime stores on the instance.
+
+7. **No per-flow listings, inboxes, dashboards, or "my X" endpoints.**
+   "What does the current user have to do?" / "What did the current
+   user submit?" are cross-cutting questions answered by the core
+   runtime — `GET /api/tasks/mine` (backed by `useMyTasks` on the UI)
+   and `GET /api/processes/mine` (backed by `useMyInstances`). Feature
+   code MUST consume those, not build a parallel
+   `GET /api/<flow>/v<n>/pending` endpoint or a per-flow
+   `<PendingTasksCard>` UI. The runtime already knows every task on
+   every flow — there is nothing flow-specific to add.
+
+   Symptoms of this anti-pattern (regression triggers — flag any of
+   these on chef output review):
+   - A controller method named `Pending`, `Inbox`, `MyOpen`, `MyDone`
+   - A React component named `PendingTasksCard`, `MyInboxList`,
+     `Open<Code>Cases`
+   - A fetch to `/api/<flow>/v<n>/(pending|inbox|mine|open|done)`
+   - The form rendering anything other than the spec-driven form +
+     action bar in create mode — no "what happens next" preview, no
+     "your other open cases" card, no inline inbox.
+
+   If the spec genuinely needs a *flow-specific* read (e.g. "show the
+   running balance against this user's leave quota"), that's a
+   per-flow business-data query, not an inbox — it's allowed as long
+   as the endpoint name describes the business data
+   (`/api/leave/v1/balance`), not the runtime state of tasks.
+
 6. **Ship tests with every artifact.** Per `flowcook-chef` §3.6:
    - one render test per notification template
    - one branch test per gateway
@@ -298,6 +376,15 @@ Stop and tell Jason — don't guess — when any of these is true:
   `conventions.md` §spec-construct-table (e.g. `type: signature`,
   `type: geo`, integration kind chef has never seen). Lead needs to
   build the primitive first.
+- You feel tempted to expose a per-flow "what's in the user's inbox /
+  recent cases / pending list" endpoint or React card. That data is
+  cross-cutting — `GET /api/tasks/mine` and `GET /api/processes/mine`
+  already serve it.
+- You feel tempted to write a per-flow submit / approve / reject /
+  return endpoint, or a per-flow status enum, or any column that
+  duplicates `ProcessTask.AssigneeUserId`. The runtime owns that
+  state — see hard rule §6. The right answer is to delete those
+  fields and route through `IProcessRuntime`.
 
 In a future service version the on-hold callback formalises this; in
 MVP, just say "I need a decision on X" and stop. Jason answers and you

@@ -58,9 +58,15 @@ export function useMyInstances(filter: 'active' | 'completed' | 'all' = 'all'): 
       void fetchOnce(isCancelled)
     }, POLL_INTERVAL_MS)
 
+    // Same `bpm:tasks-invalidate` channel useMyTasks listens on — keeps
+    // the My Cases table in sync within ms of a submit.
+    const onInvalidate = () => { void fetchOnce(isCancelled) }
+    window.addEventListener('bpm:tasks-invalidate', onInvalidate)
+
     return () => {
       cancelledRef.current = true
       window.clearInterval(handle)
+      window.removeEventListener('bpm:tasks-invalidate', onInvalidate)
     }
   }, [fetchOnce])
 
