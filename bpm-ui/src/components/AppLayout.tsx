@@ -35,13 +35,6 @@ interface AppLayoutProps {
   children: React.ReactNode
 }
 
-export const FORM_GROUPS: Array<{ group: string; items: { id: FormCode; label: string }[] }> = [
-  { group: 'HR', items: [{ id: 'LEAVE', label: 'Leave Request (請假)' }, { id: 'EXTOB', label: 'External Onboarding' }, { id: 'RESIGN', label: 'Resignation (離職申請)' }, { id: 'DEPTX', label: 'Department Transfer (部門異動)' }] },
-  { group: 'Expense', items: [{ id: 'GEE', label: 'Employee Expense (GEE)' }, { id: 'GEV', label: 'Vendor Expense (GEV)' }, { id: 'APE', label: 'Advance Payment (APE)' }] },
-  { group: 'Travel', items: [{ id: 'TRQ', label: 'Travel Request (TRQ)' }, { id: 'TEO', label: 'Travel Expense (TEO)' }] },
-  { group: 'Purchase', items: [{ id: 'HWP', label: 'Hardware Purchase' }, { id: 'ITPR', label: 'IT Purchase Request' }] },
-]
-
 export function AppLayout({ screen, setScreen, persona, setPersona, authedFullName = null, authPending = false, authError = null, children }: AppLayoutProps) {
   const [sandboxOn, setSandboxOn] = React.useState(false)
 
