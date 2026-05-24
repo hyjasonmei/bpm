@@ -13,22 +13,34 @@ interface BpmnViewProps {
   ownerByStep: (PersonaCode | null)[]
   formLabel: string
   onClose: () => void
+  /** Authoritative BPMN XML (bundle-shipped, identical to admin modeler).
+   *  When present, the synthesized linear stand-in is bypassed. */
+  bpmnXml?: string
+  /** Real spec node ids that have already completed (used for visited
+   *  styling). Only consulted when `bpmnXml` is provided. */
+  completedNodes?: string[]
+  /** Real spec node id currently in flight. */
+  currentNode?: string | null
 }
 
 /**
  * Renders the flow's BPMN diagram via `bpmn-js` (the canonical BPMN.io
- * viewer). Until the runtime ships a per-instance `bpmn.xml` snapshot
- * endpoint (`swap-form-bpmn-viewer-to-bpmnjs` follow-up), we synthesize
- * a linear-process XML from the existing `Step[]` shape so the visual
- * upgrade lands now without any backend coupling.
+ * viewer). Two render paths:
  *
- * Spec-driven gateways / parallel branches will arrive when the snapshot
- * endpoint lands and we feed real `bpmn.xml` here instead.
+ *   1. **Bundle-authored XML** (preferred). When the caller passes
+ *      `bpmnXml`, the diagram matches admin's modeler 1:1. Optional
+ *      `completedNodes` + `currentNode` props colour the walked + live
+ *      nodes by their real spec ids.
+ *
+ *   2. **Synthesized linear stand-in**. Fallback for flows whose
+ *      manifest hasn't shipped the bpmn.xml yet — builds a flat
+ *      Start → ...steps... → End from FORMS metadata.
  */
-export function BpmnView({ open, steps, activeStep, ownerByStep, formLabel, onClose }: BpmnViewProps) {
+export function BpmnView({
+  open, steps, activeStep, ownerByStep, formLabel, onClose,
+  bpmnXml, completedNodes, currentNode,
+}: BpmnViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
-  // We instantiate NavigatedViewer dynamically so the ~600 KB chunk lives
-  // outside the initial bundle. Users who never open "View BPMN" pay nothing.
   const viewerRef = useRef<{ destroy: () => void; importXML: (xml: string) => Promise<unknown>; get<T>(name: string): T } | null>(null)
   const titleId = 'bpmn-view-title'
 
@@ -47,14 +59,21 @@ export function BpmnView({ open, steps, activeStep, ownerByStep, formLabel, onCl
       viewerRef.current = viewer
 
       try {
-        await viewer.importXML(buildBpmnXml(steps, ownerByStep))
-        const canvas = viewer.get<{ zoom: (value: string) => void; addMarker: (id: string, marker: string) => void }>('canvas')
-        canvas.zoom('fit-viewport')
-        // Markers for done / active nodes — styled by .bpm-* rules in index.css.
-        steps.forEach((step, i) => {
-          if (i < activeStep) canvas.addMarker(nodeId(step.id), 'bpm-completed')
-          if (i === activeStep) canvas.addMarker(nodeId(step.id), 'bpm-active')
-        })
+        if (bpmnXml) {
+          await viewer.importXML(bpmnXml)
+          const canvas = viewer.get<BpmnCanvas>('canvas')
+          fitAndCenter(canvas)
+          for (const id of completedNodes ?? []) canvas.addMarker(id, 'bpm-completed')
+          if (currentNode) canvas.addMarker(currentNode, 'bpm-active')
+        } else {
+          await viewer.importXML(buildBpmnXml(steps, ownerByStep))
+          const canvas = viewer.get<BpmnCanvas>('canvas')
+          fitAndCenter(canvas)
+          steps.forEach((step, i) => {
+            if (i < activeStep) canvas.addMarker(nodeId(step.id), 'bpm-completed')
+            if (i === activeStep) canvas.addMarker(nodeId(step.id), 'bpm-active')
+          })
+        }
       } catch {
         // BPMN parse / render failure — fall back to nothing; the modal still closes.
       }
@@ -65,7 +84,7 @@ export function BpmnView({ open, steps, activeStep, ownerByStep, formLabel, onCl
       viewerRef.current?.destroy()
       viewerRef.current = null
     }
-  }, [open, steps, activeStep, ownerByStep])
+  }, [open, steps, activeStep, ownerByStep, bpmnXml, completedNodes, currentNode])
 
   return (
     <Modal open={open} onClose={onClose} ariaLabelledBy={titleId} panelClassName="max-w-[95vw]">
@@ -82,6 +101,38 @@ export function BpmnView({ open, steps, activeStep, ownerByStep, formLabel, onCl
       <div ref={containerRef} className="h-[70vh] w-[80vw] bg-white" />
     </Modal>
   )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Canvas helpers
+// ────────────────────────────────────────────────────────────────────────────
+
+interface BpmnViewbox {
+  x: number; y: number; width: number; height: number; scale: number
+  inner: { x: number; y: number; width: number; height: number }
+  outer: { width: number; height: number }
+}
+interface BpmnCanvas {
+  zoom: (value: string | number, center?: string | { x: number; y: number }) => void
+  addMarker: (id: string, marker: string) => void
+  viewbox: (box?: { x: number; y: number; width: number; height: number }) => BpmnViewbox
+}
+
+/** bpmn-js's `fit-viewport` scales to fit but biases the diagram toward the
+ *  top-left when its aspect is wider than the container. Recenter both axes
+ *  by computing the slack between the scaled outer viewport and the inner
+ *  diagram bounds and offsetting the viewbox by half of it. */
+function fitAndCenter(canvas: BpmnCanvas): void {
+  canvas.zoom('fit-viewport', 'auto')
+  const vb = canvas.viewbox()
+  const w = vb.outer.width / vb.scale
+  const h = vb.outer.height / vb.scale
+  canvas.viewbox({
+    x: vb.inner.x - (w - vb.inner.width) / 2,
+    y: vb.inner.y - (h - vb.inner.height) / 2,
+    width: w,
+    height: h,
+  })
 }
 
 // ────────────────────────────────────────────────────────────────────────────

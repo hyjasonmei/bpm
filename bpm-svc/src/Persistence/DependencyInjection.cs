@@ -5,6 +5,7 @@ using Bpm.Application.Common.Services;
 using Bpm.Application.Delegation;
 using Bpm.Application.Files;
 using Bpm.Application.Impersonation;
+using Bpm.Application.Inbox;
 using Bpm.Application.Notifications;
 using Bpm.Application.Org;
 using Bpm.Application.Process.Admin;
@@ -146,6 +147,20 @@ public static class DependencyInjection
             fileOptions.RootPath = rootPath;
         services.AddSingleton(fileOptions);
         services.AddScoped<IFileStorageService, FileStorageService>();
+
+        // Unified inbox: scan this assembly for ITypedInboxProvider
+        // implementations and register each one. Chef-cooked flows
+        // drop `<CODE>_V<N>_InboxProvider.cs` into
+        // `Persistence/Features/<CODE>/V<N>/` and InboxController
+        // picks them up automatically.
+        foreach (var providerType in typeof(AppDbContext).Assembly
+            .GetTypes()
+            .Where(t => !t.IsAbstract
+                        && !t.IsInterface
+                        && typeof(ITypedInboxProvider).IsAssignableFrom(t)))
+        {
+            services.AddScoped(typeof(ITypedInboxProvider), providerType);
+        }
 
         return services;
     }

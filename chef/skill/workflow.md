@@ -1,30 +1,22 @@
 # chef MVP workflow
 
-The end-to-end run for a single flow version. Jason drives steps 0–3
-manually; chef (Claude session) drives steps 4–6 inside a normal
-checkout on a fresh branch; Jason reviews + ships in step 7.
+End-to-end run for a single flow version. Jason drives steps 0-3
+manually; chef (Claude session) drives steps 4-7 inside a normal
+checkout on a fresh testbed branch; Jason reviews + ships in step 8.
 
 There is **no separate git worktree** in this MVP. chef runs against
 the same repo Jason works in, on a per-flow branch (e.g.
 `leave-test-1`), and chef + main bpm stack share the same `db/bpm.db`.
-That's intentional: simplest possible setup, no path juggling, no
-"which checkout am I in?" confusion.
 
-Convention: **only one dev server stack at a time** on the local box
-(they all share ports 5266 / 5290 / 5174 / 5175).
+**Only one dev-server stack at a time** on the local box (they share
+ports 5290 / 5173).
 
 ## 0. Pre-flight (Jason)
-
-Once per machine:
-
-```bash
-mkdir -p ~/claude/flowcook-bundles
-```
 
 Per chef session — shut any running dev stack down before chef boots:
 
 ```bash
-lsof -ti :5266 :5290 :5174 :5175 | xargs -r kill
+lsof -ti :5290 :5173 | xargs -r kill
 ```
 
 ## 1. Author + freeze the spec (Jason, in admin wizard)
@@ -33,47 +25,54 @@ lsof -ti :5266 :5290 :5174 :5175 | xargs -r kill
 2. Download bundle → unzip to
    `~/claude/flowcook-bundles/<FLOWCODE>-v<N>-<YYYYMMDD>/`.
 3. Verify the unzipped tree contains `spec.json` + `bpmn.xml` +
-   `manifest.json` + `forms/` + `sample-org.json` + `test-cases/`
-   (see SKILL.md §2 for the full layout).
+   `manifest.json` + `forms/` + `sample-org.json` + `test-cases/`.
 
-## 2. Create a chef branch (Jason, in the bpm repo)
+## 2. Create / reset the chef branch (Jason)
+
+Testbed branches are mutable — reset and re-cook freely:
 
 ```bash
 cd ~/claude/bpm
 git checkout main
 git pull
-BRANCH="<flowcode>-test-1"      # e.g. leave-test-1
-git checkout -b "$BRANCH"
+BRANCH="<flowcode>-test-1"    # or test-2, test-3, …
+git checkout -B "$BRANCH"     # -B resets if it already exists
 ```
 
-You're now on the chef branch in your normal checkout. Everything
-chef does happens here; merge back to `main` after review.
+Never merge a testbed branch wholesale back to main — main lands via
+clean cherry-picks once chef + lead are happy.
 
-## 3. Start chef session (Jason)
+## 3. Start the chef session (Jason)
 
 ```bash
-# From the repo root
+cd ~/claude/bpm
 claude
 ```
 
 In the session, prime chef:
 
 ```
-Read .claude/skills/chef-codegen/SKILL.md and follow it.
+Read chef/skill/SKILL.md and follow it.
 Bundle path: ~/claude/flowcook-bundles/LEAVE-v1-20260522
 ```
 
-That's it — chef takes over from here.
+That's it.
 
 ## 4. Read + plan (chef)
 
 chef reads in the order spelled out in SKILL.md §4. After reading,
 chef states a one-paragraph plan back to Jason:
 
-> Plan for LEAVE V1: 3 user tasks (apply / manager-approve / hr-record),
-> 1 gateway (amount > 50k → CFO), 2 approvals, 2 notifications
-> (on_submit, on_approve), no integrations. Tests: 3 form, 2 branch,
-> 2 approve+reject, 1 e2e. Looks bounded — proceeding.
+> Plan for LEAVE V1: entity with Status enum (PendingManager /
+> PendingVp / PendingHr / Completed / Rejected / Cancelled) + per-stage
+> approver columns; state-machine service with Submit / ManagerDecision
+> (gateway: days>=7 routes to VP, else to HR) / VpDecision / HrArchive;
+> 7-endpoint controller; 2 notification templates; React form (dual
+> date inputs for the daterange, JS-computed days, conditional cert
+> FilePicker); ITypedInboxProvider; ~15 unit tests + chrome E2E.
+> Stop-and-ask: (a) notify_assign_manager body has trailing
+> {{undefined-token}} stretch — bake or ignore? (b) approval_vp uses
+> natural-language fallback "走 VP 角色" — bake as role:VP fallback?
 
 Jason accepts or pushes back. Once accepted, chef starts writing.
 
@@ -88,100 +87,127 @@ After each commit, chef:
   `npx tsc -p tsconfig.app.json --noEmit`).
 - Reports a one-liner: "Commit N done, M tests passing".
 
-Failures: chef investigates the test, fixes the implementation (not
-the test), commits the fix, re-runs. Never papers over with `[Skip]`.
+Failures: chef investigates and fixes the implementation (not the
+test). Never papers over with `[Skip]`.
 
-### 5b. Migration + seed
+### 5b. Migration
 
 `DbPathResolver` lands the SQLite db at `<repoRoot>/db/bpm.db`. chef
-runs the migration against it directly:
+runs the migration tool from `bpm-svc`:
 
 ```bash
 cd bpm-svc
-dotnet ef database update --project src/Persistence --startup-project src/Api
+dotnet ef migrations add <CODE>_V<N>_InitialCreate \
+    --project src/Persistence --startup-project src/Api
+dotnet ef database update \
+    --project src/Persistence --startup-project src/Api
 ```
 
-After unify-user-store the **user seed is owned by admin-svc** — boot
-admin-svc once on a fresh db and it self-seeds (13 users
-@acme.example with password `flowcook2026`, plus role / dept-head /
-user-manager edges). bpm-svc's `PersonaSeedService` + SeedCli persona
-seed are retired. SeedCli's `--include-bundles` is still useful for
-seeding spec bundles into the Flow Library table but no longer
-touches identity rows.
+Identity / org seed is owned by admin-svc — boot admin-svc once on
+a fresh db and it self-seeds. Don't write user / dept / role rows
+from chef.
 
-chef's `<CODE>_V<N>_*` tables now exist in the shared db. (Because
-there's only one db file in this MVP, the migration sticks across
-the branch switch — Jason doesn't need to re-run it after merge.)
-
-### 5c. Boot dev servers + clickthrough
+### 5c. Boot dev servers + chrome click-through
 
 ```bash
-# Terminal A — bpm-svc API
-cd bpm-svc && dotnet run --project src/Api
+# Terminal A — bpm-svc
+cd bpm-svc
+ASPNETCORE_ENVIRONMENT=Development \
+BPM_AUTH_MODE=dev \
+BPM_JWT_SECRET=dev-jwt-secret-needs-to-be-at-least-32-bytes-long-yes \
+dotnet run --project src/Api
 
 # Terminal B — bpm-ui
 cd bpm-ui
 npm run dev
-# No feature-flag env var needed — the registry globs
-# features/*/V*/manifest.ts on dev-server start. If you added the
-# folder while Vite was already running and /apply/<CODE> still shows
-# NotCookedYet, restart `npm run dev` so it picks up the new
-# manifest module.
 ```
 
-chef opens chrome-devtools (or asks Jason to open
-`http://localhost:5175/apply/<CODE>`), submits the form, watches the
-runtime accept the instance, and ticks the E2E checklist box. Any
-visible regression vs. the reference form (`Reference_<Code>*.tsx`)
-is flagged in the final report.
+chef opens chrome-devtools and exercises **the full submitter +
+approver loop**:
+
+1. Login as the spec's submitter persona (LEAVE → `bob@acme.example`).
+2. Navigate `/apply/<CODE>` — open the "View BPMN" modal and confirm
+   it renders the **bundle diagram** (gateway diamonds, exact labels
+   admin sees), not the linear fallback. Powered-by-bpmn.io footer
+   visible.
+3. Fill the form, submit. The form should redirect to Home.
+4. Verify the new case shows under "My Recent Cases" on Home.
+5. Click the row → land on the case-detail page. Confirm: header /
+   field grid / 簽核 timeline render; "View BPMN" button opens the
+   modal with the **current** spec node highlighted amber and any
+   prior nodes green. No approve / reject buttons visible (detail is
+   view-only).
+6. Drive every state-machine transition via the per-flow REST
+   endpoints (curl + a JWT minted via `/api/auth/login`), and reopen
+   "View BPMN" after each transition. **Every spec node ID that the
+   case walks must light up green at the right step, and the new
+   current node must light amber.** Skipped branches (gateway
+   `false` paths) stay uncoloured. The Completed terminal must paint
+   the end event green.
+7. Clear the JWT and log in as the next-step approver (LEAVE →
+   `alice@acme.example` for the manager step).
+8. Verify the case shows under "Pending My Approval".
+
+A row in the DB is not enough — invisible cases fail the demo, and
+a stage-by-stage BPMN check that doesn't light up every node fails
+demo too.
 
 ## 6. Final report (chef)
 
 After the last commit chef tells Jason:
 
-> Done. Branch leave-test-1, 7 commits.
-> dotnet test: 18/18 green. tsc: clean.
-> Stop-and-ask items: none.
-> Orphan fields (in spec.fields but not spec.layout): none.
-> Notes for review: (a) HR record table column `note` mapped to nvarchar(max);
->                  (b) on_approve notification body uses 「您的請假」label —
->                      labels.zh-TW.notification.body matched.
+> Done. Branch leave-test-4, 5 commits.
+> dotnet test --filter LEAVE_V1: 15/15 green. tsc: clean.
+> Chrome E2E: Bob submits → Bob's Home renders the row → Alice sees
+> "Bob 申請 特休 3 天" in Pending My Approval. Screenshot attached.
+> Stop-and-ask items resolved: (a) notify body trailing tokens ignored
+> per Jason; (b) approval_vp baked as `dept_head → role:VP` fallback.
+> Orphan fields: none.
+> Spec ⇄ sampleOrg drift: spec.access.launchableBy carries
+> `dept:f745…` not in sampleOrg — test path uses seeded dept instead.
 
-If any stop-and-ask items exist, chef lists them with the specific
-spec section + the proposed disambiguation. Jason answers, chef
-resumes.
+If any stop-and-ask items remain open, chef lists them with the
+specific spec section + the proposed disambiguation.
 
 ## 7. Review + ship (Jason)
 
 ```bash
-# Diff in GitKraken or:
 git log --oneline main..HEAD
 git diff main..HEAD
+```
 
-# Local smoke test
+Local smoke:
+
+```bash
 cd bpm-svc && dotnet test --filter <CODE>_V<N>
 cd ../bpm-ui && npx tsc -p tsconfig.app.json --noEmit
 ```
 
-When happy, merge into main via GitKraken (chef can't ssh — push +
-PR is Jason's job). Since chef wrote against the shared db, no
-extra migration step is needed on main after merge.
+Manual chrome run on the live dev server (the chef session left it
+running).
+
+When happy, cherry-pick the chef commits into main via GitKraken. The
+testbed branch can stay around for the next iteration or be reset.
 
 ## Failure modes
 
 - **chef writes outside the allowed paths.** Reject the commit, point
-  chef at SKILL §1 rule 1, ask which spec field forced it. Most
-  cases are a spec issue, not a chef bug.
-- **chef hardcodes a URL.** Same — SKILL §1 rule 4. Convert to
+  chef at SKILL §1 rule 1, ask which spec field forced it. Most cases
+  are a spec issue, not a chef bug.
+- **chef hardcodes a URL.** Same — SKILL §1 rule 3. Convert to
   `${var}` and add the variable to `spec.variables[]` via a wizard
   amendment if it wasn't there.
 - **Test fails and chef can't fix without touching read-only code.**
-  Stop-and-ask. The fix may be a new bpm-svc primitive, which means
-  this flow waits while a separate change lands.
+  Stop-and-ask. The fix may be a new lead-side primitive.
+- **Case lands in the DB but Home stays empty.** Chef forgot the
+  `ITypedInboxProvider`, or registered it but the inbox controller
+  isn't surfaceing it. Check `Persistence.DependencyInjection` for
+  the assembly scan + the provider's `FlowCode` returns the right
+  value.
 - **chef takes too long / hits Claude turn limit.** Restart the
-  session in the same branch, point at git log to show what's
-  already committed, continue from there.
+  session in the same branch, point at git log to show what's already
+  committed, continue from there.
 - **Two flows in flight at once.** Park one branch, finish the other,
   then switch back. The shared db means you can't have two chef
-  sessions migrating concurrently — that's a known trade-off of the
+  sessions migrating concurrently — known trade-off of the
   no-worktree MVP setup.

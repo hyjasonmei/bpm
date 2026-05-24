@@ -17,6 +17,15 @@ export interface FormManifest {
   code: FormCode
   version: number
   component: ComponentType<FormComponentProps>
+  /** Optional read-only case-detail page. Rendered by the global
+   *  `/cases/:flowCode/:caseId` route when a feature ships one.
+   *  Click-through from the unified inbox lands here. */
+  detailComponent?: ComponentType<CaseDetailProps>
+  /** Optional bundle-authored BPMN XML — same file admin's modeler
+   *  exports. Ship it (e.g. `import x from './X.bpmn.xml?raw'`) so
+   *  FormShell renders the canonical diagram instead of synthesizing
+   *  a linear stand-in from the FORMS step list. */
+  bpmnXml?: string
 }
 
 export interface FormComponentProps {
@@ -24,6 +33,11 @@ export interface FormComponentProps {
   mode?: 'create' | 'task'
   taskId?: string | null
   onSubmitted?: () => void
+}
+
+export interface CaseDetailProps {
+  caseId: string
+  persona: string
 }
 
 /**

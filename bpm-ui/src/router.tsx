@@ -11,7 +11,8 @@ import { SandboxMailbox } from '@/screens/SandboxMailbox'
 import { Search } from '@/screens/Search'
 import { NotCookedYet } from '@/screens/forms/NotCookedYet'
 import { lookupForm } from '@/features/registry'
-import { FORMS, type FormCode } from '@/lib/workflow'
+import type { FormCode } from '@/lib/workflow'
+import { FORMS } from '@/lib/workflow'
 import { useActivePersona } from '@/lib/role'
 import { getTask } from '@/lib/api/process'
 
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
       { path: 'reports', element: <Report /> },
       { path: 'attendance', element: <Attendance /> },
       { path: 'sandbox/mailbox', element: <SandboxMailbox /> },
+      { path: 'cases/:flowCode/:caseId', element: <FeatureCaseDetailRoute /> },
       { path: 'cases/:instanceId', element: <CaseDetailRoute /> },
       { path: 'apply/:code', element: <FormRoute mode="create" /> },
       { path: 'tasks/:taskId', element: <FormRoute mode="task" /> },
@@ -70,6 +72,20 @@ function CaseDetailRoute() {
   const { instanceId } = useParams()
   if (!instanceId) return <Navigate to="/" replace />
   return <CaseDetail instanceId={instanceId} />
+}
+
+function FeatureCaseDetailRoute() {
+  const { flowCode, caseId } = useParams()
+  const { code: persona } = useActivePersona()
+  if (!flowCode || !caseId) return <Navigate to="/" replace />
+  const manifest = lookupForm(flowCode.toUpperCase() as FormCode)
+  if (!manifest?.detailComponent) {
+    return <div className="mx-auto max-w-md p-8 text-sm text-ink-muted">
+      {flowCode.toUpperCase()} 還沒提供 case detail view（chef ship `detailComponent` in manifest）.
+    </div>
+  }
+  const Detail = manifest.detailComponent
+  return <Detail caseId={caseId} persona={persona} />
 }
 
 interface FormRouteProps {
