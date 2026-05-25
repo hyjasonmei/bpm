@@ -17,7 +17,7 @@ import { Onboarding } from '@/screens/onboarding/Onboarding'
 import { EMPTY_DRAFT, migrateDraft, type DraftSpec } from '@/lib/onboarding'
 import { flowToBpmnXml } from '@/lib/bpmnXml'
 import { useSetPageHeader, type PageHeader } from '@/flowcook/app/pageHeader'
-import { PhaseTabs, type PhaseId } from '@/flowcook/app/PhaseTabs'
+import { PhaseTabs, type PhaseId, type PhaseDef } from '@/flowcook/app/PhaseTabs'
 import { OverflowMenu, type OverflowGroup } from '@/flowcook/app/OverflowMenu'
 import {
   cancelFlow,
@@ -32,6 +32,14 @@ import {
   submitFlow,
   updateFlowSpec,
 } from '@/flowcook/api/flows'
+import { CookPanel } from './aiKitchen/CookPanel'
+import { ServePanel } from './aiKitchen/ServePanel'
+import {
+  DEFAULT_DEPLOYMENTS,
+  type ChatMessage,
+  type DeployState,
+  type EnvId,
+} from './aiKitchen/types'
 
 export function AiKitchenPage() {
   // Nested routes under /ai-kitchen:
@@ -393,6 +401,19 @@ function WizardView({
   const timerRef = useRef<number | null>(null)
   const latestDraftRef = useRef<DraftSpec | null>(null)
 
+  // ── FE-only POC state for Cook / Serve tabs ─────────────────
+  // `mockState` overrides flow.state once we're past Draft. The
+  // initial value mirrors the real backend state so refreshing the
+  // page keeps the StatePill consistent; subsequent simulate-chef
+  // and user actions only update local state (no admin-svc calls).
+  // When the real chef pipeline + serve runtime exist, replace
+  // these with proper API-backed state.
+  const [mockState, setMockState] = useState<FlowState>(flow.state)
+  useEffect(() => { setMockState(flow.state) }, [flow.id, flow.state])
+  const [cookedCount, setCookedCount] = useState(0)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [deployments, setDeployments] = useState<Record<EnvId, DeployState>>(DEFAULT_DEPLOYMENTS)
+
   // Parse initial spec into a DraftSpec; tolerate parse errors by falling
   // back to EMPTY_DRAFT (a partial spec from chef-on-hold or an external
   // import is the only realistic way to land here with bad JSON).
@@ -446,7 +467,18 @@ function WizardView({
       }
       const updated = await submitFlow(flow.id)
       onFlowChange(updated)
-      onClose()
+      // Stay on the flow page (don't bounce back to the kitchen list).
+      // Land on Prep so the user sees the now-locked spec; Cook tab
+      // becomes enabled and they can click in to watch chef work.
+      setMockState(updated.state)
+      setMessages((prev) => prev.length > 0 ? prev : [{
+        id: `m-${Date.now()}-init`,
+        sender: 'system',
+        kind: 'milestone',
+        content: 'submitted to chef',
+        timestamp: new Date().toISOString(),
+      }])
+      setPhase('prep')
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Submit failed')
     } finally {
@@ -555,14 +587,35 @@ function WizardView({
   // Push flow context into the AppShell top bar (kicker + back + title +
   // version + state). Save status sits with the action buttons in the
   // main page header, not here. Memoize so the effect only fires when
-  // values actually change.
+  // values actually change. StatePill reflects `mockState` so cook
+  // simulations (Cooking ↔ OnHold ↔ Committed) update the top-bar pill.
   const pageHeader = useMemo<PageHeader>(() => ({
     back: { label: 'Back to kitchen', onClick: onClose },
     title: flow.displayName,
     subtitle: `${flow.flowCode} · v${flow.version}`,
-    badges: <StatePill state={flow.state} />,
-  }), [flow.displayName, flow.flowCode, flow.version, flow.state, onClose])
+    badges: <StatePill state={mockState} />,
+  }), [flow.displayName, flow.flowCode, flow.version, mockState, onClose])
   useSetPageHeader(pageHeader)
+
+  // PhaseTabs: Cook unlocks once chef takes over (state !== Draft).
+  // Serve unlocks once at least one cook has completed.
+  const phaseDefs = useMemo<PhaseDef[]>(() => {
+    const cookOpen  = mockState !== 'Draft'
+    const serveOpen = cookedCount > 0
+    return [
+      { id: 'prep',  label: 'Prep',  hint: '備料 — 用 wizard 把 spec 寫清楚' },
+      {
+        id: 'cook',  label: 'Cook',  hint: '烹調 — chef 與你的對話、版本紀錄',
+        disabled: !cookOpen,
+        disabledHint: 'Submit to chef 之後才會啟用',
+      },
+      {
+        id: 'serve', label: 'Serve', hint: '上菜 — 把 cooked version 部署到 DEV / STG / PRD',
+        disabled: !serveOpen,
+        disabledHint: 'chef 完成第一次 cook 後才會啟用',
+      },
+    ]
+  }, [mockState, cookedCount])
 
   const overflowGroups: OverflowGroup[] = [
     {
@@ -608,10 +661,10 @@ function WizardView({
           overflow menu on the right. Flow title / version / state pill /
           save status now live in the AppShell top bar via pageHeader. */}
       <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-        <PhaseTabs active={phase} onChange={setPhase} />
+        <PhaseTabs active={phase} onChange={setPhase} phases={phaseDefs} />
 
         <div className="flex items-center gap-2">
-          <SaveStatusBadge state={saveState} error={saveError} />
+          {phase === 'prep' && <SaveStatusBadge state={saveState} error={saveError} />}
           <button
             onClick={() => void downloadBundle()}
             disabled={downloading || transitionPending !== null}
@@ -636,11 +689,32 @@ function WizardView({
       </div>
 
       <div className="flex-1 min-h-0">
-        <Onboarding
-          initialDraft={initialDraft}
-          onDraftChange={handleDraftChange}
-          hideTopBar
-        />
+        {phase === 'prep' && (
+          <Onboarding
+            initialDraft={initialDraft}
+            onDraftChange={handleDraftChange}
+            hideTopBar
+          />
+        )}
+        {phase === 'cook' && (
+          <CookPanel
+            flowVersion={flow.version}
+            state={mockState}
+            messages={messages}
+            cookedCount={cookedCount}
+            onStateChange={setMockState}
+            onCookedCountChange={setCookedCount}
+            onMessagesChange={setMessages}
+          />
+        )}
+        {phase === 'serve' && (
+          <ServePanel
+            flowVersion={flow.version}
+            cookedCount={cookedCount}
+            deployments={deployments}
+            setDeployments={setDeployments}
+          />
+        )}
       </div>
     </div>
   )
