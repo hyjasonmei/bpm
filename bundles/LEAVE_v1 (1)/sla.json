@@ -1,0 +1,20 @@
+{
+  "perNode": {
+    "approval_manager": {
+      "duration": "8h",
+      "businessHoursOnly": true,
+      "escalation": {
+        "after": "8h",
+        "action": "notify"
+      }
+    },
+    "approval_vp": {
+      "duration": "24h",
+      "businessHoursOnly": true,
+      "escalation": {
+        "after": "24h",
+        "action": "notify"
+      }
+    }
+  }
+}

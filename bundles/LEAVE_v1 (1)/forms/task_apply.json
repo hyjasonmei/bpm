@@ -1,0 +1,77 @@
+{
+  "id": "task_apply",
+  "fields": [
+    {
+      "id": "leave_type",
+      "label": {
+        "zh-TW": "\u5047\u5225"
+      },
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "value": "\u7279\u4F11",
+          "label": "\u7279\u4F11"
+        },
+        {
+          "value": "\u75C5\u5047",
+          "label": "\u75C5\u5047"
+        },
+        {
+          "value": "\u4E8B\u5047",
+          "label": "\u4E8B\u5047"
+        },
+        {
+          "value": "\u516C\u5047",
+          "label": "\u516C\u5047"
+        }
+      ]
+    },
+    {
+      "id": "date_range",
+      "label": {
+        "zh-TW": "\u8D77\u8A16\u6642\u9593"
+      },
+      "type": "daterange",
+      "required": true
+    },
+    {
+      "id": "days",
+      "label": {
+        "zh-TW": "\u5929\u6578"
+      },
+      "type": "derived",
+      "required": false,
+      "derivedFrom": "businessDaysBetween(date_range.start, date_range.end)"
+    },
+    {
+      "id": "reason",
+      "label": {
+        "zh-TW": "\u4E8B\u7531",
+        "en": "Reason"
+      },
+      "type": "textarea",
+      "required": true,
+      "note": {
+        "zh-TW": "\u4E2D\u82F1\u6587\u7686\u53EF"
+      }
+    },
+    {
+      "id": "cert",
+      "label": {
+        "zh-TW": "\u8B49\u660E\u6587\u4EF6"
+      },
+      "type": "file",
+      "required": true,
+      "conditional": "leave_type === \u0027\u75C5\u5047\u0027 || leave_type === \u0027\u516C\u5047\u0027"
+    }
+  ],
+  "permissions": {
+    "submitter": "self",
+    "viewers": [
+      "self",
+      "manager",
+      "role:HR"
+    ]
+  }
+}

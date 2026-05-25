@@ -1,0 +1,100 @@
+{
+  "bundleSchemaVersion": 1,
+  "flowCode": "LEAVE",
+  "flowVersion": 1,
+  "exportedAt": "2026-05-23T22:46:33.594595+00:00",
+  "sourceInstanceId": "flow:fba81c80-48aa-4781-bf74-c917280770c5",
+  "parent": null,
+  "files": [
+    {
+      "path": "spec.json",
+      "sha256": "CEE5B41180460A8613A4594ECE81DD838925A3BD1E87FEE140971931B6093241",
+      "sizeBytes": 7831,
+      "kind": "spec"
+    },
+    {
+      "path": "bpmn.xml",
+      "sha256": "344B626BF5C8B69B45E1538685D3E910CEA01DE4D244DF9423FA4E3D7B92D09F",
+      "sizeBytes": 5269,
+      "kind": "bpmnXml"
+    },
+    {
+      "path": "spec.md",
+      "sha256": "D14EE9243296DE28F1587C063F411C758F1614BE30D3974D6A31544E40DDD584",
+      "sizeBytes": 934,
+      "kind": "specMd"
+    },
+    {
+      "path": "README.md",
+      "sha256": "9724C229B7905FE74BFC4E1086B34BB6C060224D6406D85BF3D37A6AE79A2981",
+      "sizeBytes": 331,
+      "kind": "readme"
+    },
+    {
+      "path": "walkthrough.md",
+      "sha256": "ED7F2D73F764D1885A8538FD051860857668878A5AE69520C4028C29593DB2C2",
+      "sizeBytes": 515,
+      "kind": "walkthrough"
+    },
+    {
+      "path": "forms/task_apply.json",
+      "sha256": "AB3631C5861BE491F889CBA2AFD4338FA9030840365DEDC94729E1FCC4300DAA",
+      "sizeBytes": 1565,
+      "kind": "form"
+    },
+    {
+      "path": "forms/task_hr_archive.json",
+      "sha256": "E7E003608060F9A1EA629B67907CA224D52E312C1F36F5B75CC8F098ADC88A79",
+      "sizeBytes": 426,
+      "kind": "form"
+    },
+    {
+      "path": "notifications/notify_complete.json",
+      "sha256": "8A8FE4505B89EE3A99F7C0DB3C2534EBA760CDE2ED443E364310F48C9424B045",
+      "sizeBytes": 498,
+      "kind": "notification"
+    },
+    {
+      "path": "notifications/notify_assign_manager.json",
+      "sha256": "8A7E16238A3699F0F927BAC6F7DBF46FF19612FE1E87002C854B0DD3477220CC",
+      "sizeBytes": 848,
+      "kind": "notification"
+    },
+    {
+      "path": "sla.json",
+      "sha256": "6AD14638858A91EAD5CD304360EA1D65BA13887E595FDC094329E65F5C050A59",
+      "sizeBytes": 358,
+      "kind": "sla"
+    },
+    {
+      "path": "actors.json",
+      "sha256": "15C206380BDA9CB363DFB3E46184D11DB54F97606F23CA38B192595790CB2D5C",
+      "sizeBytes": 139,
+      "kind": "actors"
+    },
+    {
+      "path": "sample-org.json",
+      "sha256": "FD904585A3E668A8AB7573E54EAC55DE8995A3D71F2A126C93A76BA8FB3A94B1",
+      "sizeBytes": 1508,
+      "kind": "sampleOrg"
+    },
+    {
+      "path": "test-cases/tc_1.json",
+      "sha256": "DDE52577FBCC22FFE6AABB5C0025BE2A40629F15987E54C5F00EE538954A9FC4",
+      "sizeBytes": 507,
+      "kind": "testCase"
+    },
+    {
+      "path": "test-cases/tc_2.json",
+      "sha256": "AEA13BB0F360D7044CBE613A3795166F1BEBEEC57E0332E4823F11D0E23EC092",
+      "sizeBytes": 508,
+      "kind": "testCase"
+    },
+    {
+      "path": "test-cases/tc_3.json",
+      "sha256": "A522EF3C14DB223123EF60D882A243B052EBD4D18BCB3383C00D727D2A8BF6D1",
+      "sizeBytes": 500,
+      "kind": "testCase"
+    }
+  ]
+}

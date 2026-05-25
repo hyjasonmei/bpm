@@ -1,0 +1,32 @@
+{
+  "id": "notify_assign_manager",
+  "trigger": "on_assign",
+  "channel": [
+    "email"
+  ],
+  "recipients": [
+    {
+      "type": "current_approver"
+    }
+  ],
+  "template": {
+    "subject": {
+      "zh-TW": "\u3010\u8ACB\u5047\u5F85\u7C3D\u3011{{applicant.name}} \u7533\u8ACB {{leave.days}} \u5929 {{leave.type}}"
+    },
+    "body": {
+      "zh-TW": "\u7533\u8ACB\u4EBA: {{applicant.name}}\n\u5047\u5225: {{leave.type}}\n\u671F\u9593: {{leave.start}} - {{leave.end}}\n\u4E8B\u7531: {{leave.reason}}\n\n\u8ACB\u9EDE\u6B64\u6838\u51C6: {{caseUrl}}{{rejectReason}}{{leave_type}}{{leave_type}}{{date_range}}"
+    },
+    "variables": [
+      "applicant.name",
+      "leave.days",
+      "leave.type",
+      "leave.start",
+      "leave.end",
+      "leave.reason",
+      "caseUrl",
+      "rejectReason",
+      "leave_type",
+      "date_range"
+    ]
+  }
+}

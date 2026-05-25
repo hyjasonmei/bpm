@@ -1,0 +1,24 @@
+{
+  "id": "tc_2",
+  "name": "8 \u5929\u4E8B\u5047\u3001\u9700\u526F\u7E3D\u52A0\u7C3D",
+  "inputs": {
+    "leave_type": "\u4E8B\u5047",
+    "date_range": {
+      "start": "2026-06-01",
+      "end": "2026-06-10"
+    },
+    "reason": "\u51FA\u570B"
+  },
+  "expectedTrace": [
+    "start_1",
+    "task_apply",
+    "approval_manager",
+    "gateway_days",
+    "approval_vp",
+    "task_hr_archive",
+    "end_1"
+  ],
+  "expectedFinalStatus": "Completed",
+  "expectedNotifications": null,
+  "expectedWebhooks": null
+}

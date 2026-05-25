@@ -1,0 +1,25 @@
+{
+  "id": "notify_complete",
+  "trigger": "on_complete",
+  "channel": [
+    "email"
+  ],
+  "recipients": [
+    {
+      "type": "submitter"
+    }
+  ],
+  "template": {
+    "subject": {
+      "zh-TW": "\u60A8\u7684\u8ACB\u5047\u5DF2\u5099\u6848"
+    },
+    "body": {
+      "zh-TW": "\u60A8\u65BC {{submitDate}} \u7533\u8ACB\u7684 {{leave.days}} \u5929 {{leave.type}} \u5DF2\u5B8C\u6210\u5099\u6848\u3002"
+    },
+    "variables": [
+      "submitDate",
+      "leave.days",
+      "leave.type"
+    ]
+  }
+}

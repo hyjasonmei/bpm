@@ -1,0 +1,24 @@
+{
+  "id": "tc_3",
+  "name": "\u75C5\u5047\u9700\u9644\u8B49\u660E",
+  "inputs": {
+    "leave_type": "\u75C5\u5047",
+    "date_range": {
+      "start": "2026-05-15",
+      "end": "2026-05-15"
+    },
+    "reason": "\u6D41\u611F",
+    "cert": "certificate.pdf"
+  },
+  "expectedTrace": [
+    "start_1",
+    "task_apply",
+    "approval_manager",
+    "gateway_days",
+    "task_hr_archive",
+    "end_1"
+  ],
+  "expectedFinalStatus": "Completed",
+  "expectedNotifications": null,
+  "expectedWebhooks": null
+}

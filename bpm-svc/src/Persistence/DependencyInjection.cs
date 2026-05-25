@@ -19,6 +19,7 @@ using Bpm.Application.Spec.Bundle;
 using Bpm.Persistence.Admin;
 using Bpm.Persistence.Attendance;
 using Bpm.Persistence.Common;
+using Bpm.Persistence.Features.LEAVE.V1;
 using Bpm.Persistence.Delegation;
 using Bpm.Persistence.Files;
 using Bpm.Persistence.Impersonation;
@@ -147,6 +148,9 @@ public static class DependencyInjection
             fileOptions.RootPath = rootPath;
         services.AddSingleton(fileOptions);
         services.AddScoped<IFileStorageService, FileStorageService>();
+
+        // Chef-cooked features: per-flow state-machine services.
+        services.AddScoped<LEAVE_V1_LeaveService>();
 
         // Unified inbox: scan this assembly for ITypedInboxProvider
         // implementations and register each one. Chef-cooked flows

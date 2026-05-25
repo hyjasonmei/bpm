@@ -10,6 +10,7 @@ using Bpm.Domain.Entities.Notifications;
 using Bpm.Domain.Entities.Process;
 using Bpm.Domain.Entities.Sandbox;
 using Bpm.Domain.Entities.Spec;
+using Bpm.Persistence.Features.LEAVE.V1;
 using Bpm.Persistence.SharedIdentity;
 using Microsoft.EntityFrameworkCore;
 
@@ -43,6 +44,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<NotificationDispatchAudit> NotificationDispatchAudits => Set<NotificationDispatchAudit>();
 
     public DbSet<FileBlob> FileBlobs => Set<FileBlob>();
+
+    // Chef-cooked features — one DbSet per per-flow entity.
+    public DbSet<LEAVE_V1_Case> LEAVE_V1_Cases => Set<LEAVE_V1_Case>();
 
     // Shared identity — admin-svc owns the Admin_* schemas; bpm-svc reads
     // through these mappings with ExcludeFromMigrations so it never tries

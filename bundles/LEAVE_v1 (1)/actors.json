@@ -1,0 +1,9 @@
+[
+  "current_approver",
+  "expr:submitter.department.head",
+  "expr:submitter.manager",
+  "manager",
+  "role:HR",
+  "self",
+  "submitter"
+]
