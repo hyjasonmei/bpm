@@ -200,10 +200,15 @@ testbed branch can stay around for the next iteration or be reset.
 - **Test fails and chef can't fix without touching read-only code.**
   Stop-and-ask. The fix may be a new lead-side primitive.
 - **Case lands in the DB but Home stays empty.** Chef forgot the
-  `ITypedInboxProvider`, or registered it but the inbox controller
-  isn't surfaceing it. Check `Persistence.DependencyInjection` for
-  the assembly scan + the provider's `FlowCode` returns the right
-  value.
+  `ITypedInboxProvider`, or shipped it but the inbox controller
+  isn't surfacing it. Check the `ITypedInboxProvider` assembly scan
+  in `Application/DependencyInjection.cs` (target) — and the legacy
+  one in `Persistence/DependencyInjection.cs` if it's still there —
+  for whether the scan covers the assembly your provider lives in.
+  If chef put the provider in `Application/Features/<CODE>/V<N>/`
+  but only Persistence is being scanned, the runtime silently drops
+  it. Lead fixes the scan; chef checks the provider's `FlowCode`
+  returns the right value.
 - **chef takes too long / hits Claude turn limit.** Restart the
   session in the same branch, point at git log to show what's already
   committed, continue from there.

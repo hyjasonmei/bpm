@@ -11,11 +11,20 @@ Don't create new csproj files or edit `bpm-svc.slnx`.
 
 | Allowed (write) | What lives here |
 |---|---|
-| `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` | Entity + EF configuration + state-machine service + notification templates + ITypedInboxProvider impl |
-| `bpm-svc/src/Api/Features/<CODE>/V<N>/**` | Controller + DTOs |
+| `bpm-svc/src/Domain/Features/<CODE>/V<N>/**` | Entity + status enum + value objects (POCO, no deps) |
+| `bpm-svc/src/Application/Features/<CODE>/V<N>/**` | State-machine service + notification templates + `ITypedInboxProvider` impl + actor-resolution helpers (all business logic) |
+| `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` | **EF mapping only** (`<CODE>_V<N>_<Purpose>Configuration.cs`) |
 | `bpm-svc/src/Persistence/Migrations/<ts>_<CODE>_V<N>_*.cs` + `AppDbContextModelSnapshot.cs` | `dotnet ef migrations add` regenerates these — let it drive |
+| `bpm-svc/src/Api/Features/<CODE>/V<N>/**` | Controller + DTOs |
 | `bpm-svc/tests/Bpm.Tests/Features/<CODE>/V<N>/**` | Unit + integration tests |
-| `bpm-ui/src/features/<CODE>/V<N>/**` | React form + manifest + case-detail page; the registry globs `*/V*/manifest.ts` automatically |
+| `bpm-ui/src/features/<CODE>/V<N>/**` | React form + manifest + case-detail page; registry globs `*/V*/manifest.ts` automatically |
+
+The five Clean-Arch layers (Domain / Application / Persistence /
+Api / SeedCli) are the same shape both backends use. **Entities don't
+drop into Persistence; business logic doesn't drop into Api.** EF
+mapping is the only thing in Persistence/Features — the entity it
+maps lives in Domain/Features and the service that operates on it
+lives in Application/Features.
 
 | Read-only | Why |
 |---|---|
@@ -33,15 +42,21 @@ the read list is "you'll need these"; the forbidden list is hard.
 `<CODE>` is the spec's `meta.flowCode` upper-cased. `<N>` is the
 spec's `meta.flowVersion` integer.
 
-| Artifact | Pattern | Example (LEAVE V1) |
-|---|---|---|
-| C# class | `<CODE>_V<N>_<PurposeCamel>` | `LEAVE_V1_LeaveService` |
-| C# file | matches class | `LEAVE_V1_LeaveService.cs` |
-| DB table | `<CODE>_V<N>_<purpose_snake>` | `LEAVE_V1_leave_case` |
-| EF migration | `<CODE>_V<N>_<PurposeCamel>` | `LEAVE_V1_InitialCreate` |
-| React component | `<CODE>_V<N>_<PurposeCamel>` | `LEAVE_V1_LeaveForm` |
-| React file | matches component | `LEAVE_V1_LeaveForm.tsx` |
-| Test file (C#) | `<CODE>_V<N>_<Aspect>Tests.cs` | `LEAVE_V1_LeaveServiceTests.cs` |
+| Artifact | Pattern | Example (LEAVE V1) | Lives in |
+|---|---|---|---|
+| Entity (Domain) | `<CODE>_V<N>_<PurposeCamel>` | `LEAVE_V1_Case` | `Domain/Features/<CODE>/V<N>/` |
+| Status enum (Domain) | `<CODE>_V<N>_<PurposeCamel>` | `LEAVE_V1_CaseStatus` | `Domain/Features/<CODE>/V<N>/` |
+| State-machine service (Application) | `<CODE>_V<N>_<PurposeCamel>` | `LEAVE_V1_LeaveService` | `Application/Features/<CODE>/V<N>/` |
+| Notification templates (Application) | `<CODE>_V<N>_NotificationTemplates` | `LEAVE_V1_NotificationTemplates` | `Application/Features/<CODE>/V<N>/` |
+| Inbox provider (Application) | `<CODE>_V<N>_InboxProvider` | `LEAVE_V1_InboxProvider` | `Application/Features/<CODE>/V<N>/` |
+| EF configuration (Persistence) | `<CODE>_V<N>_<Purpose>Configuration` | `LEAVE_V1_CaseConfiguration` | `Persistence/Features/<CODE>/V<N>/` |
+| DB table (output of mapping) | `<CODE>_V<N>_<purpose_snake>` | `LEAVE_V1_leave_case` | — |
+| EF migration | `<CODE>_V<N>_<PurposeCamel>` | `LEAVE_V1_InitialCreate` | `Persistence/Migrations/` |
+| Controller + DTOs (Api) | `<CODE>_V<N>_Controller` / `<CODE>_V<N>_Dtos` | `LEAVE_V1_Controller` | `Api/Features/<CODE>/V<N>/` |
+| C# file | matches class | `LEAVE_V1_LeaveService.cs` | — |
+| React component | `<CODE>_V<N>_<PurposeCamel>` | `LEAVE_V1_LeaveForm` | `bpm-ui/src/features/<CODE>/V<N>/` |
+| React file | matches component | `LEAVE_V1_LeaveForm.tsx` | — |
+| Test file (C#) | `<CODE>_V<N>_<Aspect>Tests.cs` | `LEAVE_V1_LeaveServiceTests.cs` | `tests/Bpm.Tests/Features/<CODE>/V<N>/` |
 
 The prefix is part of the identifier — no `namespace LEAVE.V1`,
 no `LeaveForm` "inside the LEAVE folder it's obvious". Flat prefix,
@@ -159,8 +174,15 @@ chef ships.
 ## Inbox provider
 
 Every chef-cooked feature MUST implement
-`Bpm.Application.Inbox.ITypedInboxProvider` and drop it in the same
-`Features/<CODE>/V<N>/` folder. The interface:
+`Bpm.Application.Inbox.ITypedInboxProvider` and drop it in
+`Application/Features/<CODE>/V<N>/` (it's business logic — actor
+resolution + per-flow query — so it belongs in Application, not
+Persistence). A DI assembly scan auto-registers it at startup;
+verify the scan covers the Application assembly before declaring
+the cook done. If it doesn't (today the scan only covers the
+Persistence assembly), stop and ask — lead-side fix.
+
+The interface:
 
 ```csharp
 public interface ITypedInboxProvider

@@ -1,115 +1,69 @@
-# bpm-ui — employee app notes
+# bpm-ui
 
-Project-wide conventions live in the root `CLAUDE.md`. Backend conventions
-live in `../bpm-svc/CLAUDE.md`. This file covers the employee SPA after
-the all-flows-real Phase 1 (PR-L1 → PR-L6).
+Customer-facing employee SPA — React 18 + Vite + Tailwind v4 + shadcn.
 
-## Form mode contract
+## Ownership inside this tree
 
-Every flow form (`screens/forms/*.tsx`, 11 components) implements the
-same dual-mode props:
+| Path | Owner | Notes |
+|---|---|---|
+| `src/{components,hooks,lib,screens,assets,styles}/**`, `App.tsx`, `router.tsx`, `main.tsx`, `index.css` | **lead** | Top-level shell, routes, ui primitives (`components/ui/*`), JWT-fetch helper, unified inbox wiring, BpmnView modal |
+| `src/features/registry.ts` and other shared registry plumbing | **lead** | The Vite eager-glob that picks up chef-cooked manifests |
+| `src/features/<CODE>/V<N>/**` | **chef** | `<CODE>_V<N>_Form.tsx`, `<CODE>_V<N>_CaseDetail.tsx`, `<CODE>_V<N>.bpmn.xml`, `manifest.ts` |
+| `src/screens/forms/Reference_*.tsx` | **lead may touch for visual baseline** | 11 hand-coded model A reference forms; chef reads these for layout / tone only — they are **not** the runtime path for new flows |
+
+As of 2026-05-25 `src/features/` only contains `registry.ts` — no
+flow has been cooked into model B here yet. The 11 reference forms
+still serve the demo via the legacy model A runtime.
+
+## Manifest contract (chef-side, in case lead extends it)
 
 ```ts
-type FormProps = {
-  persona: PersonaCode
-  mode?: 'create' | 'task' | undefined  // default 'create'
-  taskId?: string | null                 // required when mode === 'task'
-  onSubmitted?: () => void               // called after successful submit
+// src/features/registry.ts
+interface FormManifest {
+  code: FormCode
+  version: number
+  component: ComponentType<FormComponentProps>
+  detailComponent?: ComponentType<CaseDetailProps>
+  bpmnXml?: string
 }
 ```
 
-- `mode === 'create'` — employee starts a new instance. Form submits
-  `POST /api/processes` and routes back to Home with a toast.
-- `mode === 'task'` — assignee handles an inbox task. Form fetches
-  `GET /api/tasks/{taskId}` for the field snapshot, renders the
-  appropriate node panel (multi-step forms switch panel by
-  `task.task.nodeId`), and exposes Approve / Reject / Return buttons
-  via FormShell ActionBar. Submit routes through
-  `POST /api/tasks/{id}/submit` (or `/return`).
-- Both modes share the same React component — no separate "view" file.
+The registry globs every `features/*/V*/manifest.ts` at startup and
+resolves a flow code to its highest version automatically. Drop a V2
+folder and the registry picks it up on next dev-server reload — no
+central switch to edit.
 
-The 4 originally read-only views (`EXTOBView`, `ITPRView`, `TEOView`,
-`TRQView`) were promoted to full dual-mode forms in PR-L2 but kept their
-`*View.tsx` filename to avoid an import shuffle. Renaming to `*Form.tsx`
-is a clean-up follow-up.
+`detailComponent` is bound to the global `/cases/:flowCode/:caseId`
+route. `bpmnXml` is the bundle's canonical BPMN imported via Vite
+`?raw` and fed to the shared `BpmnView` modal.
 
-## Hooks
+## Model A is retired
 
-Three runtime hooks back the form mode contract:
+`useFormRuntime`, `useFlowSubmit`, `useFlowTask`, the dual-mode
+`mode='create'|'task'` contract on `screens/forms/*`, and the
+`/api/processes` + `/api/tasks` clients are the old spec-driven
+runtime path. **Compiles, not extended.** Cleanup is separate.
 
-- **`useFlowSubmit(specCode)`** — wraps `POST /api/processes`. Returns
-  `{ submit(formData), pending, error }` and resolves to
-  `{ instanceId, firstTaskId }`.
-- **`useFlowTask(taskId)`** — loads `GET /api/tasks/{id}` and exposes
-  `submit / return / claim` actions, polling and refresh.
-- **`useFormRuntime({ specCode, mode, taskId, onSubmitted })`**
-  (`.tsx`) — the wrapper every form actually uses. Combines the two
-  above + a built-in `<FlowToast />`, success/error handling, and
-  `onSubmitted` callback. Each form imports this single hook regardless
-  of mode.
-
-Inbox listing uses `useMyTasks(status)` (`open` | `completed` | `all`)
-and `useMyInstances(status)`. Both poll every 30s and expose a manual
-`refresh()`. The DTOs include `specCode` so a row click can route into
-the correct form without an extra fetch.
-
-## Inbox routing via App.tsx Screen union
-
-`Screen` (in `components/AppLayout.tsx`) is a discriminated union with a
-`'form'` variant carrying `code: FormCode` and `taskId?: string`:
-
-```ts
-{ kind: 'form'; code: FormCode; taskId?: string }
-```
-
-`App.tsx` switches on `screen.kind` and, for `'form'`, picks the form
-component by `screen.code`. The presence of `taskId` automatically flips
-`mode` to `'task'`:
-
-```ts
-const formMode = screen.taskId ? 'task' : 'create'
-```
-
-`Home.tsx` and `Search.tsx` both build the screen value from a task or
-instance row — `setScreen({ kind: 'form', code: task.specCode, taskId: task.id })`.
-No separate "Inbox" screen exists; the inbox is the Pending Action table
-on Home.
-
-## Demo guard — Phase 1 status
-
-After PR-L1..L6 the following files are explicitly **unlocked** (live code,
-not demo guard):
-
-- `src/screens/forms/` — all 11 form components
-- `src/screens/Home.tsx`
-- `src/screens/Search.tsx`
-- `src/lib/workflow.ts` — kept, but the `FORMS` map is now a label /
-  display config (中文名 / step labels / persona icons). Flow shape lives
-  in `sample_specs/*.json`. Phase 2 form-runtime-rendering can deprecate
-  this map entirely.
-
-Still under demo guard:
-
-- `src/screens/Report.tsx` — waiting on `add-real-reporting`. The Home
-  `Activity Feed` and `Reminders` widgets are also still backed by
-  `MOCK_ACTIVITY` / `MOCK_REMINDERS` from `lib/mocks.ts` (small `demo`
-  tag in the corner).
-
-`MOCK_CASES` and friends in `lib/mocks.ts` are not deleted — Attendance
-and a few legacy screenshots still import them. Removal is a separate
-clean-up PR.
+New flows are bespoke React components per flow, plugged in via
+`features/<CODE>/V<N>/manifest.ts`.
 
 ## Type-check
 
-`tsc -p tsconfig.app.json --noEmit` is the canonical type-check. Without
-`-p tsconfig.app.json` it silently skips files under `src/`. There is no
-JS test framework wired (no vitest / jest); rely on tsc + manual boot
-(`npm run dev`) + chrome-devtools screenshots (default `fullPage=true`).
+`npx tsc -p tsconfig.app.json --noEmit` is the canonical type-check
+(without `-p tsconfig.app.json` tsc silently skips `src/`). No JS
+test runner — rely on tsc + manual boot (`npm run dev`, port 5173)
++ chrome-devtools screenshots (default `fullPage=true`).
 
-## Phase 2 entry
+## Conventions
 
-`add-form-runtime-rendering` (openspec change) will replace the 11
-hand-coded form components with a single `<DynamicForm spec={...}
-mode="..." />` reading `userTask.fields[]` from the spec snapshot.
-Once it lands, the FORMS label map can be deprecated and the
-`*View.tsx` rename becomes moot.
+- Root [`../CLAUDE.md`](../CLAUDE.md) — product context + 5-project
+  architecture + Clean Architecture five-layer convention for the
+  backends this UI talks to
+- [`../bpm-svc/CLAUDE.md`](../bpm-svc/CLAUDE.md) — backend boundary +
+  SharedIdentity
+- [`../chef/skill/SKILL.md`](../chef/skill/SKILL.md) +
+  [`../chef/skill/conventions.md`](../chef/skill/conventions.md) —
+  per-flow folder shape, manifest, BPMN passthrough, inbox provider
+- [`../lead/skill/SKILL.md`](../lead/skill/SKILL.md) — shared-shell
+  boundary, when to lift a per-flow concern into `components/ui/`
+- [`../README.md`](../README.md) — run + ports

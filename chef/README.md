@@ -14,11 +14,12 @@ The first cut of chef is **not a service**. Operating chef in v0 means:
 3. Jason starts a Claude Code session in the repo, invokes the
    `chef-codegen` skill, and hands chef the bundle path.
 4. chef reads the skill + the bundle + the relevant repo references,
-   then writes:
-   - `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` — entities,
-     EF configurations, handlers
-   - `bpm-svc/src/Api/Features/<CODE>/V<N>/**` — controllers + DTOs
+   then writes (one per Clean-Arch layer):
+   - `bpm-svc/src/Domain/Features/<CODE>/V<N>/**` — entity, enum, VO
+   - `bpm-svc/src/Application/Features/<CODE>/V<N>/**` — state machine, notification templates, inbox provider
+   - `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` — EF mapping
    - `bpm-svc/src/Persistence/Migrations/<CODE>_V<N>_*.cs` — EF migration
+   - `bpm-svc/src/Api/Features/<CODE>/V<N>/**` — controllers + DTOs
    - `bpm-svc/tests/Bpm.Tests/Features/<CODE>/V<N>/**` — tests
    - `bpm-ui/src/features/<CODE>/V<N>/**` — React component + manifest
 5. chef commits to the chef branch.
@@ -52,17 +53,21 @@ chef/
 
 chef writes only inside the per-version `Features/<CODE>/V<N>/`
 subtree of an existing csproj — never creates new csproj files or
-edits `bpm-svc.slnx`. Allowed write paths:
+edits `bpm-svc.slnx`. Per-flow code is sharded across the four
+Clean-Arch layers (entities don't drop into Persistence, business
+logic doesn't drop into Api). Allowed write paths:
 
-- `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**`
-- `bpm-svc/src/Api/Features/<CODE>/V<N>/**`
+- `bpm-svc/src/Domain/Features/<CODE>/V<N>/**` — entity / enum / VO
+- `bpm-svc/src/Application/Features/<CODE>/V<N>/**` — state machine, notification templates, `ITypedInboxProvider` impl, actor-resolution helpers
+- `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` — EF mapping only
 - `bpm-svc/src/Persistence/Migrations/<CODE>_V<N>_*.cs`
+- `bpm-svc/src/Api/Features/<CODE>/V<N>/**` — controller + DTOs
 - `bpm-svc/tests/Bpm.Tests/Features/<CODE>/V<N>/**`
 - `bpm-ui/src/features/<CODE>/V<N>/**`
 
 chef reads but never modifies anything else under `bpm-svc/src/**`,
-`bpm-admin-svc/**`, `bpm-admin-ui/**`, `syncer/**`, `chef/**`,
-`bpm-www/**`, `docs/**`, `openspec/**`.
+`bpm-admin-svc/**`, `bpm-admin-ui/**`, `chef/**`, `bpm-www/**`,
+`docs/**`, `openspec/**`.
 
 Anything outside the allowed-write set must be flagged to Jason —
 chef never silently expands its remit. The canonical breakdown lives

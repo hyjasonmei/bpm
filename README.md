@@ -3,49 +3,69 @@
 商業 BPM 平台 POC — 中小企業（50–300 人）為主，目標可整合微軟生態（Entra ID / AD）。
 
 兩大賣點：
+
 1. **AI Kitchen onboarding** — wizard + AI 對話 + 即時生成的問卷，產出 spec bundle (zip)
 2. **無痛上線驗收** — 完善 sandbox：mail capture、webhook redirect、persona switch、time advance、state reset，一個驗收員就能跑完整 UAT
 
-> **Pivot 進行中（2026-05-16 起）**：原單一 BPM 服務拆成 flowcook 四服務架構（admin / bpm / chef / syncer）。設計文件：[`.docs/flowcook-doc/2026-05-16-flowcook-pivot-design.md`](./.docs/flowcook-doc/2026-05-16-flowcook-pivot-design.md)。施工計畫見 `openspec/changes/flowcook-step1..step7-*`。
+詳細產品定位、五大專案邊界、Codegen 模式（model B）、SharedIdentity 模型、DB conventions 全在 [`CLAUDE.md`](./CLAUDE.md)。
 
-## 四服務架構
+## 五大專案
 
-| 邏輯服務 | 資料夾 | 角色 |
+| 層 | 資料夾 | 角色 |
 |---|---|---|
-| **admin** | `bpm-admin-svc/` + `bpm-admin-ui/` | flowcook 內部 + 客戶管理員用；五頁：AI Kitchen / User & Role / Sandbox / Audit / Site Setting |
-| **bpm** | `bpm-svc/` + `bpm-ui/` | 客戶端 runtime；表單 / inbox / live cases / reports / 介入。**斷約後可獨立運轉** |
-| **chef** | `chef/`（placeholder） | AI pipeline，Claude Code runner，產 workflow code。永遠 flowcook 持有 |
-| **syncer** | `syncer/`（placeholder） | admin ↔ bpm 橋樑：push spec / user / role；pull 流程 data / audit / org |
+| **ADMIN** | `bpm-admin-svc/` + `bpm-admin-ui/` | 內部 + 客戶管理員：AI Kitchen、User & Role、Sandbox、Audit、Site Setting；canonical identity 表存這 |
+| **CHEF（codegen）** | `.claude/skills/` + `chef/skill/` + `lead/skill/` | AI codegen workflow — chef 把 spec.json 翻成 per-flow 程式；lead 維護共用 primitive |
+| **BPM** | `bpm-svc/` + `bpm-ui/` | 客戶端 runtime：表單、unified inbox、案件詳情、簽核 |
+| **Product Website** | `bpm-www/` | 對外行銷站（Astro + Tailwind） |
 
-部署模型：per-customer，無 multi-tenant；每客戶各一套堆疊。
-
-## 技術棧
-
-- **bpm-svc / bpm-admin-svc** — C# .NET 10 Clean Architecture (Api / Application / Domain / Persistence / SeedCli) + EF Core + SQLite (POC，code 預留 Postgres) + 自建 C# Workflow Engine
-- **bpm-ui** — React 18 SPA + Vite + Tailwind v4 + shadcn（員工端）
-- **bpm-admin-ui** — React 18 SPA + Vite + Tailwind v4 + shadcn + bpmn-js + lucide-react（管理端）
-- 兩 UI 共用同套設計 token（slate / blue / amber + DM Sans + Noto Sans TC）
+`syncer/` 規劃已取消 — admin ↔ bpm 改走單一 DB source（unify-user-store 系列完成）。
 
 ## 專案結構
 
+兩個後端專案（`bpm-svc` / `bpm-admin-svc`）**完全同 Clean Architecture 五層**：Api / Application / Domain / Persistence / SeedCli。
+
 ```
-bpm-admin-svc/        admin 後端 (.NET 10) — flowcook-step1
-  src/{Bpm.Admin.Api, ...Application, ...Domain, ...Persistence, ...SeedCli}
+bpm-admin-svc/        admin 後端 (.NET 10)
+  src/
+    Bpm.Admin.Api          — controllers + DTOs
+    Bpm.Admin.Application  — 商業邏輯（services / handlers）
+    Bpm.Admin.Domain       — 型別（entity / value object / enum）
+    Bpm.Admin.Persistence  — EF Core（DbContext / configuration / migrations）
+    Bpm.Admin.SeedCli      — 種 demo 資料的 console
   tests/{Api, Application, Persistence}.Tests
-bpm-admin-ui/         admin 前端 — flowcook-step2
-  src/flowcook/       新 shell（AppShell / pages / auth）
-  src/screens/        legacy AdminLayout（flag 後可切回）
-bpm-svc/              bpm 後端（Phase 1 既有，pivot step4 待 refactor）
-bpm-ui/               bpm 前端（Phase 1 既有，pivot step5 待 evolve）
-chef/                 placeholder — flowcook-step7
-syncer/               placeholder — flowcook-step6
+
+bpm-admin-ui/         admin 前端 (Vite + React)
+  src/flowcook/       現行 shell（AppShell / pages / auth / api）
+  src/screens/onboarding/  AI Kitchen 9-step wizard（被 flowcook shell 載入）
+
+bpm-svc/              bpm 後端 (.NET 10) — 同五層
+  src/
+    Api/         controllers + DTOs
+      Features/<CODE>/V<N>/     ← chef territory（main 目前空）
+    Application/ 商業邏輯（services / state machine / notification / inbox provider）
+      Features/<CODE>/V<N>/     ← chef territory（main 目前空）
+    Domain/      型別（entity / value object / enum）
+      Features/<CODE>/V<N>/     ← chef territory（main 目前空）
+    Persistence/ EF Core
+      Features/<CODE>/V<N>/     ← chef territory，只放 EF mapping（main 目前空）
+      Migrations/               ← chef 的 <CODE>_V<N>_* migration 落這
+    Functions/   非 HTTP 的長跑（background / cron）
+    SeedCli/
+
+bpm-ui/               bpm 前端 (Vite + React)
+  src/features/<CODE>/V<N>/   ← chef territory（main 目前只有 registry.ts）
+  src/screens/forms/Reference_*.tsx  ← 11 隻 model A reference forms（可讀，新流程不擴）
+
+bpm-www/              對外行銷站 (Astro)
+chef/                 chef agent 的 system prompt（SKILL.md + conventions.md + workflow.md）
+lead/                 lead agent 的 system prompt（SKILL.md）
+.claude/skills/       Claude Code skill dispatch（chef-codegen / lead-codegen / openspec-*）
+.docs/                MVP_DEMO_RUNBOOK + spikes
 db/                   開發 SQLite 落地點
-openspec/
-  changes/            19 個 active（含 flowcook-step3..7）
-  changes/archive/    12 個 2026-05-17 archived（pivot 取代）+ 2 個 2026-05-18 archived (step1/step2)
-  specs/              26 個 spec（含 8 個新 flowcook-*）+ 11 個 _SUPERSEDED 標記
-.docs/                pivot 設計筆記、舊 docs、dogfood-screenshots、sample_specs、spikes、screens
+openspec/             空殼（specs 在 6a063b0 清掉，待需要時再啟用）
 ```
+
+進行中的 chef testbed 在 `leave-test-N` 系列分支（目前最新 `leave-test-5`），尚未 merge 回 main。
 
 ## 前置需求
 
@@ -60,7 +80,7 @@ node --version      # 18+
 
 ## 啟動
 
-### bpm 端（既有 Phase 1）
+### bpm 端
 
 ```bash
 export BPM_JWT_SECRET=$(openssl rand -hex 32)
@@ -70,7 +90,7 @@ cd bpm-svc/src/Api && dotnet run    # 5290
 cd bpm-ui && npm install && npm run dev   # 5173
 ```
 
-### admin 端（pivot 後新建）
+### admin 端
 
 ```bash
 cd bpm-admin-svc/src/Bpm.Admin.SeedCli
@@ -82,6 +102,12 @@ cd bpm-admin-ui && npm install && npm run dev   # 5174
 
 預設 demo 登入：`alice@acme.example` / `flowcook2026`
 
+### 行銷站
+
+```bash
+cd bpm-www && npm install && npm run dev    # 4321（Astro 預設）
+```
+
 ### Ports
 
 | 服務 | Port |
@@ -90,6 +116,7 @@ cd bpm-admin-ui && npm install && npm run dev   # 5174
 | bpm-admin-svc | 5266 |
 | bpm-ui | 5173 |
 | bpm-admin-ui | 5174 |
+| bpm-www | 4321 |
 
 ## 環境變數
 
@@ -116,12 +143,12 @@ cd bpm-admin-ui && npm install && npm run dev   # 5174
 ```bash
 cd bpm-svc/src/SeedCli
 dotnet run -- reset                    # 清掉 process / task / instance
-dotnet run -- seed                     # 13 user / 6 dept / 14 role
-dotnet run -- seed --include-bundles   # 同上 + 11 個 sample_spec bundle
+dotnet run -- seed                     # 與 admin 對齊的 persona / role
+dotnet run -- seed --include-bundles   # 同上 + sample_spec bundle
 dotnet run -- status                   # 印 DB 狀態
 ```
 
-Sample specs 路徑 default `<repo>/sample_specs/`，pivot 後搬到 `.docs/sample_specs/`，用 `--sample-specs .docs/sample_specs/` override。
+Sample specs 路徑預設 `<repo>/sample_specs/`，用 `--sample-specs <dir>` override。
 
 ### bpm-admin-svc SeedCli
 
@@ -135,13 +162,13 @@ ASPNETCORE_ENVIRONMENT=Development dotnet run -- clear
 ### 測試
 
 ```bash
-cd bpm-svc && dotnet test                       # Phase 1 runtime tests
-cd bpm-admin-svc && dotnet test                 # admin Clean-Arch tests
-cd bpm-admin-ui && npx tsc -p tsconfig.app.json --noEmit
+cd bpm-svc && dotnet test
+cd bpm-admin-svc && dotnet test
 cd bpm-ui && npx tsc -p tsconfig.app.json --noEmit
+cd bpm-admin-ui && npx tsc -p tsconfig.app.json --noEmit
 ```
 
-前端兩個 SPA 無 vitest / jest — 靠 `tsc` + 手動 boot + chrome-devtools 截圖驗證（`.docs/screens/`）。
+前端兩個 SPA 沒有 vitest / jest — 靠 `tsc` + 手動 boot + chrome-devtools 截圖驗證。
 
 ### EF Core migrations
 
@@ -157,6 +184,8 @@ dotnet ef migrations add <Name> -p ../Bpm.Admin.Persistence -s .
 dotnet ef database update -p ../Bpm.Admin.Persistence -s .
 ```
 
+**注意**：bpm-svc 端的 SharedX entity（`SharedPrincipal` / `SharedUserManager` / ...）都標 `ExcludeFromMigrations`，所以 identity 表的 migration 只會在 admin-svc 那邊產，bpm-svc 端不會雙寫 schema。
+
 ## DB Conventions（POC SQLite，預留 Postgres）
 
 1. 永遠用 EF Core，禁 raw `IDbConnection` / `Dapper`
@@ -167,46 +196,57 @@ dotnet ef database update -p ../Bpm.Admin.Persistence -s .
 6. JSON 欄位用 EF Owned types 或純 TEXT，避 query 內部 JSON path
 7. 並發控制用 EF OptimisticConcurrency（RowVersion）
 
-## 進度（2026-05-18）
+詳細理由見 `CLAUDE.md`。
 
-### Phase 1（pre-pivot，已完）
+## Codegen 模式 — Model B
 
-- **bpm-svc**: Foundation (Org / Authz / Sandbox / Auth / HrFlows / Spec ActorRef)、Runtime (ProcessRuntime + SpecSnapshot + Cel.NET)、Bundle (Builder / Parser / Validator + RuntimeLoader + ReproRunner)、Sandbox (clock decorator / OutboundGate / ResetService / persona switch JWT / Mailbox API)、Process Admin (simulator + 4 intervention endpoints + reporting service)
-- **bpm-ui**: 11 個 demo form 全走 ProcessRuntime；Home / Search 接真 inbox；3 個 runtime hook + RoleSwitcher + SandboxBanner + Mailbox
-- **bpm-admin-ui** (legacy): 9-step onboarding + CoPilotCanvas + Flow Library + Sandbox Mailbox + Process Admin Console
-- All-flows-real PR-L1..L6: 11 sample_specs 對齊 workflow.ts + 22 sub-test E2E
+每隻流程 = 一支獨立 state machine + EF entity + REST controller + React form + inbox provider。**沒有**通用 spec interpreter。Chef 把 `spec.json` 當設計文件、手寫對應的 per-flow 程式，按 Clean Arch 分層落在 bpm-svc 各 csproj：
 
-### Pivot 進度（flowcook-step1..step7）
+```
+bpm-svc/src/Domain/Features/<CODE>/V<N>/**              ← entity / enum / VO
+bpm-svc/src/Application/Features/<CODE>/V<N>/**         ← state machine / notification / inbox provider
+bpm-svc/src/Persistence/Features/<CODE>/V<N>/**         ← EF mapping only
+bpm-svc/src/Persistence/Migrations/<ts>_<CODE>_V<N>_*.cs
+bpm-svc/src/Api/Features/<CODE>/V<N>/**                 ← controller + DTO
+bpm-svc/tests/Bpm.Tests/Features/<CODE>/V<N>/**
+bpm-ui/src/features/<CODE>/V<N>/**
+```
 
-| Step | 範圍 | 狀態 |
-|---|---|---|
-| 1 | `bpm-admin-svc` skeleton（Clean Arch + auth + principal/role/delegation/dept controllers） | ✅ archived `2026-05-18-flowcook-step1` |
-| 2 | `bpm-admin-ui` flowcook shell（5-page nav + LoginPage + User & Role page 含完整 principal/role 管理 UI） | ✅ archived `2026-05-18-flowcook-step2` |
-| 3 | AI Kitchen wizard（11-step） | next — proposal in flight |
-| 4 | bpm-svc refactor 對齊新 spec | TBD |
-| 5 | bpm-ui DynamicForm migration（原 Phase 2 `add-form-runtime-rendering`） | TBD |
-| 6 | syncer v0（push spec / pull audit） | placeholder |
-| 7 | chef v0（AI pipeline） | placeholder |
+Lead 維護所有 chef 邊界以外的 share code + primitive（`components/ui/*`、`Bpm.Application.Inbox.ITypedInboxProvider`、`IFileStorageService`、SharedIdentity、auth、sandbox、bundle install 等），以及整個 `bpm-admin-svc` / `bpm-admin-ui`。
 
-### 還在排程的舊 proposal（13 個）
+Reference cook：**LEAVE V1**（testbed 在 `leave-test-N` 系列分支，目前最新 `leave-test-5`）。chef session 從這隻 copy shape。⚠️ 該 testbed 目前還把 entity / state machine / inbox provider 都擠在 `Persistence/Features/`，與本文件分層**不符**；refactor 排隊中。**main 目前還沒有任何 chef-cooked flow merge 進去**。
 
-`add-form-runtime-rendering` / `add-real-reporting` / `add-sso-oidc` / `add-mcp-entra-sync` / `add-pdf-export` / `add-tenant-branding` / `add-file-storage` / `add-outbound-webhooks` / `add-real-search` / `add-comments-and-rejection-feedback` / `add-calendar-and-business-hours` / `add-hr-sync-csv` / `add-api-observability` / `extend-field-types-line-items` — 每一個都有 `FLOWCOOK_STATUS.md` 標記要 reframe 到 pivot 後的服務邊界再實作。
+完整邊界 + 命名 + primitive 對照：
+
+- `chef/skill/SKILL.md` + `chef/skill/conventions.md` + `chef/skill/workflow.md`
+- `lead/skill/SKILL.md`
+
+### Model A（已退役）
+
+`IProcessRuntime` / `SpecSnapshot` / `ISpecLoader` 是舊路；舊 code 仍編譯但不再延伸。詳見 `CLAUDE.md`。
+
+## 目前進度（2026-05-25）
+
+- ADMIN：bpm-admin-svc Clean-Arch skeleton + bpm-admin-ui flowcook V0 shell（AI Kitchen + User & Role）已上線
+- BPM：unify-user-store 收尾（U2 / U5 / U7 + finale），bpm-svc 完全切到 SharedX；unified inbox + bundle BPMN passthrough 已 land
+- CHEF：chef skill v3（model B）+ lead skill v1 + chef skill v2 unify-user-store update；first cook LEAVE V1 在 `leave-test-5` testbed 進行中（尚未 merge 回 main）
+- WWW：bpm-www Astro skeleton + 7 個首批頁面
 
 ## 已知 follow-up
 
-- AppShell 右上 page hint 不會跟著 sub-tab 切換更新（永遠顯示 sidebar nav 的 hint）
-- RoleEditor 的「Usage」count 是 N+1 probe（拉每個 principal 的 role list 數）；20 個 principal 內可用，scale up 需要 BE 加 `GET /api/roles/{id}/usage`
-- bpm-admin-svc 沒有 `DbPathResolver`，SeedCli 跟 Api 各自 cwd 對應 `admin.dev.db` 兩份（暫時用 `cp` 同步）— 學 bpm-svc 修
-- Cel.NET 1.0.0 sum(list) overload-id dispatch bug — gateway flat field workaround
-- BPMN canvas active-node 高亮、Designer live preview 仍 placeholder
-- NotificationDispatchAudit 表（生產通知稽核）未建表
+- **chef/skill + LEAVE V1 testbed 對齊 Clean Arch 分層** — 目前 chef skill 把 entity + state machine + inbox provider 全寫進 Persistence；要拆到 Domain / Application / Persistence。同時 `Persistence/DependencyInjection.cs` 的 `ITypedInboxProvider` assembly scan 要搬到 `Application/DependencyInjection.cs`
+- Model A code 清理（runtime engine + 舊 hooks）尚未排
+- 第二支 chef-cooked flow 還沒做 — 證明流程可重複
+- NotificationDispatchAudit 表（生產通知稽核）未建
 - Reports in-memory percentile — 百萬級 instance 後切 DB function
-- HrFlowsController（RESIGN/DEPTX 舊路）與新 spec 並存
-- bpm-ui / bpm-admin-ui 沒 vitest/jest
+- bpm-ui / bpm-admin-ui 沒 vitest / jest
+- bpm-admin-svc 沒有 `DbPathResolver`，SeedCli 跟 Api 各自 cwd 對應 `admin.dev.db` 兩份（暫時用 `cp` 同步）— 學 bpm-svc 修
+- `openspec/` 空殼，等需要 RFC 時再啟用
 
 ## 文件
 
-- [CLAUDE.md](./CLAUDE.md) — 專案背景、技術棧、DB conventions
-- [.docs/flowcook-doc/2026-05-16-flowcook-pivot-design.md](./.docs/flowcook-doc/2026-05-16-flowcook-pivot-design.md) — pivot 設計筆記
-- [openspec/](./openspec) — 19 個 active proposal（flowcook-step3..7 + 14 個舊 reframe-pending） + 26 個 spec
-- [.docs/screens/](./.docs/screens/) — UI 對齊 / 驗證 reference 截圖
+- [CLAUDE.md](./CLAUDE.md) — 專案背景、五大專案邊界、Codegen 模式、SharedIdentity、DB conventions
+- [chef/skill/SKILL.md](./chef/skill/SKILL.md) — chef agent
+- [lead/skill/SKILL.md](./lead/skill/SKILL.md) — lead agent
+- [bpm-www/README.md](./bpm-www/README.md) — 行銷站
+- 各 app 的 `CLAUDE.md` — app 邊界

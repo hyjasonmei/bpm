@@ -19,10 +19,14 @@ before continuing.
 ## 1. Hard rules
 
 1. **Read-only inside chef's territory.** You may *read* anything under
-   the paths below, never write:
+   the paths below, never write. Per-flow code is sharded across the
+   four Clean-Arch layers — chef owns every `Features/<CODE>/V<N>/`
+   sub-tree across them:
 
-   - `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**`
-   - `bpm-svc/src/Api/Features/<CODE>/V<N>/**`
+   - `bpm-svc/src/Domain/Features/<CODE>/V<N>/**` — entity, enum, VO
+   - `bpm-svc/src/Application/Features/<CODE>/V<N>/**` — state machine, notification templates, inbox provider, actor-resolution helpers
+   - `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` — EF mapping only
+   - `bpm-svc/src/Api/Features/<CODE>/V<N>/**` — controller + DTOs
    - `bpm-svc/tests/Bpm.Tests/Features/<CODE>/V<N>/**`
    - `bpm-ui/src/features/<CODE>/V<N>/**`
 
@@ -39,7 +43,12 @@ before continuing.
 2. **Allowed write paths** — concretely, everything *not* listed in §1:
 
    - `bpm-svc/src/{Api,Application,Domain,Persistence,Functions,SeedCli}/**`
-     **outside** `Features/<CODE>/V<N>/` (most of the repo)
+     **outside** `Features/<CODE>/V<N>/` in every layer (most of the
+     repo). This includes `Application/DependencyInjection.cs` and
+     `Persistence/DependencyInjection.cs` — lead owns the
+     `ITypedInboxProvider` assembly scan and must keep it covering
+     the Application assembly so chef-cooked providers register
+     correctly.
    - `bpm-svc/src/Persistence/Migrations/**` — when the migration is for
      a core table, not a per-flow one
    - `bpm-svc/tests/Bpm.Tests/**` outside `Features/<CODE>/V<N>/`
