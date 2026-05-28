@@ -22,6 +22,9 @@ public class SharedFlow
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public DateTime? DeletedAt { get; set; }
+
+    /// <summary>FK onto <see cref="SharedFlowGroup.Id"/>; null when unassigned.</summary>
+    public Guid? GroupId { get; set; }
 }
 
 /// <summary>

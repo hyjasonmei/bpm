@@ -62,6 +62,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SharedGroupMember> SharedGroupMembers => Set<SharedGroupMember>();
     /// <summary>Read-only flow-registry view onto Admin_Flows — see SharedFlow.</summary>
     public DbSet<SharedFlow> SharedFlows => Set<SharedFlow>();
+    /// <summary>Read-only launcher-group view onto Admin_FlowGroups — see SharedFlowGroup.</summary>
+    public DbSet<SharedFlowGroup> SharedFlowGroups => Set<SharedFlowGroup>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

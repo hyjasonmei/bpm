@@ -2,6 +2,12 @@ import {
   Plus, FileText, Laptop, DollarSign, Building2,
   Check, AlertCircle, Inbox, Pencil, Calendar,
   ChefHat,
+  Users as UsersIcon, ShoppingCart as ShoppingCartIcon,
+  Wrench as WrenchIcon, Plane as PlaneIcon,
+  Briefcase as BriefcaseIcon, HeartPulse as HeartPulseIcon,
+  Coffee as CoffeeIcon, Wallet as WalletIcon,
+  Settings as SettingsIcon, Folder as FolderIcon,
+  Sparkles as SparklesIcon,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 
@@ -327,36 +333,66 @@ function QuickActionsPanel() {
   // back to showing everything (avoids flashing an empty panel on
   // page load); a transient registry-fetch failure is treated the
   // same way.
+  //
+  // PR-G3: actions group by groupCode (sourced from admin Site
+  // Setting → Flow Groups). Sections render in groupSortOrder; the
+  // catch-all '__other__' bucket sinks to the bottom for unassigned
+  // entries.
   const { entries: registry } = useFlowRegistry()
   const latest = latestPerCode(registry)
   const filterByState = registry !== null
-  const actions = [...formRegistry.values()]
+  type Action = { code: FormCode; label: string; groupKey: string; groupLabel: string; groupIcon: string | null; groupSort: number }
+  const actions: Action[] = [...formRegistry.values()]
     .filter(m => {
       if (!filterByState) return true
       const entry = latest.get(m.code)
       return entry?.state === 'Approved'
     })
-    .map(m => ({ code: m.code, label: FORMS[m.code]?.zhLabel ?? m.code }))
-    .sort((a, b) => a.code.localeCompare(b.code))
+    .map(m => {
+      const entry = latest.get(m.code)
+      const groupKey = entry?.groupCode ?? '__other__'
+      const groupLabel = entry?.groupDisplayName?.['zh-TW'] ?? entry?.groupCode ?? '其他'
+      return {
+        code: m.code,
+        label: FORMS[m.code]?.zhLabel ?? m.code,
+        groupKey,
+        groupLabel,
+        groupIcon: entry?.groupIcon ?? null,
+        groupSort: entry?.groupSortOrder ?? Number.MAX_SAFE_INTEGER,
+      }
+    })
+
+  const sections = groupAndSort(actions)
 
   return (
     <SectionCard>
       <SectionTitle>Quick Actions</SectionTitle>
-      {actions.length === 0 ? (
+      {sections.length === 0 ? (
         <div className="px-3 py-6 text-center text-[11px] text-ink-faint">
           目前沒有可用的流程 — 請聯絡管理員建置新流程。
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2 p-3">
-          {actions.map(a => (
-            <Link
-              key={a.code}
-              to={routes.formCreate(a.code)}
-              className="flex items-center gap-2 rounded-md border border-rule bg-white px-2.5 py-2 text-left text-xs font-medium text-ink-muted transition-colors hover:bg-slate-50 hover:text-ink"
-            >
-              <ChefHat className="h-4 w-4 shrink-0 text-primary" />
-              <span className="truncate">{a.label}</span>
-            </Link>
+        <div className="space-y-3 p-3">
+          {sections.map(s => (
+            <div key={s.key}>
+              <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-faint">
+                <GroupIcon name={s.icon} />
+                {s.label}
+                <span className="ml-1 font-mono text-[10px] text-ink-faint">{s.items.length}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {s.items.map(a => (
+                  <Link
+                    key={a.code}
+                    to={routes.formCreate(a.code)}
+                    className="flex items-center gap-2 rounded-md border border-rule bg-white px-2.5 py-2 text-left text-xs font-medium text-ink-muted transition-colors hover:bg-slate-50 hover:text-ink"
+                  >
+                    <ChefHat className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="truncate">{a.label}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -367,6 +403,58 @@ function QuickActionsPanel() {
       </div>
     </SectionCard>
   )
+}
+
+interface GroupedSection {
+  key: string
+  label: string
+  icon: string | null
+  sort: number
+  items: { code: FormCode; label: string }[]
+}
+
+function groupAndSort(actions: Array<{ code: FormCode; label: string; groupKey: string; groupLabel: string; groupIcon: string | null; groupSort: number }>): GroupedSection[] {
+  const map = new Map<string, GroupedSection>()
+  for (const a of actions) {
+    const existing = map.get(a.groupKey)
+    if (existing) {
+      existing.items.push({ code: a.code, label: a.label })
+    } else {
+      map.set(a.groupKey, {
+        key: a.groupKey,
+        label: a.groupLabel,
+        icon: a.groupIcon,
+        sort: a.groupSort,
+        items: [{ code: a.code, label: a.label }],
+      })
+    }
+  }
+  for (const s of map.values()) s.items.sort((x, y) => x.label.localeCompare(y.label))
+  return [...map.values()].sort((x, y) => x.sort - y.sort || x.label.localeCompare(y.label))
+}
+
+/**
+ * Resolve a stored lucide icon name to a component. Admin's Site
+ * Setting Groups picker is restricted to a known set, but we still
+ * fall back gracefully so a typo or future name doesn't break the
+ * launcher.
+ */
+function GroupIcon({ name }: { name: string | null }) {
+  switch (name) {
+    case 'Users':        return <UsersIcon className="h-3 w-3 text-ink-muted" />
+    case 'ShoppingCart': return <ShoppingCartIcon className="h-3 w-3 text-ink-muted" />
+    case 'Wrench':       return <WrenchIcon className="h-3 w-3 text-ink-muted" />
+    case 'Plane':        return <PlaneIcon className="h-3 w-3 text-ink-muted" />
+    case 'FileText':     return <FileText className="h-3 w-3 text-ink-muted" />
+    case 'Briefcase':    return <BriefcaseIcon className="h-3 w-3 text-ink-muted" />
+    case 'HeartPulse':   return <HeartPulseIcon className="h-3 w-3 text-ink-muted" />
+    case 'Coffee':       return <CoffeeIcon className="h-3 w-3 text-ink-muted" />
+    case 'Wallet':       return <WalletIcon className="h-3 w-3 text-ink-muted" />
+    case 'Settings':     return <SettingsIcon className="h-3 w-3 text-ink-muted" />
+    case 'Sparkles':     return <SparklesIcon className="h-3 w-3 text-ink-muted" />
+    case 'Folder':
+    default:             return <FolderIcon className="h-3 w-3 text-ink-muted" />
+  }
 }
 
 function ActivityFeedPanel({ rows, loading }: { rows: InboxRow[]; loading: boolean }) {

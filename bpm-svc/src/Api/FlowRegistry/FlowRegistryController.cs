@@ -31,14 +31,46 @@ public sealed class FlowRegistryController : BpmControllerBase
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<FlowRegistryEntry>>> List(CancellationToken ct)
     {
+        // LEFT JOIN against SharedFlowGroups so bpm-ui's launcher can
+        // render group sections without a second round-trip per flow.
+        // Soft-deleted groups still surface here (DeletedAt != null) —
+        // the client renders them under the unassigned bucket so
+        // existing assignments don't visually break.
         var rows = await _db.SharedFlows
             .AsNoTracking()
             .Where(f => f.DeletedAt == null)
             .OrderBy(f => f.FlowCode).ThenByDescending(f => f.Version)
-            .Select(f => new FlowRegistryEntry(
-                f.FlowCode, f.Version, f.State.ToString(), f.DisplayName, f.UpdatedAt))
+            .Select(f => new
+            {
+                f.FlowCode, f.Version, f.State, f.DisplayName, f.UpdatedAt, f.GroupId,
+                Group = f.GroupId == null
+                    ? null
+                    : _db.SharedFlowGroups
+                        .Where(g => g.Id == f.GroupId && g.DeletedAt == null)
+                        .Select(g => new { g.Code, g.DisplayNameJson, g.SortOrder, g.Icon })
+                        .FirstOrDefault(),
+            })
             .ToListAsync(ct);
-        return Ok(rows);
+
+        var result = rows.Select(r => new FlowRegistryEntry(
+            r.FlowCode, r.Version, r.State.ToString(), r.DisplayName, r.UpdatedAt,
+            r.Group?.Code,
+            r.Group is null ? null : ParseDisplayName(r.Group.DisplayNameJson),
+            r.Group?.Icon,
+            r.Group?.SortOrder)).ToList();
+        return Ok(result);
+    }
+
+    private static IReadOnlyDictionary<string, string>? ParseDisplayName(string json)
+    {
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
 
@@ -47,4 +79,8 @@ public sealed record FlowRegistryEntry(
     int Version,
     string State,
     string DisplayName,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    string? GroupCode,
+    IReadOnlyDictionary<string, string>? GroupDisplayName,
+    string? GroupIcon,
+    int? GroupSortOrder);

@@ -9,6 +9,12 @@ export interface FlowRegistryEntry {
   state: 'Draft' | 'Submitted' | 'Cooking' | 'OnHold' | 'Committed' | 'Approved' | 'Rejected' | 'Retired' | string
   displayName: string
   updatedAt: string
+  // PR-G3: launcher group metadata, null when unassigned (or the
+  // assigned group was soft-deleted on the admin side).
+  groupCode: string | null
+  groupDisplayName: Record<string, string> | null
+  groupIcon: string | null
+  groupSortOrder: number | null
 }
 
 interface State {
