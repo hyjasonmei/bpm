@@ -433,6 +433,109 @@ bpm-ui ships no JS test runner today. Form correctness is verified by
 of the happy path. Flag this in the final report; don't add a jest /
 vitest dependency without asking lead first.
 
+## 5.5 Talking to admin (MCP)
+
+A chef session also has a live line back to admin-svc. Every session
+posts state transitions + memos so the admin user sees the cook in
+real time, and reads user replies when blocked.
+
+### Connection
+
+admin-svc hosts the MCP server in-process at
+`http://localhost:5266/mcp` (HTTP / SSE transport). Auth is a single
+static bearer token in admin's appsettings under
+`Bpm:Chef:Token`. The chef Claude Code session reads the same token
+from its `.mcp.json` config:
+
+```json
+{
+  "mcpServers": {
+    "flowcook-admin": {
+      "type": "sse",
+      "url": "http://localhost:5266/mcp",
+      "headers": { "Authorization": "Bearer ${BPM_CHEF_TOKEN}" }
+    }
+  }
+}
+```
+
+The tools become available in the chef session as `chef_get_flow`,
+`chef_get_messages`, `chef_post_message`, `chef_transition`.
+
+### Where does the flow id come from?
+
+From the bundle: every bundle's `manifest.json` carries a `flowId`
+field. Chef reads the bundle at session start, picks the id out, and
+uses it for every subsequent MCP call. There is no separate
+`BPM_FLOW_ID` env var to set — the bundle is the source of truth.
+
+### Session lifecycle (one-shot — DO NOT poll)
+
+A chef session is short-lived. Don't run a polling loop waiting for
+user replies; instead, exit when blocked and let Jason relaunch
+chef. Admin-ui surfaces a copy-paste resume command when the flow
+is OnHold.
+
+Happy path:
+
+1. Read bundle → grab `manifest.flowId`.
+2. Call `chef_get_flow(flowId)` — confirm the state. If it's
+   already `Cooking` or `OnHold` you're a resumed session — call
+   `chef_get_messages(flowId)` first to see the user's most recent
+   reply and `chef_transition(target='Resume')`. Otherwise call
+   `chef_transition(target='Cooking')`.
+3. Post the kick-off memo: `chef_post_message(kind='Memo',
+   content='Picking up; will scaffold Domain → Application →
+   Persistence → Api → UI')`.
+4. Cook. After each major layer (Domain / Application / Persistence /
+   Api / UI) post another `Memo` so the user sees live progress.
+5. When done: `chef_transition(target='Committed')` then
+   `chef_post_message(kind='Completion', version='V1.0',
+   artifactsJson=JSON.stringify({branch, fileCount, testsPassing}))`.
+6. Exit.
+
+Blocked path:
+
+1. `chef_transition(target='OnHold', question='…')` (this also
+   appends a Question chat row automatically).
+2. **Exit the session.** No polling.
+
+Resume path (new chef Claude Code session, after user replied):
+
+1. Bundle → flowId (same as before).
+2. `chef_get_messages(flowId)` — find the most recent
+   `sender=User, kind=Reply` row; that's what the user wants
+   addressed.
+3. `chef_transition(target='Resume')` — flips state OnHold → Cooking.
+4. Continue cooking; post memos on each milestone.
+
+### Tool contract cheatsheet
+
+| Tool | When |
+|---|---|
+| `chef_get_flow(flowId)` | Session start — confirm state + grab spec |
+| `chef_get_messages(flowId, since?)` | After OnHold resume, or when curious about user activity |
+| `chef_post_message(flowId, kind, content, artifactsJson?, version?)` | Memos / completion artifacts; chef can only post `Memo` / `Question` / `Completion` |
+| `chef_transition(flowId, target, question?)` | `Cooking` / `Resume` / `OnHold` / `Committed` |
+
+### Artifacts: metadata only
+
+Don't shovel diffs into admin-svc. The actual code lives on Jason's
+worktree branch — Jason reads diffs in GitKraken. `artifactsJson`
+on a Completion should be a tiny summary like:
+
+```json
+{
+  "branch": "leave-test-6",
+  "fileCount": 14,
+  "testsPassing": 23,
+  "previewLabel": "Form + Case detail screenshots in PR"
+}
+```
+
+The admin Cook tab parses this and renders chips beside the
+completion message.
+
 ## 6. When to stop and ask
 
 Don't guess — tell Jason — when any of these is true:

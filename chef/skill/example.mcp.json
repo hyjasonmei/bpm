@@ -1,0 +1,12 @@
+{
+  "_": "Example .mcp.json for chef Claude Code sessions. Drop this in the worktree root (or merge into the existing one). The BPM_CHEF_TOKEN env var must be exported in the shell that launches Claude Code — same token configured under Bpm:Chef:Token in admin-svc's appsettings.",
+  "mcpServers": {
+    "flowcook-admin": {
+      "type": "sse",
+      "url": "http://localhost:5266/mcp",
+      "headers": {
+        "Authorization": "Bearer ${BPM_CHEF_TOKEN}"
+      }
+    }
+  }
+}
