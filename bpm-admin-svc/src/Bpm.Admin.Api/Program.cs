@@ -69,6 +69,7 @@ builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFlowLifecycleService, FlowLifecycleService>();
 builder.Services.AddScoped<IFlowChatService, FlowChatService>();
+builder.Services.AddScoped<IFlowGroupService, FlowGroupService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<Bpm.Admin.Application.Common.Abstractions.IClock, Bpm.Admin.Api.Common.AdminSystemClock>();
 builder.Services.AddSingleton<Bpm.Admin.Application.Spec.Expressions.IExpressionEvaluator, Bpm.Admin.Application.Spec.Expressions.CelNetExpressionEvaluator>();
@@ -137,6 +138,36 @@ using (var scope = app.Services.CreateScope())
             logger.LogInformation("Admin DB empty — seeding org graph (13 users / 6 depts / 14 roles)");
             await Bpm.Admin.Persistence.Seed.Seeder.SeedOrgAsync(conn);
             logger.LogInformation("Admin seed complete. Demo password: {DemoPassword}", Bpm.Admin.Persistence.Seed.Seeder.DemoPassword);
+        }
+
+        // PR-G1: seed default flow groups so a fresh demo lights up
+        // with launcher sections immediately. Only on empty table; admins
+        // can rename / reorder / delete afterwards.
+        if (allowSeed && !await db.FlowGroups.AnyAsync())
+        {
+            var now = DateTime.UtcNow;
+            var defaults = new (string Code, string ZhTw, string En, int Sort, string Icon)[]
+            {
+                ("hr",       "人事", "HR",       10, "Users"),
+                ("purchase", "採購", "Purchase", 20, "ShoppingCart"),
+                ("it",       "IT",   "IT",       30, "Wrench"),
+                ("office",   "行政", "Admin",    40, "FileText"),
+            };
+            foreach (var (code, zh, en, sort, icon) in defaults)
+            {
+                db.FlowGroups.Add(new Bpm.Admin.Domain.Flows.FlowGroup
+                {
+                    Id = Guid.NewGuid(),
+                    Code = code,
+                    DisplayNameJson = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string> { ["zh-TW"] = zh, ["en"] = en }),
+                    SortOrder = sort,
+                    Icon = icon,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                });
+            }
+            await db.SaveChangesAsync();
+            logger.LogInformation("Seeded {Count} default flow groups", defaults.Length);
         }
     }
     catch (Exception ex)

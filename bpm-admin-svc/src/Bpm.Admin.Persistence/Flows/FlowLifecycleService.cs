@@ -113,6 +113,32 @@ public class FlowLifecycleService : IFlowLifecycleService
         await _db.SaveChangesAsync(ct);
     }
 
+    public async Task<Flow> AssignGroupAsync(Guid flowId, Guid? groupId, Guid? actorUserId, CancellationToken ct = default)
+    {
+        var row = await Load(flowId, ct);
+        if (groupId.HasValue)
+        {
+            var groupExists = await _db.FlowGroups.AnyAsync(g => g.Id == groupId.Value, ct);
+            if (!groupExists)
+                throw new FlowLifecycleException($"flow group {groupId} not found");
+        }
+        var before = new { GroupId = row.GroupId };
+        row.GroupId = groupId;
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(
+            actionType: "flow_group_assigned",
+            targetType: "flow",
+            targetId: row.Id.ToString(),
+            actorUserId: actorUserId,
+            actorPrincipalId: null,
+            before: before,
+            after: new { GroupId = row.GroupId },
+            ct: ct);
+
+        return row;
+    }
+
     private async Task<Flow> ChefTransitionAsync(
         Guid flowId,
         FlowState target,

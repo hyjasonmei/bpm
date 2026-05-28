@@ -48,4 +48,13 @@ public class Flow : ISoftDeletable
     /// ever touched.
     /// </summary>
     public DateTime? LastChefHeartbeatAt { get; set; }
+
+    /// <summary>
+    /// Launcher group for the bpm employee Home page. Null means
+    /// "unassigned" — the bpm-ui renders these under a built-in
+    /// "其他" pseudo-group. Soft-deleting the referenced group
+    /// leaves a dangling pointer here; bpm-svc filters via SharedFlowGroup
+    /// (soft-delete query filter) so dangling rows surface as null.
+    /// </summary>
+    public Guid? GroupId { get; set; }
 }

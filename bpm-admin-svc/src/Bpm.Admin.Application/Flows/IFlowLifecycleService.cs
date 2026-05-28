@@ -50,4 +50,10 @@ public interface IFlowLifecycleService
     /// (GET flow / GET messages) so we still know chef is alive even
     /// when nothing transitioned.</summary>
     Task BumpChefHeartbeatAsync(Guid flowId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Assign (or clear, with <c>groupId == null</c>) the launcher
+    /// group on a flow. Admin Site Setting feature; never chef-driven.
+    /// </summary>
+    Task<Flow> AssignGroupAsync(Guid flowId, Guid? groupId, Guid? actorUserId, CancellationToken ct = default);
 }

@@ -42,7 +42,8 @@ public sealed class ChefFlowsController : ControllerBase
         await _lifecycle.BumpChefHeartbeatAsync(flowId, ct);
         return Ok(new FlowDetailDto(
             f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.SpecJson, f.Notes,
-            f.CreatedByUserId, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt));
+            f.CreatedByUserId, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt,
+            f.GroupId, null));
     }
 
     [HttpGet("{flowId:guid}/messages")]
@@ -117,7 +118,8 @@ public sealed class ChefFlowsController : ControllerBase
             return Ok(new FlowDetailDto(
                 updated.Id, updated.LineageId, updated.Version, updated.State,
                 updated.FlowCode, updated.DisplayName, updated.SpecJson, updated.Notes,
-                updated.CreatedByUserId, updated.CreatedAt, updated.UpdatedAt, updated.LastChefHeartbeatAt));
+                updated.CreatedByUserId, updated.CreatedAt, updated.UpdatedAt, updated.LastChefHeartbeatAt,
+                updated.GroupId, null));
         }
         catch (FlowLifecycleException ex) { return Conflict(ex.Message); }
     }

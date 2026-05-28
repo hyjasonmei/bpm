@@ -45,10 +45,14 @@ public class FlowsController : ControllerBase
         if (state.HasValue) q = q.Where(f => f.State == state.Value);
         if (lineageId.HasValue) q = q.Where(f => f.LineageId == lineageId.Value);
 
+        // LEFT JOIN against FlowGroups so the row carries the group code
+        // for the admin-ui chip without a second round-trip per row.
         var rows = await q
             .OrderByDescending(f => f.UpdatedAt)
             .Select(f => new FlowSummaryDto(
-                f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt))
+                f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt,
+                f.GroupId,
+                f.GroupId == null ? null : _db.FlowGroups.Where(g => g.Id == f.GroupId).Select(g => g.Code).FirstOrDefault()))
             .ToListAsync(ct);
         return Ok(rows);
     }
@@ -271,7 +275,30 @@ public class FlowsController : ControllerBase
         catch (FlowLifecycleException ex) { return Conflict(ex.Message); }
     }
 
-    private static FlowDetailDto ToDetail(Flow f) => new(
-        f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.SpecJson, f.Notes,
-        f.CreatedByUserId, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt);
+    private FlowDetailDto ToDetail(Flow f)
+    {
+        var groupCode = f.GroupId.HasValue
+            ? _db.FlowGroups.AsNoTracking().Where(g => g.Id == f.GroupId.Value).Select(g => g.Code).FirstOrDefault()
+            : null;
+        return new(
+            f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.SpecJson, f.Notes,
+            f.CreatedByUserId, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt,
+            f.GroupId, groupCode);
+    }
+
+    /// <summary>Set or clear the flow's launcher group. Empty body /
+    /// <c>{ "groupId": null }</c> unassigns.</summary>
+    [HttpPost("{id:guid}/group")]
+    public async Task<ActionResult<FlowDetailDto>> AssignGroup(
+        Guid id,
+        [FromBody] AssignFlowGroupRequest req,
+        CancellationToken ct)
+    {
+        try
+        {
+            var flow = await _lifecycle.AssignGroupAsync(id, req.GroupId, CurrentUserId(), ct);
+            return Ok(ToDetail(flow));
+        }
+        catch (FlowLifecycleException ex) { return Conflict(ex.Message); }
+    }
 }

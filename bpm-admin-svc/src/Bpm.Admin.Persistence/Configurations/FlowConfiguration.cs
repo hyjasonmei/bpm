@@ -20,5 +20,6 @@ public class FlowConfiguration : IEntityTypeConfiguration<Flow>
         builder.HasIndex(x => new { x.LineageId, x.Version }).IsUnique();
         builder.HasIndex(x => x.State);
         builder.HasIndex(x => x.UpdatedAt);
+        builder.HasIndex(x => x.GroupId);
     }
 }

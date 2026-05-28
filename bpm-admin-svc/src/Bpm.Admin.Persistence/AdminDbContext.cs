@@ -30,6 +30,7 @@ public class AdminDbContext : DbContext
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<Flow> Flows => Set<Flow>();
     public DbSet<FlowChatMessage> FlowChatMessages => Set<FlowChatMessage>();
+    public DbSet<FlowGroup> FlowGroups => Set<FlowGroup>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -11,7 +11,9 @@ public record FlowSummaryDto(
     string DisplayName,
     DateTime CreatedAt,
     DateTime UpdatedAt,
-    DateTime? LastChefHeartbeatAt);
+    DateTime? LastChefHeartbeatAt,
+    Guid? GroupId,
+    string? GroupCode);
 
 public record FlowDetailDto(
     Guid Id,
@@ -25,7 +27,9 @@ public record FlowDetailDto(
     Guid? CreatedByUserId,
     DateTime CreatedAt,
     DateTime UpdatedAt,
-    DateTime? LastChefHeartbeatAt);
+    DateTime? LastChefHeartbeatAt,
+    Guid? GroupId,
+    string? GroupCode);
 
 public record CreateFlowRequest(string FlowCode, string DisplayName, string? SpecJson);
 
