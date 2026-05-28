@@ -1,9 +1,11 @@
 import { useEffect } from 'react'
-import { AlertTriangle, ChevronDown, GripVertical, Info, LayoutList, Plus, Repeat, ShieldAlert, Sigma, Trash2 } from 'lucide-react'
+import { AlertTriangle, ChevronDown, Info, LayoutList, Plus, Repeat, ShieldAlert, Sigma, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { DragGrip, mergeDragStyle, SortableList, type SortableHandleProps } from '@/components/sortable-list/SortableList'
 import {
   buildDefaultLayout,
   collectLayoutFieldIds,
+  newFieldUid,
   type BannerSeverity,
   type FieldColSpan,
   type FieldRef,
@@ -92,20 +94,26 @@ export function FormLayoutEditor({ task, onChange }: Props) {
           還沒有區塊。下方點「+ 新區塊」開始排版。
         </div>
       )}
-      {sections.map((section) => {
-        const layoutIdx = layout.indexOf(section)
-        return (
-          <SectionCard
-            key={section.id}
-            section={section}
-            fields={task.fields}
-            unplaced={unplaced}
-            onSectionPatch={p => updateSection(layoutIdx, p)}
-            onRemoveSection={() => removeSection(layoutIdx)}
-            onChildrenChange={children => setSectionChildren(layoutIdx, children)}
-          />
-        )
-      })}
+      <SortableList
+        items={sections}
+        getId={s => s.id}
+        onReorder={next => updateLayout([...next, ...looseChildren])}
+      >
+        {(section, _idx, handle) => {
+          const layoutIdx = layout.indexOf(section)
+          return (
+            <SectionCard
+              section={section}
+              dragHandle={handle}
+              fields={task.fields}
+              unplaced={unplaced}
+              onSectionPatch={p => updateSection(layoutIdx, p)}
+              onRemoveSection={() => removeSection(layoutIdx)}
+              onChildrenChange={children => setSectionChildren(layoutIdx, children)}
+            />
+          )
+        }}
+      </SortableList>
 
       {/* Add section button */}
       <button
@@ -148,7 +156,7 @@ export function FormLayoutEditor({ task, onChange }: Props) {
 // ─────────────────────────────────────────────────────────────────────
 
 function SectionCard({
-  section, fields, unplaced, onSectionPatch, onRemoveSection, onChildrenChange,
+  section, fields, unplaced, onSectionPatch, onRemoveSection, onChildrenChange, dragHandle,
 }: {
   section: FormSection
   fields: FormField[]
@@ -156,6 +164,7 @@ function SectionCard({
   onSectionPatch: (p: Partial<FormSection>) => void
   onRemoveSection: () => void
   onChildrenChange: (children: LayoutChild[]) => void
+  dragHandle?: SortableHandleProps
 }) {
   const children = section.children
 
@@ -202,10 +211,17 @@ function SectionCard({
   }
 
   return (
-    <div className="rounded-md border border-rule bg-card">
+    <div
+      ref={dragHandle?.setNodeRef}
+      style={mergeDragStyle(dragHandle)}
+      className={cn(
+        'rounded-md border border-rule bg-card',
+        dragHandle?.isDragging && 'opacity-60 shadow-lg',
+      )}
+    >
       {/* Section header */}
       <div className="flex items-center gap-2 border-b border-rule bg-slate-50/60 px-3 py-2">
-        <GripVertical className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
+        <DragGrip handle={dragHandle} iconClassName="h-3.5 w-3.5" />
         <input
           value={section.title['zh-TW']}
           onChange={e => onSectionPatch({ title: { ...section.title, 'zh-TW': e.target.value } })}
@@ -233,63 +249,73 @@ function SectionCard({
             區塊還沒內容。下方按鈕加欄位 / 多欄列 / 提示。
           </div>
         )}
-        {children.map((child, idx) => {
-          if (child.kind === 'fieldRef') {
-            const fld = fields.find(f => f.id === child.id)
-            return (
-              <FieldRefRow
-                key={`${child.id}-${idx}`}
-                fieldRef={child}
-                field={fld}
-                onPatch={p => updateChild(idx, p as Partial<FieldRef>)}
-                onRemove={() => removeChild(idx)}
-              />
-            )
-          }
-          if (child.kind === 'row') {
-            return (
-              <RowCard
-                key={child.id}
-                row={child}
-                fields={fields}
-                unplaced={unplaced}
-                onPatch={p => updateChild(idx, p as Partial<FormRow>)}
-                onRemove={() => removeChild(idx)}
-              />
-            )
-          }
-          if (child.kind === 'banner') {
-            return (
-              <BannerCard
-                key={child.id}
-                banner={child}
-                onPatch={p => updateChild(idx, p as Partial<FormBanner>)}
-                onRemove={() => removeChild(idx)}
-              />
-            )
-          }
-          if (child.kind === 'repeater') {
-            return (
-              <RepeaterCard
-                key={child.id}
-                repeater={child}
-                onPatch={p => updateChild(idx, p as Partial<FormRepeater>)}
-                onRemove={() => removeChild(idx)}
-              />
-            )
-          }
-          // Defensive: nested section inside a section. Schema permits
-          // it but the UI doesn't expose nesting controls; render a
-          // disabled card so existing data isn't lost.
-          if (child.kind === 'section') {
-            return (
-              <div key={child.id} className="rounded border border-dashed border-rule p-2 text-[11px] text-ink-muted">
-                嵌套區塊「{child.title['zh-TW']}」— 此 UI 不支援編輯，請改成 row / banner。
-              </div>
-            )
-          }
-          return null
-        })}
+        <SortableList
+          items={children}
+          getId={(c, idx) => `${c.kind}-${'id' in c ? c.id : idx}-${idx}`}
+          onReorder={onChildrenChange}
+        >
+          {(child, idx, handle) => {
+            if (child.kind === 'fieldRef') {
+              const fld = fields.find(f => f.id === child.id)
+              return (
+                <FieldRefRow
+                  fieldRef={child}
+                  field={fld}
+                  dragHandle={handle}
+                  onPatch={p => updateChild(idx, p as Partial<FieldRef>)}
+                  onRemove={() => removeChild(idx)}
+                />
+              )
+            }
+            if (child.kind === 'row') {
+              return (
+                <RowCard
+                  row={child}
+                  fields={fields}
+                  unplaced={unplaced}
+                  dragHandle={handle}
+                  onPatch={p => updateChild(idx, p as Partial<FormRow>)}
+                  onRemove={() => removeChild(idx)}
+                />
+              )
+            }
+            if (child.kind === 'banner') {
+              return (
+                <BannerCard
+                  banner={child}
+                  dragHandle={handle}
+                  onPatch={p => updateChild(idx, p as Partial<FormBanner>)}
+                  onRemove={() => removeChild(idx)}
+                />
+              )
+            }
+            if (child.kind === 'repeater') {
+              return (
+                <RepeaterCard
+                  repeater={child}
+                  dragHandle={handle}
+                  onPatch={p => updateChild(idx, p as Partial<FormRepeater>)}
+                  onRemove={() => removeChild(idx)}
+                />
+              )
+            }
+            // Defensive: nested section inside a section. Schema permits
+            // it but the UI doesn't expose nesting controls; render a
+            // disabled card so existing data isn't lost.
+            if (child.kind === 'section') {
+              return (
+                <div
+                  ref={handle.setNodeRef}
+                  style={mergeDragStyle(handle)}
+                  className="rounded border border-dashed border-rule p-2 text-[11px] text-ink-muted"
+                >
+                  嵌套區塊「{child.title['zh-TW']}」— 此 UI 不支援編輯，請改成 row / banner。
+                </div>
+              )
+            }
+            return null
+          }}
+        </SortableList>
       </div>
 
       {/* Footer add buttons */}
@@ -328,19 +354,25 @@ function SectionCard({
 // Sub-cards
 // ─────────────────────────────────────────────────────────────────────
 
-function FieldRefRow({ fieldRef, field, onPatch, onRemove }: {
+function FieldRefRow({ fieldRef, field, onPatch, onRemove, dragHandle }: {
   fieldRef: FieldRef
   field: FormField | undefined
   onPatch: (p: Partial<FieldRef>) => void
   onRemove: () => void
+  dragHandle?: SortableHandleProps
 }) {
   const missing = !field
   return (
-    <div className={cn(
-      'flex items-center gap-2 rounded border px-2.5 py-1.5',
-      missing ? 'border-danger/30 bg-danger/5' : 'border-rule bg-white',
-    )}>
-      <GripVertical className="h-3 w-3 shrink-0 text-ink-faint" />
+    <div
+      ref={dragHandle?.setNodeRef}
+      style={mergeDragStyle(dragHandle)}
+      className={cn(
+        'flex items-center gap-2 rounded border px-2.5 py-1.5',
+        missing ? 'border-danger/30 bg-danger/5' : 'border-rule bg-white',
+        dragHandle?.isDragging && 'opacity-60 shadow-md',
+      )}
+    >
+      <DragGrip handle={dragHandle} />
       <div className="flex-1 min-w-0">
         <div className="text-xs text-ink truncate">
           {missing
@@ -359,12 +391,13 @@ function FieldRefRow({ fieldRef, field, onPatch, onRemove }: {
   )
 }
 
-function RowCard({ row, fields, unplaced, onPatch, onRemove }: {
+function RowCard({ row, fields, unplaced, onPatch, onRemove, dragHandle }: {
   row: FormRow
   fields: FormField[]
   unplaced: FormField[]
   onPatch: (p: Partial<FormRow>) => void
   onRemove: () => void
+  dragHandle?: SortableHandleProps
 }) {
   function addCell(fieldId: string) {
     onPatch({ children: [...row.children, { kind: 'fieldRef', id: fieldId, colSpan: 6 }] })
@@ -378,8 +411,16 @@ function RowCard({ row, fields, unplaced, onPatch, onRemove }: {
   const total = row.children.reduce((sum, c) => sum + (c.colSpan ?? 12), 0)
   const balanced = total === 12
   return (
-    <div className="rounded border border-rule bg-slate-50/40">
+    <div
+      ref={dragHandle?.setNodeRef}
+      style={mergeDragStyle(dragHandle)}
+      className={cn(
+        'rounded border border-rule bg-slate-50/40',
+        dragHandle?.isDragging && 'opacity-60 shadow-md',
+      )}
+    >
       <div className="flex items-center gap-2 border-b border-rule px-2.5 py-1.5">
+        <DragGrip handle={dragHandle} />
         <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-muted">
           多欄列
         </span>
@@ -401,45 +442,64 @@ function RowCard({ row, fields, unplaced, onPatch, onRemove }: {
             下方加欄位變成多欄並列
           </div>
         )}
-        {row.children.map((cell, idx) => {
-          const fld = fields.find(f => f.id === cell.id)
-          return (
-            <div
-              key={`${cell.id}-${idx}`}
-              className={cn(
-                'flex items-center gap-2 rounded border bg-white px-2.5 py-1.5',
-                fld ? 'border-rule' : 'border-danger/30 bg-danger/5',
-              )}
-            >
-              <GripVertical className="h-3 w-3 shrink-0 text-ink-faint" />
-              <div className="flex-1 min-w-0">
-                <div className="text-xs text-ink truncate">
-                  {fld?.label['zh-TW'] ?? <span className="text-danger">⚠ {cell.id}</span>}
+        <SortableList
+          items={row.children}
+          getId={(c, idx) => `${c.id}-${idx}`}
+          onReorder={next => onPatch({ children: next })}
+        >
+          {(cell, idx, handle) => {
+            const fld = fields.find(f => f.id === cell.id)
+            return (
+              <div
+                ref={handle.setNodeRef}
+                style={mergeDragStyle(handle)}
+                className={cn(
+                  'flex items-center gap-2 rounded border bg-white px-2.5 py-1.5',
+                  fld ? 'border-rule' : 'border-danger/30 bg-danger/5',
+                  handle.isDragging && 'opacity-60 shadow-md',
+                )}
+              >
+                <DragGrip handle={handle} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-ink truncate">
+                    {fld?.label['zh-TW'] ?? <span className="text-danger">⚠ {cell.id}</span>}
+                  </div>
+                  <div className="font-mono text-[10px] text-ink-faint">{cell.id}</div>
                 </div>
-                <div className="font-mono text-[10px] text-ink-faint">{cell.id}</div>
+                <ColSpanSelect value={cell.colSpan ?? 6} onChange={n => updateCell(idx, { colSpan: n })} />
+                <button onClick={() => removeCell(idx)} title="從列中移除" className="text-ink-faint hover:text-danger">
+                  <Trash2 className="h-3 w-3" />
+                </button>
               </div>
-              <ColSpanSelect value={cell.colSpan ?? 6} onChange={n => updateCell(idx, { colSpan: n })} />
-              <button onClick={() => removeCell(idx)} title="從列中移除" className="text-ink-faint hover:text-danger">
-                <Trash2 className="h-3 w-3" />
-              </button>
-            </div>
-          )
-        })}
+            )
+          }}
+        </SortableList>
         <UnplacedFieldPicker options={unplaced} onPick={addCell} compact />
       </div>
     </div>
   )
 }
 
-function BannerCard({ banner, onPatch, onRemove }: {
+function BannerCard({ banner, onPatch, onRemove, dragHandle }: {
   banner: FormBanner
   onPatch: (p: Partial<FormBanner>) => void
   onRemove: () => void
+  dragHandle?: SortableHandleProps
 }) {
   const tone = SEVERITY_TONE[banner.severity]
   return (
-    <div className={cn('rounded border px-2.5 py-2', tone.border, tone.bg)}>
+    <div
+      ref={dragHandle?.setNodeRef}
+      style={mergeDragStyle(dragHandle)}
+      className={cn(
+        'rounded border px-2.5 py-2',
+        tone.border,
+        tone.bg,
+        dragHandle?.isDragging && 'opacity-60 shadow-md',
+      )}
+    >
       <div className="mb-1 flex items-center gap-2">
+        <DragGrip handle={dragHandle} />
         {tone.icon}
         <select
           value={banner.severity}
@@ -546,10 +606,11 @@ const FIELD_TYPE_OPTIONS: FieldType[] = [
 ]
 const TOTAL_FORMATS: NonNullable<FormTotal['format']>[] = ['currency', 'number', 'percent']
 
-function RepeaterCard({ repeater, onPatch, onRemove }: {
+function RepeaterCard({ repeater, onPatch, onRemove, dragHandle }: {
   repeater: FormRepeater
   onPatch: (p: Partial<FormRepeater>) => void
   onRemove: () => void
+  dragHandle?: SortableHandleProps
 }) {
   const { itemFields, itemLayout, totals = [] } = repeater
   const placedItemIds = new Set(collectItemFieldIds(itemLayout))
@@ -557,7 +618,7 @@ function RepeaterCard({ repeater, onPatch, onRemove }: {
 
   function addItemField() {
     const id = `f_${Date.now().toString(36).slice(-4)}`
-    const newField: FormField = { id, label: { 'zh-TW': '新欄位' }, type: 'text', required: false }
+    const newField: FormField = { id, label: { 'zh-TW': '新欄位' }, type: 'text', required: false, _uid: newFieldUid() }
     const nextFields = [...itemFields, newField]
     // Auto-place it at the tail of the item layout so the row shows up
     // alongside the fields list.
@@ -632,9 +693,17 @@ function RepeaterCard({ repeater, onPatch, onRemove }: {
   }
 
   return (
-    <div className="rounded-md border border-accent/30 bg-accent/5">
+    <div
+      ref={dragHandle?.setNodeRef}
+      style={mergeDragStyle(dragHandle)}
+      className={cn(
+        'rounded-md border border-accent/30 bg-accent/5',
+        dragHandle?.isDragging && 'opacity-60 shadow-md',
+      )}
+    >
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2 border-b border-accent/30 bg-accent/10 px-3 py-2">
+        <DragGrip handle={dragHandle} iconClassName="h-3.5 w-3.5 text-accent/70" />
         <Repeat className="h-3.5 w-3.5 shrink-0 text-accent" />
         <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent">repeater</span>
         <input
@@ -678,14 +747,20 @@ function RepeaterCard({ repeater, onPatch, onRemove }: {
           </div>
         ) : (
           <div className="space-y-1.5">
-            {itemFields.map((f, idx) => (
-              <ItemFieldRow
-                key={f.id}
-                field={f}
-                onPatch={p => updateItemField(idx, p)}
-                onRemove={() => removeItemField(idx)}
-              />
-            ))}
+            <SortableList
+              items={itemFields}
+              getId={(f, idx) => f._uid ?? `${f.id}-${idx}`}
+              onReorder={next => onPatch({ itemFields: next })}
+            >
+              {(f, idx, handle) => (
+                <ItemFieldRow
+                  field={f}
+                  dragHandle={handle}
+                  onPatch={p => updateItemField(idx, p)}
+                  onRemove={() => removeItemField(idx)}
+                />
+              )}
+            </SortableList>
           </div>
         )}
       </div>
@@ -702,47 +777,57 @@ function RepeaterCard({ repeater, onPatch, onRemove }: {
           </div>
         ) : (
           <div className="space-y-1.5">
-            {itemLayout.map((child, idx) => {
-              if (child.kind === 'fieldRef') {
-                const fld = itemFields.find(f => f.id === child.id)
+            <SortableList
+              items={itemLayout}
+              getId={(c, idx) => `${c.kind}-${'id' in c ? c.id : idx}-${idx}`}
+              onReorder={next => onPatch({ itemLayout: next })}
+            >
+              {(child, idx, handle) => {
+                if (child.kind === 'fieldRef') {
+                  const fld = itemFields.find(f => f.id === child.id)
+                  return (
+                    <FieldRefRow
+                      fieldRef={child}
+                      field={fld}
+                      dragHandle={handle}
+                      onPatch={p => updateItemChild(idx, p as Partial<FieldRef>)}
+                      onRemove={() => removeItemChild(idx)}
+                    />
+                  )
+                }
+                if (child.kind === 'row') {
+                  return (
+                    <RowCard
+                      row={child}
+                      fields={itemFields}
+                      unplaced={unplacedItem}
+                      dragHandle={handle}
+                      onPatch={p => updateItemChild(idx, p as Partial<FormRow>)}
+                      onRemove={() => removeItemChild(idx)}
+                    />
+                  )
+                }
+                if (child.kind === 'banner') {
+                  return (
+                    <BannerCard
+                      banner={child}
+                      dragHandle={handle}
+                      onPatch={p => updateItemChild(idx, p as Partial<FormBanner>)}
+                      onRemove={() => removeItemChild(idx)}
+                    />
+                  )
+                }
                 return (
-                  <FieldRefRow
-                    key={`${child.id}-${idx}`}
-                    fieldRef={child}
-                    field={fld}
-                    onPatch={p => updateItemChild(idx, p as Partial<FieldRef>)}
-                    onRemove={() => removeItemChild(idx)}
-                  />
+                  <div
+                    ref={handle.setNodeRef}
+                    style={mergeDragStyle(handle)}
+                    className="rounded border border-dashed border-rule p-2 text-[10px] text-ink-muted"
+                  >
+                    此 UI 不支援 repeater 內嵌 {child.kind} —— 請從 schema 改回。
+                  </div>
                 )
-              }
-              if (child.kind === 'row') {
-                return (
-                  <RowCard
-                    key={child.id}
-                    row={child}
-                    fields={itemFields}
-                    unplaced={unplacedItem}
-                    onPatch={p => updateItemChild(idx, p as Partial<FormRow>)}
-                    onRemove={() => removeItemChild(idx)}
-                  />
-                )
-              }
-              if (child.kind === 'banner') {
-                return (
-                  <BannerCard
-                    key={child.id}
-                    banner={child}
-                    onPatch={p => updateItemChild(idx, p as Partial<FormBanner>)}
-                    onRemove={() => removeItemChild(idx)}
-                  />
-                )
-              }
-              return (
-                <div key={`unsupported-${idx}`} className="rounded border border-dashed border-rule p-2 text-[10px] text-ink-muted">
-                  此 UI 不支援 repeater 內嵌 {child.kind} —— 請從 schema 改回。
-                </div>
-              )
-            })}
+              }}
+            </SortableList>
           </div>
         )}
         <div className="mt-2 flex items-center gap-2">
@@ -798,13 +883,22 @@ function RepeaterCard({ repeater, onPatch, onRemove }: {
   )
 }
 
-function ItemFieldRow({ field, onPatch, onRemove }: {
+function ItemFieldRow({ field, onPatch, onRemove, dragHandle }: {
   field: FormField
   onPatch: (p: Partial<FormField>) => void
   onRemove: () => void
+  dragHandle?: SortableHandleProps
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded border border-rule bg-white px-2 py-1">
+    <div
+      ref={dragHandle?.setNodeRef}
+      style={mergeDragStyle(dragHandle)}
+      className={cn(
+        'flex flex-wrap items-center gap-1.5 rounded border border-rule bg-white px-2 py-1',
+        dragHandle?.isDragging && 'opacity-60 shadow-md',
+      )}
+    >
+      <DragGrip handle={dragHandle} />
       <input
         value={field.id}
         onChange={e => onPatch({ id: e.target.value })}

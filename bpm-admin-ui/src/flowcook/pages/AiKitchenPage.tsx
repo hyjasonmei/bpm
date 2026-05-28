@@ -14,7 +14,7 @@ import {
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { Onboarding } from '@/screens/onboarding/Onboarding'
-import { EMPTY_DRAFT, migrateDraft, type DraftSpec } from '@/lib/onboarding'
+import { EMPTY_DRAFT, migrateDraft, stripFieldUids, type DraftSpec } from '@/lib/onboarding'
 import { flowToBpmnXml } from '@/lib/bpmnXml'
 import { useSetPageHeader, type PageHeader } from '@/flowcook/app/pageHeader'
 import { PhaseTabs, type PhaseId, type PhaseDef } from '@/flowcook/app/PhaseTabs'
@@ -434,7 +434,7 @@ function WizardView({
     setSaveError(null)
     try {
       const updated = await updateFlowSpec(flow.id, {
-        specJson: JSON.stringify(draft),
+        specJson: JSON.stringify(stripFieldUids(draft)),
       })
       onFlowChange(updated)
       setSaveState('saved')

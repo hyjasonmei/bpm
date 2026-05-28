@@ -4,7 +4,7 @@ import type {
   FlowNode, FlowEdge,
   FormField, FieldType, ActorRef, NotifyTrigger, NotifyRecipient,
 } from './onboarding'
-import { ACTOR_PATH_WHITELIST, EMPTY_DRAFT, testCaseToSnapshot } from './onboarding'
+import { ACTOR_PATH_WHITELIST, EMPTY_DRAFT, newFieldUid, testCaseToSnapshot } from './onboarding'
 
 const FLOW_NODE_TYPES = [
   'startEvent', 'endEvent', 'userTask', 'approval', 'gateway', 'serviceTask', 'notify',
@@ -111,6 +111,7 @@ const formsTool: StepToolBinding = {
       label: { 'zh-TW': f.labelZh, ...(f.labelEn ? { en: f.labelEn } : {}) },
       type: f.type,
       required: f.required,
+      _uid: newFieldUid(),
       ...(f.noteZh ? { note: { 'zh-TW': f.noteZh } } : {}),
       ...(f.conditional ? { conditional: f.conditional } : {}),
       ...(f.options ? { options: f.options } : {}),

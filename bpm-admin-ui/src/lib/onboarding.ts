@@ -54,6 +54,10 @@ export interface FormField {
   label: { 'zh-TW': string; en?: string }
   type: FieldType
   required: boolean
+  /** Client-only stable React key — survives `id` edits so the input
+   *  doesn't unmount/remount mid-typing. Stripped on persist; refilled
+   *  by `migrateDraft` on next load. */
+  _uid?: string
   options?: { value: string; label: string }[]
   conditional?: string
   /** CEL boolean over (siblings + `value`); see spec_schema.md §2.3. */
@@ -202,6 +206,80 @@ export function collectLayoutFieldIds(layout: LayoutChild[] | undefined): string
   }
   walk(layout)
   return out
+}
+
+/** A user task is "meaningfully fillable" when the submitter is forced
+ *  to provide some input. Three things count: any outer field marked
+ *  required, any repeater with explicit `minCount >= 1` (forces ≥1 row),
+ *  or any repeater whose itemFields contain a required field (every row
+ *  the user adds forces input). `minCount` undefined or 0 alone does
+ *  not satisfy. Mirrors the FORMS step validator. */
+export function hasMeaningfulInput(ut: UserTask): boolean {
+  if (ut.fields.some(f => f.required)) return true
+  const layout = ut.layout
+  if (!layout) return false
+  const walk = (children: LayoutChild[]): boolean => {
+    for (const c of children) {
+      if (c.kind === 'repeater') {
+        if ((c.minCount ?? 0) >= 1) return true
+        if (c.itemFields.some(f => f.required)) return true
+      } else if (c.kind === 'section') {
+        if (walk(c.children)) return true
+      }
+    }
+    return false
+  }
+  return walk(layout)
+}
+
+/** Generate a stable client-only React key for a field. */
+export function newFieldUid(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
+  return `uid_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+/** Walk a draft and add `_uid` to every FormField (outer + repeater
+ *  itemFields) that doesn't have one. Pure — returns a new draft. */
+export function ensureFieldUids(draft: DraftSpec): DraftSpec {
+  const withUid = (f: FormField): FormField => f._uid ? f : { ...f, _uid: newFieldUid() }
+  const walkLayout = (children: LayoutChild[]): LayoutChild[] =>
+    children.map(c => {
+      if (c.kind === 'repeater') {
+        return {
+          ...c,
+          itemFields: c.itemFields.map(withUid),
+        }
+      }
+      if (c.kind === 'section') return { ...c, children: walkLayout(c.children) }
+      return c
+    })
+  return {
+    ...draft,
+    userTasks: draft.userTasks.map(t => ({
+      ...t,
+      fields: t.fields.map(withUid),
+      layout: t.layout ? walkLayout(t.layout) : t.layout,
+    })),
+  }
+}
+
+/** Strip every `_uid` before persisting / packing — client-only field. */
+export function stripFieldUids(draft: DraftSpec): DraftSpec {
+  const strip = ({ _uid: _drop, ...rest }: FormField): FormField => rest
+  const walkLayout = (children: LayoutChild[]): LayoutChild[] =>
+    children.map(c => {
+      if (c.kind === 'repeater') return { ...c, itemFields: c.itemFields.map(strip) }
+      if (c.kind === 'section') return { ...c, children: walkLayout(c.children) }
+      return c
+    })
+  return {
+    ...draft,
+    userTasks: draft.userTasks.map(t => ({
+      ...t,
+      fields: t.fields.map(strip),
+      layout: t.layout ? walkLayout(t.layout) : t.layout,
+    })),
+  }
 }
 
 /** Build a default single-section layout containing every field on the
@@ -684,7 +762,7 @@ export function migrateDraft(d: unknown): DraftSpec {
     }
   }
 
-  return {
+  const out: DraftSpec = {
     ...EMPTY_DRAFT,
     ...partial,
     userTasks,
@@ -699,6 +777,9 @@ export function migrateDraft(d: unknown): DraftSpec {
       : emptySampleOrg(),
     testCases,
   } as DraftSpec
+  // Backfill client-only stable React keys so FieldEditor / ItemFieldRow
+  // don't unmount mid-typing when the user edits `id`.
+  return ensureFieldUids(out)
 }
 
 /** Recursive migrator: maps any legacy ActorRef shape (or modern shape
@@ -823,7 +904,7 @@ export const validators: Record<OnboardingStepId, (s: DraftSpec) => ValidationRe
         continue
       }
       if (ut.fields.length === 0) errors.push(`"${n.label}" 沒有任何欄位`)
-      if (!ut.fields.some(f => f.required)) errors.push(`"${n.label}" 沒有必填欄位`)
+      else if (!hasMeaningfulInput(ut)) errors.push(`"${n.label}" 至少要有一個必填欄位或必填 repeater (minCount ≥ 1 或內含必填欄位)`)
     }
     return { valid: errors.length === 0, errors }
   },
@@ -863,7 +944,7 @@ export function loadDraft(): DraftSpec {
 }
 
 export function saveDraft(d: DraftSpec) {
-  localStorage.setItem(DRAFT_KEY, JSON.stringify(d))
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(stripFieldUids(d)))
 }
 
 export function loadStep(): number {

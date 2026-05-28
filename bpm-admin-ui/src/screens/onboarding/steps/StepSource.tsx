@@ -9,6 +9,7 @@ import {
   LEAVE_PRESET,
   PURCHASE_PRESET,
   EMPTY_DRAFT,
+  ensureFieldUids,
 } from '@/lib/onboarding'
 import { parseBpmnXml } from '@/lib/bpmnXmlParse'
 import { api, ApiError } from '@/flowcook/api'
@@ -55,7 +56,7 @@ export function StepSource({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
     setDraft({ ...draft, meta: { ...draft.meta, ...patch } })
 
   const loadPreset = (preset: Partial<DraftSpec>) => {
-    setDraft({ ...EMPTY_DRAFT, ...preset, meta: { ...EMPTY_DRAFT.meta, ...preset.meta } })
+    setDraft(ensureFieldUids({ ...EMPTY_DRAFT, ...preset, meta: { ...EMPTY_DRAFT.meta, ...preset.meta } }))
   }
 
   const applySkeleton = (s: ExtractedSkeleton) => {
