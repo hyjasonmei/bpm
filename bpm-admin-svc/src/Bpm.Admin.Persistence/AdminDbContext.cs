@@ -29,6 +29,7 @@ public class AdminDbContext : DbContext
     public DbSet<UserCredential> UserCredentials => Set<UserCredential>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<Flow> Flows => Set<Flow>();
+    public DbSet<FlowChatMessage> FlowChatMessages => Set<FlowChatMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -48,6 +48,7 @@ builder.Services.AddScoped<IGroupMembershipService, GroupMembershipService>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFlowLifecycleService, FlowLifecycleService>();
+builder.Services.AddScoped<IFlowChatService, FlowChatService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<Bpm.Admin.Application.Common.Abstractions.IClock, Bpm.Admin.Api.Common.AdminSystemClock>();
 builder.Services.AddSingleton<Bpm.Admin.Application.Spec.Expressions.IExpressionEvaluator, Bpm.Admin.Application.Spec.Expressions.CelNetExpressionEvaluator>();
@@ -125,6 +126,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<SessionAuthMiddleware>();
+// PR-K1: chef token auth runs *after* the user session middleware so
+// the chef token never overrides an already-logged-in admin user, but
+// can claim an otherwise-anonymous request as a Chef.
+app.UseMiddleware<ChefTokenAuthMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

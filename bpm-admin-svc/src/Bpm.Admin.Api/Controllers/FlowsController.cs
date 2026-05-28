@@ -48,7 +48,7 @@ public class FlowsController : ControllerBase
         var rows = await q
             .OrderByDescending(f => f.UpdatedAt)
             .Select(f => new FlowSummaryDto(
-                f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.CreatedAt, f.UpdatedAt))
+                f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt))
             .ToListAsync(ct);
         return Ok(rows);
     }
@@ -58,9 +58,7 @@ public class FlowsController : ControllerBase
     {
         var f = await _db.Flows.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (f is null) return NotFound();
-        return Ok(new FlowDetailDto(
-            f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.SpecJson, f.Notes,
-            f.CreatedByUserId, f.CreatedAt, f.UpdatedAt));
+        return Ok(ToDetail(f));
     }
 
     [HttpPost]
@@ -108,6 +106,76 @@ public class FlowsController : ControllerBase
     [HttpPost("{id:guid}/unretire")]
     public Task<ActionResult<FlowDetailDto>> Unretire(Guid id, CancellationToken ct)
         => RunTransition(() => _lifecycle.UnretireAsync(id, CurrentUserId(), ct));
+
+    /// <summary>
+    /// User-side escape hatch when chef appears stalled (state stuck on
+    /// Cooking with no recent <c>LastChefHeartbeatAt</c>). Drops the
+    /// flow back to Submitted so a fresh chef session can re-accept.
+    /// </summary>
+    [HttpPost("{id:guid}/chef-stall-reset")]
+    public Task<ActionResult<FlowDetailDto>> ChefStallReset(Guid id, CancellationToken ct)
+        => RunTransition(() => _lifecycle.ChefStallResetAsync(id, CurrentUserId(), ct));
+
+    // ── PR-K1: Cook tab chat thread (user side) ──────────────────────
+
+    /// <summary>
+    /// User-visible message thread. Same payload chef sees over MCP /
+    /// the chef HTTP API, but gated on user JWT.
+    /// </summary>
+    [HttpGet("{id:guid}/messages")]
+    public async Task<ActionResult<IEnumerable<FlowChatMessageDto>>> ListMessages(
+        Guid id,
+        [FromQuery] DateTime? since,
+        [FromServices] IFlowChatService chat,
+        CancellationToken ct)
+    {
+        var exists = await _db.Flows.AnyAsync(f => f.Id == id, ct);
+        if (!exists) return NotFound();
+        var rows = await chat.ListAsync(id, since, ct);
+        return Ok(rows.Select(m => new FlowChatMessageDto(
+            m.Id, m.FlowId, m.Sender.ToString(), m.Kind.ToString(),
+            m.Content, m.ArtifactsJson, m.Version, m.CreatedAt, m.AuthorUserId)));
+    }
+
+    /// <summary>
+    /// User posts a reply / issue. Only legal when the flow is OnHold
+    /// (Reply) or Committed (Issue). Chef picks it up on its next
+    /// <c>chef_get_messages</c> call.
+    /// </summary>
+    [HttpPost("{id:guid}/chat-reply")]
+    public async Task<ActionResult<FlowChatMessageDto>> ChatReply(
+        Guid id,
+        [FromBody] UserChatReplyRequest req,
+        [FromServices] IFlowChatService chat,
+        CancellationToken ct)
+    {
+        if (!Enum.TryParse<FlowChatKind>(req.Kind, ignoreCase: true, out var kind)
+            || (kind != FlowChatKind.Reply && kind != FlowChatKind.Issue))
+        {
+            return BadRequest("kind must be 'Reply' or 'Issue'");
+        }
+        var flow = await _db.Flows.AsNoTracking().FirstOrDefaultAsync(f => f.Id == id, ct);
+        if (flow is null) return NotFound();
+
+        if (kind == FlowChatKind.Reply && flow.State != FlowState.OnHold)
+            return Conflict($"Reply only allowed when state == OnHold (current: {flow.State})");
+        if (kind == FlowChatKind.Issue && flow.State != FlowState.Committed && flow.State != FlowState.Approved)
+            return Conflict($"Issue only allowed when state == Committed/Approved (current: {flow.State})");
+
+        try
+        {
+            var row = await chat.AppendAsync(new AppendChatMessageInput(
+                FlowId: id,
+                Sender: FlowChatSender.User,
+                Kind: kind,
+                Content: req.Content,
+                AuthorUserId: CurrentUserId()), ct);
+            return Ok(new FlowChatMessageDto(
+                row.Id, row.FlowId, row.Sender.ToString(), row.Kind.ToString(),
+                row.Content, row.ArtifactsJson, row.Version, row.CreatedAt, row.AuthorUserId));
+        }
+        catch (FlowLifecycleException ex) { return BadRequest(ex.Message); }
+    }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
@@ -204,5 +272,5 @@ public class FlowsController : ControllerBase
 
     private static FlowDetailDto ToDetail(Flow f) => new(
         f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.SpecJson, f.Notes,
-        f.CreatedByUserId, f.CreatedAt, f.UpdatedAt);
+        f.CreatedByUserId, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt);
 }

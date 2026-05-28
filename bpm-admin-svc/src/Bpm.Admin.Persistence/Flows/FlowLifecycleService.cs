@@ -88,6 +88,64 @@ public class FlowLifecycleService : IFlowLifecycleService
     public Task<Flow> UnretireAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
         => TransitionAsync(flowId, FlowState.Approved, "flow_unretired", actorUserId, new[] { FlowState.Retired }, ct);
 
+    // ── chef-driven transitions (PR-K1) ──────────────────────────────
+
+    public Task<Flow> ChefAcceptAsync(Guid flowId, CancellationToken ct = default)
+        => ChefTransitionAsync(flowId, FlowState.Cooking, "chef_accepted",
+            new[] { FlowState.Submitted, FlowState.OnHold }, ct);
+
+    public Task<Flow> ChefResumeAsync(Guid flowId, CancellationToken ct = default)
+        => ChefTransitionAsync(flowId, FlowState.Cooking, "chef_resumed",
+            new[] { FlowState.OnHold }, ct);
+
+    public Task<Flow> ChefCommitAsync(Guid flowId, CancellationToken ct = default)
+        => ChefTransitionAsync(flowId, FlowState.Committed, "chef_committed",
+            new[] { FlowState.Cooking }, ct);
+
+    public Task<Flow> ChefStallResetAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
+        => TransitionAsync(flowId, FlowState.Submitted, "chef_stall_reset", actorUserId,
+            new[] { FlowState.Cooking, FlowState.OnHold }, ct);
+
+    public async Task BumpChefHeartbeatAsync(Guid flowId, CancellationToken ct = default)
+    {
+        var row = await Load(flowId, ct);
+        row.LastChefHeartbeatAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private async Task<Flow> ChefTransitionAsync(
+        Guid flowId,
+        FlowState target,
+        string actionType,
+        FlowState[] allowedFrom,
+        CancellationToken ct)
+    {
+        var row = await Load(flowId, ct);
+        if (!allowedFrom.Contains(row.State))
+        {
+            throw new FlowLifecycleException(
+                $"Cannot {actionType} from state {row.State}; expected one of {string.Join(", ", allowedFrom)}");
+        }
+
+        var before = new { State = row.State.ToString() };
+        row.State = target;
+        row.LastChefHeartbeatAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(
+            actionType: actionType,
+            targetType: "flow",
+            targetId: row.Id.ToString(),
+            actorUserId: null,
+            actorPrincipalId: null,
+            before: before,
+            after: new { State = row.State.ToString() },
+            reason: "chef session",
+            ct: ct);
+
+        return row;
+    }
+
     public async Task<Flow> CloneVersionAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
     {
         var source = await Load(flowId, ct);

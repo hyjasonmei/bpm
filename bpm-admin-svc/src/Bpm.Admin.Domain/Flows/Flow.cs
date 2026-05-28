@@ -39,4 +39,13 @@ public class Flow : ISoftDeletable
     public Guid? CreatedByUserId { get; set; }
 
     public DateTime? DeletedAt { get; set; }
+
+    /// <summary>
+    /// Last time any chef API call touched this flow. Used by the
+    /// admin UI to surface "chef stalled" when a flow has been in
+    /// <see cref="FlowState.Cooking"/> for too long with no heartbeat.
+    /// Updated by chef-token endpoints; null for flows that no chef has
+    /// ever touched.
+    /// </summary>
+    public DateTime? LastChefHeartbeatAt { get; set; }
 }

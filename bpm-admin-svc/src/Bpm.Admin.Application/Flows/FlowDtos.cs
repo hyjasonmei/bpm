@@ -10,7 +10,8 @@ public record FlowSummaryDto(
     string FlowCode,
     string DisplayName,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    DateTime? LastChefHeartbeatAt);
 
 public record FlowDetailDto(
     Guid Id,
@@ -23,10 +24,39 @@ public record FlowDetailDto(
     string? Notes,
     Guid? CreatedByUserId,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    DateTime? LastChefHeartbeatAt);
 
 public record CreateFlowRequest(string FlowCode, string DisplayName, string? SpecJson);
 
 public record UpdateFlowSpecRequest(string SpecJson, string? FlowCode, string? DisplayName);
 
 public record OnHoldRequest(string Question);
+
+// ── PR-K1: chef chat / lifecycle DTOs ─────────────────────────────────
+
+public record FlowChatMessageDto(
+    Guid Id,
+    Guid FlowId,
+    string Sender,
+    string Kind,
+    string Content,
+    string? ArtifactsJson,
+    string? Version,
+    DateTime CreatedAt,
+    Guid? AuthorUserId);
+
+public record ChefAppendMessageRequest(
+    string Kind,
+    string Content,
+    string? ArtifactsJson,
+    string? Version);
+
+public record ChefTransitionRequest(
+    string Target,
+    string? Question,
+    string? Reason);
+
+public record UserChatReplyRequest(
+    string Kind,
+    string Content);
