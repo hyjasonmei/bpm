@@ -15,6 +15,7 @@ import { decodeJwt } from '@/lib/jwt'
 import { FORMS, type FormCode } from '@/lib/workflow'
 import { formRegistry } from '@/features/registry'
 import { useInboxMine, useInboxPending, type InboxRow } from '@/hooks/useUnifiedInbox'
+import { useFlowRegistry, latestPerCode } from '@/hooks/useFlowRegistry'
 import { routes } from '@/router'
 
 const ICON_FOR_ACTIVITY = {
@@ -317,7 +318,24 @@ function QuickActionsPanel() {
   // features/<CODE>/V<N>/ surfaces as one Quick Action. The FORMS
   // metadata map is consulted for display label only — it is NOT a
   // gate for what appears here.
+  //
+  // PR-L1: cross-check the chef-cooked manifest set against admin's
+  // flow registry. Only show flows whose latest admin row is in
+  // `Approved` state — Retired / Draft / Cooking flows are hidden so
+  // end-users can't launch new cases against an unfinished or
+  // shelved version. While the registry is still loading we fall
+  // back to showing everything (avoids flashing an empty panel on
+  // page load); a transient registry-fetch failure is treated the
+  // same way.
+  const { entries: registry } = useFlowRegistry()
+  const latest = latestPerCode(registry)
+  const filterByState = registry !== null
   const actions = [...formRegistry.values()]
+    .filter(m => {
+      if (!filterByState) return true
+      const entry = latest.get(m.code)
+      return entry?.state === 'Approved'
+    })
     .map(m => ({ code: m.code, label: FORMS[m.code]?.zhLabel ?? m.code }))
     .sort((a, b) => a.code.localeCompare(b.code))
 

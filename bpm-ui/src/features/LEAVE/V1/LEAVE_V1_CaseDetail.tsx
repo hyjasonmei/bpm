@@ -7,6 +7,7 @@ import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { StatusBadge, type StatusKind } from '@/components/ui/badge'
 import { Field, Textarea, InfoBanner } from '@/components/ui/form'
 import { ActionFooter, type ActionFooterItem } from '@/components/ui/action-footer/ActionFooter'
+import { FlowStateBanner } from '@/components/ui/flow-state-banner/FlowStateBanner'
 import { BpmnView } from '@/components/BpmnView'
 import { apiFetch, getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
@@ -160,6 +161,7 @@ export function LEAVE_V1_CaseDetail({ caseId }: CaseDetailProps) {
 
       {data && (
         <>
+          <FlowStateBanner flowCode="LEAVE" flowVersion={1} />
           <SectionCard>
             <SectionTitle>狀態 / Status</SectionTitle>
             <div className="grid grid-cols-2 gap-4 px-5 py-4 text-sm md:grid-cols-4">

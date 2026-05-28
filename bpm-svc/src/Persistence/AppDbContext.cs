@@ -60,6 +60,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SharedDeptParent> SharedDeptParents => Set<SharedDeptParent>();
     public DbSet<SharedDeptHead> SharedDeptHeads => Set<SharedDeptHead>();
     public DbSet<SharedGroupMember> SharedGroupMembers => Set<SharedGroupMember>();
+    /// <summary>Read-only flow-registry view onto Admin_Flows — see SharedFlow.</summary>
+    public DbSet<SharedFlow> SharedFlows => Set<SharedFlow>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

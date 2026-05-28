@@ -270,6 +270,16 @@ Variants map from `TaskAction.kind`: `submit`/`approve`/`complete` →
 `save_draft`/`custom` → default. Hide actions whose `guard` evaluates
 to false (or disable via `disabled` + `title`).
 
+### Retired-flow banner
+
+Mount `<FlowStateBanner flowCode={'…'} flowVersion={N} />` from
+`@/components/ui/flow-state-banner/FlowStateBanner` near the top of
+the case detail (above the status grid). Renders nothing for Approved
+flows; surfaces a warning row when the case's flow has been retired
+by admin — existing cases stay actionable, but the launcher is
+hidden, so the user needs the cue when they hit the case via deep
+link. Backed by a single cached `useFlowRegistry` fetch.
+
 ## BPMN passthrough
 
 Every chef-cooked feature MUST plumb the **bundle's canonical
