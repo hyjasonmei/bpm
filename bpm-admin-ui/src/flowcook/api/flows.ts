@@ -21,6 +21,10 @@ export interface FlowSummary {
   updatedAt: string
   /** Last chef MCP call touch (PR-K1). Drives the list-page stall pill. */
   lastChefHeartbeatAt: string | null
+  /** Assigned launcher group, or null when unassigned (PR-G1). */
+  groupId: string | null
+  /** Denormalised group code so the list row can chip without a second fetch. */
+  groupCode: string | null
 }
 
 export interface FlowDetail extends FlowSummary {

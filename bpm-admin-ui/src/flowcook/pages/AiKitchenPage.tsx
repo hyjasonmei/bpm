@@ -36,6 +36,9 @@ import {
   submitFlow,
   updateFlowSpec,
 } from '@/flowcook/api/flows'
+import { assignFlowGroup, listFlowGroups, type FlowGroupDto } from '@/flowcook/api/flowGroups'
+import { resolveIcon } from '@/flowcook/pages/sitesetting/FlowGroupsTab'
+import { FolderPlus, Tag } from 'lucide-react'
 import { CookPanel } from './aiKitchen/CookPanel'
 import { ServePanel } from './aiKitchen/ServePanel'
 import { useCookMessages } from './aiKitchen/useCookMessages'
@@ -111,12 +114,17 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [rowPending, setRowPending] = useState<string | null>(null)
+  // PR-G2: groups for the row chip + assignment sub-menu. Loaded
+  // alongside flows on mount.
+  const [groups, setGroups] = useState<FlowGroupDto[]>([])
 
   const refresh = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      setFlows(await listFlows())
+      const [flowsRes, groupsRes] = await Promise.all([listFlows(), listFlowGroups()])
+      setFlows(flowsRes)
+      setGroups(groupsRes)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load flows')
     } finally {
@@ -161,6 +169,11 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
   async function handleDelete(row: FlowSummary) {
     if (!window.confirm(`刪除 draft "${row.displayName}"？此為 soft-delete，可由 admin DB 還原。`)) return
     await withPending(row.id, () => deleteFlow(row.id))
+    await refresh()
+  }
+
+  async function handleAssignGroup(row: FlowSummary, groupId: string | null) {
+    await withPending(row.id, () => assignFlowGroup(row.id, groupId))
     await refresh()
   }
 
@@ -255,6 +268,7 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                   <th className="px-5 py-2 font-normal">Flow</th>
                   <th className="px-3 py-2 font-normal">Version</th>
                   <th className="px-3 py-2 font-normal">State</th>
+                  <th className="px-3 py-2 font-normal">Group</th>
                   <th className="px-3 py-2 font-normal">Updated</th>
                   <th className="w-10 px-3 py-2" />
                 </tr>
@@ -265,7 +279,7 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                   const isApproved = f.state === 'Approved'
                   const isRetired  = f.state === 'Retired'
                   const rowBusy    = rowPending === f.id
-                  const groups: OverflowGroup[] = [
+                  const menuGroups: OverflowGroup[] = [
                     {
                       items: [
                         {
@@ -282,6 +296,27 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                           disabled: rowBusy,
                           hint: '複製成 v+1，原版本維持不動',
                           onClick: () => { void handleCloneAsNewVersion(f) },
+                        }] : []),
+                      ],
+                    },
+                    {
+                      label: 'Group',
+                      items: [
+                        ...groups.map(g => ({
+                          id: `assign-${g.id}`,
+                          label: `${g.displayName['zh-TW'] ?? g.code}${f.groupId === g.id ? ' ✓' : ''}`,
+                          icon: <Tag className="h-3 w-3" />,
+                          tone: 'productive' as const,
+                          disabled: rowBusy || f.groupId === g.id,
+                          onClick: () => { void handleAssignGroup(f, g.id) },
+                        })),
+                        ...(f.groupId ? [{
+                          id: 'unassign-group',
+                          label: 'Unassign group',
+                          icon: <FolderPlus className="h-3 w-3" />,
+                          tone: 'risky' as const,
+                          disabled: rowBusy,
+                          onClick: () => { void handleAssignGroup(f, null) },
                         }] : []),
                       ],
                     },
@@ -345,6 +380,9 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                           )}
                         </div>
                       </td>
+                      <td className="px-3 py-3">
+                        <GroupChip flow={f} groups={groups} />
+                      </td>
                       <td className="px-3 py-3 font-mono text-[11px] text-ink-muted">
                         {formatDate(f.updatedAt)}
                       </td>
@@ -352,7 +390,7 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                         className="px-3 py-3"
                         onClick={e => e.stopPropagation()}
                       >
-                        <OverflowMenu groups={groups} buttonTitle="Flow actions" />
+                        <OverflowMenu groups={menuGroups} buttonTitle="Flow actions" />
                       </td>
                     </tr>
                   )
@@ -887,6 +925,23 @@ function StatePill({ state }: { state: FlowState }) {
       STATE_TONE[state],
     )}>
       {state.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()}
+    </span>
+  )
+}
+
+function GroupChip({ flow, groups }: { flow: FlowSummary; groups: FlowGroupDto[] }) {
+  if (!flow.groupId) {
+    return <span className="rounded-full bg-slate-100 px-2 py-0.5 font-mono text-[10px] tracking-wide text-ink-faint">未分組</span>
+  }
+  const group = groups.find(g => g.id === flow.groupId)
+  if (!group) {
+    return <span className="rounded-full bg-warn/15 px-2 py-0.5 font-mono text-[10px] tracking-wide text-warn">已刪除</span>
+  }
+  const Icon = resolveIcon(group.icon)
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+      <Icon className="h-3 w-3" />
+      {group.displayName['zh-TW'] ?? group.code}
     </span>
   )
 }
