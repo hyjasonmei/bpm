@@ -4,7 +4,7 @@ import type {
   FlowNode, FlowEdge,
   FormField, FieldType, ActorRef, NotifyTrigger, NotifyRecipient,
 } from './onboarding'
-import { ACTOR_PATH_WHITELIST, EMPTY_DRAFT, newFieldUid, testCaseToSnapshot } from './onboarding'
+import { ACTOR_PATH_WHITELIST, EMPTY_DRAFT, defaultApprovalActions, defaultUserTaskActions, newFieldUid, testCaseToSnapshot } from './onboarding'
 
 const FLOW_NODE_TYPES = [
   'startEvent', 'endEvent', 'userTask', 'approval', 'gateway', 'serviceTask', 'notify',
@@ -122,6 +122,8 @@ const formsTool: StepToolBinding = {
       formCode: input.formCode ?? existingTask?.formCode ?? `${draft.meta.flowCode || 'FLOW'}_${node.label.toUpperCase().replace(/\s+/g, '_').slice(0, 12)}`,
       fields: newFields,
       permissions: existingTask?.permissions ?? { submitter: 'self', viewers: ['self'] },
+      // Preserve existing actions; new tasks get the standard `submit`.
+      actions: existingTask?.actions ?? defaultUserTaskActions(),
     }
     return {
       ...draft,
@@ -273,7 +275,15 @@ const approversTool: StepToolBinding = {
   },
   apply: (draft, raw) => {
     const input = raw as { approvals: Array<{ id: string; approver: ActorRef }> }
-    const next: Approval[] = input.approvals.map(a => ({ id: a.id, approver: a.approver }))
+    const next: Approval[] = input.approvals.map(a => {
+      const existing = draft.approvals.find(x => x.id === a.id)
+      return {
+        id: a.id,
+        approver: a.approver,
+        // Preserve existing actions; brand-new approvals get [approve, reject].
+        actions: existing?.actions ?? defaultApprovalActions(),
+      }
+    })
     return { ...draft, approvals: next }
   },
 }

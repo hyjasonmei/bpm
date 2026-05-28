@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, CheckCircle2, Code2, Eye, LayoutGrid, ListChecks, Pencil, Plus, Send, StickyNote, Trash2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Code2, Eye, LayoutGrid, ListChecks, MousePointer, Pencil, Plus, Send, StickyNote, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Field, Input, Select, Checkbox } from '@/components/ui/form'
 import { OptionsEditorModal } from '@/components/options-editor/OptionsEditorModal'
@@ -7,8 +7,9 @@ import { ExpressionEditorModal } from '@/components/expression-editor/Expression
 import { FormPreviewModal } from '@/components/form-preview/FormPreviewModal'
 import { FormLayoutEditor } from '@/components/form-layout-editor/FormLayoutEditor'
 import { NoteEditorModal } from '@/components/note-editor/NoteEditorModal'
+import { ActionsEditor } from '@/components/actions-editor/ActionsEditor'
 import type { ExpressionShape } from '@/lib/expressions'
-import { hasMeaningfulInput, newFieldUid, type DraftSpec, type FormField, type UserTask, type FieldType } from '@/lib/onboarding'
+import { defaultUserTaskActions, hasMeaningfulInput, newFieldUid, type DraftSpec, type FormField, type UserTask, type FieldType } from '@/lib/onboarding'
 import { DragGrip, mergeDragStyle, SortableList, type SortableHandleProps } from '@/components/sortable-list/SortableList'
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
@@ -49,6 +50,7 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
       formCode: `${draft.meta.flowCode || 'FLOW'}_${suffix}`,
       fields: [],
       permissions: { submitter: 'self', viewers: ['self'] },
+      actions: defaultUserTaskActions(),
     }
   }
 
@@ -231,6 +233,33 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
             </span>
           </div>
           <FormLayoutEditor task={activeTask} onChange={upsertTask} />
+        </div>
+
+        {/* Actions — buttons that fire when the user submits the form.
+            chef reads `userTask.actions[]` and emits one service method
+            + state-machine transition per entry. */}
+        <div className="border-t border-rule pt-3">
+          <div className="mb-2 flex items-center gap-1.5">
+            <MousePointer className="h-3.5 w-3.5 text-ink-muted" />
+            <span className="text-xs font-semibold text-ink">Actions</span>
+            <span className="font-mono text-[10px] text-ink-faint">
+              送出 / 存草稿 / 棄案 之類；chef bake 成 React 按鈕 + state machine
+            </span>
+          </div>
+          <ActionsEditor
+            actions={activeTask.actions}
+            onChange={next => upsertTask({ ...activeTask, actions: next })}
+            nodeType="userTask"
+            outgoingEdges={draft.flow.edges.filter(e => e.source === activeTask.id)}
+            edgeTargetMeta={edgeId => {
+              const edge = draft.flow.edges.find(e => e.id === edgeId)
+              if (!edge) return undefined
+              const target = draft.flow.nodes.find(n => n.id === edge.target)
+              return target ? { label: target.label, type: target.type } : undefined
+            }}
+            siblingFieldIds={activeTask.fields.map(f => f.id)}
+            variableNames={draft.variables.map(v => v.name).filter(Boolean)}
+          />
         </div>
       </div>
 

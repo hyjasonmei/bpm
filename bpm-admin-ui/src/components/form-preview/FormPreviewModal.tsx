@@ -9,7 +9,8 @@
  */
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
-import type { FormField, UserTask } from '@/lib/onboarding'
+import { actionLabel, type FormField, type TaskActionKind, type UserTask } from '@/lib/onboarding'
+import { cn } from '@/lib/cn'
 
 interface Props {
   open: boolean
@@ -41,15 +42,24 @@ export function FormPreviewModal({ open, task, taskLabel, onClose }: Props) {
           ) : (
             <div className="space-y-4">
               {task.fields.map(f => <FieldPreview key={f.id} field={f} />)}
-              <div className="border-t border-rule pt-3">
-                <button
-                  type="button"
-                  disabled
-                  className="rounded bg-primary px-4 py-1.5 text-sm font-semibold text-white opacity-50"
-                  title="預覽僅顯示樣式，無實際送出"
-                >
-                  送出（預覽不可點）
-                </button>
+              <div className="flex flex-wrap items-center justify-end gap-2 border-t border-rule pt-3">
+                {task.actions.length === 0 && (
+                  <span className="text-xs text-warn">⚠ 尚未設定 action — 預設應至少有一顆「送出」</span>
+                )}
+                {task.actions.map(a => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => { /* preview no-op */ }}
+                    title="預覽僅顯示樣式，按下無實際送出"
+                    className={cn(
+                      'rounded px-4 py-1.5 text-sm font-semibold transition-colors',
+                      previewVariantClass(a.kind),
+                    )}
+                  >
+                    {actionLabel(a)}
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -62,6 +72,22 @@ export function FormPreviewModal({ open, task, taskLabel, onClose }: Props) {
   )
 }
 
+function previewVariantClass(kind: TaskActionKind): string {
+  switch (kind) {
+    case 'submit':
+    case 'approve':
+    case 'complete':
+      return 'bg-primary text-white hover:bg-blue-700'
+    case 'reject':
+    case 'cancel':
+    case 'revoke':
+      return 'border border-red-200 bg-white text-danger hover:bg-red-50'
+    case 'save_draft':
+    case 'custom':
+    default:
+      return 'border border-rule bg-white text-ink hover:bg-slate-50'
+  }
+}
 function FieldPreview({ field }: { field: FormField }) {
   const label = field.label['zh-TW'] || field.id
   const helperBits: string[] = []

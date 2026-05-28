@@ -8,7 +8,7 @@ import { useState } from 'react'
 import { AlertCircle, CheckCircle2, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { ActorRefEditor, emptyActor } from '@/components/wizard/ActorRefEditor'
-import type { Approval, DraftSpec, ActorRef } from '@/lib/onboarding'
+import { defaultApprovalActions, type Approval, type DraftSpec, type ActorRef } from '@/lib/onboarding'
 
 export function StepApprovers({ draft, setDraft }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void }) {
   const approvalNodes = draft.flow.nodes.filter(n => n.type === 'approval')
@@ -30,7 +30,7 @@ export function StepApprovers({ draft, setDraft }: { draft: DraftSpec; setDraft:
   }
 
   const getOrCreate = (id: string): Approval =>
-    draft.approvals.find(a => a.id === id) ?? { id, approver: emptyActor('expr') }
+    draft.approvals.find(a => a.id === id) ?? { id, approver: emptyActor('expr'), actions: defaultApprovalActions() }
 
   const activeNode = approvalNodes.find(n => n.id === safeActiveId)!
   const activeApproval = getOrCreate(safeActiveId)

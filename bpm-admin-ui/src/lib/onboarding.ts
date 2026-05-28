@@ -85,10 +85,98 @@ export interface UserTask {
   /** Tier 1 visual layout tree. References fields by id; never embeds
    *  the field def itself. Missing field refs render as a flat fallback. */
   layout?: LayoutChild[]
+  /** Buttons chef renders at the bottom of the form. Each entry maps to
+   *  a state-machine transition. Empty array → migrateDraft backfills a
+   *  single `submit` action. See §TaskAction. */
+  actions: TaskAction[]
   permissions: {
     submitter: 'self' | string
     viewers: string[]
   }
+}
+
+/* ── Actions (§plan-stepper-action-sticky-footer.md §3) ─────────────
+ *
+ * Authoring lives in StepForms (userTask) / StepApprovers (approval);
+ * chef reads `task.actions[]` / `approval.actions[]` and emits the
+ * matching service method + state machine transition. UI primitive
+ * `<ActionFooter>` on bpm-ui surfaces them at the bottom of CaseDetail.
+ *
+ * `reject` collapses the v1 plan's reject + request_changes — chef
+ * looks at `targetEdgeId`'s target node type to decide:
+ *   - target endEvent → permanent reject (case terminates)
+ *   - target userTask → send-back-for-changes (form preserved)
+ *
+ * `revoke` runs only on Completed cases (post-terminal); chef wires it
+ * with a guard like `status == "Completed"`. Different from `cancel`,
+ * which aborts mid-flow.
+ */
+export type TaskActionKind =
+  | 'submit'       // userTask → 推進
+  | 'save_draft'   // userTask → 不推進，回 inbox
+  | 'approve'      // approval → 走預設成功 edge
+  | 'reject'       // approval → endEvent = 永久駁回；userTask target = 退回補件
+  | 'complete'     // 末端 userTask 結案
+  | 'cancel'       // 進行中棄案
+  | 'revoke'       // 已 Completed 後撤銷（須 guard `status == "Completed"`）
+  | 'custom'       // 自由命名 + targetEdgeId 必填
+
+export interface TaskAction {
+  id: string
+  kind: TaskActionKind
+  /** At least one locale must have a value; `labelOf(a)` falls back to
+   *  kind when both are empty. */
+  label: { 'zh-TW'?: string; en?: string }
+  /** Required when the owning node has > 1 outgoing edge; chef can
+   *  derive it from the single edge otherwise. */
+  targetEdgeId?: string
+  /** CEL evaluated against case context. False → button disabled. */
+  guard?: string
+  /** Show a confirm modal before sending (revoke / cancel / reject). */
+  confirm?: boolean
+  /** Show a comment textarea modal before sending; chef passes the
+   *  comment into the service method. */
+  promptComment?: boolean
+}
+
+/** Display label for an action — first non-empty locale, then kind. */
+export function actionLabel(a: TaskAction): string {
+  return a.label['zh-TW']?.trim() || a.label.en?.trim() || a.kind
+}
+
+/** Per-kind default labels in zh-TW when migrating older drafts. */
+const DEFAULT_ACTION_LABELS: Record<TaskActionKind, string> = {
+  submit:     '送出',
+  save_draft: '存草稿',
+  approve:    '核准',
+  reject:     '駁回 / 退回',
+  complete:   '結案',
+  cancel:     '棄案',
+  revoke:     '撤銷',
+  custom:     '',
+}
+
+export function defaultActionLabel(kind: TaskActionKind): string {
+  return DEFAULT_ACTION_LABELS[kind]
+}
+
+function newActionId(kind: TaskActionKind): string {
+  return `act_${kind}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+/** Default actions for a userTask when none authored. */
+export function defaultUserTaskActions(): TaskAction[] {
+  return [
+    { id: newActionId('submit'), kind: 'submit', label: { 'zh-TW': DEFAULT_ACTION_LABELS.submit } },
+  ]
+}
+
+/** Default actions for an approval node when none authored. */
+export function defaultApprovalActions(): TaskAction[] {
+  return [
+    { id: newActionId('approve'), kind: 'approve', label: { 'zh-TW': DEFAULT_ACTION_LABELS.approve } },
+    { id: newActionId('reject'),  kind: 'reject',  label: { 'zh-TW': DEFAULT_ACTION_LABELS.reject }, promptComment: true },
+  ]
 }
 
 /* ── Form layout (Tier 1 element set) ───────────────────────────
@@ -396,6 +484,9 @@ export const ACTOR_TYPE_LABELS: Record<ActorRefType, { en: string; zh: string; b
 export interface Approval {
   id: string
   approver: ActorRef
+  /** Decision buttons. Empty array → migrateDraft backfills
+   *  `[approve, reject]`. See §TaskAction. */
+  actions: TaskAction[]
 }
 
 /* Notifications — mirrors spec_schema.md §2.6 */
@@ -707,6 +798,8 @@ export function migrateDraft(d: unknown): DraftSpec {
   // Legacy: FormField.hint was renamed to .note. Walk userTasks once on
   // load so the UI never sees the old shape; saving will persist as note.
   type LegacyFormField = FormField & { hint?: { 'zh-TW': string; en?: string } }
+  // Older drafts predate UserTask.actions[]; backfill a default `submit`
+  // so chef always sees a non-empty action set + validators stay green.
   const userTasks = (partial.userTasks ?? []).map(t => ({
     ...t,
     fields: t.fields.map(f => {
@@ -715,6 +808,9 @@ export function migrateDraft(d: unknown): DraftSpec {
       const { hint, ...rest } = legacy
       return { ...rest, note: hint } as FormField
     }),
+    actions: (t as Partial<UserTask>).actions && (t as UserTask).actions.length > 0
+      ? (t as UserTask).actions
+      : defaultUserTaskActions(),
   }))
 
   // Legacy: ActorRef DSL revision — v1.1 had `role` / `user` / `group`
@@ -725,6 +821,9 @@ export function migrateDraft(d: unknown): DraftSpec {
   const approvals = (partial.approvals ?? []).map(a => ({
     ...a,
     approver: migrateActorRef(a.approver),
+    actions: (a as Partial<Approval>).actions && (a as Approval).actions.length > 0
+      ? (a as Approval).actions
+      : defaultApprovalActions(),
   })) as Approval[]
 
   // Legacy: IntegrationItem.triggerNodeId renamed to .serviceTaskNodeId
@@ -907,6 +1006,13 @@ export const validators: Record<OnboardingStepId, (s: DraftSpec) => ValidationRe
       }
       if (ut.fields.length === 0) errors.push(`"${n.label}" 沒有任何欄位`)
       else if (!hasMeaningfulInput(ut)) errors.push(`"${n.label}" 至少要有一個必填欄位或必填 repeater (minCount ≥ 1 或內含必填欄位)`)
+      if (!ut.actions || ut.actions.length === 0) {
+        errors.push(`"${n.label}" 沒有任何 action 按鈕（至少要有送出 / 完成 / 棄案 其一）`)
+      } else {
+        for (const a of ut.actions) {
+          if (!actionLabel(a)) errors.push(`"${n.label}" 的 action ${a.kind} 沒有 label`)
+        }
+      }
     }
     return { valid: errors.length === 0, errors }
   },
@@ -919,11 +1025,28 @@ export const validators: Record<OnboardingStepId, (s: DraftSpec) => ValidationRe
     return { valid: true, errors: [] }
   },
   approvers: (s) => {
-    const approvalCount = s.flow.nodes.filter(n => n.type === 'approval').length
-    if (s.approvals.length < approvalCount) {
-      return { valid: false, errors: [`還有 ${approvalCount - s.approvals.length} 個審核步驟尚未配置`] }
+    const errors: string[] = []
+    const approvalNodes = s.flow.nodes.filter(n => n.type === 'approval')
+    if (s.approvals.length < approvalNodes.length) {
+      errors.push(`還有 ${approvalNodes.length - s.approvals.length} 個審核步驟尚未配置`)
     }
-    return { valid: true, errors: [] }
+    for (const n of approvalNodes) {
+      const ap = s.approvals.find(a => a.id === n.id)
+      if (!ap) continue
+      const acts = ap.actions ?? []
+      if (acts.length === 0) {
+        errors.push(`"${n.label}" 沒有任何 action 按鈕（最少要 approve + reject）`)
+        continue
+      }
+      const hasApprove = acts.some(a => a.kind === 'approve')
+      const hasReject  = acts.some(a => a.kind === 'reject')
+      if (!hasApprove) errors.push(`"${n.label}" 缺少 approve 行動`)
+      if (!hasReject)  errors.push(`"${n.label}" 缺少 reject 行動`)
+      for (const a of acts) {
+        if (!actionLabel(a)) errors.push(`"${n.label}" 的 action ${a.kind} 沒有 label`)
+      }
+    }
+    return { valid: errors.length === 0, errors }
   },
   notify: () => ({ valid: true, errors: [] }),       // optional
   integrations: () => ({ valid: true, errors: [] }), // optional
@@ -1015,6 +1138,10 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
           conditional: "leave_type === '病假' || leave_type === '公假'" },
       ],
       permissions: { submitter: 'self', viewers: ['self', 'manager', 'role:HR'] },
+      actions: [
+        { id: 'act_apply_submit', kind: 'submit', label: { 'zh-TW': '送出申請' } },
+        { id: 'act_apply_draft',  kind: 'save_draft', label: { 'zh-TW': '存草稿' } },
+      ],
     },
     {
       id: 'task_hr_archive',
@@ -1024,6 +1151,9 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
           note: { 'zh-TW': 'HR 留下處理紀錄供日後追溯' } },
       ],
       permissions: { submitter: 'role:HR', viewers: ['role:HR', 'self'] },
+      actions: [
+        { id: 'act_arch_complete', kind: 'complete', label: { 'zh-TW': '送出備案' } },
+      ],
     },
   ],
   decisions: [
@@ -1037,7 +1167,14 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
     },
   ],
   approvals: [
-    { id: 'approval_manager', approver: { type: 'expr', path: 'submitter.manager' } },
+    {
+      id: 'approval_manager',
+      approver: { type: 'expr', path: 'submitter.manager' },
+      actions: [
+        { id: 'act_mgr_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
+        { id: 'act_mgr_reject',  kind: 'reject',  label: { 'zh-TW': '退回補件' }, promptComment: true },
+      ],
+    },
     {
       id: 'approval_vp',
       approver: {
@@ -1045,6 +1182,10 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
         path: 'submitter.department.head',
         fallback: { text: '若部門主管不在，請走 VP 角色（v1 結構化 fallback 已收回，由 chef 處理）' },
       },
+      actions: [
+        { id: 'act_vp_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
+        { id: 'act_vp_reject',  kind: 'reject',  label: { 'zh-TW': '駁回' }, promptComment: true, confirm: true },
+      ],
     },
   ],
   notifications: [
@@ -1166,6 +1307,11 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
           conditional: 'amount >= 10000', note: { 'zh-TW': '1 萬以上必附正式報價單' } },
       ],
       permissions: { submitter: 'self', viewers: ['self', 'manager', 'role:Finance', 'role:Purchase'] },
+      actions: [
+        { id: 'act_req_submit', kind: 'submit',     label: { 'zh-TW': '送出申請', en: 'Submit' } },
+        { id: 'act_req_draft',  kind: 'save_draft', label: { 'zh-TW': '存草稿' } },
+        { id: 'act_req_cancel', kind: 'cancel',     label: { 'zh-TW': '取消' }, confirm: true },
+      ],
     },
     {
       id: 'task_purchase_exec',
@@ -1177,6 +1323,9 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
         { id: 'exec_note', label: { 'zh-TW': '處理備註', en: 'Note' }, type: 'textarea', required: false },
       ],
       permissions: { submitter: 'role:Purchase', viewers: ['self', 'manager', 'role:Finance', 'role:Purchase'] },
+      actions: [
+        { id: 'act_exec_complete', kind: 'complete', label: { 'zh-TW': '完成採購' } },
+      ],
     },
   ],
   decisions: [
@@ -1198,9 +1347,30 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
     },
   ],
   approvals: [
-    { id: 'approval_manager', approver: { type: 'expr', path: 'submitter.manager' } },
-    { id: 'approval_finance', approver: { type: 'principal', ref: 'role:Finance' } },
-    { id: 'approval_ceo', approver: { type: 'principal', ref: 'role:CEO', fallback: { text: '若 CEO 不在，請改 VP 角色簽核' } } },
+    {
+      id: 'approval_manager',
+      approver: { type: 'expr', path: 'submitter.manager' },
+      actions: [
+        { id: 'act_mgr_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
+        { id: 'act_mgr_reject',  kind: 'reject',  label: { 'zh-TW': '退回補件' }, promptComment: true },
+      ],
+    },
+    {
+      id: 'approval_finance',
+      approver: { type: 'principal', ref: 'role:Finance' },
+      actions: [
+        { id: 'act_fin_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
+        { id: 'act_fin_reject',  kind: 'reject',  label: { 'zh-TW': '駁回' }, promptComment: true, confirm: true },
+      ],
+    },
+    {
+      id: 'approval_ceo',
+      approver: { type: 'principal', ref: 'role:CEO', fallback: { text: '若 CEO 不在，請改 VP 角色簽核' } },
+      actions: [
+        { id: 'act_ceo_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
+        { id: 'act_ceo_reject',  kind: 'reject',  label: { 'zh-TW': '駁回' }, promptComment: true, confirm: true },
+      ],
+    },
   ],
   notifications: [
     {
