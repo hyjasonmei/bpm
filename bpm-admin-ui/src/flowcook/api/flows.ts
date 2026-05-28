@@ -19,6 +19,8 @@ export interface FlowSummary {
   displayName: string
   createdAt: string
   updatedAt: string
+  /** Last chef MCP call touch (PR-K1). Drives the list-page stall pill. */
+  lastChefHeartbeatAt: string | null
 }
 
 export interface FlowDetail extends FlowSummary {

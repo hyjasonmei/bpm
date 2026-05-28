@@ -38,9 +38,9 @@ import {
 } from '@/flowcook/api/flows'
 import { CookPanel } from './aiKitchen/CookPanel'
 import { ServePanel } from './aiKitchen/ServePanel'
+import { useCookMessages } from './aiKitchen/useCookMessages'
 import {
   DEFAULT_DEPLOYMENTS,
-  type ChatMessage,
   type DeployState,
   type EnvId,
 } from './aiKitchen/types'
@@ -333,7 +333,17 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                       </td>
                       <td className="px-3 py-3 font-mono text-xs text-ink-muted">v{f.version}</td>
                       <td className="px-3 py-3">
-                        <StatePill state={f.state} />
+                        <div className="flex items-center gap-1.5">
+                          <StatePill state={f.state} />
+                          {isChefStalled(f) && (
+                            <span
+                              title={`Cooking but no chef heartbeat for >30 min (last: ${f.lastChefHeartbeatAt ?? 'never'})`}
+                              className="inline-flex items-center gap-1 rounded-full bg-warn/15 px-1.5 py-0.5 font-mono text-[9px] tracking-wide text-warn"
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-warn" /> stalled
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-3 font-mono text-[11px] text-ink-muted">
                         {formatDate(f.updatedAt)}
@@ -522,8 +532,15 @@ function WizardView({
   // these with proper API-backed state.
   const [mockState, setMockState] = useState<FlowState>(flow.state)
   useEffect(() => { setMockState(flow.state) }, [flow.id, flow.state])
-  const [cookedCount, setCookedCount] = useState(0)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  // PR-K3: cookedCount + chat thread now live on admin-svc. The Cook
+  // panel polls /api/flows/{id}/messages directly; this wrapper just
+  // mirrors the count to phaseDefs + ServePanel so they don't unlock
+  // before chef has ever finished a cook.
+  const { messages: cookMessages } = useCookMessages(flow.id)
+  const cookedCount = useMemo(
+    () => cookMessages.filter(m => m.kind === 'completion').length,
+    [cookMessages],
+  )
   const [deployments, setDeployments] = useState<Record<EnvId, DeployState>>(DEFAULT_DEPLOYMENTS)
 
   // Parse initial spec into a DraftSpec; tolerate parse errors by falling
@@ -583,13 +600,7 @@ function WizardView({
       // Land on Prep so the user sees the now-locked spec; Cook tab
       // becomes enabled and they can click in to watch chef work.
       setMockState(updated.state)
-      setMessages((prev) => prev.length > 0 ? prev : [{
-        id: `m-${Date.now()}-init`,
-        sender: 'system',
-        kind: 'milestone',
-        content: 'submitted to chef',
-        timestamp: new Date().toISOString(),
-      }])
+      // PR-K3: chat thread persists server-side now; no FE seed needed.
       setPhase('prep')
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Submit failed')
@@ -810,13 +821,10 @@ function WizardView({
         )}
         {phase === 'cook' && (
           <CookPanel
+            flowId={flow.id}
             flowVersion={flow.version}
             state={mockState}
-            messages={messages}
-            cookedCount={cookedCount}
             onStateChange={setMockState}
-            onCookedCountChange={setCookedCount}
-            onMessagesChange={setMessages}
           />
         )}
         {phase === 'serve' && (
@@ -881,6 +889,16 @@ function StatePill({ state }: { state: FlowState }) {
       {state.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()}
     </span>
   )
+}
+
+const CHEF_STALL_TTL_MS = 30 * 60 * 1000
+
+function isChefStalled(f: FlowSummary): boolean {
+  if (f.state !== 'Cooking') return false
+  if (!f.lastChefHeartbeatAt) return true
+  const last = new Date(f.lastChefHeartbeatAt).getTime()
+  if (Number.isNaN(last)) return false
+  return Date.now() - last > CHEF_STALL_TTL_MS
 }
 
 function formatDate(s: string): string {

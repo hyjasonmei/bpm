@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
   Bot,
   CheckCheck,
   ChefHat,
+  Copy,
   Eye,
   FileCode,
   FileDiff,
@@ -17,36 +18,42 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import type { FlowState } from '@/flowcook/api/flows'
+import {
+  postChatReply,
+  simulateChefAsk,
+  simulateChefComplete,
+  simulateChefResume,
+  simulateChefStart,
+} from '@/flowcook/api/flowChat'
 import type {
   ChatMessage,
   ChefArtifact,
   ChatMessageKind,
 } from './types'
 import { cookedVersionLabel } from './types'
+import { useCookMessages } from './useCookMessages'
 
-// FE-only POC: Cook tab inside the AI Kitchen wizard. State + chat
-// history are mocked locally on WizardView; this component is just
-// the chat surface + simulate-chef demo controls. When the real
-// chef pipeline lands, replace `simulate*` callbacks with API calls.
+// PR-K3: Cook tab now reads/writes admin-svc. Messages live in
+// Admin_FlowChatMessages; simulate buttons hit the same Application
+// services as the real chef MCP tools, so demo and reality converge.
 
 export function CookPanel({
+  flowId,
   flowVersion,
   state,
-  messages,
-  cookedCount,
   onStateChange,
-  onCookedCountChange,
-  onMessagesChange,
 }: {
+  flowId: string
   flowVersion: number
   state: FlowState
-  messages: ChatMessage[]
-  cookedCount: number
+  /** Called after a simulate action so the parent refreshes flow.state
+   *  without waiting on the next list poll. */
   onStateChange: (s: FlowState) => void
-  onCookedCountChange: (n: number) => void
-  onMessagesChange: (next: ChatMessage[]) => void
 }) {
+  const { messages, refresh } = useCookMessages(flowId)
   const [input, setInput] = useState('')
+  const [pending, setPending] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -56,99 +63,83 @@ export function CookPanel({
   }, [messages.length])
 
   const isOnHold = state === 'OnHold'
-  const isCompleted = state === 'Committed'
+  const isCompleted = state === 'Committed' || state === 'Approved'
   const canType = isOnHold || isCompleted
+  // cookedCount derives from the persisted thread; latest Completion
+  // wins. cookedVersionLabel formats the badge.
+  const cookedCount = useMemo(
+    () => messages.filter(m => m.kind === 'completion').length,
+    [messages],
+  )
 
-  function pushMessage(msg: ChatMessage) {
-    onMessagesChange([...messages, msg])
+  async function runSim(label: string, action: () => Promise<unknown>, nextState: FlowState | null) {
+    setPending(label); setError(null)
+    try {
+      await action()
+      if (nextState) onStateChange(nextState)
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setPending(null)
+    }
   }
 
-  function send() {
+  async function send() {
     const text = input.trim()
     if (!text) return
-    const kind: ChatMessageKind = isCompleted ? 'issue' : 'reply'
-    pushMessage({
-      id: `m-${Date.now()}`,
-      sender: 'user',
-      kind,
-      content: text,
-      timestamp: new Date().toISOString(),
-    })
-    setInput('')
-    if (isCompleted) {
-      // Completed → OnHold (issue opened, chef will pick up)
-      onStateChange('OnHold')
-    } else if (isOnHold) {
-      // OnHold → Cooking (chef resumes with the reply)
-      onStateChange('Cooking')
+    const kind: 'Reply' | 'Issue' = isCompleted ? 'Issue' : 'Reply'
+    setPending('reply'); setError(null)
+    try {
+      await postChatReply(flowId, { kind, content: text })
+      setInput('')
+      // Issue opening doesn't change flow state — admin can decide to
+      // re-cook via separate action. Reply leaves state at OnHold; the
+      // chef session is responsible for transitioning back to Cooking
+      // via the MCP tool. Refresh either way to surface the new row.
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setPending(null)
     }
   }
 
   function simulateStartCooking() {
-    onStateChange('Cooking')
-    pushMessage({
-      id: `m-${Date.now()}`,
-      sender: 'chef',
-      kind: 'memo',
-      content:
-        "Picking up the spec. I'll scaffold **Domain → Application → Persistence → Api → UI** in that order, then run the integration suite.",
-      timestamp: new Date().toISOString(),
-    })
+    void runSim('start', () => simulateChefStart(flowId), 'Cooking')
   }
 
   function simulateAskQuestion() {
-    onStateChange('OnHold')
-    pushMessage({
-      id: `m-${Date.now()}`,
-      sender: 'chef',
-      kind: 'question',
-      content:
-        "Need clarification on the **approver chain**:\n\n" +
-        "- Spec says `approver: manager` but the sample org has dotted-line reports.\n" +
-        "- Should I:\n" +
-        "  1. Resolve to the *primary* manager only, or\n" +
-        "  2. Fan out to **primary + dotted-line** in parallel?\n\n" +
-        "Also — what's the SLA when the manager is on leave? (Currently I'd default to *escalate to skip-level after 24h*.)",
-      timestamp: new Date().toISOString(),
-      artifacts: [
-        { kind: 'diff', label: 'Approver resolver (partial)', count: 1 },
-      ],
-    })
+    const question =
+      "Need clarification on the **approver chain**:\n\n" +
+      "- Spec says `approver: manager` but the sample org has dotted-line reports.\n" +
+      "- Should I:\n" +
+      "  1. Resolve to the *primary* manager only, or\n" +
+      "  2. Fan out to **primary + dotted-line** in parallel?\n\n" +
+      "Also — what's the SLA when the manager is on leave?"
+    void runSim('ask', () => simulateChefAsk(flowId, question), 'OnHold')
   }
 
   function simulateCompleteCook() {
-    const nextCount = cookedCount + 1
-    const version = `V${flowVersion}.${nextCount - 1}`
-    pushMessage({
-      id: `m-${Date.now()}`,
-      sender: 'chef',
-      kind: 'completion',
+    const version = `V${flowVersion}.${cookedCount}`
+    const artifacts = JSON.stringify({
+      branch: `${state === 'Cooking' ? 'cook' : 'leave'}-test-${cookedCount + 1}`,
+      fileCount: 14,
+      testsPassing: 23,
+      previewLabel: 'Form + Case detail preview',
+    })
+    void runSim('complete', () => simulateChefComplete(flowId, {
       content:
         `**${version} cooked.** ✓\n\n` +
         `Scaffolded under \`Features/<CODE>/V${flowVersion}/\` across Domain / Application / Persistence / Api / UI. ` +
         `All integration tests green. Ready for review — deploy to **DEV** to smoke-test.`,
-      timestamp: new Date().toISOString(),
+      artifactsJson: artifacts,
       version,
-      artifacts: [
-        { kind: 'preview', label: 'Form preview' },
-        { kind: 'preview', label: 'Case detail' },
-        { kind: 'files', label: 'Generated files', count: 14 },
-        { kind: 'tests', label: 'Tests passing', count: 23 },
-      ],
-    })
-    onCookedCountChange(nextCount)
-    onStateChange('Committed')
+    }), 'Committed')
   }
 
   function simulateResume() {
-    onStateChange('Cooking')
-    pushMessage({
-      id: `m-${Date.now()}`,
-      sender: 'chef',
-      kind: 'memo',
-      content: 'Got it — resuming. Will fold the change into the next cook.',
-      timestamp: new Date().toISOString(),
-    })
+    void runSim('resume', () => simulateChefResume(flowId), 'Cooking')
   }
 
   const latestVersion = cookedVersionLabel(flowVersion, cookedCount)
@@ -188,11 +179,18 @@ export function CookPanel({
         )}
       </div>
 
+      {isOnHold && <ChefOfflineHint flowId={flowId} />}
+      {error && (
+        <div className="border-t border-danger/30 bg-danger/5 px-5 py-2 text-xs text-danger">
+          {error}
+        </div>
+      )}
+
       <div className="border-t border-rule px-5 py-3">
         {!canType ? (
           <ComposerHint state={state} />
         ) : (
-          <form onSubmit={(e) => { e.preventDefault(); send() }}>
+          <form onSubmit={(e) => { e.preventDefault(); void send() }}>
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -202,11 +200,12 @@ export function CookPanel({
                   : 'Reply to chef…'
               }
               rows={3}
-              className="block w-full resize-none rounded border border-rule bg-white px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-faint focus:border-primary focus:ring-2 focus:ring-primary/20"
+              disabled={pending === 'reply'}
+              className="block w-full resize-none rounded border border-rule bg-white px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-faint focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault()
-                  send()
+                  void send()
                 }
               }}
             />
@@ -216,7 +215,7 @@ export function CookPanel({
               </span>
               <button
                 type="submit"
-                disabled={!input.trim()}
+                disabled={!input.trim() || pending === 'reply'}
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold text-white transition-colors disabled:opacity-50',
                   isCompleted
@@ -239,6 +238,38 @@ export function CookPanel({
             </div>
           </form>
         )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Banner shown above the composer when the flow is OnHold — chef
+ * session has already exited (one-shot model). Surfaces the
+ * copy-paste command the user runs to re-launch chef so it can pick
+ * up the user's reply.
+ */
+function ChefOfflineHint({ flowId }: { flowId: string }) {
+  const cmd = `BPM_FLOW_ID=${flowId} chef-resume`
+  const [copied, setCopied] = useState(false)
+  return (
+    <div className="border-t border-rule bg-warn/5 px-5 py-2 text-xs text-warn">
+      <div className="flex items-center gap-2">
+        <span className="font-semibold">Chef offline</span>
+        <span className="text-ink-muted">— send your reply, then relaunch chef:</span>
+      </div>
+      <div className="mt-1 flex items-center gap-2">
+        <code className="flex-1 truncate rounded bg-white px-2 py-1 font-mono text-[11px] text-ink">{cmd}</code>
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard.writeText(cmd).then(() => setCopied(true))
+            window.setTimeout(() => setCopied(false), 1500)
+          }}
+          className="inline-flex items-center gap-1 rounded border border-rule bg-white px-2 py-1 text-[11px] font-medium text-ink-muted hover:border-primary hover:text-primary"
+        >
+          <Copy className="h-3 w-3" /> {copied ? 'Copied' : 'Copy'}
+        </button>
       </div>
     </div>
   )
