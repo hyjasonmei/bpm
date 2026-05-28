@@ -1,5 +1,6 @@
 using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Exceptions;
+using Bpm.Application.Notifications;
 using Bpm.Persistence.SharedIdentity;
 using FluentValidation.Results;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +17,8 @@ namespace Bpm.Persistence.Features.LEAVE.V1;
 public sealed class LEAVE_V1_LeaveService(
     AppDbContext db,
     IClock clock,
-    ILogger<LEAVE_V1_LeaveService> log)
+    ILogger<LEAVE_V1_LeaveService> log,
+    INotifyDispatcher notify)
 {
     public const string FlowCode = "LEAVE";
     public const int FlowVersion = 1;
@@ -272,6 +274,7 @@ public sealed class LEAVE_V1_LeaveService(
     {
         var applicantName = await ResolveDisplayNameAsync(c.SubmitterUserId, ct);
         var recipientEmail = await ResolveEmailAsync(recipientUserId, ct);
+        var recipientName  = await ResolveDisplayNameAsync(recipientUserId, ct);
         var rendered = LEAVE_V1_NotificationTemplates.RenderAssignManager(
             applicantName: applicantName,
             days: c.Days,
@@ -280,21 +283,44 @@ public sealed class LEAVE_V1_LeaveService(
             end: c.EndDate,
             reason: c.Reason,
             caseUrl: $"/cases/leave/{c.Id}");
-        log.LogInformation(
-            "LEAVE/{CaseId}: notify_assign_manager → {Recipient} <{Email}> | subject={Subject}",
-            c.Id, recipientUserId, recipientEmail ?? "(no-email)", rendered.Subject);
+        await notify.DispatchAsync(new NotifyMessage(
+            SourceId:   $"LEAVE_V1.notify_assign_manager",
+            Subject:    rendered.Subject,
+            Body:       rendered.Body,
+            Channels:   new[] { "email", "in_app" },
+            Recipients: new[] { new NotifyRecipient(recipientUserId, recipientEmail, recipientName) },
+            Context:    new Dictionary<string, string?>
+            {
+                ["caseId"]      = c.Id.ToString(),
+                ["flowCode"]    = FlowCode,
+                ["flowVersion"] = FlowVersion.ToString(),
+                ["stage"]       = c.Status.ToString(),
+            }
+        ), ct);
     }
 
     private async Task NotifyCompleteAsync(LEAVE_V1_Case c, CancellationToken ct)
     {
         var recipientEmail = await ResolveEmailAsync(c.SubmitterUserId, ct);
+        var recipientName  = await ResolveDisplayNameAsync(c.SubmitterUserId, ct);
         var rendered = LEAVE_V1_NotificationTemplates.RenderComplete(
             submittedAt: c.SubmittedAt,
             days: c.Days,
             leaveType: c.LeaveType);
-        log.LogInformation(
-            "LEAVE/{CaseId}: notify_complete → {Recipient} <{Email}> | subject={Subject}",
-            c.Id, c.SubmitterUserId, recipientEmail ?? "(no-email)", rendered.Subject);
+        await notify.DispatchAsync(new NotifyMessage(
+            SourceId:   $"LEAVE_V1.notify_complete",
+            Subject:    rendered.Subject,
+            Body:       rendered.Body,
+            Channels:   new[] { "email" },
+            Recipients: new[] { new NotifyRecipient(c.SubmitterUserId, recipientEmail, recipientName) },
+            Context:    new Dictionary<string, string?>
+            {
+                ["caseId"]      = c.Id.ToString(),
+                ["flowCode"]    = FlowCode,
+                ["flowVersion"] = FlowVersion.ToString(),
+                ["stage"]       = c.Status.ToString(),
+            }
+        ), ct);
     }
 
     private async Task<string> ResolveDisplayNameAsync(Guid userId, CancellationToken ct)

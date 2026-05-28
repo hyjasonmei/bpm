@@ -349,9 +349,43 @@ bundle you receive will already have the field populated.
 `{ kind: 'action', actionId }`. When you wire up a per-flow service
 method for an action, also dispatch matching action-bound notifications
 right after the state-machine transition lands (use
-`INotificationDispatcher` — see §3.6). Event-bound notifications
+`INotifyDispatcher` — see §3.6). Event-bound notifications
 (`{ kind: 'event', event: 'on_assign' }` etc.) still fire on the
 existing cross-cutting hook the same way they used to.
+
+### 3.6 INotifyDispatcher — sending notifications
+
+Per-flow service injects `INotifyDispatcher` (from
+`Bpm.Application.Notifications`). Pre-render subject + body via your
+flow's `<FLOW>_<V>_NotificationTemplates` static class, then call
+`DispatchAsync(NotifyMessage{...})`. The POC ships
+`FileNotifyDispatcher` which appends to a local text file; production
+deployments swap the binding for a real SMTP / Teams sender. **Do
+not** call the legacy `INotificationDispatcher` (Model A) — it's
+retired and only compiles for binary compat.
+
+```csharp
+// Resolve recipient + body (already pseudo-code; see LEAVE_V1_LeaveService).
+var rendered = LEAVE_V1_NotificationTemplates.RenderAssignManager(…);
+await notify.DispatchAsync(new NotifyMessage(
+    SourceId:   $"LEAVE_V1.notify_assign_manager",
+    Subject:    rendered.Subject,
+    Body:       rendered.Body,
+    Channels:   new[] { "email", "in_app" },
+    Recipients: new[] { new NotifyRecipient(managerUserId, managerEmail, managerName) },
+    Context:    new Dictionary<string, string?>
+    {
+        ["caseId"]      = c.Id.ToString(),
+        ["flowCode"]    = FlowCode,
+        ["flowVersion"] = FlowVersion.ToString(),
+    }
+), ct);
+```
+
+Tests: pass a fake `INotifyDispatcher` in unit tests (NoOp is fine);
+use the real `FileNotifyDispatcher` with a temp file path in integration
+/ E2E tests to assert delivery — see `LEAVE_V1_NotifyDispatchE2ETests`
+for the canonical pattern.
 
 ## 4. Reading order
 

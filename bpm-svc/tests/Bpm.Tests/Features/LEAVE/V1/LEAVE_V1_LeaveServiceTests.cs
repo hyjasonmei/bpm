@@ -1,4 +1,5 @@
 using Bpm.Application.Common.Exceptions;
+using Bpm.Application.Notifications;
 using Bpm.Persistence;
 using Bpm.Persistence.Features.LEAVE.V1;
 using Bpm.Persistence.Interceptors;
@@ -393,8 +394,14 @@ public sealed class LEAVE_V1_LeaveServiceTests : IDisposable
     // Helpers
     // ------------------------------------------------------------
 
-    private static LEAVE_V1_LeaveService NewService(AppDbContext db)
-        => new(db, new StubClock(), NullLogger<LEAVE_V1_LeaveService>.Instance);
+    private static LEAVE_V1_LeaveService NewService(AppDbContext db, INotifyDispatcher? notify = null)
+        => new(db, new StubClock(), NullLogger<LEAVE_V1_LeaveService>.Instance, notify ?? new NullNotifyDispatcher());
+
+    /// <summary>No-op dispatcher for unit tests that don't care about notify output.</summary>
+    private sealed class NullNotifyDispatcher : INotifyDispatcher
+    {
+        public Task DispatchAsync(NotifyMessage message, CancellationToken ct = default) => Task.CompletedTask;
+    }
 
     /// <summary>
     /// CREATE TABLE the Admin_* subset SharedIdentity configurations exclude

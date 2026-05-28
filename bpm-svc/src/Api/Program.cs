@@ -20,7 +20,7 @@ builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.RemoveAll<ISandboxActorContext>();
 builder.Services.AddScoped<ISandboxActorContext, HttpContextSandboxActor>();
 
-builder.Services.AddApplication();
+builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddPersistence(builder.Configuration);
 
 builder.Services.AddControllers();

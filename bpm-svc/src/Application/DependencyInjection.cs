@@ -3,10 +3,12 @@ using FluentValidation;
 using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Behaviors;
 using Bpm.Application.Common.Services;
+using Bpm.Application.Notifications;
 using Bpm.Application.Spec;
 using Bpm.Application.Spec.Bundle;
 using Bpm.Application.Spec.Expressions;
 using MediatR;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -14,9 +16,25 @@ namespace Bpm.Application;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddApplication(this IServiceCollection services)
+    public static IServiceCollection AddApplication(this IServiceCollection services, IConfiguration? configuration = null)
     {
         var assembly = Assembly.GetExecutingAssembly();
+
+        // PR-N1: Model-B notification dispatcher. POC writes to a local
+        // text file (see FileNotifyDispatcher TODO for production swap).
+        // Configured under `Bpm:Notifications` so deployments can repoint
+        // without code change. Scoped because the implementation may
+        // grow per-request behavior (audit context, etc).
+        var notifySection = configuration?.GetSection("Bpm:Notifications");
+        if (notifySection is not null && notifySection.Exists())
+        {
+            services.Configure<NotifyDispatcherOptions>(notifySection);
+        }
+        else
+        {
+            services.Configure<NotifyDispatcherOptions>(_ => { });
+        }
+        services.AddScoped<INotifyDispatcher, FileNotifyDispatcher>();
 
         services.AddMediatR(cfg =>
         {
