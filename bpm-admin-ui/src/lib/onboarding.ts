@@ -21,26 +21,28 @@ export interface OnboardingStep {
   brief: string
 }
 
-/** Canonical 11-step order. SOURCE & ACCESS frame the flow; FORMS →
- *  NOTIFY are the authoring core; INTEGRATIONS exposes external systems
- *  and then VARIABLES surfaces the values those integrations drag in
- *  (plus anything user wants to factor out). SLA / TRANSLATION / NOTES
- *  are polish. */
+/**
+ * Visible step order — 7 steps after dropping VARIABLES / SLA /
+ * TRANSLATION / NOTES from the main flow (those four became schema-
+ * only; AI tools still target them and the data round-trips, but the
+ * wizard no longer makes the user click through their panels). NOTES
+ * lives as a top-right sticky button now.
+ *
+ * `OnboardingStepId` keeps all 11 ids in its union so `STEP_TOOLS`
+ * stays Partial-keyed cleanly and re-enabling any of the 4 hidden
+ * steps is just adding the entry back to this array.
+ */
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   { id: 'source',         en: 'SOURCE',          zh: '來源',     brief: '上傳 / 描述流程 + BPMN 骨架編輯' },
   // FORMS sits before ACCESS because the access validator derives the
   // trigger from the first user task's formCode — if FORMS hadn't been
   // filled yet, ACCESS could never pass.
-  { id: 'forms',          en: 'FORMS',           zh: '表單',     brief: '每個 user task 的欄位（含送單表單 formCode）' },
+  { id: 'forms',          en: 'FORMS',           zh: '表單',     brief: '每個 user task 的欄位 / 排版 / 送出按鈕 (actions)' },
   { id: 'trigger_access', en: 'ACCESS',          zh: '存取',     brief: '指定誰可啟動 / 旁觀此流程' },
   { id: 'decisions',      en: 'DECISIONS',       zh: '決策',     brief: '每個 gateway 的條件' },
-  { id: 'approvers',      en: 'APPROVERS',       zh: '審核者',   brief: '每個 approval 的審核者規則' },
+  { id: 'approvers',      en: 'APPROVERS',       zh: '審核者',   brief: '每個 approval 的審核者規則 / 按鈕 (actions)' },
   { id: 'notify',         en: 'NOTIFY',          zh: '通知',     brief: '通知模板與收件人' },
   { id: 'integrations',   en: 'INTEGRATIONS',    zh: '整合',     brief: '對外 API 整合（純內部流程可空）' },
-  { id: 'variables',      en: 'VARIABLES',       zh: '變數',     brief: 'INTEGRATIONS 衍生的值 + 自訂變數（多半可空）' },
-  { id: 'sla',            en: 'SLA',             zh: '時限',     brief: '每節點時限與 escalation' },
-  { id: 'translation',    en: 'TRANSLATION',     zh: '翻譯',     brief: '收集所有 label，補各語系翻譯' },
-  { id: 'notes',          en: 'NOTES',           zh: '備註',     brief: '給 chef / 驗收者的補充說明' },
 ]
 
 /* ── Spec deliverable types (subset for now — extend as steps mature) ── */

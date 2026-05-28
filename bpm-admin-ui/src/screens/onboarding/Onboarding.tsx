@@ -22,6 +22,7 @@ import type { ImportDraftResult } from '@/types/flowLibrary'
 // type so the prop shape stays compatible if a caller still wires it.
 type AdminScreen = { kind: string }
 import { CoPilotCanvas } from './CoPilotCanvas'
+import { NotesSticky } from '@/components/notes-sticky/NotesSticky'
 import { StepSource } from './steps/StepSource'
 import { StepTriggerAccess } from './steps/StepTriggerAccess'
 import { StepVariables } from './steps/StepVariables'
@@ -223,7 +224,7 @@ export function Onboarding({
               <Sparkles className="h-5 w-5 text-accent" />
               AI Onboarding
             </h1>
-            <p className="text-xs text-ink-muted">9 個 step 把流程規格談清楚，最後產生可攜帶的 spec bundle，存到 Flow Library。</p>
+            <p className="text-xs text-ink-muted">7 個 step 把流程規格談清楚，最後產生可攜帶的 spec bundle，存到 Flow Library。</p>
           </div>
           <div className="flex items-center gap-2">
             {hydrating && (
@@ -249,10 +250,12 @@ export function Onboarding({
         </div>
       )}
 
-      {/* Stepper bar — compact mode fits 11 steps at 1440px viewport.
-          zh + brief surface via the native title tooltip. */}
-      <div className="rounded-md border border-rule bg-card px-2 py-1.5">
-        <div className="flex items-center gap-0.5 overflow-x-auto">
+      {/* Stepper bar — 7 visible steps after PR-S2; the 4 hidden
+          (VARIABLES / SLA / TRANSLATION / NOTES) round-trip via spec
+          + AI tools but don't surface here. NotesSticky pinned to the
+          right hosts the NOTES escape hatch. */}
+      <div className="flex items-center gap-2 rounded-md border border-rule bg-card px-2 py-1.5">
+        <div className="flex flex-1 items-center gap-0.5 overflow-x-auto">
           {ONBOARDING_STEPS.map((s, i) => {
             const done = i < stepIdx
             const current = i === stepIdx
@@ -274,6 +277,10 @@ export function Onboarding({
             )
           })}
         </div>
+        <NotesSticky
+          notes={draft.notes ?? ''}
+          onChange={n => setDraft({ ...draft, notes: n })}
+        />
       </div>
 
       {/* Body — co-pilot canvas */}
