@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, CheckCircle2, Loader2, Workflow as WorkflowIcon, XCircle } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Workflow as WorkflowIcon, XCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { StatusBadge, type StatusKind } from '@/components/ui/badge'
 import { Field, Textarea, InfoBanner } from '@/components/ui/form'
+import { ActionFooter, type ActionFooterItem } from '@/components/ui/action-footer/ActionFooter'
 import { BpmnView } from '@/components/BpmnView'
 import { apiFetch, getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
@@ -57,8 +58,86 @@ export function LEAVE_V1_CaseDetail({ caseId }: CaseDetailProps) {
   const isCurrentAssignee = !!data && !!viewerUserId && data.currentAssigneeUserId === viewerUserId
   const trail = useMemo(() => (data ? deriveTrail(data.status) : null), [data])
 
+  // Decision form holds the comment / note text; ActionFooter at the
+  // bottom posts it. Lifted out of the inline cards so the buttons can
+  // live in the sticky bar.
+  const [approvalComment, setApprovalComment] = useState('')
+  const [archiveNote, setArchiveNote] = useState('')
+
+  const postApproval = useCallback(async (approve: boolean) => {
+    if (!data) return
+    setActionPending(true); setActionError(null)
+    try {
+      const path = data.status === 'PendingManager' ? 'manager-decision' : 'vp-decision'
+      const res = await apiFetch(`/api/leave/v1/${caseId}/${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approve, comment: approvalComment.trim() ? approvalComment : null }),
+      })
+      if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`)
+      setApprovalComment('')
+      await load()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setActionPending(false)
+    }
+  }, [data, caseId, approvalComment, load])
+
+  const postArchive = useCallback(async () => {
+    setActionPending(true); setActionError(null)
+    try {
+      const res = await apiFetch(`/api/leave/v1/${caseId}/hr-archive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archiveNote }),
+      })
+      if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`)
+      setArchiveNote('')
+      await load()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setActionPending(false)
+    }
+  }, [caseId, archiveNote, load])
+
+  const footerActions: ActionFooterItem[] = useMemo(() => {
+    if (!data || !isCurrentAssignee) return []
+    if (data.status === 'PendingManager' || data.status === 'PendingVp') {
+      return [
+        { id: 'reject',  label: '退件 / Reject',  variant: 'destructive', pending: actionPending, onClick: () => postApproval(false) },
+        { id: 'approve', label: '核准 / Approve', variant: 'primary',     pending: actionPending, onClick: () => postApproval(true)  },
+      ]
+    }
+    if (data.status === 'PendingHr') {
+      return [
+        {
+          id: 'archive',
+          label: '送出備案 / Archive',
+          variant: 'primary',
+          disabled: !archiveNote.trim(),
+          pending: actionPending,
+          title: !archiveNote.trim() ? '請先填寫備案備註' : undefined,
+          onClick: postArchive,
+        },
+      ]
+    }
+    return []
+  }, [data, isCurrentAssignee, actionPending, archiveNote, postApproval, postArchive])
+
+  const footerHint = (() => {
+    if (!data) return null
+    if (actionError) return <span className="text-danger">{actionError}</span>
+    if (!isCurrentAssignee) return null
+    if (data.status === 'PendingManager') return '請審閱簽核意見後決定'
+    if (data.status === 'PendingVp')      return '請審閱簽核意見後決定（VP 階段）'
+    if (data.status === 'PendingHr')      return '備註不可為空'
+    return null
+  })()
+
   return (
-    <div className="mx-auto max-w-screen-lg space-y-4 p-6">
+    <div className="mx-auto max-w-screen-lg space-y-4 p-6 pb-24">
       <div className="flex items-center gap-3">
         <Button variant="outline" size="sm" onClick={() => navigate('/')}>
           <ArrowLeft className="h-3.5 w-3.5" /> 返回
@@ -139,50 +218,19 @@ export function LEAVE_V1_CaseDetail({ caseId }: CaseDetailProps) {
           </SectionCard>
 
           {isCurrentAssignee && (data.status === 'PendingManager' || data.status === 'PendingVp') && (
-            <ApprovalActions
+            <ApprovalForm
               stage={data.status}
+              comment={approvalComment}
+              onCommentChange={setApprovalComment}
               pending={actionPending}
-              error={actionError}
-              onAct={async (approve, comment) => {
-                setActionPending(true); setActionError(null)
-                try {
-                  const path = data.status === 'PendingManager' ? `manager-decision` : `vp-decision`
-                  const res = await apiFetch(`/api/leave/v1/${caseId}/${path}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ approve, comment: comment.trim() ? comment : null }),
-                  })
-                  if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`)
-                  await load()
-                } catch (e) {
-                  setActionError(e instanceof Error ? e.message : String(e))
-                } finally {
-                  setActionPending(false)
-                }
-              }}
             />
           )}
 
           {isCurrentAssignee && data.status === 'PendingHr' && (
             <HrArchiveForm
+              note={archiveNote}
+              onNoteChange={setArchiveNote}
               pending={actionPending}
-              error={actionError}
-              onSubmit={async note => {
-                setActionPending(true); setActionError(null)
-                try {
-                  const res = await apiFetch(`/api/leave/v1/${caseId}/hr-archive`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ archiveNote: note }),
-                  })
-                  if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`)
-                  await load()
-                } catch (e) {
-                  setActionError(e instanceof Error ? e.message : String(e))
-                } finally {
-                  setActionPending(false)
-                }
-              }}
             />
           )}
 
@@ -207,62 +255,47 @@ export function LEAVE_V1_CaseDetail({ caseId }: CaseDetailProps) {
         completedNodes={trail?.completed}
         currentNode={trail?.current}
       />
+
+      <ActionFooter hint={footerHint} actions={footerActions} />
     </div>
   )
 }
 
-function ApprovalActions({
-  stage, pending, error, onAct,
+function ApprovalForm({
+  stage, comment, onCommentChange, pending,
 }: {
   stage: 'PendingManager' | 'PendingVp'
+  comment: string
+  onCommentChange: (v: string) => void
   pending: boolean
-  error: string | null
-  onAct: (approve: boolean, comment: string) => Promise<void>
 }) {
-  const [comment, setComment] = useState('')
   const label = stage === 'PendingManager' ? '主管核准' : 'VP 核准'
   return (
     <SectionCard>
       <SectionTitle>您的決定 / Your decision ({label})</SectionTitle>
       <div className="space-y-3 px-5 py-4">
         <Field label="簽核意見 / Comment" hint="退件時建議填寫原因">
-          <Textarea rows={3} value={comment} onChange={e => setComment(e.target.value)} disabled={pending} />
+          <Textarea rows={3} value={comment} onChange={e => onCommentChange(e.target.value)} disabled={pending} />
         </Field>
-        {error && <div className="text-sm text-danger">{error}</div>}
-        <div className="flex justify-end gap-2">
-          <Button variant="destructive" size="md" disabled={pending} onClick={() => void onAct(false, comment)}>退件 / Reject</Button>
-          <Button variant="primary" size="md" disabled={pending} onClick={() => void onAct(true, comment)}>
-            {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            核准 / Approve
-          </Button>
-        </div>
       </div>
     </SectionCard>
   )
 }
 
 function HrArchiveForm({
-  pending, error, onSubmit,
+  note, onNoteChange, pending,
 }: {
+  note: string
+  onNoteChange: (v: string) => void
   pending: boolean
-  error: string | null
-  onSubmit: (note: string) => Promise<void>
 }) {
-  const [note, setNote] = useState('')
   return (
     <SectionCard>
       <SectionTitle>HR 備案 / Archive</SectionTitle>
       <div className="space-y-3 px-5 py-4">
         <Field label="備案備註 / Archive note" required hint="HR 留下處理紀錄供日後追溯">
-          <Textarea rows={3} value={note} onChange={e => setNote(e.target.value)} disabled={pending} />
+          <Textarea rows={3} value={note} onChange={e => onNoteChange(e.target.value)} disabled={pending} />
         </Field>
-        {error && <div className="text-sm text-danger">{error}</div>}
-        <div className="flex justify-end gap-2">
-          <Button variant="primary" size="md" disabled={pending || !note.trim()} onClick={() => void onSubmit(note)}>
-            {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            送出備案 / Archive
-          </Button>
-        </div>
       </div>
     </SectionCard>
   )

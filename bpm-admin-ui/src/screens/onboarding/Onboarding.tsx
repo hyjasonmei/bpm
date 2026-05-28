@@ -284,8 +284,9 @@ export function Onboarding({
         canvas={renderCanvas(step.id, draft, setDraft, onNavigate)}
       />
 
-      {/* Footer — back / next */}
-      <div className="flex items-center justify-between rounded-md border border-rule bg-card px-3 py-2">
+      {/* Footer — back / next; sticky so it stays in view as the canvas
+          scrolls long content (FORMS / NOTIFY / SLA editors can grow). */}
+      <div className="sticky bottom-0 z-10 -mx-1 mt-1 flex items-center justify-between rounded-md border border-rule bg-card/95 px-3 py-2 shadow-[0_-4px_12px_-8px_rgba(15,23,42,0.18)] backdrop-blur">
         <button
           onClick={goBack}
           disabled={stepIdx === 0}
