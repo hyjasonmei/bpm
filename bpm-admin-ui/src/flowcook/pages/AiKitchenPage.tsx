@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ArchiveRestore,
+  ArchiveX,
   CheckCircle2,
   ChefHat,
   Copy,
@@ -24,6 +26,8 @@ import {
   cloneFlowVersion,
   createFlow,
   deleteFlow,
+  retireFlow,
+  unretireFlow,
   type FlowDetail,
   type FlowState,
   type FlowSummary,
@@ -101,10 +105,12 @@ function WizardRoute() {
 // ──────────────────────────────────────────────────────────────
 
 function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<void> }) {
+  const navigate = useNavigate()
   const [flows, setFlows] = useState<FlowSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [rowPending, setRowPending] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -119,6 +125,44 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
   }, [])
 
   useEffect(() => { void refresh() }, [refresh])
+
+  // Row-level lifecycle actions. Each runs the relevant POST, refreshes
+  // the list, then navigates if the action creates a new flow (clone).
+  async function withPending<T>(rowId: string, fn: () => Promise<T>): Promise<T | null> {
+    setRowPending(rowId)
+    try {
+      return await fn()
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Action failed')
+      return null
+    } finally {
+      setRowPending(null)
+    }
+  }
+
+  async function handleCloneAsNewVersion(row: FlowSummary) {
+    const cloned = await withPending(row.id, () => cloneFlowVersion(row.id))
+    if (!cloned) return
+    await refresh()
+    navigate(cloned.id)
+  }
+
+  async function handleRetire(row: FlowSummary) {
+    if (!window.confirm(`下架 "${row.displayName}" v${row.version}？new case 將不能再啟動，現有案件仍可走完。`)) return
+    await withPending(row.id, () => retireFlow(row.id))
+    await refresh()
+  }
+
+  async function handleUnretire(row: FlowSummary) {
+    await withPending(row.id, () => unretireFlow(row.id))
+    await refresh()
+  }
+
+  async function handleDelete(row: FlowSummary) {
+    if (!window.confirm(`刪除 draft "${row.displayName}"？此為 soft-delete，可由 admin DB 還原。`)) return
+    await withPending(row.id, () => deleteFlow(row.id))
+    await refresh()
+  }
 
   async function cookNew(flowCode: string, displayName: string) {
     // Seed `spec.meta` from the row inputs so the wizard's SOURCE step
@@ -212,29 +256,97 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                   <th className="px-3 py-2 font-normal">Version</th>
                   <th className="px-3 py-2 font-normal">State</th>
                   <th className="px-3 py-2 font-normal">Updated</th>
+                  <th className="w-10 px-3 py-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-rule">
-                {flows.map((f) => (
-                  <tr
-                    key={f.id}
-                    onClick={() => void onOpenFlow(f.id)}
-                    data-testid={`flow-row-${f.flowCode}`}
-                    className="cursor-pointer hover:bg-bg"
-                  >
-                    <td className="px-5 py-3">
-                      <div className="font-medium text-ink">{f.displayName}</div>
-                      <div className="mt-0.5 font-mono text-[11px] text-ink-muted">{f.flowCode}</div>
-                    </td>
-                    <td className="px-3 py-3 font-mono text-xs text-ink-muted">v{f.version}</td>
-                    <td className="px-3 py-3">
-                      <StatePill state={f.state} />
-                    </td>
-                    <td className="px-3 py-3 font-mono text-[11px] text-ink-muted">
-                      {formatDate(f.updatedAt)}
-                    </td>
-                  </tr>
-                ))}
+                {flows.map((f) => {
+                  const isDraft    = f.state === 'Draft'
+                  const isApproved = f.state === 'Approved'
+                  const isRetired  = f.state === 'Retired'
+                  const rowBusy    = rowPending === f.id
+                  const groups: OverflowGroup[] = [
+                    {
+                      items: [
+                        {
+                          id: 'open',
+                          label: 'Open',
+                          icon: <ChefHat className="h-3 w-3" />,
+                          onClick: () => { void onOpenFlow(f.id) },
+                        },
+                        ...((isApproved || isRetired) ? [{
+                          id: 'clone',
+                          label: 'Clone as new version draft',
+                          icon: <Copy className="h-3 w-3" />,
+                          tone: 'productive' as const,
+                          disabled: rowBusy,
+                          hint: '複製成 v+1，原版本維持不動',
+                          onClick: () => { void handleCloneAsNewVersion(f) },
+                        }] : []),
+                      ],
+                    },
+                    {
+                      items: [
+                        ...(isApproved ? [{
+                          id: 'retire',
+                          label: 'Retire flow',
+                          icon: <ArchiveX className="h-3 w-3" />,
+                          tone: 'risky' as const,
+                          disabled: rowBusy,
+                          hint: '下架：end-user launcher 不再列出此版本',
+                          onClick: () => { void handleRetire(f) },
+                        }] : []),
+                        ...(isRetired ? [{
+                          id: 'unretire',
+                          label: 'Unretire flow',
+                          icon: <ArchiveRestore className="h-3 w-3" />,
+                          tone: 'productive' as const,
+                          disabled: rowBusy,
+                          hint: '上架回 Approved',
+                          onClick: () => { void handleUnretire(f) },
+                        }] : []),
+                        ...(isDraft ? [{
+                          id: 'delete',
+                          label: 'Delete draft',
+                          icon: <Trash2 className="h-3 w-3" />,
+                          tone: 'danger' as const,
+                          disabled: rowBusy,
+                          hint: 'Soft-delete — 可由 admin DB 還原',
+                          onClick: () => { void handleDelete(f) },
+                        }] : []),
+                      ],
+                    },
+                  ]
+                  return (
+                    <tr
+                      key={f.id}
+                      onClick={() => void onOpenFlow(f.id)}
+                      data-testid={`flow-row-${f.flowCode}`}
+                      className={cn(
+                        'cursor-pointer hover:bg-bg',
+                        isRetired && 'opacity-60',
+                      )}
+                    >
+                      <td className="px-5 py-3">
+                        <div className="font-medium text-ink">{f.displayName}</div>
+                        <div className="mt-0.5 font-mono text-[11px] text-ink-muted">{f.flowCode}</div>
+                      </td>
+                      <td className="px-3 py-3 font-mono text-xs text-ink-muted">v{f.version}</td>
+                      <td className="px-3 py-3">
+                        <StatePill state={f.state} />
+                      </td>
+                      <td className="px-3 py-3 font-mono text-[11px] text-ink-muted">
+                        {formatDate(f.updatedAt)}
+                      </td>
+                      <td
+                        className="px-3 py-3"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <OverflowMenu groups={groups} buttonTitle="Flow actions" />
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -757,6 +869,7 @@ const STATE_TONE: Record<FlowState, string> = {
   Committed: 'bg-good/10 text-good',
   Approved:  'bg-good/15 text-good',
   Rejected:  'bg-danger/10 text-danger',
+  Retired:   'bg-slate-200 text-slate-600',
 }
 
 function StatePill({ state }: { state: FlowState }) {

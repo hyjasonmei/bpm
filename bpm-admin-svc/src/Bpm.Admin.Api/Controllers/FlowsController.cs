@@ -101,6 +101,14 @@ public class FlowsController : ControllerBase
     public Task<ActionResult<FlowDetailDto>> CloneVersion(Guid id, CancellationToken ct)
         => RunTransition(() => _lifecycle.CloneVersionAsync(id, CurrentUserId(), ct));
 
+    [HttpPost("{id:guid}/retire")]
+    public Task<ActionResult<FlowDetailDto>> Retire(Guid id, CancellationToken ct)
+        => RunTransition(() => _lifecycle.RetireAsync(id, CurrentUserId(), ct));
+
+    [HttpPost("{id:guid}/unretire")]
+    public Task<ActionResult<FlowDetailDto>> Unretire(Guid id, CancellationToken ct)
+        => RunTransition(() => _lifecycle.UnretireAsync(id, CurrentUserId(), ct));
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {

@@ -82,11 +82,17 @@ public class FlowLifecycleService : IFlowLifecycleService
     public Task<Flow> ResumeAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
         => TransitionAsync(flowId, FlowState.Submitted, "flow_resumed", actorUserId, new[] { FlowState.OnHold }, ct);
 
+    public Task<Flow> RetireAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
+        => TransitionAsync(flowId, FlowState.Retired, "flow_retired", actorUserId, new[] { FlowState.Approved }, ct);
+
+    public Task<Flow> UnretireAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
+        => TransitionAsync(flowId, FlowState.Approved, "flow_unretired", actorUserId, new[] { FlowState.Retired }, ct);
+
     public async Task<Flow> CloneVersionAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
     {
         var source = await Load(flowId, ct);
-        if (source.State != FlowState.Approved)
-            throw new FlowLifecycleException($"Can only clone from Approved (state was {source.State})");
+        if (source.State != FlowState.Approved && source.State != FlowState.Retired)
+            throw new FlowLifecycleException($"Can only clone from Approved or Retired (state was {source.State})");
 
         var maxVersion = await _db.Flows
             .Where(f => f.LineageId == source.LineageId)

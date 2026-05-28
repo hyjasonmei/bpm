@@ -19,4 +19,10 @@ public interface IFlowLifecycleService
     Task<Flow> CloneVersionAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
     Task<Flow> OnHoldFromChefAsync(Guid flowId, string question, CancellationToken ct = default);
     Task SoftDeleteDraftAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
+    /// <summary>Approved → Retired. Stops new case instances from
+    /// being launched against this flow version.</summary>
+    Task<Flow> RetireAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
+    /// <summary>Retired → Approved. Brings a retired version back
+    /// online (rare; usually you'd clone-as-new-version instead).</summary>
+    Task<Flow> UnretireAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
 }

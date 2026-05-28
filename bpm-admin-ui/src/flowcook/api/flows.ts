@@ -8,6 +8,7 @@ export type FlowState =
   | 'Committed'
   | 'Approved'
   | 'Rejected'
+  | 'Retired'
 
 export interface FlowSummary {
   id: string
@@ -72,6 +73,14 @@ export function resumeFlow(id: string): Promise<FlowDetail> {
 
 export function cloneFlowVersion(id: string): Promise<FlowDetail> {
   return api<FlowDetail>(`/api/flows/${id}/clone-version`, { method: 'POST' })
+}
+
+export function retireFlow(id: string): Promise<FlowDetail> {
+  return api<FlowDetail>(`/api/flows/${id}/retire`, { method: 'POST' })
+}
+
+export function unretireFlow(id: string): Promise<FlowDetail> {
+  return api<FlowDetail>(`/api/flows/${id}/unretire`, { method: 'POST' })
 }
 
 export function deleteFlow(id: string): Promise<void> {
