@@ -527,8 +527,10 @@ Resume path (new chef Claude Code session, after user replied):
 
 ### Artifacts: metadata only
 
-Don't shovel diffs into admin-svc. The actual code lives on Jason's
-worktree branch — Jason reads diffs in GitKraken. `artifactsJson`
+Don't shovel diffs into admin-svc. The actual code lives on chef's
+testbed branch (see `workflow.md` — chef runs against the same
+checkout Jason works in, no separate worktree, per-flow branches
+like `leave-test-N`). Jason reads diffs in GitKraken. `artifactsJson`
 on a Completion should be a tiny summary like:
 
 ```json
