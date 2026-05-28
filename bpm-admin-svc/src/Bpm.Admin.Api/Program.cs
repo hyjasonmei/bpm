@@ -20,6 +20,17 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
+// PR-K1 / K2 dev ergonomics: when running in Development with no chef
+// token configured, fall back to a known constant. Lets a local chef
+// Claude Code session connect with a literal `Bearer dev-chef-token`
+// (no env-var export required). Production deployments must set
+// Bpm:Chef:Token explicitly — config-driven middleware skips the chef
+// auth path entirely when the value is empty.
+if (builder.Environment.IsDevelopment() && string.IsNullOrEmpty(builder.Configuration["Bpm:Chef:Token"]))
+{
+    builder.Configuration["Bpm:Chef:Token"] = "dev-chef-token";
+}
+
 // PR-K2: in-process MCP server. Tools are auto-discovered from the
 // API assembly via [McpServerToolType]. The HTTP transport piggybacks
 // on Kestrel — same port, same DI container. Chef Claude Code sessions
@@ -92,6 +103,12 @@ builder.Services.AddSingleton<IAiBackend>(sp => aiBackendName switch
 
 var app = builder.Build();
 app.Logger.LogInformation("AI backend: {Backend} (set FLOWCOOK_AI_BACKEND=api|cli to switch)", aiBackendName);
+if (app.Environment.IsDevelopment())
+{
+    app.Logger.LogInformation("Chef token (dev): '{Token}' — chef .mcp.json should send `Authorization: Bearer {Token}`",
+        app.Configuration["Bpm:Chef:Token"] ?? "(unset)",
+        app.Configuration["Bpm:Chef:Token"] ?? "(unset)");
+}
 
 // Auto-apply admin migrations on startup so admin's `Admin_*` tables
 // exist on the shared db (post-Phase 1.1 db merge). Mirrors bpm-svc's

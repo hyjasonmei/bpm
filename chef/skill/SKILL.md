@@ -443,9 +443,12 @@ real time, and reads user replies when blocked.
 
 admin-svc hosts the MCP server in-process at
 `http://localhost:5266/mcp` (HTTP / SSE transport). Auth is a single
-static bearer token in admin's appsettings under
-`Bpm:Chef:Token`. The chef Claude Code session reads the same token
-from its `.mcp.json` config:
+static bearer token in admin's appsettings under `Bpm:Chef:Token`.
+
+**Dev shortcut**: when admin-svc runs in Development mode and no
+`Bpm:Chef:Token` is configured, it auto-falls-back to the literal
+`dev-chef-token`. Chef's `.mcp.json` can then use that string
+directly — no shell export, no per-machine config.
 
 ```json
 {
@@ -453,11 +456,15 @@ from its `.mcp.json` config:
     "flowcook-admin": {
       "type": "sse",
       "url": "http://localhost:5266/mcp",
-      "headers": { "Authorization": "Bearer ${BPM_CHEF_TOKEN}" }
+      "headers": { "Authorization": "Bearer dev-chef-token" }
     }
   }
 }
 ```
+
+For production: set `Bpm:Chef:Token` in admin's appsettings (or
+`BPM__CHEF__TOKEN` env var) to a real value and update the header
+in chef's `.mcp.json` to match.
 
 The tools become available in the chef session as `chef_get_flow`,
 `chef_get_messages`, `chef_post_message`, `chef_transition`.
