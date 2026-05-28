@@ -221,7 +221,8 @@ public class FlowsController : ControllerBase
                 BpmnXml: req.BpmnXml ?? string.Empty,
                 SampleOrg: req.SampleOrg,
                 TestCases: req.TestCases ?? Array.Empty<TestCaseSnapshot>(),
-                SourceInstanceId: req.SourceInstanceId ?? $"flow:{row.Id}");
+                SourceInstanceId: req.SourceInstanceId ?? $"flow:{row.Id}",
+                FlowId: row.Id);
             var bytes = await builder.BuildAsync(buildReq, ct);
 
             await audit.LogAsync(

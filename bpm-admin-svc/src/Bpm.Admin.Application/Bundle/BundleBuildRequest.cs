@@ -23,4 +23,11 @@ public sealed record BundleBuildRequest(
     bool IncludeAssets = false,
     bool IncludeChatSnapshots = false,
     JsonElement? ParentSpecJson = null,
-    string SourceInstanceId = "default");
+    string SourceInstanceId = "default",
+    /// <summary>
+    /// Admin's <c>Flow.Id</c>. Surfaces in <c>manifest.json.flowId</c>
+    /// so chef Claude Code can route MCP calls without round-tripping
+    /// through admin-ui. Optional for legacy callers that build a
+    /// bundle without a flow row (e.g. ad-hoc imports).
+    /// </summary>
+    Guid? FlowId = null);

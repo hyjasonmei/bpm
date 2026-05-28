@@ -10,4 +10,10 @@ public sealed record BundleManifest(
     DateTimeOffset ExportedAt,
     string SourceInstanceId,
     string? Parent,
-    IReadOnlyList<BundleFileEntry> Files);
+    IReadOnlyList<BundleFileEntry> Files,
+    /// <summary>
+    /// Admin's <c>Flow.Id</c> — chef Claude Code reads this and uses
+    /// it for every MCP tool call. Nullable so older bundles still
+    /// deserialize; new bundles always populate it.
+    /// </summary>
+    Guid? FlowId = null);
