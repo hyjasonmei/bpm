@@ -140,14 +140,21 @@ Jason hands you one path to an unzipped bundle. The layout is fixed by
 - `variables` — `${var}` definitions
 - `userTasks[].fields[]` — flat field set with type / required / CEL
 - `userTasks[].layout[]` — Tier 1 + Tier 2 visual structure
+- `userTasks[].actions[]` — buttons + state-machine transitions (see §3.5)
 - `decisions[]` — gateway rules (CEL)
 - `approvals[]` — ActorRef DSL (5 types, including `natural_language`
   escape hatch — read it and decide)
+- `approvals[].actions[]` — decision buttons (approve / reject / etc.)
 - `notifications[]` — node-bound and event-bound notify
-- `sla.perNode` — duration + escalation + free-text `note`
+- `sla.perNode` — duration + escalation + free-text `note` *(optional —
+  wizard collapsed this step; treat absence as "use sensible defaults")*
 - `integrations.items[]` — OpenAPI references
-- `labels` — multi-locale translations
-- `notes` — final free-text from NOTES step
+- `variables` — `${var}` definitions *(mostly auto-derived from
+  integrations; wizard no longer prompts manually)*
+- `labels` — multi-locale translations *(optional — wizard collapsed
+  this step; zh-TW will always be present, other locales may be empty)*
+- `notes` — free-text instruction *(optional — surfaces from the NOTES
+  sticky button now, not a step)*
 
 Free-text lives inline on each spec node (`FormField.note`,
 `NodeSLA.note`, `draft.notes`, ActorRef `fallback.text`). Read them
@@ -272,6 +279,69 @@ blueprint for what JSX to emit. Use the corresponding hand-coded form
 under `bpm-ui/src/screens/forms/Reference_*.tsx` (where one exists)
 for tone / sectioning / table-vs-card invoices — but don't copy logic
 blindly. The spec is authoritative.
+
+### 3.5 Actions → state machine + UI buttons
+
+Every `userTask` and `approval` carries an `actions[]` array. Each
+entry is a button at the bottom of the user-facing screen **and** a
+state-machine transition you emit on the backend. Treat them as the
+single source of truth for "what can the user do at this node?".
+
+**TaskAction shape** (verbatim from `bpm-admin-ui/src/lib/onboarding.ts`):
+
+```ts
+{
+  id: string                // stable, used in routes + audit
+  kind: TaskActionKind      // see table below
+  label: { 'zh-TW'?: string; en?: string }   // at least one populated
+  targetEdgeId?: string     // required when node has > 1 outgoing edge
+  guard?: string            // CEL — false → button disabled
+  confirm?: boolean         // show "are you sure?" modal first
+  promptComment?: boolean   // collect a comment textarea before sending
+}
+```
+
+| kind | Where | Default service method | Emits transition |
+|---|---|---|---|
+| `submit`     | userTask    | `Submit*` (`Service.Submit(req)`) | progresses along the userTask's outgoing edge |
+| `save_draft` | userTask    | `SaveDraft*` | persists fields, no state change; case stays in same Pending state |
+| `complete`   | userTask    | `Complete*` | terminal — case ends |
+| `cancel`     | userTask / approval | `Cancel*` | mid-flow abort → terminal `Cancelled` |
+| `revoke`     | userTask / approval | `Revoke*` | post-`Completed` reversal → terminal `Revoked`. **Always** add `guard: "status == 'Completed'"`. |
+| `approve`    | approval    | `ApproveByX*` | walks the approval node's success edge |
+| `reject`     | approval    | `RejectByX*` | inspect `targetEdgeId.target`: |
+|              |             |              | `endEvent` → terminal `Rejected` (clear pending data) |
+|              |             |              | `userTask` → send-back: revert assignee to original submitter, preserve form values for re-edit |
+| `custom`     | both        | name from action.id slug | uses `targetEdgeId` verbatim — no implicit routing |
+
+**Method naming**: `<Approver><Method>` or `<Stage><Method>` — e.g.
+`LEAVE_V1_LeaveService.ApproveByManager(caseId, comment, actorUserId)`,
+`LEAVE_V1_LeaveService.RejectByManager(caseId, comment, actorUserId)`.
+The `<Approver>` segment comes from approval node id (drop the
+`approval_` prefix, PascalCase).
+
+**guard CEL** evaluates against case context (`status`, field values,
+`actor.role`). At codegen time, lower the CEL into a C# precondition
+check that throws `ValidationException` with a friendly message.
+
+**promptComment=true** ⇒ the per-flow REST DTO requires `comment:
+string` (non-null when promptComment=true), and the React side opens
+a modal collecting the value before posting.
+
+**confirm=true** ⇒ React side wraps the button click in a `confirm()`
+or a shadcn `<AlertDialog>`. No backend impact.
+
+**UI**: per-flow `CaseDetail.tsx` (chef-cooked, under
+`bpm-ui/src/features/<CODE>/V<N>/`) **must** render its action buttons
+via the shared `<ActionFooter>` from `@/components/ui/action-footer`
+— not inline buttons. Maps each `TaskAction` → one `ActionFooterItem`.
+See `bpm-ui/src/features/LEAVE/V1/LEAVE_V1_CaseDetail.tsx` for the
+canonical pattern.
+
+**Migration of older specs**: spec.json without `actions[]` predates
+the schema; admin-ui's `migrateDraft` backfills `[submit]` for
+userTasks and `[approve, reject]` for approvals on next load. The
+bundle you receive will already have the field populated.
 
 ## 4. Reading order
 

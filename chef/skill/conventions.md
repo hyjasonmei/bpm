@@ -211,8 +211,8 @@ coordinate with lead before adding new top-level routes.
 
 ## Case-detail page
 
-Every chef-cooked feature MUST ship a read-only detail page in
-`bpm-ui/src/features/<CODE>/V<N>/<CODE>_V<N>_CaseDetail.tsx`,
+Every chef-cooked feature MUST ship a read-only-by-default detail page
+in `bpm-ui/src/features/<CODE>/V<N>/<CODE>_V<N>_CaseDetail.tsx`,
 exported via `manifest.detailComponent`. The
 `/cases/:flowCode/:caseId` route auto-binds:
 
@@ -223,14 +223,52 @@ import { LEAVE_V1_CaseDetail } from './LEAVE_V1_CaseDetail'
 const manifest: FormManifest = { …, detailComponent: LEAVE_V1_CaseDetail }
 ```
 
-The page is **view-only** — no approve / reject buttons on detail. A
-small footer banner pointing approvers at the Pending inbox keeps the
-contract obvious. Fetch the case via `apiFetch('/api/<flow>/v<n>/{id}')`
-and render: header (title + status pill), field grid (every business
-data + spec-driven fields), 簽核 timeline (one row per approval stage
-with state dot / actor display / decision timestamp / comment), plus
-a "View BPMN" button that opens the shared `BpmnView` modal pre-fed
-with status-derived markers (see next section).
+The page renders: header (title + status pill), field grid (every
+business data + spec-driven field), 簽核 timeline (one row per approval
+stage with state dot / actor display / decision timestamp / comment),
+plus a "View BPMN" button that opens the shared `BpmnView` modal
+pre-fed with status-derived markers (see next section).
+
+### Action buttons → `<ActionFooter>`
+
+When the current viewer is the active assignee, the case-detail page
+exposes the node's `actions[]` as buttons via the shared
+`<ActionFooter>` primitive in `@/components/ui/action-footer`. **Inline
+buttons are not allowed** — the sticky footer keeps decision controls
+uniform across flows and reserves the left slot for future SLA / hint
+chips.
+
+```tsx
+import { ActionFooter, type ActionFooterItem } from '@/components/ui/action-footer/ActionFooter'
+
+const footerActions: ActionFooterItem[] = useMemo(() => {
+  if (!isCurrentAssignee) return []
+  // Derive from spec.actions[] for this stage. Translate kind →
+  // backend route + variant per SKILL.md §3.5.
+  return [
+    { id: 'reject',  label: '退件 / Reject',  variant: 'destructive', pending, onClick: () => postDecision(false) },
+    { id: 'approve', label: '核准 / Approve', variant: 'primary',     pending, onClick: () => postDecision(true)  },
+  ]
+}, [isCurrentAssignee, pending])
+
+return (
+  <div className="mx-auto max-w-screen-lg space-y-4 p-6 pb-24">
+    {/* … rest of the page … */}
+    <ActionFooter hint={footerHint} actions={footerActions} />
+  </div>
+)
+```
+
+Comment / archive note text inputs live inside in-page SectionCards
+(so the user can scroll back through the case while typing); the
+footer reads their state for the onClick handler. Add `pb-24` (or
+similar) to the page's scroll container so the footer doesn't cover
+real content.
+
+Variants map from `TaskAction.kind`: `submit`/`approve`/`complete` →
+`primary`, `reject`/`cancel`/`revoke` → `destructive`,
+`save_draft`/`custom` → default. Hide actions whose `guard` evaluates
+to false (or disable via `disabled` + `title`).
 
 ## BPMN passthrough
 
