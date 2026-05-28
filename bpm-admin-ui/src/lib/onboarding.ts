@@ -144,6 +144,65 @@ export function actionLabel(a: TaskAction): string {
   return a.label['zh-TW']?.trim() || a.label.en?.trim() || a.kind
 }
 
+/** Display label for a notification trigger binding. */
+export function triggerLabel(t: NotifyTriggerBinding): string {
+  return t.kind === 'event' ? t.event : `action:${t.actionId}`
+}
+
+/** Migrate the v1 enum trigger to the v2 binding shape. Used by
+ *  `migrateDraft` and on legacy AI tool emits. */
+export function legacyTriggerToBinding(t: unknown): NotifyTriggerBinding {
+  if (t && typeof t === 'object' && 'kind' in t) {
+    const b = t as NotifyTriggerBinding
+    if (b.kind === 'event' || b.kind === 'action') return b
+  }
+  // v1 string enum or anything weird → event.on_submit fallback.
+  if (typeof t === 'string') return { kind: 'event', event: t as NotifyTrigger }
+  return { kind: 'event', event: 'on_submit' }
+}
+
+/** Flatten every action on every userTask + approval into a picker-
+ *  friendly list. Used by StepNotify to bind `trigger.actionId`. */
+export interface ActionRef {
+  actionId: string
+  /** Label visible in the picker. */
+  label: string
+  ownerNodeId: string
+  ownerNodeLabel: string
+  ownerKind: 'userTask' | 'approval'
+  kind: TaskActionKind
+}
+export function listAllActions(draft: DraftSpec): ActionRef[] {
+  const out: ActionRef[] = []
+  for (const ut of draft.userTasks) {
+    const node = draft.flow.nodes.find(n => n.id === ut.id)
+    for (const a of ut.actions ?? []) {
+      out.push({
+        actionId: a.id,
+        label: actionLabel(a),
+        ownerNodeId: ut.id,
+        ownerNodeLabel: node?.label ?? ut.id,
+        ownerKind: 'userTask',
+        kind: a.kind,
+      })
+    }
+  }
+  for (const ap of draft.approvals) {
+    const node = draft.flow.nodes.find(n => n.id === ap.id)
+    for (const a of ap.actions ?? []) {
+      out.push({
+        actionId: a.id,
+        label: actionLabel(a),
+        ownerNodeId: ap.id,
+        ownerNodeLabel: node?.label ?? ap.id,
+        ownerKind: 'approval',
+        kind: a.kind,
+      })
+    }
+  }
+  return out
+}
+
 /** Per-kind default labels in zh-TW when migrating older drafts. */
 const DEFAULT_ACTION_LABELS: Record<TaskActionKind, string> = {
   submit:     '送出',
@@ -492,6 +551,22 @@ export interface Approval {
 /* Notifications — mirrors spec_schema.md §2.6 */
 export type NotifyTrigger = 'on_submit' | 'on_approve' | 'on_reject' | 'on_complete' | 'on_assign' | 'on_sla_breach'
 
+/**
+ * What fires this notification. Two flavours:
+ *
+ * - `{ kind: 'event', event: ... }` — coarse lifecycle hook (legacy /
+ *   shape stays compatible with on_submit / on_approve / etc.).
+ * - `{ kind: 'action', actionId: ... }` — fires immediately after the
+ *   referenced TaskAction's state-machine transition lands. Lets the
+ *   author distinguish e.g. "approve" vs "approve and immediately
+ *   raise PO" — each has its own action.id and its own notification.
+ *
+ * chef reads the discriminator to decide where to hook the dispatch.
+ */
+export type NotifyTriggerBinding =
+  | { kind: 'event'; event: NotifyTrigger }
+  | { kind: 'action'; actionId: string }
+
 export type NotifyRecipient =
   | { type: 'submitter' }
   | { type: 'current_approver' }
@@ -503,7 +578,7 @@ export interface NotifyTemplate {
 }
 export interface Notification {
   id: string
-  trigger: NotifyTrigger
+  trigger: NotifyTriggerBinding
   channel: ('email' | 'teams' | 'in_app')[]
   recipients: NotifyRecipient[]
   template: NotifyTemplate
@@ -863,11 +938,20 @@ export function migrateDraft(d: unknown): DraftSpec {
     }
   }
 
+  // Legacy: Notification.trigger was a bare enum (`'on_submit'` etc).
+  // v2 wraps it in `{ kind: 'event', event }` so action-bound triggers
+  // can coexist. Walk notifications once on load.
+  const migratedNotifications = (partial.notifications ?? []).map(n => ({
+    ...n,
+    trigger: legacyTriggerToBinding((n as { trigger?: unknown }).trigger),
+  })) as Notification[]
+
   const out: DraftSpec = {
     ...EMPTY_DRAFT,
     ...partial,
     userTasks,
     approvals,
+    notifications: migratedNotifications,
     integrations: {
       ...(partial.integrations ?? EMPTY_DRAFT.integrations),
       items: integrationsItems,
@@ -1191,7 +1275,7 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
   notifications: [
     {
       id: 'notify_assign_manager',
-      trigger: 'on_assign',
+      trigger: { kind: 'event', event: 'on_assign' },
       channel: ['email', 'in_app'],
       recipients: [{ type: 'current_approver' }],
       template: {
@@ -1202,7 +1286,7 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
     },
     {
       id: 'notify_complete',
-      trigger: 'on_complete',
+      trigger: { kind: 'event', event: 'on_complete' },
       channel: ['email'],
       recipients: [{ type: 'submitter' }],
       template: {
@@ -1375,7 +1459,7 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
   notifications: [
     {
       id: 'notify_assign_approver',
-      trigger: 'on_assign',
+      trigger: { kind: 'event', event: 'on_assign' },
       channel: ['email', 'in_app'],
       recipients: [{ type: 'current_approver' }],
       template: {
@@ -1386,7 +1470,7 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
     },
     {
       id: 'notify_assign_purchase',
-      trigger: 'on_assign',
+      trigger: { kind: 'event', event: 'on_assign' },
       channel: ['email', 'in_app'],
       recipients: [{ type: 'principal', ref: 'role:Purchase' }],
       template: {
@@ -1397,7 +1481,7 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
     },
     {
       id: 'notify_complete',
-      trigger: 'on_complete',
+      trigger: { kind: 'event', event: 'on_complete' },
       channel: ['email'],
       recipients: [{ type: 'submitter' }],
       template: {

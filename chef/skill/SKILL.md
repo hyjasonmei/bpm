@@ -145,7 +145,9 @@ Jason hands you one path to an unzipped bundle. The layout is fixed by
 - `approvals[]` — ActorRef DSL (5 types, including `natural_language`
   escape hatch — read it and decide)
 - `approvals[].actions[]` — decision buttons (approve / reject / etc.)
-- `notifications[]` — node-bound and event-bound notify
+- `notifications[]` — node-bound, event-bound, or action-bound notify
+  (each entry's `trigger` is a `{ kind: 'event', event } | { kind:
+  'action', actionId }` binding — see §3.5)
 - `sla.perNode` — duration + escalation + free-text `note` *(optional —
   wizard collapsed this step; treat absence as "use sensible defaults")*
 - `integrations.items[]` — OpenAPI references
@@ -342,6 +344,14 @@ canonical pattern.
 the schema; admin-ui's `migrateDraft` backfills `[submit]` for
 userTasks and `[approve, reject]` for approvals on next load. The
 bundle you receive will already have the field populated.
+
+**Action-bound notifications**: `notifications[].trigger` can be
+`{ kind: 'action', actionId }`. When you wire up a per-flow service
+method for an action, also dispatch matching action-bound notifications
+right after the state-machine transition lands (use
+`INotificationDispatcher` — see §3.6). Event-bound notifications
+(`{ kind: 'event', event: 'on_assign' }` etc.) still fire on the
+existing cross-cutting hook the same way they used to.
 
 ## 4. Reading order
 

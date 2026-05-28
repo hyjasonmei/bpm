@@ -357,7 +357,9 @@ If a notification's \`nodeId\` is already set in draftSummary, treat it as node-
     }
     const next: Notification[] = input.notifications.map(n => ({
       id: n.id,
-      trigger: n.trigger,
+      // AI tool emits the legacy event-only enum (back-compat).
+      // Wizard authors who want action-scoped triggers do it in UI.
+      trigger: { kind: 'event' as const, event: n.trigger },
       channel: n.channel,
       recipients: n.recipients,
       template: {

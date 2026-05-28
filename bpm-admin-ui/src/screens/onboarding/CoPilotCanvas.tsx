@@ -140,7 +140,13 @@ function summarizeDraft(d: DraftSpec) {
     // unmentioned entries because the tools have「replace COMPLETE
     // list」semantics.
     notifications: d.notifications.map(n => ({
-      id: n.id, trigger: n.trigger, nodeId: n.nodeId,
+      id: n.id,
+      // Flatten the v2 binding back to the legacy string the AI tool
+      // emits — event triggers send the event name, action-bound ones
+      // surface as `action:<id>` so the model knows it can't change it
+      // through emit_notifications (would need a future tool).
+      trigger: n.trigger.kind === 'event' ? n.trigger.event : `action:${n.trigger.actionId}`,
+      nodeId: n.nodeId,
       recipients: n.recipients.length, channel: n.channel,
     })),
     sla: d.sla?.perNode
