@@ -41,7 +41,7 @@
 
 ### 進階面板入口（未來）
 
-不在本 PR 範圍，但留設計空間：在 stepper 旁加一顆「⚙ 進階」按鈕，點開抽屜放 VARIABLES / SLA / TRANSLATION 三個被收起來的面板。MVP 不做，但 schema 在所以隨時可開。
+**本版不做**。VARIABLES / SLA / TRANSLATION 三個 step 雖然從 stepper 拿掉，schema 與 AI tools 都還在，未來真要回頭加入口（譬如進階抽屜或 power-user toggle）隨時可開。
 
 ### 影響檔案
 
@@ -53,8 +53,8 @@
 ### NOTES sticky button
 
 新元件 `bpm-admin-ui/src/components/notes-sticky/NotesSticky.tsx`：
-- 位置：AI Kitchen 頁面右下角 floating button (`fixed bottom-20 right-6`)，避開 sticky footer
-- 點開 → 浮窗 textarea 收 `draft.notes` (跟 `NoteEditorModal` 同套件)
+- 位置：AI Kitchen 頁面**右上角** floating button（topbar 右側、Alice 頭像旁的位置；不擋 footer）
+- 點開 → 浮窗 textarea 收 `draft.notes`（沿用 `NoteEditorModal` 樣式）
 - icon: `<StickyNote />`，有內容時加紅點
 
 ---
@@ -76,7 +76,8 @@ type TaskActionKind =
 interface TaskAction {
   id: string
   kind: TaskActionKind
-  label: { 'zh-TW': string; en?: string }
+  /** 至少一個語系有值即可（不強制雙語）。zh-TW 為主、en 可選。 */
+  label: { 'zh-TW'?: string; en?: string }
   /** 多 outgoing edge 時必填，單 outgoing 可省略 (chef 自動推) */
   targetEdgeId?: string
   /** CEL — 不滿足時按鈕 disable */
@@ -102,8 +103,8 @@ interface TaskAction {
 
 ### Validator 連動
 
-- `validators.forms` 加：每個 userTask `actions.length >= 1`
-- 新 `validators.approvers` （現有）加：每個 approval `actions.length >= 1`
+- `validators.forms` 加：每個 userTask `actions.length >= 1` 且每個 action 至少有一個語系 label
+- `validators.approvers` 加：每個 approval `actions.length >= 1`，且至少要有一個 `approve` kind 與一個 `reject` kind
 - 多 outgoing edge 時，所有非 default edge 必須被 `targetEdgeId` 覆蓋（提示哪條 edge 還沒對應 action）
 
 ### UI 卡片
@@ -131,13 +132,22 @@ reject 的 UI 提示：根據 targetEdgeId 自動 hint「此 reject = 永久駁�
 
 ```tsx
 {task.actions?.map(a => (
-  <Button key={a.id} variant={primaryFor(a.kind)} disabled title="預覽僅顯示樣式">
-    {a.label['zh-TW']}
+  <Button
+    key={a.id}
+    variant={primaryFor(a.kind)}
+    onClick={() => { /* 預覽 no-op */ }}
+    title="預覽僅顯示樣式"
+  >
+    {labelOf(a)}
   </Button>
 ))}
 ```
 
 `primaryFor(kind)`：submit/approve/complete → primary；reject/cancel → destructive；save_draft → secondary；custom → secondary。
+
+`labelOf(a)`：`a.label['zh-TW'] || a.label.en || a.kind`（兩個語系都沒填就退到 kind 當 fallback）。
+
+按鈕**可點但不觸發任何 onSubmit**，純樣式預覽。
 
 ---
 
@@ -179,6 +189,8 @@ interface ActionFooterProps {
 `bpm-ui/src/features/LEAVE/V1/LEAVE_V1_CaseDetail.tsx:213-242` 的 `ApprovalActions` 把 SectionCard 內的 flex 按鈕區拆出來，改用 `<ActionFooter actions={...}/>` mount 在頁面底部。Comment textarea 留在頁中央 SectionCard（user 先寫 comment、底部按鈕送出）。
 
 > chef skill conventions 加一條：「per-flow CaseDetail 的決策按鈕**必須**用 `<ActionFooter>` 而不是 inline 按鈕」
+
+`hint` prop 留著但**本版不接資料**（SLA 倒數等資訊未來真要時再串）。
 
 ---
 
@@ -233,14 +245,16 @@ PR-S1 / S2 是純 UX，可獨立先 ship 看效果。PR-A1 / A2 / A3 順序動�
 
 ---
 
-## 9. 開放問題（需 Jason 拍板）
+## 9. 拍板紀錄（2026-05-28）
 
-1. **NOTES sticky button 圖示位置**：右下 vs 右上 vs stepper bar 旁邊 inline？右下要避開 sticky footer。
-2. **進階抽屜**這版要不要做？建議**不做**，等真有 power user 喊再開。
-3. **`custom` kind 是否該保留**？若不保留，未來自由命名的 action 沒地方擺。建議**保留**，作為 escape hatch。
-4. **action label 是否強制雙語**？建議只強制 zh-TW（跟現有 field label 一致），en 選填。
-5. **FormPreviewModal 內按鈕要不要點得了**（譬如 trigger client-side preview submit）？建議**維持不可點**，純視覺預覽。
-6. **bpm sticky footer 的 hint slot**（譬如 SLA 倒數）這版做嗎？建議**留 prop 但 MVP 不接資料**，將來 SLA panel 回來時自動 light up。
+| # | 議題 | 決策 |
+|---|---|---|
+| 1 | NOTES sticky button 位置 | **右上** topbar（Alice 頭像旁） |
+| 2 | 進階抽屜 | **本版不做** |
+| 3 | `custom` kind | **保留**（escape hatch） |
+| 4 | action label 是否強制雙語 | **不強制**，zh-TW / en 至少一個有值即可，兩個都空就 fallback 顯示 kind |
+| 5 | FormPreviewModal 按鈕互動 | **可點但 onClick no-op**（純樣式預覽） |
+| 6 | bpm sticky footer 的 hint slot | **留 prop 不接資料**（SLA 將來再串） |
 
 ---
 
