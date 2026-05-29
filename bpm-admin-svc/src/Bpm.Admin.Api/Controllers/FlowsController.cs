@@ -175,6 +175,29 @@ public class FlowsController : ControllerBase
                 Kind: kind,
                 Content: req.Content,
                 AuthorUserId: CurrentUserId()), ct);
+            // PR-X4: Issue auto-reopens the flow so chef's next session
+            // sees state=OnHold and resumes via chef_transition('Resume').
+            // Reply doesn't change state — the flow is already OnHold,
+            // chef just needs to read it.
+            if (kind == FlowChatKind.Issue)
+            {
+                try
+                {
+                    await _lifecycle.ReopenForIssueAsync(id, CurrentUserId(), ct);
+                    await chat.AppendAsync(new AppendChatMessageInput(
+                        FlowId: id,
+                        Sender: FlowChatSender.System,
+                        Kind: FlowChatKind.System,
+                        Content: $"Issue opened — flow auto-reopened (state → OnHold). Chef will pick up on next session via chef_transition('Resume')."), ct);
+                }
+                catch (FlowLifecycleException ex)
+                {
+                    // Transition refused (e.g. raced past Approved) — keep
+                    // the chat row, but tell the caller the auto-reopen
+                    // didn't fire. Frontend can still poll the state.
+                    return Conflict($"Issue logged but auto-reopen failed: {ex.Message}");
+                }
+            }
             return Ok(new FlowChatMessageDto(
                 row.Id, row.FlowId, row.Sender.ToString(), row.Kind.ToString(),
                 row.Content, row.ArtifactsJson, row.Version, row.CreatedAt, row.AuthorUserId));

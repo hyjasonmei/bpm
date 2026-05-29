@@ -111,10 +111,15 @@ export function CookPanel({
     try {
       await postChatReply(flowId, { kind, content: text })
       setInput('')
-      // Issue opening doesn't change flow state — admin can decide to
-      // re-cook via separate action. Reply leaves state at OnHold; the
-      // chef session is responsible for transitioning back to Cooking
-      // via the MCP tool. Refresh either way to surface the new row.
+      // PR-X4: Issue auto-reopens the flow on the server (Committed/
+      // Approved → OnHold). Refresh both the messages and the flow
+      // state pill so the UI catches the transition immediately.
+      if (kind === 'Issue') {
+        try {
+          const flow = await getFlow(flowId)
+          onStateChange(flow.state)
+        } catch { /* ignore — next poll cycle will catch up */ }
+      }
       await refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))

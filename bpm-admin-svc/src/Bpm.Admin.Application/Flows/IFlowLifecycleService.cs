@@ -64,4 +64,12 @@ public interface IFlowLifecycleService
     /// session in the right place. Pass <c>null</c> branch to clear.
     /// </summary>
     Task<Flow> SetChefWorkContextAsync(Guid flowId, string? branch, string? notes, CancellationToken ct = default);
+
+    /// <summary>
+    /// User-side reopen: Committed or Approved → OnHold so chef knows
+    /// to revisit. Fired automatically when admin posts an Issue
+    /// chat-reply; chef's next session sees state=OnHold + the message
+    /// in the thread and resumes via <c>chef_transition('Resume')</c>.
+    /// </summary>
+    Task<Flow> ReopenForIssueAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
 }

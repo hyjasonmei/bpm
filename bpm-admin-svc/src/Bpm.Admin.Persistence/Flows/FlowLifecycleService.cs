@@ -233,6 +233,10 @@ public class FlowLifecycleService : IFlowLifecycleService
         return row;
     }
 
+    public Task<Flow> ReopenForIssueAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
+        => TransitionAsync(flowId, FlowState.OnHold, "flow_reopened_for_issue", actorUserId,
+            new[] { FlowState.Committed, FlowState.Approved }, ct);
+
     public async Task<Flow> AssignGroupAsync(Guid flowId, Guid? groupId, Guid? actorUserId, CancellationToken ct = default)
     {
         var row = await Load(flowId, ct);

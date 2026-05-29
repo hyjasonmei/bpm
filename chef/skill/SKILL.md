@@ -511,12 +511,15 @@ Blocked path:
    appends a Question chat row automatically).
 2. **Exit the session.** No polling.
 
-Resume path (new chef Claude Code session, after user replied):
+Resume path (new chef Claude Code session, after user replied or
+opened an issue):
 
 1. Bundle → flowId (same as before).
 2. `chef_get_messages(flowId)` — find the most recent
-   `sender=User, kind=Reply` row; that's what the user wants
-   addressed.
+   `sender=User, kind=Reply` OR `kind=Issue` row; that's what the
+   user wants addressed. Admin auto-flips the state to OnHold when
+   an Issue is opened on a Committed/Approved flow (PR-X4), so the
+   resume path is identical in both cases.
 3. `chef_transition(target='Resume')` — flips state OnHold → Cooking.
 4. Continue cooking; post memos on each milestone.
 
