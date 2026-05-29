@@ -121,6 +121,8 @@ export type TaskActionKind =
   | 'revoke'       // 已 Completed 後撤銷（須 guard `status == "Completed"`）
   | 'custom'       // 自由命名 + targetEdgeId 必填
 
+export type PromptCommentMode = 'none' | 'optional' | 'required'
+
 export interface TaskAction {
   id: string
   kind: TaskActionKind
@@ -132,11 +134,13 @@ export interface TaskAction {
   targetEdgeId?: string
   /** CEL evaluated against case context. False → button disabled. */
   guard?: string
-  /** Show a confirm modal before sending (revoke / cancel / reject). */
-  confirm?: boolean
-  /** Show a comment textarea modal before sending; chef passes the
-   *  comment into the service method. */
-  promptComment?: boolean
+  /** Comment textarea behaviour inside the confirm modal:
+   *  - 'none' → no textarea, just yes/no
+   *  - 'optional' → textarea present but submittable while empty
+   *  - 'required' → textarea must be filled before Confirm enables
+   *  Default 'none'. Every action gets a confirm modal — there is no
+   *  separate confirm flag. */
+  promptComment?: PromptCommentMode
 }
 
 /** Display label for an action — first non-empty locale, then kind. */
@@ -234,8 +238,24 @@ export function defaultUserTaskActions(): TaskAction[] {
 export function defaultApprovalActions(): TaskAction[] {
   return [
     { id: newActionId('approve'), kind: 'approve', label: { 'zh-TW': DEFAULT_ACTION_LABELS.approve } },
-    { id: newActionId('reject'),  kind: 'reject',  label: { 'zh-TW': DEFAULT_ACTION_LABELS.reject }, promptComment: true },
+    { id: newActionId('reject'),  kind: 'reject',  label: { 'zh-TW': DEFAULT_ACTION_LABELS.reject }, promptComment: 'optional' },
   ]
+}
+
+/** Drops legacy `confirm` (every action is auto-confirmed now) and
+ *  remaps `promptComment: boolean` → `'none' | 'optional' | 'required'`
+ *  (true → optional, false → none). Modern values pass through. */
+function migrateTaskAction(raw: TaskAction): TaskAction {
+  const r = raw as Omit<TaskAction, 'promptComment'> & { confirm?: unknown; promptComment?: unknown }
+  const { confirm: _legacyConfirm, promptComment: rawPc, ...rest } = r
+  void _legacyConfirm
+  let promptComment: PromptCommentMode | undefined
+  if (rawPc === true)       promptComment = 'optional'
+  else if (rawPc === false) promptComment = 'none'
+  else if (rawPc === 'none' || rawPc === 'optional' || rawPc === 'required') {
+    promptComment = rawPc
+  }
+  return { ...rest, ...(promptComment ? { promptComment } : {}) } as TaskAction
 }
 
 /* ── Form layout (Tier 1 element set) ───────────────────────────
@@ -883,9 +903,10 @@ export function migrateDraft(d: unknown): DraftSpec {
       const { hint, ...rest } = legacy
       return { ...rest, note: hint } as FormField
     }),
-    actions: (t as Partial<UserTask>).actions && (t as UserTask).actions.length > 0
+    actions: ((t as Partial<UserTask>).actions && (t as UserTask).actions.length > 0
       ? (t as UserTask).actions
-      : defaultUserTaskActions(),
+      : defaultUserTaskActions()
+    ).map(migrateTaskAction),
   }))
 
   // Legacy: ActorRef DSL revision — v1.1 had `role` / `user` / `group`
@@ -896,9 +917,10 @@ export function migrateDraft(d: unknown): DraftSpec {
   const approvals = (partial.approvals ?? []).map(a => ({
     ...a,
     approver: migrateActorRef(a.approver),
-    actions: (a as Partial<Approval>).actions && (a as Approval).actions.length > 0
+    actions: ((a as Partial<Approval>).actions && (a as Approval).actions.length > 0
       ? (a as Approval).actions
-      : defaultApprovalActions(),
+      : defaultApprovalActions()
+    ).map(migrateTaskAction),
   })) as Approval[]
 
   // Legacy: IntegrationItem.triggerNodeId renamed to .serviceTaskNodeId
@@ -1256,7 +1278,7 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
       approver: { type: 'expr', path: 'submitter.manager' },
       actions: [
         { id: 'act_mgr_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
-        { id: 'act_mgr_reject',  kind: 'reject',  label: { 'zh-TW': '退回補件' }, promptComment: true },
+        { id: 'act_mgr_reject',  kind: 'reject',  label: { 'zh-TW': '退回補件' }, promptComment: 'optional' },
       ],
     },
     {
@@ -1268,7 +1290,7 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
       },
       actions: [
         { id: 'act_vp_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
-        { id: 'act_vp_reject',  kind: 'reject',  label: { 'zh-TW': '駁回' }, promptComment: true, confirm: true },
+        { id: 'act_vp_reject',  kind: 'reject',  label: { 'zh-TW': '駁回' }, promptComment: 'required' },
       ],
     },
   ],
@@ -1394,7 +1416,7 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
       actions: [
         { id: 'act_req_submit', kind: 'submit',     label: { 'zh-TW': '送出申請', en: 'Submit' } },
         { id: 'act_req_draft',  kind: 'save_draft', label: { 'zh-TW': '存草稿' } },
-        { id: 'act_req_cancel', kind: 'cancel',     label: { 'zh-TW': '取消' }, confirm: true },
+        { id: 'act_req_cancel', kind: 'cancel',     label: { 'zh-TW': '取消' } },
       ],
     },
     {
@@ -1436,7 +1458,7 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
       approver: { type: 'expr', path: 'submitter.manager' },
       actions: [
         { id: 'act_mgr_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
-        { id: 'act_mgr_reject',  kind: 'reject',  label: { 'zh-TW': '退回補件' }, promptComment: true },
+        { id: 'act_mgr_reject',  kind: 'reject',  label: { 'zh-TW': '退回補件' }, promptComment: 'optional' },
       ],
     },
     {
@@ -1444,7 +1466,7 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
       approver: { type: 'principal', ref: 'role:Finance' },
       actions: [
         { id: 'act_fin_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
-        { id: 'act_fin_reject',  kind: 'reject',  label: { 'zh-TW': '駁回' }, promptComment: true, confirm: true },
+        { id: 'act_fin_reject',  kind: 'reject',  label: { 'zh-TW': '駁回' }, promptComment: 'required' },
       ],
     },
     {
@@ -1452,7 +1474,7 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
       approver: { type: 'principal', ref: 'role:CEO', fallback: { text: '若 CEO 不在，請改 VP 角色簽核' } },
       actions: [
         { id: 'act_ceo_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
-        { id: 'act_ceo_reject',  kind: 'reject',  label: { 'zh-TW': '駁回' }, promptComment: true, confirm: true },
+        { id: 'act_ceo_reject',  kind: 'reject',  label: { 'zh-TW': '駁回' }, promptComment: 'required' },
       ],
     },
   ],

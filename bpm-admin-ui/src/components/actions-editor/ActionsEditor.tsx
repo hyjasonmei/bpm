@@ -5,9 +5,16 @@ import { ExpressionEditorModal } from '@/components/expression-editor/Expression
 import {
   defaultActionLabel,
   type FlowEdge,
+  type PromptCommentMode,
   type TaskAction,
   type TaskActionKind,
 } from '@/lib/onboarding'
+
+const PROMPT_COMMENT_OPTIONS: { value: PromptCommentMode; label: string; hint: string }[] = [
+  { value: 'none',     label: '不收',  hint: '只跳 Are you sure? 沒有 textarea' },
+  { value: 'optional', label: '選填',  hint: '跳出 textarea，空白也可送' },
+  { value: 'required', label: '必填',  hint: '必須輸入文字才能 Confirm' },
+]
 
 const USER_TASK_KINDS: TaskActionKind[] = ['submit', 'save_draft', 'complete', 'cancel', 'revoke', 'custom']
 const APPROVAL_KINDS:  TaskActionKind[] = ['approve', 'reject', 'cancel', 'revoke', 'custom']
@@ -49,8 +56,9 @@ export function ActionsEditor({
       id, kind,
       label: { 'zh-TW': defaultActionLabel(kind) },
       ...(outgoingEdges.length === 1 ? {} : { targetEdgeId: outgoingEdges[0]?.id }),
-      ...(kind === 'reject' || kind === 'cancel' || kind === 'revoke' ? { promptComment: true } : {}),
-      ...(kind === 'cancel' || kind === 'revoke' ? { confirm: true } : {}),
+      ...(kind === 'reject' || kind === 'cancel' || kind === 'revoke'
+        ? { promptComment: 'optional' as PromptCommentMode }
+        : {}),
     }
     onChange([...actions, next])
   }
@@ -190,24 +198,33 @@ function ActionCard({
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <label className="inline-flex items-center gap-1 text-[11px] text-ink-muted">
-          <input
-            type="checkbox"
-            checked={!!action.confirm}
-            onChange={e => onPatch({ confirm: e.target.checked || undefined })}
-            className="h-3 w-3"
-          />
-          confirm modal
-        </label>
-        <label className="inline-flex items-center gap-1 text-[11px] text-ink-muted">
-          <input
-            type="checkbox"
-            checked={!!action.promptComment}
-            onChange={e => onPatch({ promptComment: e.target.checked || undefined })}
-            className="h-3 w-3"
-          />
-          收 comment
-        </label>
+        <div className="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
+          <span className="font-mono uppercase tracking-[0.12em] text-[10px]">comment</span>
+          <div className="inline-flex rounded border border-rule bg-white p-0.5" role="radiogroup" aria-label="收 comment 設定">
+            {PROMPT_COMMENT_OPTIONS.map(opt => {
+              const active = (action.promptComment ?? 'none') === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  title={opt.hint}
+                  onClick={() => onPatch({ promptComment: opt.value === 'none' ? undefined : opt.value })}
+                  className={cn(
+                    'rounded px-1.5 py-0.5 text-[11px] transition-colors',
+                    active
+                      ? 'bg-primary text-white'
+                      : 'text-ink-muted hover:bg-slate-50 hover:text-ink',
+                  )}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+          <span className="text-[10px] text-ink-faint">（confirm modal 自動跳）</span>
+        </div>
         <button
           type="button"
           onClick={() => setGuardOpen(true)}

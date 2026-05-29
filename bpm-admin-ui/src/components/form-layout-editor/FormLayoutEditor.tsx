@@ -189,6 +189,13 @@ function SectionCard({
     ])
   }
   function addRepeater() {
+    // Seed with a default text field so the repeater is meaningful
+    // from the moment it appears. RepeaterCard.removeItemField will
+    // tear the whole repeater down again if the user deletes the last
+    // item field — the two rules together guarantee no empty repeater
+    // is ever persisted.
+    const fieldId = `f_${Date.now().toString(36).slice(-4)}`
+    const seed: FormField = { id: fieldId, label: { 'zh-TW': '新欄位' }, type: 'text', required: false, _uid: newFieldUid() }
     onChildrenChange([
       ...children,
       {
@@ -196,8 +203,8 @@ function SectionCard({
         id: `rep_${Date.now().toString(36).slice(-4)}`,
         title: { 'zh-TW': '新多筆群組' },
         minCount: 1,
-        itemFields: [],
-        itemLayout: [],
+        itemFields: [seed],
+        itemLayout: [{ kind: 'fieldRef', id: fieldId }],
         totals: [],
       },
     ])
@@ -630,8 +637,16 @@ function RepeaterCard({ repeater, onPatch, onRemove, dragHandle }: {
   }
   function removeItemField(idx: number) {
     const removedId = itemFields[idx].id
+    const nextFields = itemFields.filter((_, i) => i !== idx)
+    // Empty repeater is meaningless — chef can't generate a row schema
+    // with no columns. Removing the last item field tears down the
+    // entire repeater so the canvas doesn't render an empty card.
+    if (nextFields.length === 0) {
+      onRemove()
+      return
+    }
     onPatch({
-      itemFields: itemFields.filter((_, i) => i !== idx),
+      itemFields: nextFields,
       // Strip any fieldRefs to the removed id from the layout tree.
       itemLayout: stripFieldRefs(itemLayout, removedId),
     })
