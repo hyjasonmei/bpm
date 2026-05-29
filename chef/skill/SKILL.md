@@ -577,8 +577,21 @@ Happy path:
 4. Cook. After each major layer (Domain / Application / Persistence /
    Api / UI) post another `Memo` so the user sees live progress.
 5. When done: `chef_transition(target='Committed')` then
-   `chef_post_message(kind='Completion', version='V1.0',
+   `chef_post_message(kind='Completion', version='V<flowVersion>.<cookIteration>',
    artifactsJson=JSON.stringify({branch, fileCount, testsPassing}))`.
+
+   **Version label = `V<flowVersion>.<cookIteration>`** —
+   `flowVersion` mirrors `spec.json.meta.flowVersion` (the spec's
+   identity), `cookIteration` starts at 0 and bumps by 1 on every
+   Committed transition this chef makes against the same spec
+   version. So a fresh cook of LEAVE V1 ships `V1.0`; the next
+   Committed cycle after an Issue or follow-up reply is `V1.1`,
+   then `V1.2`, and so on. When admin rolls the spec to v2 and
+   chef cooks against it, the count resets to `V2.0`. Do NOT use
+   semver-style patch suffixes (`V1.0.1`) — chef rounds aren't
+   patch/minor/major; they're just iterations. To find the next
+   cookIteration: `chef_get_messages(flowId)` and count prior
+   `kind=Completion` rows whose `version` shares the same major.
 6. Exit.
 
 Blocked path:
