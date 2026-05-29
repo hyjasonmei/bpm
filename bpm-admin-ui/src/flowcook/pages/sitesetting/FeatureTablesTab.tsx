@@ -267,6 +267,23 @@ function ConfirmArchiveModal({
         <ul className="my-2 max-h-32 overflow-auto rounded border border-rule bg-bg p-2 text-[11px] font-mono text-ink-muted">
           {row.tableNames.map(t => <li key={t}>{t}</li>)}
         </ul>
+        <div className="my-3 flex gap-2 rounded border border-warn/30 bg-warn/5 p-2.5 text-[11px] text-ink">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" />
+          <div className="space-y-1">
+            <p>
+              <span className="font-semibold">bpm 端衝擊：</span>
+              改名後 bpm-svc 的 inbox 會 skip 這隻 flow 的 cases（lead 端有 graceful catch，不會整個炸），但
+              <span className="font-mono"> /cases/{row.flowCode}/&lt;id&gt; </span> 等直接打 case detail 的 URL 會 500。
+            </p>
+            {row.flowState && row.flowState !== 'Retired' && (
+              <p>
+                <span className="font-semibold">建議：</span>
+                目前 flow state 是 <code className="font-mono">{row.flowState}</code>，
+                可先 Retire（launcher 隱藏 + 拒收新 case）再 archive。
+              </p>
+            )}
+          </div>
+        </div>
         <p className="text-[11px] text-ink-faint">
           資料保留，原 namespace 釋放。輸入 <code className="font-mono text-ink">{required}</code> 確認：
         </p>

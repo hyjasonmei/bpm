@@ -2,6 +2,7 @@ using Bpm.Api.Common;
 using Bpm.Application.Inbox;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.Sqlite;
 
 namespace Bpm.Api.Inbox;
 
@@ -15,27 +16,55 @@ namespace Bpm.Api.Inbox;
 [ApiController]
 [Route("api/inbox")]
 [Authorize]
-public sealed class InboxController(IEnumerable<ITypedInboxProvider> providers) : BpmControllerBase
+public sealed class InboxController : BpmControllerBase
 {
-    [HttpGet("mine")]
-    public async Task<IReadOnlyList<InboxRow>> Mine(CancellationToken ct)
+    private readonly IEnumerable<ITypedInboxProvider> _providers;
+    private readonly ILogger<InboxController> _log;
+
+    public InboxController(IEnumerable<ITypedInboxProvider> providers, ILogger<InboxController> log)
     {
-        var userId = RequireUserId();
-        var tasks = providers.Select(p => p.GetMineAsync(userId, ct)).ToArray();
-        var results = await Task.WhenAll(tasks);
-        return results.SelectMany(r => r)
-            .OrderByDescending(r => r.LastActivityAt)
-            .ToList();
+        _providers = providers;
+        _log = log;
     }
 
+    [HttpGet("mine")]
+    public Task<IReadOnlyList<InboxRow>> Mine(CancellationToken ct)
+        => CollectAsync(p => p.GetMineAsync(RequireUserId(), ct), ct);
+
     [HttpGet("pending")]
-    public async Task<IReadOnlyList<InboxRow>> Pending(CancellationToken ct)
+    public Task<IReadOnlyList<InboxRow>> Pending(CancellationToken ct)
+        => CollectAsync(p => p.GetPendingAsync(RequireUserId(), ct), ct);
+
+    /// <summary>
+    /// Sequential fan-out (shared scoped AppDbContext can't multiplex).
+    /// Wraps each provider call so an archived feature table — its
+    /// backing SQLite table renamed away by admin's
+    /// <c>FeatureTablesService.ArchiveAsync</c> — skips that provider
+    /// instead of failing the entire inbox response. Anything else
+    /// (column drift, syntax error, FK violation) still bubbles up so
+    /// real bugs aren't masked.
+    /// </summary>
+    private async Task<IReadOnlyList<InboxRow>> CollectAsync(
+        Func<ITypedInboxProvider, Task<IReadOnlyList<InboxRow>>> fetch,
+        CancellationToken ct)
     {
-        var userId = RequireUserId();
-        var tasks = providers.Select(p => p.GetPendingAsync(userId, ct)).ToArray();
-        var results = await Task.WhenAll(tasks);
-        return results.SelectMany(r => r)
-            .OrderByDescending(r => r.LastActivityAt)
-            .ToList();
+        var rows = new List<InboxRow>();
+        foreach (var p in _providers)
+        {
+            try
+            {
+                rows.AddRange(await fetch(p));
+            }
+            catch (SqliteException ex) when (IsMissingTable(ex))
+            {
+                _log.LogWarning(
+                    "Inbox provider {Provider} skipped — backing table missing (likely archived via admin Feature Tables tab). {Message}",
+                    p.GetType().Name, ex.Message);
+            }
+        }
+        return rows.OrderByDescending(r => r.LastActivityAt).ToList();
     }
+
+    private static bool IsMissingTable(SqliteException ex)
+        => ex.Message.Contains("no such table", StringComparison.OrdinalIgnoreCase);
 }

@@ -164,6 +164,7 @@ public sealed class FeatureTablesService : IFeatureTablesService
         if (flow != null)
         {
             flow.ArchivedAt = _clock.UtcNow;
+            flow.UpdatedAt = _clock.UtcNow;
             flow.ArchivedTableNamesJson = JsonSerializer.Serialize(renamed);
             await _db.SaveChangesAsync(ct);
         }
@@ -233,6 +234,7 @@ public sealed class FeatureTablesService : IFeatureTablesService
         if (flow != null)
         {
             flow.ArchivedAt = null;
+            flow.UpdatedAt = _clock.UtcNow;
             flow.ArchivedTableNamesJson = null;
             await _db.SaveChangesAsync(ct);
         }
