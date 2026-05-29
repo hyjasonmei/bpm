@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Bpm.Admin.Application.Flows;
+using Bpm.Admin.Application.Principals;
 using Bpm.Admin.Domain.Flows;
 using Bpm.Admin.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -20,12 +21,14 @@ public sealed class ChefMcpTools
     private readonly AdminDbContext _db;
     private readonly IFlowLifecycleService _lifecycle;
     private readonly IFlowChatService _chat;
+    private readonly IChefOrgQueryService _org;
 
-    public ChefMcpTools(AdminDbContext db, IFlowLifecycleService lifecycle, IFlowChatService chat)
+    public ChefMcpTools(AdminDbContext db, IFlowLifecycleService lifecycle, IFlowChatService chat, IChefOrgQueryService org)
     {
         _db = db;
         _lifecycle = lifecycle;
         _chat = chat;
+        _org = org;
     }
 
     [McpServerTool(Name = "chef_get_flow")]
@@ -142,6 +145,82 @@ public sealed class ChefMcpTools
             }
             _ = reason; // currently audit only (placeholder for future structured reasons)
             return new { id = updated.Id, state = updated.State.ToString(), lastHeartbeat = updated.LastChefHeartbeatAt };
+        }
+        catch (FlowLifecycleException ex)
+        {
+            return Error(ex.Message);
+        }
+    }
+
+    // ── PR-M1: org-graph read tools ──────────────────────────────────
+
+    [McpServerTool(Name = "chef_list_roles")]
+    [Description("List every active role in admin's org graph with member counts. Use this to confirm a spec's `role:XXX` actor refs target a role that actually exists.")]
+    public async Task<object?> ListRoles(CancellationToken ct = default)
+    {
+        var rows = await _org.ListRolesAsync(ct);
+        return rows.Select(r => new
+        {
+            id = r.Id,
+            name = r.Name,
+            description = r.Description,
+            memberCount = r.MemberCount,
+            isSystem = r.IsSystem,
+        });
+    }
+
+    [McpServerTool(Name = "chef_list_principals")]
+    [Description("List principals (default: first 100 users). Filter by `roleName`, `kind` (user/dept/group), or `search` (display name + email substring).")]
+    public async Task<object?> ListPrincipals(
+        [Description("Filter to principals holding this role (matches Admin_Roles.Name).")] string? roleName = null,
+        [Description("Filter by kind: user | dept | group")] string? kind = null,
+        [Description("Substring match against DisplayName + Email.")] string? search = null,
+        [Description("Max rows; default 100, max 500.")] int take = 100,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var rows = await _org.ListPrincipalsAsync(roleName, kind, search, take, ct);
+            return rows.Select(p => new
+            {
+                id = p.Id,
+                kind = p.Kind,
+                displayName = p.DisplayName,
+                email = p.Email,
+                active = p.Active,
+                roles = p.Roles,
+            });
+        }
+        catch (FlowLifecycleException ex)
+        {
+            return Error(ex.Message);
+        }
+    }
+
+    [McpServerTool(Name = "chef_walk_org")]
+    [Description("Resolve an ActorRef.expr-style path (e.g. 'manager', 'manager.manager', 'department.head', 'department.parent.head') starting from a submitter user id. Returns a step-by-step trace plus the final resolved principals — use this to sanity-check the resolver C# you're about to write.")]
+    public async Task<object?> WalkOrg(
+        [Description("Submitter user id (UUID) to start the walk from.")] string submitterUserId,
+        [Description("Dot-separated path. Supported segments: manager | department | head | parent.")] string path,
+        CancellationToken ct = default)
+    {
+        if (!Guid.TryParse(submitterUserId, out var id))
+            return Error($"invalid submitterUserId '{submitterUserId}'");
+        try
+        {
+            var result = await _org.WalkOrgAsync(id, path, ct);
+            return new
+            {
+                startUserId = result.StartUserId,
+                path = result.Path,
+                steps = result.Steps.Select(s => new
+                {
+                    segment = s.Segment,
+                    kind = s.Kind,
+                    resolved = s.Resolved.Select(p => new { id = p.Id, displayName = p.DisplayName, email = p.Email, kind = p.Kind }),
+                }),
+                final = result.Final.Select(p => new { id = p.Id, displayName = p.DisplayName, email = p.Email, kind = p.Kind, roles = p.Roles }),
+            };
         }
         catch (FlowLifecycleException ex)
         {

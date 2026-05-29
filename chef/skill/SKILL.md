@@ -524,6 +524,27 @@ Resume path (new chef Claude Code session, after user replied):
 | `chef_get_messages(flowId, since?)` | After OnHold resume, or when curious about user activity |
 | `chef_post_message(flowId, kind, content, artifactsJson?, version?)` | Memos / completion artifacts; chef can only post `Memo` / `Question` / `Completion` |
 | `chef_transition(flowId, target, question?)` | `Cooking` / `Resume` / `OnHold` / `Committed` |
+| `chef_list_roles()` | Confirm a spec's `role:XXX` actor refs target a role that actually exists |
+| `chef_list_principals(roleName?, kind?, search?)` | Inspect the org graph shape — who holds HR, what depts exist, search by display name |
+| `chef_walk_org(submitterUserId, path)` | Sanity-check the resolver C# you're about to write by walking the org from a sample submitter (paths: `manager`, `manager.manager`, `department`, `department.head`, `department.parent`, `department.parent.head`) |
+
+### Verifying actor refs before coding the resolver
+
+Before baking a resolver method into `<FLOW>_<V>_<Stage>Service.cs`,
+spend a tool call confirming the path actually returns somebody:
+
+1. Pick a sample submitter id from `sample-org.json` (or `chef_list_principals(kind='user')`).
+2. Call `chef_walk_org(submitter, '<the actor path>')`.
+3. Each step's `resolved` array shows what the EF join produces; an
+   empty `final` means the path dead-ends (e.g. submitter has no
+   manager, or the department has no head) — fall back to the spec's
+   `ActorRefFallback.text` instead of silently raising
+   `ConflictException`.
+
+For `role:XXX` refs, call `chef_list_principals(roleName='XXX')` to
+confirm the role has members; if the role exists but no one holds it,
+flag it via `chef_post_message(kind='Question', ...)` before coding —
+the customer probably forgot to assign the role.
 
 ### Artifacts: metadata only
 
