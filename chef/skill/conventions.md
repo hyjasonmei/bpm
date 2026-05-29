@@ -12,12 +12,20 @@ Don't create new csproj files or edit `bpm-svc.slnx`.
 | Allowed (write) | What lives here |
 |---|---|
 | `bpm-svc/src/Domain/Features/<CODE>/V<N>/**` | Entity + status enum + value objects (POCO, no deps) |
-| `bpm-svc/src/Application/Features/<CODE>/V<N>/**` | State-machine service + notification templates + `ITypedInboxProvider` impl + actor-resolution helpers (all business logic) |
-| `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` | **EF mapping only** (`<CODE>_V<N>_<Purpose>Configuration.cs`) |
+| `bpm-svc/src/Application/Features/<CODE>/V<N>/**` | State-machine service + notification templates + `ITypedInboxProvider` impl + actor-resolution helpers + per-flow `I<CODE>_V<N>_CaseStore` interface (all business logic) |
+| `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` | EF `<CODE>_V<N>_<Purpose>Configuration` + EF-backed `<CODE>_V<N>_CaseStore` impl of the Application-side interface (Persistence is the only place that knows the per-flow entity by type) |
 | `bpm-svc/src/Persistence/Migrations/<ts>_<CODE>_V<N>_*.cs` + `AppDbContextModelSnapshot.cs` | `dotnet ef migrations add` regenerates these — let it drive |
 | `bpm-svc/src/Api/Features/<CODE>/V<N>/**` | Controller + DTOs |
 | `bpm-svc/tests/Bpm.Tests/Features/<CODE>/V<N>/**` | Unit + integration tests |
-| `bpm-ui/src/features/<CODE>/V<N>/**` | React form + manifest + case-detail page; registry globs `*/V*/manifest.ts` automatically |
+| `bpm-ui/src/features/<CODE>/V<N>/**` | React form + manifest + case-detail page + bundle's `bpmn.xml` (copy verbatim); registry globs `*/V*/manifest.ts` automatically |
+
+Bounded lead-side touches (allowed when unavoidable, flag in final report):
+
+| Lead-side path | Why chef has to touch it |
+|---|---|
+| `bpm-svc/src/Application/DependencyInjection.cs` | `AddScoped<<CODE>_V<N>_<Purpose>Service>()` registration. (The `ITypedInboxProvider` scan in this file already picks up providers automatically — usually no edit needed.) |
+| `bpm-svc/src/Persistence/DependencyInjection.cs` | Bind `I<CODE>_V<N>_CaseStore` to its EF impl. |
+| `bpm-ui/src/lib/workflow.ts` | Extend `FormCode` union + add `FORMS.<CODE>` entry (label / steps / ownerByStep) so `FormShell` + `BpmnView` can render the flow. |
 
 The five Clean-Arch layers (Domain / Application / Persistence /
 Api / SeedCli) are the same shape both backends use. **Entities don't
@@ -116,19 +124,27 @@ spec's `approval_vp` fallback "若部門主管不在請走 VP 角色" became
 
 ## Actor resolution helpers
 
-Chef-side, against admin's SharedIdentity tables (read-only DbSets
-already on `AppDbContext` — chef uses `db.Set<T>()`):
+Chef-side resolvers run in **Application** and therefore can't touch
+SharedX DbSets directly. Use the lead-shipped ports:
 
-| Need | Tables to read |
-|---|---|
-| Manager of a user | `SharedUserManager` (UserId → ManagerUserId) |
-| Primary dept of a user | `SharedUserDept` where `IsPrimary` |
-| Dept head | `SharedDeptHead` (DeptId → HeadUserId) |
-| First user in a role | `SharedRole` (by Name) → `SharedPrincipalRole` |
-| Membership check | `SharedRole` + `SharedPrincipalRole` |
-| Display name | `SharedPrincipal` (Id → DisplayName) |
+| Need | Port + method | Returns |
+|---|---|---|
+| Manager of a user | `IOrgChartReader.GetManagerIdAsync(userId)` | `Guid?` |
+| Primary dept of a user | `IOrgChartReader.GetPrimaryDepartmentIdAsync(userId)` | `Guid?` |
+| Dept head | `IOrgChartReader.GetDepartmentHeadIdAsync(deptId)` | `Guid?` |
+| Dept parent | `IOrgChartReader.GetDepartmentParentIdAsync(deptId)` | `Guid?` |
+| Role assignees by name | `IOrgChartReader.GetRoleAssigneesAsync(roleName, flowCode?)` | `(PrincipalId, RoleId)[]` |
+| Group expansion | `IOrgChartReader.ExpandGroupAsync(groupId)` | `GroupExpansion` |
+| First active User in role by name | `IPrincipalDirectory.FindFirstUserInRoleAsync(roleName)` | `Guid?` |
+| Display name / email lookup | `IPrincipalDirectory.GetByIdAsync(principalId)` / `GetManyAsync(ids)` | `PrincipalInfo?` / dict |
 
-See `LEAVE_V1_LeaveService` for the canonical helper shapes.
+For per-flow case data — your own table — go through your
+`I<CODE>_V<N>_CaseStore` (see SKILL §3.4), never `AppDbContext`.
+
+⚠️ The LEAVE V1 reference still queries SharedX DbSets directly
+because its service lives in Persistence. **Don't copy that
+pattern** — see `PURCHASE_REQUEST_V1_PurchaseRequestService` for the
+Clean-Arch shape.
 
 ## Cross-cutting primitives chef MUST consume
 
@@ -136,17 +152,23 @@ Lead-maintained — chef imports, never reinvents.
 
 | Concern | Primitive | Notes |
 |---|---|---|
-| Unified inbox | `Bpm.Application.Inbox.ITypedInboxProvider` + `InboxRow` | Required per feature. `DependencyInjection` auto-registers all impls. |
+| Unified inbox | `Bpm.Application.Inbox.ITypedInboxProvider` + `InboxRow` | Required per feature. Both Application and Persistence DI scans auto-register impls. |
+| Per-flow data access | chef-shipped `I<CODE>_V<N>_CaseStore` (Application) + EF impl (Persistence) — see SKILL §3.4 | Mandatory: Application can't reference Persistence, so the service must talk to its own table through this port |
+| Org-chart reads | `Bpm.Application.Org.IOrgChartReader` | manager / primary dept / dept head / dept parent / group expansion / role assignees by name |
+| Principal lookup | `Bpm.Application.Common.Directory.IPrincipalDirectory` | `GetByIdAsync`, `GetManyAsync`, `FindFirstUserInRoleAsync(roleName)` — display name / email / Kind / Active |
+| Notification send | `Bpm.Application.Notifications.INotifyDispatcher` + `NotifyMessage` | POC binds to `FileNotifyDispatcher` writing `var/notifications.txt`; production swaps the binding |
 | File upload (UI) | `@/components/ui/FilePicker` | Returns `{ id, fileName, contentType, sizeBytes }` |
 | File storage (backend) | `Bpm.Application.Files.IFileStorageService` | Read bytes by id |
 | Buttons | `@/components/ui/button` | `variant=primary\|outline\|ghost\|destructive`, `size=xs\|sm\|md` |
 | Form inputs | `@/components/ui/form` | `<Input>`, `<Textarea>`, `<Select>`, `<Field>`, `<InfoBanner>` |
 | Section cards | `@/components/ui/card` | `<SectionCard>`, `<SectionTitle>` |
+| Action footer | `@/components/ui/action-footer/ActionFooter` | Sticky bottom bar — required for case-detail decision buttons (no inline buttons) |
 | Confirm dialog | `@/components/ui/ConfirmDialog` | Used by every form submit |
 | Read-only field | `@/components/ui/readonly` | |
-| API fetch (UI) | `@/lib/apiFetch` | Wraps fetch with the JWT |
+| API fetch (UI) | `@/lib/apiFetch` (+ `BPM_SVC_URL`, `getJwt`) | Wraps fetch with the JWT |
+| JWT decode | `@/lib/jwt` (`decodeJwt`) | Read `sub` to identify the current viewer in CaseDetail |
 | Auth (backend) | `BpmControllerBase.RequireUserId()` | JWT `sub` claim |
-| Logging | `ILogger<T>` | Notification dispatch is a stub today — log subject + recipient |
+| Logging | `ILogger<T>` | Diagnostic only — real delivery goes through `INotifyDispatcher` |
 
 If you need a UI control or backend service not in this table, stop
 and ask Jason. Lead ships the primitive; chef consumes it.

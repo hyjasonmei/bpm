@@ -1,8 +1,10 @@
 using Bpm.Application.Admin;
 using Bpm.Application.Attendance;
 using Bpm.Application.Common.Abstractions;
+using Bpm.Application.Common.Directory;
 using Bpm.Application.Common.Services;
 using Bpm.Application.Delegation;
+using Bpm.Application.Features.PURCHASE_REQUEST.V1;
 using Bpm.Application.Files;
 using Bpm.Application.Impersonation;
 using Bpm.Application.Inbox;
@@ -19,7 +21,9 @@ using Bpm.Application.Spec.Bundle;
 using Bpm.Persistence.Admin;
 using Bpm.Persistence.Attendance;
 using Bpm.Persistence.Common;
+using Bpm.Persistence.Common.Directory;
 using Bpm.Persistence.Features.LEAVE.V1;
+using Bpm.Persistence.Features.PURCHASE_REQUEST.V1;
 using Bpm.Persistence.Delegation;
 using Bpm.Persistence.Files;
 using Bpm.Persistence.Impersonation;
@@ -150,7 +154,22 @@ public static class DependencyInjection
         services.AddScoped<IFileStorageService, FileStorageService>();
 
         // Chef-cooked features: per-flow state-machine services.
+        // LEAVE V1 lives entirely in Persistence under the old (pre-Clean-Arch)
+        // shape, so its service is registered here. New (Clean-Arch) cooks
+        // register their service from Application/DI instead — see
+        // PURCHASE_REQUEST V1 for the canonical pattern.
         services.AddScoped<LEAVE_V1_LeaveService>();
+
+        // Lead-owned platform abstraction used by Clean-Arch chef cooks for
+        // SharedPrincipal display-name / email / role-member resolution
+        // (Application can't reference Persistence directly).
+        services.AddScoped<IPrincipalDirectory, PrincipalDirectory>();
+
+        // Per-flow data-access ports for Clean-Arch chef cooks. Each cook
+        // ships its store interface in Application/Features/<CODE>/V<N>/
+        // and the EF impl in Persistence/Features/<CODE>/V<N>/, then wires
+        // the binding here so DI can hand the impl to Application services.
+        services.AddScoped<IPURCHASE_REQUEST_V1_CaseStore, PURCHASE_REQUEST_V1_CaseStore>();
 
         // Unified inbox: scan this assembly for ITypedInboxProvider
         // implementations and register each one. Chef-cooked flows

@@ -35,7 +35,7 @@ export interface FormDef {
   initialActive: number
 }
 
-export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB' | 'RESIGN' | 'DEPTX'
+export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB' | 'RESIGN' | 'DEPTX' | 'PURCHASE_REQUEST'
 
 const STEP = (id: string, en: string, zh: string): Step => ({ id, en, zh })
 
@@ -190,6 +190,19 @@ export const FORMS: Record<FormCode, FormDef> = {
       STEP('closed', 'CLOSED', '結案'),
     ],
     ownerByStep: ['employee', 'manager', 'hr', null],
+    initialActive: 0,
+  },
+  PURCHASE_REQUEST: {
+    code: 'PURCHASE_REQUEST',
+    label: 'Purchase Request',
+    zhLabel: '採購申請',
+    steps: [
+      STEP('apply', 'APPLY', '填寫申請'),
+      STEP('dept_head', 'DEPT HEAD APPROVE', '部門主管核准'),
+      STEP('finance', 'FINANCE APPROVE', '財務核准'),
+      STEP('closed', 'CLOSED', '結案'),
+    ],
+    ownerByStep: ['employee', 'manager', 'finance', null],
     initialActive: 0,
   },
 }

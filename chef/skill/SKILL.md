@@ -40,9 +40,12 @@ looks. **leave-test-4 is the model B redo** — entity + state machine
      value object (no deps)
    - `bpm-svc/src/Application/Features/<CODE>/V<N>/**` — state machine
      service, notification templates, `ITypedInboxProvider` impl,
-     actor-resolution helpers (all the business logic)
-   - `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` — **EF mapping
-     only** (`<CODE>_V<N>_<Purpose>Configuration.cs`)
+     actor-resolution helpers, and a **per-flow data-access port**
+     `I<CODE>_V<N>_CaseStore` (interface only — see §3.4)
+   - `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` — EF
+     `<CODE>_V<N>_<Purpose>Configuration.cs` **and** the EF-backed
+     impl of the chef's `I<CODE>_V<N>_CaseStore` (the only Persistence
+     code that knows about the per-flow entity)
    - `bpm-svc/src/Persistence/Migrations/<ts>_<CODE>_V<N>_*.cs` and
      `AppDbContextModelSnapshot.cs` (`dotnet ef migrations add`
      regenerates these together — let the tool drive)
@@ -59,8 +62,22 @@ looks. **leave-test-4 is the model B redo** — entity + state machine
    - Top-level routes (`bpm-ui/src/router.tsx`, `App.tsx`,
      `screens/Home.tsx`) — lead owns these
 
-   If the spec implies you need to touch a forbidden path, stop and
-   tell Jason. Don't silently expand the boundary.
+   **Bounded lead-side touches (allowed when unavoidable, flag in
+   the final report):**
+   - `bpm-svc/src/Application/DependencyInjection.cs` — add the chef
+     service's `AddScoped<>` registration. (The
+     `ITypedInboxProvider` assembly scan in this file already picks
+     up new providers automatically; you usually don't need to edit
+     the scan itself.)
+   - `bpm-svc/src/Persistence/DependencyInjection.cs` — bind your
+     `I<CODE>_V<N>_CaseStore` interface to its EF impl.
+   - `bpm-ui/src/lib/workflow.ts` — extend the `FormCode` union and
+     add a `FORMS.<CODE>` entry (steps + ownerByStep) so
+     `FormShell` / `BpmnView` can render your flow.
+
+   If the spec implies you need to touch a *different* forbidden
+   path (e.g. a new shared UI primitive), stop and tell Jason.
+   Don't silently expand the boundary.
 
 2. **Name everything with the `<CODE>_V<N>_` prefix.** Classes, tables,
    migrations, files, React components. The prefix is the identifier
@@ -85,9 +102,16 @@ looks. **leave-test-4 is the model B redo** — entity + state machine
    - `@/components/ui/FilePicker` + `IFileStorageService` — for
      `field.type === 'file'`
    - JWT + `BpmControllerBase.RequireUserId()` for auth
-   - `AppDbContext` + SharedIdentity tables for org reads (manager,
-     dept head, role)
-   - `ILogger<T>` for notification stubs (real engine is a follow-up)
+   - `Bpm.Application.Org.IOrgChartReader` for org-tree reads
+     (manager / primary dept / dept head / dept parent / group
+     expansion / role assignees by name) — chef-side resolvers in
+     Application **never** touch `AppDbContext.SharedX*` directly
+   - `Bpm.Application.Common.Directory.IPrincipalDirectory` for
+     display-name / email / "first user in role" lookups — same reason
+   - `Bpm.Application.Notifications.INotifyDispatcher` +
+     `NotifyMessage` for sending notifications (POC: `FileNotifyDispatcher`
+     appends to `var/notifications.txt`)
+   - `ILogger<T>` for diagnostic logging
 
    When the spec uses a construct not covered by the
    §spec-construct-table in conventions.md, stop and ask Jason. Lead
@@ -264,16 +288,15 @@ own per-flow status into the spec's node ids — see `LEAVE_V1_CaseDetail`'s
 `deriveTrail(case)` for the pattern (status → `{ completed: string[],
 current: string | null }`, ids match `spec.flow.nodes[].id`).
 
-`LEAVE_V1_InboxProvider` plugs into the backend via a DI assembly
+`<CODE>_V<N>_InboxProvider` plugs into the backend via a DI assembly
 scan that registers every non-abstract `ITypedInboxProvider` at
-startup. Because the impl lives in **Application**, the scan needs
-to cover the Application assembly (target: `Application.DependencyInjection`).
-The historical scan in `Persistence.DependencyInjection` only covered
-the Persistence assembly — if your cook lands while the scan is
-still Persistence-only, your provider compiles but the runtime
-silently skips it. Verify the scan covers your provider's assembly
-before declaring the cook done; if it doesn't, **stop and ask** —
-this is lead-side work.
+startup. Both `Application.DependencyInjection` (canonical for
+Clean-Arch cooks where the provider lives in Application) and
+`Persistence.DependencyInjection` (legacy LEAVE V1 reference, where
+the provider still lives in Persistence) run this scan, so a
+provider in either assembly gets picked up. If a future scan
+regression breaks one of them, the provider compiles but the runtime
+silently skips it — **stop and ask** rather than working around it.
 
 The React component is **bespoke per flow** — there is no generic
 `<DynamicForm spec />` runtime. The wizard's `spec.layout` is your
@@ -281,6 +304,59 @@ blueprint for what JSX to emit. Use the corresponding hand-coded form
 under `bpm-ui/src/screens/forms/Reference_*.tsx` (where one exists)
 for tone / sectioning / table-vs-card invoices — but don't copy logic
 blindly. The spec is authoritative.
+
+### 3.4 Per-flow data-access port — `I<CODE>_V<N>_CaseStore`
+
+`Application.csproj` does NOT (and cannot) reference
+`Persistence.csproj` — Persistence already references Application, and
+reversing the link creates a cycle. So the per-flow state-machine
+service in Application **cannot** touch `AppDbContext`, the per-flow
+EF entity's `DbSet<>`, or any `SharedX*` DbSet directly.
+
+The chef pattern that works: ship a per-flow store **interface** in
+Application alongside the service, and an EF-backed **impl** in
+Persistence.
+
+`bpm-svc/src/Application/Features/<CODE>/V<N>/I<CODE>_V<N>_CaseStore.cs`:
+
+```csharp
+public interface IPURCHASE_REQUEST_V1_CaseStore
+{
+    void Add(PURCHASE_REQUEST_V1_Case @case);
+    Task<PURCHASE_REQUEST_V1_Case?> FindByIdAsync(Guid caseId, CancellationToken ct = default);
+    Task<IReadOnlyList<PURCHASE_REQUEST_V1_Case>> FindMineAsync(Guid submitterUserId, CancellationToken ct = default);
+    Task<IReadOnlyList<PURCHASE_REQUEST_V1_Case>> FindPendingAsync(Guid assigneeUserId, CancellationToken ct = default);
+    Task SaveChangesAsync(CancellationToken ct = default);
+}
+```
+
+`bpm-svc/src/Persistence/Features/<CODE>/V<N>/<CODE>_V<N>_CaseStore.cs`:
+
+```csharp
+public sealed class PURCHASE_REQUEST_V1_CaseStore(AppDbContext db) : IPURCHASE_REQUEST_V1_CaseStore
+{
+    public void Add(PURCHASE_REQUEST_V1_Case @case) => db.Set<PURCHASE_REQUEST_V1_Case>().Add(@case);
+    public Task<PURCHASE_REQUEST_V1_Case?> FindByIdAsync(Guid caseId, CancellationToken ct = default)
+        => db.Set<PURCHASE_REQUEST_V1_Case>().SingleOrDefaultAsync(c => c.Id == caseId, ct);
+    // …
+    public Task SaveChangesAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
+}
+```
+
+`Persistence/DependencyInjection.cs` then binds the interface to the
+impl (one line per cook).
+
+The service / inbox provider / controller all depend on
+`I<CODE>_V<N>_CaseStore`, not on `AppDbContext`. For
+`SharedPrincipal` / `SharedRole` reads use the existing
+`IOrgChartReader` + `IPrincipalDirectory` (see §1 rule 5) — same
+reason: chef code in Application can't import Persistence types.
+
+⚠️ The LEAVE V1 reference predates this split: its service +
+inbox provider live in `Persistence/Features/LEAVE/V1/` and read
+`AppDbContext.LEAVE_V1_Cases` + SharedX DbSets directly. That shape
+is **legacy**; new cooks ship the Clean-Arch split above. PURCHASE_REQUEST
+V1 is the canonical reference.
 
 ### 3.5 Actions → state machine + UI buttons
 

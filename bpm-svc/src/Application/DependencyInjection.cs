@@ -3,6 +3,8 @@ using FluentValidation;
 using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Behaviors;
 using Bpm.Application.Common.Services;
+using Bpm.Application.Features.PURCHASE_REQUEST.V1;
+using Bpm.Application.Inbox;
 using Bpm.Application.Notifications;
 using Bpm.Application.Spec;
 using Bpm.Application.Spec.Bundle;
@@ -74,6 +76,25 @@ public static class DependencyInjection
         // so it lives as a Singleton.
         services.AddScoped<IBundleParser, BundleParser>();
         services.AddSingleton<IBundleValidator, BundleValidator>();
+
+        // Chef-cooked feature services living in the Application layer.
+        // (Legacy LEAVE V1 reference is registered from Persistence/DI
+        // because its service lives there in the old shape.)
+        services.AddScoped<PURCHASE_REQUEST_V1_PurchaseRequestService>();
+
+        // Unified inbox: scan the Application assembly for
+        // ITypedInboxProvider impls so chef-cooked feature providers
+        // shipped under Application/Features/<CODE>/V<N>/ get registered
+        // automatically. Persistence/DI scans the Persistence assembly
+        // separately for the legacy LEAVE V1 reference shape.
+        foreach (var providerType in assembly
+            .GetTypes()
+            .Where(t => !t.IsAbstract
+                        && !t.IsInterface
+                        && typeof(ITypedInboxProvider).IsAssignableFrom(t)))
+        {
+            services.AddScoped(typeof(ITypedInboxProvider), providerType);
+        }
 
         return services;
     }
