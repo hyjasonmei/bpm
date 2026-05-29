@@ -52,7 +52,8 @@ public class FlowsController : ControllerBase
             .Select(f => new FlowSummaryDto(
                 f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt,
                 f.GroupId,
-                f.GroupId == null ? null : _db.FlowGroups.Where(g => g.Id == f.GroupId).Select(g => g.Code).FirstOrDefault()))
+                f.GroupId == null ? null : _db.FlowGroups.Where(g => g.Id == f.GroupId).Select(g => g.Code).FirstOrDefault(),
+                f.ChefWorkContextJson))
             .ToListAsync(ct);
         return Ok(rows);
     }
@@ -283,7 +284,7 @@ public class FlowsController : ControllerBase
         return new(
             f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.SpecJson, f.Notes,
             f.CreatedByUserId, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt,
-            f.GroupId, groupCode);
+            f.GroupId, groupCode, f.ChefWorkContextJson);
     }
 
     /// <summary>Set or clear the flow's launcher group. Empty body /

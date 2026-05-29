@@ -25,12 +25,30 @@ export interface FlowSummary {
   groupId: string | null
   /** Denormalised group code so the list row can chip without a second fetch. */
   groupCode: string | null
+  /** Free-form JSON about chef's workspace (PR-W1). Today shape:
+   *  { branch, notes?, setAt }. Null when no chef session has set it. */
+  chefWorkContextJson: string | null
 }
 
 export interface FlowDetail extends FlowSummary {
   specJson: string
   notes: string | null
   createdByUserId: string | null
+}
+
+/** Parse the chef work-context JSON helper; tolerant of nulls / garbage. */
+export interface ChefWorkContext {
+  branch?: string
+  notes?: string
+  setAt?: string
+}
+export function parseChefWorkContext(json: string | null | undefined): ChefWorkContext | null {
+  if (!json) return null
+  try {
+    const parsed = JSON.parse(json) as ChefWorkContext
+    if (!parsed.branch) return null
+    return parsed
+  } catch { return null }
 }
 
 export interface CreateFlowRequest {

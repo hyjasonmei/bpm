@@ -74,4 +74,13 @@ public class Flow : ISoftDeletable
     /// Format: <c>["LEAVE_V1_leave_case__arch_a3c7f1e2", …]</c>.
     /// </summary>
     public string? ArchivedTableNamesJson { get; set; }
+
+    /// <summary>
+    /// Free-form JSON about chef's current workspace. Today shape:
+    /// <c>{ "branch": "leave-test-6", "notes": "Domain layer done", "setAt": "2026-05-29T01:00:00Z" }</c>.
+    /// Surfaced in admin-ui CookPanel + list page so the operator can
+    /// find chef's in-flight code or relaunch session in the right
+    /// worktree. Updated by the chef MCP tool <c>chef_set_worktree</c>.
+    /// </summary>
+    public string? ChefWorkContextJson { get; set; }
 }

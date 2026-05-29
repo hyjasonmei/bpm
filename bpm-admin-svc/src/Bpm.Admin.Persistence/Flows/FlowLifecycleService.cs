@@ -133,6 +133,39 @@ public class FlowLifecycleService : IFlowLifecycleService
         await _db.SaveChangesAsync(ct);
     }
 
+    public async Task<Flow> SetChefWorkContextAsync(Guid flowId, string? branch, string? notes, CancellationToken ct = default)
+    {
+        var row = await Load(flowId, ct);
+        if (string.IsNullOrWhiteSpace(branch))
+        {
+            row.ChefWorkContextJson = null;
+        }
+        else
+        {
+            var payload = new Dictionary<string, string?>
+            {
+                ["branch"] = branch.Trim(),
+                ["notes"]  = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
+                ["setAt"]  = DateTime.UtcNow.ToString("o"),
+            };
+            row.ChefWorkContextJson = System.Text.Json.JsonSerializer.Serialize(payload);
+        }
+        row.LastChefHeartbeatAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(
+            actionType: "chef_work_context_set",
+            targetType: "flow",
+            targetId: row.Id.ToString(),
+            actorUserId: null,
+            actorPrincipalId: null,
+            after: new { Branch = branch, Notes = notes },
+            reason: "chef session",
+            ct: ct);
+
+        return row;
+    }
+
     public async Task<Flow> AssignGroupAsync(Guid flowId, Guid? groupId, Guid? actorUserId, CancellationToken ct = default)
     {
         var row = await Load(flowId, ct);

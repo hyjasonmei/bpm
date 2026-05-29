@@ -38,7 +38,8 @@ import {
 } from '@/flowcook/api/flows'
 import { assignFlowGroup, listFlowGroups, type FlowGroupDto } from '@/flowcook/api/flowGroups'
 import { resolveIcon } from '@/flowcook/pages/sitesetting/FlowGroupsTab'
-import { FolderPlus, Tag } from 'lucide-react'
+import { FolderPlus, GitBranch, Tag } from 'lucide-react'
+import { parseChefWorkContext } from '@/flowcook/api/flows'
 import { CookPanel } from './aiKitchen/CookPanel'
 import { ServePanel } from './aiKitchen/ServePanel'
 import { useCookMessages } from './aiKitchen/useCookMessages'
@@ -378,6 +379,7 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                               <span className="h-1.5 w-1.5 rounded-full bg-warn" /> stalled
                             </span>
                           )}
+                          <ChefBranchChip flow={f} />
                         </div>
                       </td>
                       <td className="px-3 py-3">
@@ -942,6 +944,20 @@ function GroupChip({ flow, groups }: { flow: FlowSummary; groups: FlowGroupDto[]
     <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
       <Icon className="h-3 w-3" />
       {group.displayName['zh-TW'] ?? group.code}
+    </span>
+  )
+}
+
+function ChefBranchChip({ flow }: { flow: FlowSummary }) {
+  const ctx = parseChefWorkContext(flow.chefWorkContextJson)
+  if (!ctx?.branch) return null
+  return (
+    <span
+      title={ctx.notes ? `${ctx.notes}\nset ${ctx.setAt ?? ''}` : `set ${ctx.setAt ?? ''}`}
+      className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] tracking-wide text-primary"
+    >
+      <GitBranch className="h-2.5 w-2.5" />
+      {ctx.branch}
     </span>
   )
 }

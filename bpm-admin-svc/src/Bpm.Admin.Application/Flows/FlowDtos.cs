@@ -13,7 +13,8 @@ public record FlowSummaryDto(
     DateTime UpdatedAt,
     DateTime? LastChefHeartbeatAt,
     Guid? GroupId,
-    string? GroupCode);
+    string? GroupCode,
+    string? ChefWorkContextJson);
 
 public record FlowDetailDto(
     Guid Id,
@@ -29,7 +30,8 @@ public record FlowDetailDto(
     DateTime UpdatedAt,
     DateTime? LastChefHeartbeatAt,
     Guid? GroupId,
-    string? GroupCode);
+    string? GroupCode,
+    string? ChefWorkContextJson);
 
 public record CreateFlowRequest(string FlowCode, string DisplayName, string? SpecJson);
 

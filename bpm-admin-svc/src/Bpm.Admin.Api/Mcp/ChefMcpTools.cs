@@ -152,6 +152,26 @@ public sealed class ChefMcpTools
         }
     }
 
+    [McpServerTool(Name = "chef_set_worktree")]
+    [Description("Record the git branch (or worktree path) chef is cooking in, so admin operators can find your in-flight code. Call right after `chef_transition('Cooking')`. Optional `notes` for a one-line status. Pass `branch=''` to clear.")]
+    public async Task<object?> SetWorktree(
+        [Description("Flow id (UUID)")] string flowId,
+        [Description("Branch name (e.g. 'leave-test-6') or empty string to clear.")] string branch,
+        [Description("Optional one-line status note (e.g. 'Domain layer done; about to run migration').")] string? notes = null,
+        CancellationToken ct = default)
+    {
+        if (!Guid.TryParse(flowId, out var id)) return Error($"invalid flowId '{flowId}'");
+        try
+        {
+            var row = await _lifecycle.SetChefWorkContextAsync(id, branch, notes, ct);
+            return new { id = row.Id, branch, notes, setAt = DateTime.UtcNow };
+        }
+        catch (FlowLifecycleException ex)
+        {
+            return Error(ex.Message);
+        }
+    }
+
     // ── PR-M1: org-graph read tools ──────────────────────────────────
 
     [McpServerTool(Name = "chef_list_roles")]

@@ -491,7 +491,11 @@ Happy path:
    `chef_get_messages(flowId)` first to see the user's most recent
    reply and `chef_transition(target='Resume')`. Otherwise call
    `chef_transition(target='Cooking')`.
-3. Post the kick-off memo: `chef_post_message(kind='Memo',
+3. **Stamp the worktree** via `chef_set_worktree(flowId,
+   branch='<current branch>', notes='starting Domain layer')` so
+   admin can find your code at a glance. Keep `notes` fresh on each
+   milestone memo.
+4. Post the kick-off memo: `chef_post_message(kind='Memo',
    content='Picking up; will scaffold Domain → Application →
    Persistence → Api → UI')`.
 4. Cook. After each major layer (Domain / Application / Persistence /
@@ -524,6 +528,7 @@ Resume path (new chef Claude Code session, after user replied):
 | `chef_get_messages(flowId, since?)` | After OnHold resume, or when curious about user activity |
 | `chef_post_message(flowId, kind, content, artifactsJson?, version?)` | Memos / completion artifacts; chef can only post `Memo` / `Question` / `Completion` |
 | `chef_transition(flowId, target, question?)` | `Cooking` / `Resume` / `OnHold` / `Committed` |
+| `chef_set_worktree(flowId, branch, notes?)` | Right after `chef_transition('Cooking')` so admin sees the branch chip in CookPanel + list page. Re-call to update `notes` ("Domain layer done"); pass empty string to clear when done. |
 | `chef_list_roles()` | Confirm a spec's `role:XXX` actor refs target a role that actually exists |
 | `chef_list_principals(roleName?, kind?, search?)` | Inspect the org graph shape — who holds HR, what depts exist, search by display name |
 | `chef_walk_org(submitterUserId, path)` | Sanity-check the resolver C# you're about to write by walking the org from a sample submitter (paths: `manager`, `manager.manager`, `department`, `department.head`, `department.parent`, `department.parent.head`) |

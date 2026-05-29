@@ -56,4 +56,12 @@ public interface IFlowLifecycleService
     /// group on a flow. Admin Site Setting feature; never chef-driven.
     /// </summary>
     Task<Flow> AssignGroupAsync(Guid flowId, Guid? groupId, Guid? actorUserId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Record chef's current worktree / branch context. Called by the
+    /// chef MCP tool <c>chef_set_worktree</c>; admin UI surfaces it
+    /// so the operator can find chef's in-flight code or relaunch the
+    /// session in the right place. Pass <c>null</c> branch to clear.
+    /// </summary>
+    Task<Flow> SetChefWorkContextAsync(Guid flowId, string? branch, string? notes, CancellationToken ct = default);
 }

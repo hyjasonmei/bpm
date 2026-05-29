@@ -10,6 +10,7 @@ import {
   FileCode,
   FileDiff,
   FlaskConical,
+  GitBranch,
   HelpCircle,
   MessageSquareWarning,
   Send,
@@ -17,7 +18,7 @@ import {
   User as UserIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
-import type { FlowState } from '@/flowcook/api/flows'
+import { getFlow, parseChefWorkContext, type ChefWorkContext, type FlowState } from '@/flowcook/api/flows'
 import {
   postChatReply,
   simulateChefAsk,
@@ -55,6 +56,23 @@ export function CookPanel({
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  // PR-W1: poll the flow detail alongside messages so we know what
+  // branch chef is on without threading state through WizardView.
+  const [workContext, setWorkContext] = useState<ChefWorkContext | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const flow = await getFlow(flowId)
+        if (!cancelled) setWorkContext(parseChefWorkContext(flow.chefWorkContextJson))
+      } catch {
+        /* ignore — chip stays as last-known */
+      }
+    }
+    void load()
+    const t = window.setInterval(() => { void load() }, 30_000)
+    return () => { cancelled = true; window.clearInterval(t) }
+  }, [flowId])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -157,6 +175,15 @@ export function CookPanel({
             <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-good/30 bg-good/10 px-2 py-0.5 font-mono text-[10px] tracking-wide text-good">
               <CheckCheck className="h-3 w-3" />
               latest {latestVersion}
+            </span>
+          )}
+          {workContext && (
+            <span
+              title={workContext.notes ? `${workContext.notes}\nset ${workContext.setAt ?? ''}` : `set ${workContext.setAt ?? ''}`}
+              className="ml-2 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] tracking-wide text-primary"
+            >
+              <GitBranch className="h-3 w-3" />
+              {workContext.branch}
             </span>
           )}
         </div>
