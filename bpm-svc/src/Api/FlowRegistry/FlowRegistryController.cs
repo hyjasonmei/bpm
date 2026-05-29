@@ -38,7 +38,11 @@ public sealed class FlowRegistryController : BpmControllerBase
         // existing assignments don't visually break.
         var rows = await _db.SharedFlows
             .AsNoTracking()
-            .Where(f => f.DeletedAt == null)
+            // PR-X11: archived flows are renamed away on the admin side
+            // (feature table __arch_<hash>); excluding them here keeps
+            // bpm-ui Home + every other registry consumer from offering
+            // a flow whose backing table no longer exists.
+            .Where(f => f.DeletedAt == null && f.ArchivedAt == null)
             .OrderBy(f => f.FlowCode).ThenByDescending(f => f.Version)
             .Select(f => new
             {

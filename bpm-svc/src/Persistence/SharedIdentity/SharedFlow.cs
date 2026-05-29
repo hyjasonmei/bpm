@@ -25,6 +25,16 @@ public class SharedFlow
 
     /// <summary>FK onto <see cref="SharedFlowGroup.Id"/>; null when unassigned.</summary>
     public Guid? GroupId { get; set; }
+
+    /// <summary>
+    /// Mirror of <c>Admin_Flows.ArchivedAt</c>. Set by admin's Feature
+    /// Tables tab when the per-flow EF tables are renamed away
+    /// (<c>__arch_&lt;hash&gt;</c>). bpm-svc reads this to hide the flow
+    /// from <c>/api/flow-registry</c> (and downstream bpm-ui Home /
+    /// inbox) — once the backing table is gone, the flow is dead
+    /// regardless of whether <see cref="State"/> is Approved or Retired.
+    /// </summary>
+    public DateTime? ArchivedAt { get; set; }
 }
 
 /// <summary>

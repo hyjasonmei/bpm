@@ -161,11 +161,22 @@ public sealed class FeatureTablesService : IFeatureTablesService
             if (opened) await conn.CloseAsync();
         }
 
+        FlowState? priorState = flow?.State;
         if (flow != null)
         {
             flow.ArchivedAt = _clock.UtcNow;
             flow.UpdatedAt = _clock.UtcNow;
             flow.ArchivedTableNamesJson = JsonSerializer.Serialize(renamed);
+            // PR-X11: archive is terminal — flip Approved to Retired so
+            // bpm-ui Home (and any other state-machine consumer) stops
+            // offering it the moment the tables are renamed away. Other
+            // states (Draft / Submitted / Cooking / OnHold / Committed /
+            // Rejected) are already non-launchable, so leave them alone
+            // to keep the lifecycle audit trail honest.
+            if (flow.State == FlowState.Approved)
+            {
+                flow.State = FlowState.Retired;
+            }
             await _db.SaveChangesAsync(ct);
         }
 
@@ -175,7 +186,8 @@ public sealed class FeatureTablesService : IFeatureTablesService
             targetId: $"{req.FlowCode}_V{req.Version}",
             actorUserId: actorUserId,
             actorPrincipalId: null,
-            after: new { req.FlowCode, req.Version, RenamedTo = renamed },
+            before: new { State = priorState?.ToString(), ArchivedAt = (DateTime?)null },
+            after: new { req.FlowCode, req.Version, State = flow?.State.ToString(), RenamedTo = renamed },
             ct: ct);
 
         return new FeatureTableGroupDto(
