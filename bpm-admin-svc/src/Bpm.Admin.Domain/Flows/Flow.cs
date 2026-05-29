@@ -57,4 +57,21 @@ public class Flow : ISoftDeletable
     /// (soft-delete query filter) so dangling rows surface as null.
     /// </summary>
     public Guid? GroupId { get; set; }
+
+    /// <summary>
+    /// Set when admin archives this flow's chef-cooked tables. Orthogonal
+    /// to <see cref="State"/> and <see cref="DeletedAt"/>: admin can
+    /// archive any state. Archived rows are hidden from the bpm-ui
+    /// launcher even if their state would otherwise qualify, and their
+    /// FlowCode no longer blocks a new Submit (the active-uniqueness
+    /// check ignores archived rows).
+    /// </summary>
+    public DateTime? ArchivedAt { get; set; }
+
+    /// <summary>
+    /// JSON-encoded list of the renamed table names produced by the
+    /// archive operation. Used by Restore to find them back.
+    /// Format: <c>["LEAVE_V1_leave_case__arch_a3c7f1e2", …]</c>.
+    /// </summary>
+    public string? ArchivedTableNamesJson { get; set; }
 }

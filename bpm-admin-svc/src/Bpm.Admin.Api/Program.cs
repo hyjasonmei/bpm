@@ -70,6 +70,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFlowLifecycleService, FlowLifecycleService>();
 builder.Services.AddScoped<IFlowChatService, FlowChatService>();
 builder.Services.AddScoped<IFlowGroupService, FlowGroupService>();
+builder.Services.AddScoped<IFeatureTablesService, FeatureTablesService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<Bpm.Admin.Application.Common.Abstractions.IClock, Bpm.Admin.Api.Common.AdminSystemClock>();
 builder.Services.AddSingleton<Bpm.Admin.Application.Spec.Expressions.IExpressionEvaluator, Bpm.Admin.Application.Spec.Expressions.CelNetExpressionEvaluator>();

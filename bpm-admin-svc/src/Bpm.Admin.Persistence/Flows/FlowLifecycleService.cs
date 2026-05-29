@@ -72,8 +72,28 @@ public class FlowLifecycleService : IFlowLifecycleService
         return row;
     }
 
-    public Task<Flow> SubmitAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
-        => TransitionAsync(flowId, FlowState.Submitted, "flow_submitted", actorUserId, new[] { FlowState.Draft }, ct);
+    public async Task<Flow> SubmitAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
+    {
+        // FlowCode uniqueness check (PR-F1): an "active" flow with the
+        // same code blocks Submit. Retired flows are OK because their
+        // chef tables stay live and end-user-facing case data keeps
+        // working; archived flows are OK because their tables are
+        // renamed and the namespace is free.
+        var row = await Load(flowId, ct);
+        var clash = await _db.Flows
+            .AsNoTracking()
+            .AnyAsync(f =>
+                f.Id != row.Id &&
+                f.FlowCode == row.FlowCode &&
+                f.ArchivedAt == null &&
+                f.State != FlowState.Retired,
+                ct);
+        if (clash)
+            throw new FlowLifecycleException(
+                $"FlowCode '{row.FlowCode}' is already used by another active flow; archive or retire that one first.");
+
+        return await TransitionAsync(flowId, FlowState.Submitted, "flow_submitted", actorUserId, new[] { FlowState.Draft }, ct);
+    }
 
     public Task<Flow> CancelAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
         => TransitionAsync(flowId, FlowState.Draft, "flow_cancelled", actorUserId,

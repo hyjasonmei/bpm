@@ -31,6 +31,7 @@ public class AdminDbContext : DbContext
     public DbSet<Flow> Flows => Set<Flow>();
     public DbSet<FlowChatMessage> FlowChatMessages => Set<FlowChatMessage>();
     public DbSet<FlowGroup> FlowGroups => Set<FlowGroup>();
+    public DbSet<FeatureRegistration> FeatureRegistrations => Set<FeatureRegistration>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
