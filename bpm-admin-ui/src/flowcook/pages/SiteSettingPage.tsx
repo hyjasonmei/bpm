@@ -1,12 +1,14 @@
-import { Database, FolderTree } from 'lucide-react'
+import { Cloud, Database, FolderTree } from 'lucide-react'
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { FlowGroupsTab } from './sitesetting/FlowGroupsTab'
 import { FeatureTablesTab } from './sitesetting/FeatureTablesTab'
+import { EnvironmentsTab } from './sitesetting/EnvironmentsTab'
 
 const TABS = [
   { path: '/site-setting/flow-groups',    label: 'Flow Groups',    icon: FolderTree },
   { path: '/site-setting/feature-tables', label: 'Feature Tables', icon: Database },
+  { path: '/site-setting/environments',   label: 'Environments',   icon: Cloud },
 ] as const
 
 export function SiteSettingPage() {
@@ -38,6 +40,7 @@ export function SiteSettingPage() {
           <Route index element={<Navigate to="flow-groups" replace />} />
           <Route path="flow-groups" element={<FlowGroupsTab />} />
           <Route path="feature-tables" element={<FeatureTablesTab />} />
+          <Route path="environments" element={<EnvironmentsTab />} />
           <Route path="*" element={<Navigate to="flow-groups" replace />} />
         </Routes>
       </div>

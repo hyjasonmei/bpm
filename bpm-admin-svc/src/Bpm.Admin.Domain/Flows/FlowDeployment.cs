@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Bpm.Admin.Domain.Flows;
 
 /// <summary>
@@ -21,6 +23,7 @@ public class FlowDeployment
     public DateTime UpdatedAt { get; set; }
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum FlowDeploymentStatus
 {
     NotDeployed = 0,

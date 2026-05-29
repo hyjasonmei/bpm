@@ -42,12 +42,6 @@ import { FolderPlus, GitBranch, Tag } from 'lucide-react'
 import { parseChefWorkContext } from '@/flowcook/api/flows'
 import { CookPanel } from './aiKitchen/CookPanel'
 import { ServePanel } from './aiKitchen/ServePanel'
-import { useCookMessages } from './aiKitchen/useCookMessages'
-import {
-  DEFAULT_DEPLOYMENTS,
-  type DeployState,
-  type EnvId,
-} from './aiKitchen/types'
 
 export function AiKitchenPage() {
   // Nested routes under /ai-kitchen:
@@ -572,16 +566,6 @@ function WizardView({
   // these with proper API-backed state.
   const [mockState, setMockState] = useState<FlowState>(flow.state)
   useEffect(() => { setMockState(flow.state) }, [flow.id, flow.state])
-  // PR-K3: cookedCount + chat thread now live on admin-svc. The Cook
-  // panel polls /api/flows/{id}/messages directly; this wrapper just
-  // mirrors the count to phaseDefs + ServePanel so they don't unlock
-  // before chef has ever finished a cook.
-  const { messages: cookMessages } = useCookMessages(flow.id)
-  const cookedCount = useMemo(
-    () => cookMessages.filter(m => m.kind === 'completion').length,
-    [cookMessages],
-  )
-  const [deployments, setDeployments] = useState<Record<EnvId, DeployState>>(DEFAULT_DEPLOYMENTS)
 
   // Parse initial spec into a DraftSpec; tolerate parse errors by falling
   // back to EMPTY_DRAFT (a partial spec from chef-on-hold or an external
@@ -816,10 +800,11 @@ function WizardView({
   useSetPageHeader(pageHeader)
 
   // PhaseTabs: Cook unlocks once chef takes over (state !== Draft).
-  // Serve unlocks once at least one cook has completed.
+  // Serve always available past Draft — env board renders even before
+  // any cook, and Approve is gated by state === 'Committed' inside.
   const phaseDefs = useMemo<PhaseDef[]>(() => {
     const cookOpen  = mockState !== 'Draft'
-    const serveOpen = cookedCount > 0
+    const serveOpen = mockState !== 'Draft'
     return [
       { id: 'prep',  label: 'Prep',  hint: '備料 — 用 wizard 把 spec 寫清楚' },
       {
@@ -828,12 +813,12 @@ function WizardView({
         disabledHint: 'Submit to chef 之後才會啟用',
       },
       {
-        id: 'serve', label: 'Serve', hint: '上菜 — 把 cooked version 部署到 DEV / STG / PRD',
+        id: 'serve', label: 'Serve', hint: '上菜 — 環境部署 + Approve',
         disabled: !serveOpen,
-        disabledHint: 'chef 完成第一次 cook 後才會啟用',
+        disabledHint: 'Submit to chef 之後才會啟用',
       },
     ]
-  }, [mockState, cookedCount])
+  }, [mockState])
 
   const overflowGroups: OverflowGroup[] = [
     {
@@ -931,10 +916,9 @@ function WizardView({
         )}
         {phase === 'serve' && (
           <ServePanel
-            flowVersion={flow.version}
-            cookedCount={cookedCount}
-            deployments={deployments}
-            setDeployments={setDeployments}
+            flowId={flow.id}
+            state={mockState}
+            onStateChange={setMockState}
           />
         )}
       </div>

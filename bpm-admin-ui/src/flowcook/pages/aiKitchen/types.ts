@@ -31,21 +31,6 @@ export interface ChatMessage {
   version?: string  // 'V1.0' — set on completion messages
 }
 
-export type EnvId = 'DEV' | 'STG' | 'PRD'
-
-export type DeployStatus = 'not-deployed' | 'deploying' | 'running' | 'off'
-
-export interface DeployState {
-  status: DeployStatus
-  deployedVersion: string | null
-}
-
-export const DEFAULT_DEPLOYMENTS: Record<EnvId, DeployState> = {
-  DEV: { status: 'not-deployed', deployedVersion: null },
-  STG: { status: 'not-deployed', deployedVersion: null },
-  PRD: { status: 'not-deployed', deployedVersion: null },
-}
-
 export function cookedVersionLabel(flowVersion: number, cookedCount: number): string | null {
   if (cookedCount <= 0) return null
   return `V${flowVersion}.${cookedCount - 1}`
