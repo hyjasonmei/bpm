@@ -857,6 +857,174 @@ namespace Bpm.Persistence.Migrations
                     b.ToTable("SpecBundles", (string)null);
                 });
 
+            modelBuilder.Entity("Bpm.Domain.Features.PURCHASE_REQUEST.V1.PURCHASE_REQUEST_V1_Case", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CurrentAssigneeUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool?>("DeptHeadApproved")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DeptHeadComment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeptHeadDecisionAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("DeptHeadUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool?>("FinanceApproved")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FinanceComment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("FinanceDecisionAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("FinanceUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Invoices")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("invoices_json");
+
+                    b.Property<DateTime>("LastActivityAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("RoundCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SubmitterComment")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SubmitterUserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrentAssigneeUserId");
+
+                    b.HasIndex("SubmitterUserId");
+
+                    b.HasIndex("Status", "LastActivityAt");
+
+                    b.ToTable("PURCHASE_REQUEST_V1_case", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Persistence.Features.LEAVE.V1.LEAVE_V1_Case", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ArchiveNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CertFileId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CurrentAssigneeUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Days")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("HrArchivedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("HrUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastActivityAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LeaveType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool?>("ManagerApproved")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ManagerComment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ManagerDecisionAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ManagerUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SubmitterUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool?>("VpApproved")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("VpComment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("VpDecisionAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("VpUserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrentAssigneeUserId");
+
+                    b.HasIndex("SubmitterUserId");
+
+                    b.HasIndex("Status", "LastActivityAt");
+
+                    b.ToTable("LEAVE_V1_leave_case", (string)null);
+                });
+
             modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedDeptHead", b =>
                 {
                     b.Property<Guid>("DeptId")
@@ -889,6 +1057,90 @@ namespace Bpm.Persistence.Migrations
                     b.HasKey("DeptId");
 
                     b.ToTable("Admin_DeptParents", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
+                });
+
+            modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedFlow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FlowCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("GroupId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("LineageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("State")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Admin_Flows", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
+                });
+
+            modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedFlowGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayNameJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Admin_FlowGroups", null, t =>
                         {
                             t.ExcludeFromMigrations();
                         });

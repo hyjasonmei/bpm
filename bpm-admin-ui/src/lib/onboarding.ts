@@ -21,26 +21,28 @@ export interface OnboardingStep {
   brief: string
 }
 
-/** Canonical 11-step order. SOURCE & ACCESS frame the flow; FORMS →
- *  NOTIFY are the authoring core; INTEGRATIONS exposes external systems
- *  and then VARIABLES surfaces the values those integrations drag in
- *  (plus anything user wants to factor out). SLA / TRANSLATION / NOTES
- *  are polish. */
+/**
+ * Visible step order — 7 steps after dropping VARIABLES / SLA /
+ * TRANSLATION / NOTES from the main flow (those four became schema-
+ * only; AI tools still target them and the data round-trips, but the
+ * wizard no longer makes the user click through their panels). NOTES
+ * lives as a top-right sticky button now.
+ *
+ * `OnboardingStepId` keeps all 11 ids in its union so `STEP_TOOLS`
+ * stays Partial-keyed cleanly and re-enabling any of the 4 hidden
+ * steps is just adding the entry back to this array.
+ */
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   { id: 'source',         en: 'SOURCE',          zh: '來源',     brief: '上傳 / 描述流程 + BPMN 骨架編輯' },
   // FORMS sits before ACCESS because the access validator derives the
   // trigger from the first user task's formCode — if FORMS hadn't been
   // filled yet, ACCESS could never pass.
-  { id: 'forms',          en: 'FORMS',           zh: '表單',     brief: '每個 user task 的欄位（含送單表單 formCode）' },
+  { id: 'forms',          en: 'FORMS',           zh: '表單',     brief: '每個 user task 的欄位 / 排版 / 送出按鈕 (actions)' },
   { id: 'trigger_access', en: 'ACCESS',          zh: '存取',     brief: '指定誰可啟動 / 旁觀此流程' },
   { id: 'decisions',      en: 'DECISIONS',       zh: '決策',     brief: '每個 gateway 的條件' },
-  { id: 'approvers',      en: 'APPROVERS',       zh: '審核者',   brief: '每個 approval 的審核者規則' },
+  { id: 'approvers',      en: 'APPROVERS',       zh: '審核者',   brief: '每個 approval 的審核者規則 / 按鈕 (actions)' },
   { id: 'notify',         en: 'NOTIFY',          zh: '通知',     brief: '通知模板與收件人' },
   { id: 'integrations',   en: 'INTEGRATIONS',    zh: '整合',     brief: '對外 API 整合（純內部流程可空）' },
-  { id: 'variables',      en: 'VARIABLES',       zh: '變數',     brief: 'INTEGRATIONS 衍生的值 + 自訂變數（多半可空）' },
-  { id: 'sla',            en: 'SLA',             zh: '時限',     brief: '每節點時限與 escalation' },
-  { id: 'translation',    en: 'TRANSLATION',     zh: '翻譯',     brief: '收集所有 label，補各語系翻譯' },
-  { id: 'notes',          en: 'NOTES',           zh: '備註',     brief: '給 chef / 驗收者的補充說明' },
 ]
 
 /* ── Spec deliverable types (subset for now — extend as steps mature) ── */
@@ -54,6 +56,10 @@ export interface FormField {
   label: { 'zh-TW': string; en?: string }
   type: FieldType
   required: boolean
+  /** Client-only stable React key — survives `id` edits so the input
+   *  doesn't unmount/remount mid-typing. Stripped on persist; refilled
+   *  by `migrateDraft` on next load. */
+  _uid?: string
   options?: { value: string; label: string }[]
   conditional?: string
   /** CEL boolean over (siblings + `value`); see spec_schema.md §2.3. */
@@ -79,10 +85,177 @@ export interface UserTask {
   /** Tier 1 visual layout tree. References fields by id; never embeds
    *  the field def itself. Missing field refs render as a flat fallback. */
   layout?: LayoutChild[]
+  /** Buttons chef renders at the bottom of the form. Each entry maps to
+   *  a state-machine transition. Empty array → migrateDraft backfills a
+   *  single `submit` action. See §TaskAction. */
+  actions: TaskAction[]
   permissions: {
     submitter: 'self' | string
     viewers: string[]
   }
+}
+
+/* ── Actions (§plan-stepper-action-sticky-footer.md §3) ─────────────
+ *
+ * Authoring lives in StepForms (userTask) / StepApprovers (approval);
+ * chef reads `task.actions[]` / `approval.actions[]` and emits the
+ * matching service method + state machine transition. UI primitive
+ * `<ActionFooter>` on bpm-ui surfaces them at the bottom of CaseDetail.
+ *
+ * `reject` collapses the v1 plan's reject + request_changes — chef
+ * looks at `targetEdgeId`'s target node type to decide:
+ *   - target endEvent → permanent reject (case terminates)
+ *   - target userTask → send-back-for-changes (form preserved)
+ *
+ * `revoke` runs only on Completed cases (post-terminal); chef wires it
+ * with a guard like `status == "Completed"`. Different from `cancel`,
+ * which aborts mid-flow.
+ */
+export type TaskActionKind =
+  | 'submit'       // userTask → 推進
+  | 'save_draft'   // userTask → 不推進，回 inbox
+  | 'approve'      // approval → 走預設成功 edge
+  | 'reject'       // approval → endEvent = 永久駁回；userTask target = 退回補件
+  | 'complete'     // 末端 userTask 結案
+  | 'cancel'       // 進行中棄案
+  | 'revoke'       // 已 Completed 後撤銷（須 guard `status == "Completed"`）
+  | 'custom'       // 自由命名 + targetEdgeId 必填
+
+export type PromptCommentMode = 'none' | 'optional' | 'required'
+
+export interface TaskAction {
+  id: string
+  kind: TaskActionKind
+  /** At least one locale must have a value; `labelOf(a)` falls back to
+   *  kind when both are empty. */
+  label: { 'zh-TW'?: string; en?: string }
+  /** Required when the owning node has > 1 outgoing edge; chef can
+   *  derive it from the single edge otherwise. */
+  targetEdgeId?: string
+  /** CEL evaluated against case context. False → button disabled. */
+  guard?: string
+  /** Comment textarea behaviour inside the confirm modal:
+   *  - 'none' → no textarea, just yes/no
+   *  - 'optional' → textarea present but submittable while empty
+   *  - 'required' → textarea must be filled before Confirm enables
+   *  Default 'none'. Every action gets a confirm modal — there is no
+   *  separate confirm flag. */
+  promptComment?: PromptCommentMode
+}
+
+/** Display label for an action — first non-empty locale, then kind. */
+export function actionLabel(a: TaskAction): string {
+  return a.label['zh-TW']?.trim() || a.label.en?.trim() || a.kind
+}
+
+/** Display label for a notification trigger binding. */
+export function triggerLabel(t: NotifyTriggerBinding): string {
+  return t.kind === 'event' ? t.event : `action:${t.actionId}`
+}
+
+/** Migrate the v1 enum trigger to the v2 binding shape. Used by
+ *  `migrateDraft` and on legacy AI tool emits. */
+export function legacyTriggerToBinding(t: unknown): NotifyTriggerBinding {
+  if (t && typeof t === 'object' && 'kind' in t) {
+    const b = t as NotifyTriggerBinding
+    if (b.kind === 'event' || b.kind === 'action') return b
+  }
+  // v1 string enum or anything weird → event.on_submit fallback.
+  if (typeof t === 'string') return { kind: 'event', event: t as NotifyTrigger }
+  return { kind: 'event', event: 'on_submit' }
+}
+
+/** Flatten every action on every userTask + approval into a picker-
+ *  friendly list. Used by StepNotify to bind `trigger.actionId`. */
+export interface ActionRef {
+  actionId: string
+  /** Label visible in the picker. */
+  label: string
+  ownerNodeId: string
+  ownerNodeLabel: string
+  ownerKind: 'userTask' | 'approval'
+  kind: TaskActionKind
+}
+export function listAllActions(draft: DraftSpec): ActionRef[] {
+  const out: ActionRef[] = []
+  for (const ut of draft.userTasks) {
+    const node = draft.flow.nodes.find(n => n.id === ut.id)
+    for (const a of ut.actions ?? []) {
+      out.push({
+        actionId: a.id,
+        label: actionLabel(a),
+        ownerNodeId: ut.id,
+        ownerNodeLabel: node?.label ?? ut.id,
+        ownerKind: 'userTask',
+        kind: a.kind,
+      })
+    }
+  }
+  for (const ap of draft.approvals) {
+    const node = draft.flow.nodes.find(n => n.id === ap.id)
+    for (const a of ap.actions ?? []) {
+      out.push({
+        actionId: a.id,
+        label: actionLabel(a),
+        ownerNodeId: ap.id,
+        ownerNodeLabel: node?.label ?? ap.id,
+        ownerKind: 'approval',
+        kind: a.kind,
+      })
+    }
+  }
+  return out
+}
+
+/** Per-kind default labels in zh-TW when migrating older drafts. */
+const DEFAULT_ACTION_LABELS: Record<TaskActionKind, string> = {
+  submit:     '送出',
+  save_draft: '存草稿',
+  approve:    '核准',
+  reject:     '駁回 / 退回',
+  complete:   '結案',
+  cancel:     '棄案',
+  revoke:     '撤銷',
+  custom:     '',
+}
+
+export function defaultActionLabel(kind: TaskActionKind): string {
+  return DEFAULT_ACTION_LABELS[kind]
+}
+
+function newActionId(kind: TaskActionKind): string {
+  return `act_${kind}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+/** Default actions for a userTask when none authored. */
+export function defaultUserTaskActions(): TaskAction[] {
+  return [
+    { id: newActionId('submit'), kind: 'submit', label: { 'zh-TW': DEFAULT_ACTION_LABELS.submit } },
+  ]
+}
+
+/** Default actions for an approval node when none authored. */
+export function defaultApprovalActions(): TaskAction[] {
+  return [
+    { id: newActionId('approve'), kind: 'approve', label: { 'zh-TW': DEFAULT_ACTION_LABELS.approve } },
+    { id: newActionId('reject'),  kind: 'reject',  label: { 'zh-TW': DEFAULT_ACTION_LABELS.reject }, promptComment: 'optional' },
+  ]
+}
+
+/** Drops legacy `confirm` (every action is auto-confirmed now) and
+ *  remaps `promptComment: boolean` → `'none' | 'optional' | 'required'`
+ *  (true → optional, false → none). Modern values pass through. */
+function migrateTaskAction(raw: TaskAction): TaskAction {
+  const r = raw as Omit<TaskAction, 'promptComment'> & { confirm?: unknown; promptComment?: unknown }
+  const { confirm: _legacyConfirm, promptComment: rawPc, ...rest } = r
+  void _legacyConfirm
+  let promptComment: PromptCommentMode | undefined
+  if (rawPc === true)       promptComment = 'optional'
+  else if (rawPc === false) promptComment = 'none'
+  else if (rawPc === 'none' || rawPc === 'optional' || rawPc === 'required') {
+    promptComment = rawPc
+  }
+  return { ...rest, ...(promptComment ? { promptComment } : {}) } as TaskAction
 }
 
 /* ── Form layout (Tier 1 element set) ───────────────────────────
@@ -204,6 +377,80 @@ export function collectLayoutFieldIds(layout: LayoutChild[] | undefined): string
   return out
 }
 
+/** A user task is "meaningfully fillable" when the submitter is forced
+ *  to provide some input. Three things count: any outer field marked
+ *  required, any repeater with explicit `minCount >= 1` (forces ≥1 row),
+ *  or any repeater whose itemFields contain a required field (every row
+ *  the user adds forces input). `minCount` undefined or 0 alone does
+ *  not satisfy. Mirrors the FORMS step validator. */
+export function hasMeaningfulInput(ut: UserTask): boolean {
+  if (ut.fields.some(f => f.required)) return true
+  const layout = ut.layout
+  if (!layout) return false
+  const walk = (children: LayoutChild[]): boolean => {
+    for (const c of children) {
+      if (c.kind === 'repeater') {
+        if ((c.minCount ?? 0) >= 1) return true
+        if (c.itemFields.some(f => f.required)) return true
+      } else if (c.kind === 'section') {
+        if (walk(c.children)) return true
+      }
+    }
+    return false
+  }
+  return walk(layout)
+}
+
+/** Generate a stable client-only React key for a field. */
+export function newFieldUid(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
+  return `uid_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+/** Walk a draft and add `_uid` to every FormField (outer + repeater
+ *  itemFields) that doesn't have one. Pure — returns a new draft. */
+export function ensureFieldUids(draft: DraftSpec): DraftSpec {
+  const withUid = (f: FormField): FormField => f._uid ? f : { ...f, _uid: newFieldUid() }
+  const walkLayout = (children: LayoutChild[]): LayoutChild[] =>
+    children.map(c => {
+      if (c.kind === 'repeater') {
+        return {
+          ...c,
+          itemFields: c.itemFields.map(withUid),
+        }
+      }
+      if (c.kind === 'section') return { ...c, children: walkLayout(c.children) }
+      return c
+    })
+  return {
+    ...draft,
+    userTasks: draft.userTasks.map(t => ({
+      ...t,
+      fields: t.fields.map(withUid),
+      layout: t.layout ? walkLayout(t.layout) : t.layout,
+    })),
+  }
+}
+
+/** Strip every `_uid` before persisting / packing — client-only field. */
+export function stripFieldUids(draft: DraftSpec): DraftSpec {
+  const strip = ({ _uid: _drop, ...rest }: FormField): FormField => rest
+  const walkLayout = (children: LayoutChild[]): LayoutChild[] =>
+    children.map(c => {
+      if (c.kind === 'repeater') return { ...c, itemFields: c.itemFields.map(strip) }
+      if (c.kind === 'section') return { ...c, children: walkLayout(c.children) }
+      return c
+    })
+  return {
+    ...draft,
+    userTasks: draft.userTasks.map(t => ({
+      ...t,
+      fields: t.fields.map(strip),
+      layout: t.layout ? walkLayout(t.layout) : t.layout,
+    })),
+  }
+}
+
 /** Build a default single-section layout containing every field on the
  *  task. Used when the user first opens a task that has fields but no
  *  hand-authored layout. */
@@ -316,10 +563,29 @@ export const ACTOR_TYPE_LABELS: Record<ActorRefType, { en: string; zh: string; b
 export interface Approval {
   id: string
   approver: ActorRef
+  /** Decision buttons. Empty array → migrateDraft backfills
+   *  `[approve, reject]`. See §TaskAction. */
+  actions: TaskAction[]
 }
 
 /* Notifications — mirrors spec_schema.md §2.6 */
 export type NotifyTrigger = 'on_submit' | 'on_approve' | 'on_reject' | 'on_complete' | 'on_assign' | 'on_sla_breach'
+
+/**
+ * What fires this notification. Two flavours:
+ *
+ * - `{ kind: 'event', event: ... }` — coarse lifecycle hook (legacy /
+ *   shape stays compatible with on_submit / on_approve / etc.).
+ * - `{ kind: 'action', actionId: ... }` — fires immediately after the
+ *   referenced TaskAction's state-machine transition lands. Lets the
+ *   author distinguish e.g. "approve" vs "approve and immediately
+ *   raise PO" — each has its own action.id and its own notification.
+ *
+ * chef reads the discriminator to decide where to hook the dispatch.
+ */
+export type NotifyTriggerBinding =
+  | { kind: 'event'; event: NotifyTrigger }
+  | { kind: 'action'; actionId: string }
 
 export type NotifyRecipient =
   | { type: 'submitter' }
@@ -332,7 +598,7 @@ export interface NotifyTemplate {
 }
 export interface Notification {
   id: string
-  trigger: NotifyTrigger
+  trigger: NotifyTriggerBinding
   channel: ('email' | 'teams' | 'in_app')[]
   recipients: NotifyRecipient[]
   template: NotifyTemplate
@@ -627,6 +893,8 @@ export function migrateDraft(d: unknown): DraftSpec {
   // Legacy: FormField.hint was renamed to .note. Walk userTasks once on
   // load so the UI never sees the old shape; saving will persist as note.
   type LegacyFormField = FormField & { hint?: { 'zh-TW': string; en?: string } }
+  // Older drafts predate UserTask.actions[]; backfill a default `submit`
+  // so chef always sees a non-empty action set + validators stay green.
   const userTasks = (partial.userTasks ?? []).map(t => ({
     ...t,
     fields: t.fields.map(f => {
@@ -635,6 +903,10 @@ export function migrateDraft(d: unknown): DraftSpec {
       const { hint, ...rest } = legacy
       return { ...rest, note: hint } as FormField
     }),
+    actions: ((t as Partial<UserTask>).actions && (t as UserTask).actions.length > 0
+      ? (t as UserTask).actions
+      : defaultUserTaskActions()
+    ).map(migrateTaskAction),
   }))
 
   // Legacy: ActorRef DSL revision — v1.1 had `role` / `user` / `group`
@@ -645,6 +917,10 @@ export function migrateDraft(d: unknown): DraftSpec {
   const approvals = (partial.approvals ?? []).map(a => ({
     ...a,
     approver: migrateActorRef(a.approver),
+    actions: ((a as Partial<Approval>).actions && (a as Approval).actions.length > 0
+      ? (a as Approval).actions
+      : defaultApprovalActions()
+    ).map(migrateTaskAction),
   })) as Approval[]
 
   // Legacy: IntegrationItem.triggerNodeId renamed to .serviceTaskNodeId
@@ -684,11 +960,20 @@ export function migrateDraft(d: unknown): DraftSpec {
     }
   }
 
-  return {
+  // Legacy: Notification.trigger was a bare enum (`'on_submit'` etc).
+  // v2 wraps it in `{ kind: 'event', event }` so action-bound triggers
+  // can coexist. Walk notifications once on load.
+  const migratedNotifications = (partial.notifications ?? []).map(n => ({
+    ...n,
+    trigger: legacyTriggerToBinding((n as { trigger?: unknown }).trigger),
+  })) as Notification[]
+
+  const out: DraftSpec = {
     ...EMPTY_DRAFT,
     ...partial,
     userTasks,
     approvals,
+    notifications: migratedNotifications,
     integrations: {
       ...(partial.integrations ?? EMPTY_DRAFT.integrations),
       items: integrationsItems,
@@ -699,6 +984,9 @@ export function migrateDraft(d: unknown): DraftSpec {
       : emptySampleOrg(),
     testCases,
   } as DraftSpec
+  // Backfill client-only stable React keys so FieldEditor / ItemFieldRow
+  // don't unmount mid-typing when the user edits `id`.
+  return ensureFieldUids(out)
 }
 
 /** Recursive migrator: maps any legacy ActorRef shape (or modern shape
@@ -822,8 +1110,18 @@ export const validators: Record<OnboardingStepId, (s: DraftSpec) => ValidationRe
         errors.push(`User task "${n.label}" 尚未配置欄位`)
         continue
       }
-      if (ut.fields.length === 0) errors.push(`"${n.label}" 沒有任何欄位`)
-      if (!ut.fields.some(f => f.required)) errors.push(`"${n.label}" 沒有必填欄位`)
+      // A form is valid with outer fields only, repeaters only, or both —
+      // hasMeaningfulInput already accepts a repeater with minCount ≥ 1 or
+      // a required item field as standalone content. Empty layout + empty
+      // fields is still rejected via the same check.
+      if (!hasMeaningfulInput(ut)) errors.push(`"${n.label}" 至少要有一個必填欄位或必填 repeater (minCount ≥ 1 或內含必填欄位)`)
+      if (!ut.actions || ut.actions.length === 0) {
+        errors.push(`"${n.label}" 沒有任何 action 按鈕（至少要有送出 / 完成 / 棄案 其一）`)
+      } else {
+        for (const a of ut.actions) {
+          if (!actionLabel(a)) errors.push(`"${n.label}" 的 action ${a.kind} 沒有 label`)
+        }
+      }
     }
     return { valid: errors.length === 0, errors }
   },
@@ -836,11 +1134,28 @@ export const validators: Record<OnboardingStepId, (s: DraftSpec) => ValidationRe
     return { valid: true, errors: [] }
   },
   approvers: (s) => {
-    const approvalCount = s.flow.nodes.filter(n => n.type === 'approval').length
-    if (s.approvals.length < approvalCount) {
-      return { valid: false, errors: [`還有 ${approvalCount - s.approvals.length} 個審核步驟尚未配置`] }
+    const errors: string[] = []
+    const approvalNodes = s.flow.nodes.filter(n => n.type === 'approval')
+    if (s.approvals.length < approvalNodes.length) {
+      errors.push(`還有 ${approvalNodes.length - s.approvals.length} 個審核步驟尚未配置`)
     }
-    return { valid: true, errors: [] }
+    for (const n of approvalNodes) {
+      const ap = s.approvals.find(a => a.id === n.id)
+      if (!ap) continue
+      const acts = ap.actions ?? []
+      if (acts.length === 0) {
+        errors.push(`"${n.label}" 沒有任何 action 按鈕（最少要 approve + reject）`)
+        continue
+      }
+      const hasApprove = acts.some(a => a.kind === 'approve')
+      const hasReject  = acts.some(a => a.kind === 'reject')
+      if (!hasApprove) errors.push(`"${n.label}" 缺少 approve 行動`)
+      if (!hasReject)  errors.push(`"${n.label}" 缺少 reject 行動`)
+      for (const a of acts) {
+        if (!actionLabel(a)) errors.push(`"${n.label}" 的 action ${a.kind} 沒有 label`)
+      }
+    }
+    return { valid: errors.length === 0, errors }
   },
   notify: () => ({ valid: true, errors: [] }),       // optional
   integrations: () => ({ valid: true, errors: [] }), // optional
@@ -863,7 +1178,7 @@ export function loadDraft(): DraftSpec {
 }
 
 export function saveDraft(d: DraftSpec) {
-  localStorage.setItem(DRAFT_KEY, JSON.stringify(d))
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(stripFieldUids(d)))
 }
 
 export function loadStep(): number {
@@ -932,6 +1247,10 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
           conditional: "leave_type === '病假' || leave_type === '公假'" },
       ],
       permissions: { submitter: 'self', viewers: ['self', 'manager', 'role:HR'] },
+      actions: [
+        { id: 'act_apply_submit', kind: 'submit', label: { 'zh-TW': '送出申請' } },
+        { id: 'act_apply_draft',  kind: 'save_draft', label: { 'zh-TW': '存草稿' } },
+      ],
     },
     {
       id: 'task_hr_archive',
@@ -941,6 +1260,9 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
           note: { 'zh-TW': 'HR 留下處理紀錄供日後追溯' } },
       ],
       permissions: { submitter: 'role:HR', viewers: ['role:HR', 'self'] },
+      actions: [
+        { id: 'act_arch_complete', kind: 'complete', label: { 'zh-TW': '送出備案' } },
+      ],
     },
   ],
   decisions: [
@@ -954,7 +1276,14 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
     },
   ],
   approvals: [
-    { id: 'approval_manager', approver: { type: 'expr', path: 'submitter.manager' } },
+    {
+      id: 'approval_manager',
+      approver: { type: 'expr', path: 'submitter.manager' },
+      actions: [
+        { id: 'act_mgr_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
+        { id: 'act_mgr_reject',  kind: 'reject',  label: { 'zh-TW': '退回補件' }, promptComment: 'optional' },
+      ],
+    },
     {
       id: 'approval_vp',
       approver: {
@@ -962,12 +1291,16 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
         path: 'submitter.department.head',
         fallback: { text: '若部門主管不在，請走 VP 角色（v1 結構化 fallback 已收回，由 chef 處理）' },
       },
+      actions: [
+        { id: 'act_vp_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
+        { id: 'act_vp_reject',  kind: 'reject',  label: { 'zh-TW': '駁回' }, promptComment: 'required' },
+      ],
     },
   ],
   notifications: [
     {
       id: 'notify_assign_manager',
-      trigger: 'on_assign',
+      trigger: { kind: 'event', event: 'on_assign' },
       channel: ['email', 'in_app'],
       recipients: [{ type: 'current_approver' }],
       template: {
@@ -978,7 +1311,7 @@ export const LEAVE_PRESET: Partial<DraftSpec> = {
     },
     {
       id: 'notify_complete',
-      trigger: 'on_complete',
+      trigger: { kind: 'event', event: 'on_complete' },
       channel: ['email'],
       recipients: [{ type: 'submitter' }],
       template: {
@@ -1083,6 +1416,11 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
           conditional: 'amount >= 10000', note: { 'zh-TW': '1 萬以上必附正式報價單' } },
       ],
       permissions: { submitter: 'self', viewers: ['self', 'manager', 'role:Finance', 'role:Purchase'] },
+      actions: [
+        { id: 'act_req_submit', kind: 'submit',     label: { 'zh-TW': '送出申請', en: 'Submit' } },
+        { id: 'act_req_draft',  kind: 'save_draft', label: { 'zh-TW': '存草稿' } },
+        { id: 'act_req_cancel', kind: 'cancel',     label: { 'zh-TW': '取消' } },
+      ],
     },
     {
       id: 'task_purchase_exec',
@@ -1094,6 +1432,9 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
         { id: 'exec_note', label: { 'zh-TW': '處理備註', en: 'Note' }, type: 'textarea', required: false },
       ],
       permissions: { submitter: 'role:Purchase', viewers: ['self', 'manager', 'role:Finance', 'role:Purchase'] },
+      actions: [
+        { id: 'act_exec_complete', kind: 'complete', label: { 'zh-TW': '完成採購' } },
+      ],
     },
   ],
   decisions: [
@@ -1115,14 +1456,35 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
     },
   ],
   approvals: [
-    { id: 'approval_manager', approver: { type: 'expr', path: 'submitter.manager' } },
-    { id: 'approval_finance', approver: { type: 'principal', ref: 'role:Finance' } },
-    { id: 'approval_ceo', approver: { type: 'principal', ref: 'role:CEO', fallback: { text: '若 CEO 不在，請改 VP 角色簽核' } } },
+    {
+      id: 'approval_manager',
+      approver: { type: 'expr', path: 'submitter.manager' },
+      actions: [
+        { id: 'act_mgr_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
+        { id: 'act_mgr_reject',  kind: 'reject',  label: { 'zh-TW': '退回補件' }, promptComment: 'optional' },
+      ],
+    },
+    {
+      id: 'approval_finance',
+      approver: { type: 'principal', ref: 'role:Finance' },
+      actions: [
+        { id: 'act_fin_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
+        { id: 'act_fin_reject',  kind: 'reject',  label: { 'zh-TW': '駁回' }, promptComment: 'required' },
+      ],
+    },
+    {
+      id: 'approval_ceo',
+      approver: { type: 'principal', ref: 'role:CEO', fallback: { text: '若 CEO 不在，請改 VP 角色簽核' } },
+      actions: [
+        { id: 'act_ceo_approve', kind: 'approve', label: { 'zh-TW': '核准' } },
+        { id: 'act_ceo_reject',  kind: 'reject',  label: { 'zh-TW': '駁回' }, promptComment: 'required' },
+      ],
+    },
   ],
   notifications: [
     {
       id: 'notify_assign_approver',
-      trigger: 'on_assign',
+      trigger: { kind: 'event', event: 'on_assign' },
       channel: ['email', 'in_app'],
       recipients: [{ type: 'current_approver' }],
       template: {
@@ -1133,7 +1495,7 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
     },
     {
       id: 'notify_assign_purchase',
-      trigger: 'on_assign',
+      trigger: { kind: 'event', event: 'on_assign' },
       channel: ['email', 'in_app'],
       recipients: [{ type: 'principal', ref: 'role:Purchase' }],
       template: {
@@ -1144,7 +1506,7 @@ export const PURCHASE_PRESET: Partial<DraftSpec> = {
     },
     {
       id: 'notify_complete',
-      trigger: 'on_complete',
+      trigger: { kind: 'event', event: 'on_complete' },
       channel: ['email'],
       recipients: [{ type: 'submitter' }],
       template: {

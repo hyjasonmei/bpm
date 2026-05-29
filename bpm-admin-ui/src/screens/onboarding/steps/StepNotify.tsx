@@ -10,8 +10,16 @@ import { useMemo, useState } from 'react'
 import { cn } from '@/lib/cn'
 import { Field, Input, Select, Textarea, Checkbox } from '@/components/ui/form'
 import { PrincipalSinglePickerField } from '@/components/principal-picker/PrincipalPicker'
-import type {
-  DraftSpec, Notification, NotifyTrigger, NotifyRecipient, NotifyTemplate,
+import {
+  listAllActions,
+  triggerLabel,
+  type ActionRef,
+  type DraftSpec,
+  type Notification,
+  type NotifyTrigger,
+  type NotifyRecipient,
+  type NotifyTemplate,
+  type NotifyTriggerBinding,
 } from '@/lib/onboarding'
 
 const TRIGGERS: NotifyTrigger[] = [
@@ -30,12 +38,14 @@ interface PresetNotification {
   build: () => Omit<Notification, 'id'>
 }
 
+const ev = (event: NotifyTrigger): NotifyTriggerBinding => ({ kind: 'event', event })
+
 const PRESETS: PresetNotification[] = [
   {
     label: '提交時通知申請人',
     desc: 'on_submit → submitter / email',
     build: () => ({
-      trigger: 'on_submit',
+      trigger: ev('on_submit'),
       channel: ['email', 'in_app'],
       recipients: [{ type: 'submitter' }],
       template: {
@@ -49,7 +59,7 @@ const PRESETS: PresetNotification[] = [
     label: '指派時通知 approver',
     desc: 'on_assign → current_approver',
     build: () => ({
-      trigger: 'on_assign',
+      trigger: ev('on_assign'),
       channel: ['email', 'in_app'],
       recipients: [{ type: 'current_approver' }],
       template: {
@@ -63,7 +73,7 @@ const PRESETS: PresetNotification[] = [
     label: '通過時通知 HR',
     desc: 'on_approve → role:HR',
     build: () => ({
-      trigger: 'on_approve',
+      trigger: ev('on_approve'),
       channel: ['email'],
       recipients: [{ type: 'principal', ref: 'role:HR' }],
       template: {
@@ -77,7 +87,7 @@ const PRESETS: PresetNotification[] = [
     label: '完成通知 finance',
     desc: 'on_complete → role:Finance',
     build: () => ({
-      trigger: 'on_complete',
+      trigger: ev('on_complete'),
       channel: ['email'],
       recipients: [{ type: 'principal', ref: 'role:Finance' }],
       template: {
@@ -91,7 +101,7 @@ const PRESETS: PresetNotification[] = [
     label: '駁回通知申請人',
     desc: 'on_reject → submitter',
     build: () => ({
-      trigger: 'on_reject',
+      trigger: ev('on_reject'),
       channel: ['email', 'in_app'],
       recipients: [{ type: 'submitter' }],
       template: {
@@ -117,7 +127,7 @@ export function StepNotify({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
       augmented.push({
         id: `notify_${node.id}`,
         nodeId: node.id,
-        trigger: 'on_assign',
+        trigger: ev('on_assign'),
         channel: ['email', 'in_app'],
         recipients: [{ type: 'submitter' }],
         template: {
@@ -158,7 +168,7 @@ export function StepNotify({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
     label: '',
     desc: '',
     build: () => ({
-      trigger: 'on_assign',
+      trigger: ev('on_assign'),
       channel: ['email'],
       recipients: [{ type: 'current_approver' }],
       template: {
@@ -174,6 +184,10 @@ export function StepNotify({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
   // beside the template editor.
   const fieldIds = Array.from(new Set(draft.userTasks.flatMap(t => t.fields.map(f => f.id)).filter(Boolean)))
   const variableNames = draft.variables.map(v => v.name).filter(Boolean)
+  // Every userTask + approval action — used by the trigger picker so a
+  // notification can fire on a specific action.id (e.g. "approve and
+  // send PO") rather than the coarse on_approve event.
+  const actionRefs = useMemo(() => listAllActions(draft), [draft])
 
   const activeNotification = notifications.find(n => n.id === safeActiveId)
 
@@ -229,7 +243,7 @@ export function StepNotify({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
                     ? <CheckCircle2 className={cn('h-3.5 w-3.5', isActive ? 'text-good' : 'text-good/70')} />
                     : <AlertCircle className={cn('h-3.5 w-3.5', isActive ? 'text-warn' : 'text-warn/70')} />}
                   <Mail className={cn('h-3 w-3', isActive ? 'text-primary' : 'text-ink-faint')} />
-                  <span>{n.trigger}</span>
+                  <span>{triggerLabel(n.trigger)}</span>
                   <span className={cn('font-mono text-[10px]', isActive ? 'text-ink-muted' : 'text-ink-faint')}>
                     → {n.recipients.map(recipientLabel).join('+')}
                   </span>
@@ -261,7 +275,7 @@ export function StepNotify({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
                   綁節點 {notifyNodes.find(n => n.id === activeNotification.nodeId)?.label ?? activeNotification.nodeId}
                 </span>
               )}
-              <span className="text-sm font-semibold text-ink">{activeNotification.trigger}</span>
+              <span className="text-sm font-semibold text-ink">{triggerLabel(activeNotification.trigger)}</span>
               <span className="text-[10px] text-ink-faint">[{activeNotification.channel.join('+')}]</span>
             </div>
             <button
@@ -282,13 +296,12 @@ export function StepNotify({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
                   onChange={e => upsert({ ...activeNotification, id: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
                 />
               </Field>
-              <Field label="Trigger" required>
-                <Select
+              <Field label="Trigger" required hint="event 觸發 = 流程廣播信號；action 觸發 = 綁特定按鈕，更精準">
+                <TriggerBindingPicker
                   value={activeNotification.trigger}
-                  onChange={e => upsert({ ...activeNotification, trigger: e.target.value as NotifyTrigger })}
-                >
-                  {TRIGGERS.map(t => <option key={t} value={t}>{t}</option>)}
-                </Select>
+                  actions={actionRefs}
+                  onChange={t => upsert({ ...activeNotification, trigger: t })}
+                />
               </Field>
             </div>
 
@@ -337,6 +350,59 @@ function notificationValid(n: Notification): boolean {
   return true
 }
 
+function TriggerBindingPicker({
+  value, actions, onChange,
+}: {
+  value: NotifyTriggerBinding
+  actions: ActionRef[]
+  onChange: (next: NotifyTriggerBinding) => void
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex gap-3">
+        <label className="inline-flex items-center gap-1 text-xs text-ink-muted">
+          <input
+            type="radio"
+            checked={value.kind === 'event'}
+            onChange={() => onChange({ kind: 'event', event: 'on_assign' })}
+          />
+          Event
+        </label>
+        <label className={cn('inline-flex items-center gap-1 text-xs', actions.length === 0 ? 'text-ink-faint' : 'text-ink-muted')}>
+          <input
+            type="radio"
+            disabled={actions.length === 0}
+            checked={value.kind === 'action'}
+            onChange={() => actions[0] && onChange({ kind: 'action', actionId: actions[0].actionId })}
+          />
+          Action {actions.length === 0 && '（無 action 可選）'}
+        </label>
+      </div>
+      {value.kind === 'event' && (
+        <Select
+          value={value.event}
+          onChange={e => onChange({ kind: 'event', event: e.target.value as NotifyTrigger })}
+        >
+          {TRIGGERS.map(t => <option key={t} value={t}>{t}</option>)}
+        </Select>
+      )}
+      {value.kind === 'action' && (
+        <Select
+          value={value.actionId}
+          onChange={e => onChange({ kind: 'action', actionId: e.target.value })}
+        >
+          {actions.length === 0 && <option value="">（無 action 可選）</option>}
+          {actions.map(a => (
+            <option key={a.actionId} value={a.actionId}>
+              {a.ownerNodeLabel} · {a.kind} · {a.label}
+            </option>
+          ))}
+        </Select>
+      )}
+    </div>
+  )
+}
+
 function PillSection({
   icon: Icon, title, subtitle, notifications, activeId, onPick, nodeLookup,
 }: {
@@ -359,7 +425,7 @@ function PillSection({
         {notifications.map(n => {
           const isActive = n.id === activeId
           const ok = notificationValid(n)
-          const label = n.nodeId ? (nodeLookup?.[n.nodeId] ?? n.nodeId) : n.trigger
+          const label = n.nodeId ? (nodeLookup?.[n.nodeId] ?? n.nodeId) : triggerLabel(n.trigger)
           return (
             <button
               key={n.id}

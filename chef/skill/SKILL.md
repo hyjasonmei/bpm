@@ -40,9 +40,12 @@ looks. **leave-test-4 is the model B redo** — entity + state machine
      value object (no deps)
    - `bpm-svc/src/Application/Features/<CODE>/V<N>/**` — state machine
      service, notification templates, `ITypedInboxProvider` impl,
-     actor-resolution helpers (all the business logic)
-   - `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` — **EF mapping
-     only** (`<CODE>_V<N>_<Purpose>Configuration.cs`)
+     actor-resolution helpers, and a **per-flow data-access port**
+     `I<CODE>_V<N>_CaseStore` (interface only — see §3.4)
+   - `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` — EF
+     `<CODE>_V<N>_<Purpose>Configuration.cs` **and** the EF-backed
+     impl of the chef's `I<CODE>_V<N>_CaseStore` (the only Persistence
+     code that knows about the per-flow entity)
    - `bpm-svc/src/Persistence/Migrations/<ts>_<CODE>_V<N>_*.cs` and
      `AppDbContextModelSnapshot.cs` (`dotnet ef migrations add`
      regenerates these together — let the tool drive)
@@ -59,8 +62,22 @@ looks. **leave-test-4 is the model B redo** — entity + state machine
    - Top-level routes (`bpm-ui/src/router.tsx`, `App.tsx`,
      `screens/Home.tsx`) — lead owns these
 
-   If the spec implies you need to touch a forbidden path, stop and
-   tell Jason. Don't silently expand the boundary.
+   **Bounded lead-side touches (allowed when unavoidable, flag in
+   the final report):**
+   - `bpm-svc/src/Application/DependencyInjection.cs` — add the chef
+     service's `AddScoped<>` registration. (The
+     `ITypedInboxProvider` assembly scan in this file already picks
+     up new providers automatically; you usually don't need to edit
+     the scan itself.)
+   - `bpm-svc/src/Persistence/DependencyInjection.cs` — bind your
+     `I<CODE>_V<N>_CaseStore` interface to its EF impl.
+   - `bpm-ui/src/lib/workflow.ts` — extend the `FormCode` union and
+     add a `FORMS.<CODE>` entry (steps + ownerByStep) so
+     `FormShell` / `BpmnView` can render your flow.
+
+   If the spec implies you need to touch a *different* forbidden
+   path (e.g. a new shared UI primitive), stop and tell Jason.
+   Don't silently expand the boundary.
 
 2. **Name everything with the `<CODE>_V<N>_` prefix.** Classes, tables,
    migrations, files, React components. The prefix is the identifier
@@ -85,9 +102,16 @@ looks. **leave-test-4 is the model B redo** — entity + state machine
    - `@/components/ui/FilePicker` + `IFileStorageService` — for
      `field.type === 'file'`
    - JWT + `BpmControllerBase.RequireUserId()` for auth
-   - `AppDbContext` + SharedIdentity tables for org reads (manager,
-     dept head, role)
-   - `ILogger<T>` for notification stubs (real engine is a follow-up)
+   - `Bpm.Application.Org.IOrgChartReader` for org-tree reads
+     (manager / primary dept / dept head / dept parent / group
+     expansion / role assignees by name) — chef-side resolvers in
+     Application **never** touch `AppDbContext.SharedX*` directly
+   - `Bpm.Application.Common.Directory.IPrincipalDirectory` for
+     display-name / email / "first user in role" lookups — same reason
+   - `Bpm.Application.Notifications.INotifyDispatcher` +
+     `NotifyMessage` for sending notifications (POC: `FileNotifyDispatcher`
+     appends to `var/notifications.txt`)
+   - `ILogger<T>` for diagnostic logging
 
    When the spec uses a construct not covered by the
    §spec-construct-table in conventions.md, stop and ask Jason. Lead
@@ -140,14 +164,23 @@ Jason hands you one path to an unzipped bundle. The layout is fixed by
 - `variables` — `${var}` definitions
 - `userTasks[].fields[]` — flat field set with type / required / CEL
 - `userTasks[].layout[]` — Tier 1 + Tier 2 visual structure
+- `userTasks[].actions[]` — buttons + state-machine transitions (see §3.5)
 - `decisions[]` — gateway rules (CEL)
 - `approvals[]` — ActorRef DSL (5 types, including `natural_language`
   escape hatch — read it and decide)
-- `notifications[]` — node-bound and event-bound notify
-- `sla.perNode` — duration + escalation + free-text `note`
+- `approvals[].actions[]` — decision buttons (approve / reject / etc.)
+- `notifications[]` — node-bound, event-bound, or action-bound notify
+  (each entry's `trigger` is a `{ kind: 'event', event } | { kind:
+  'action', actionId }` binding — see §3.5)
+- `sla.perNode` — duration + escalation + free-text `note` *(optional —
+  wizard collapsed this step; treat absence as "use sensible defaults")*
 - `integrations.items[]` — OpenAPI references
-- `labels` — multi-locale translations
-- `notes` — final free-text from NOTES step
+- `variables` — `${var}` definitions *(mostly auto-derived from
+  integrations; wizard no longer prompts manually)*
+- `labels` — multi-locale translations *(optional — wizard collapsed
+  this step; zh-TW will always be present, other locales may be empty)*
+- `notes` — free-text instruction *(optional — surfaces from the NOTES
+  sticky button now, not a step)*
 
 Free-text lives inline on each spec node (`FormField.note`,
 `NodeSLA.note`, `draft.notes`, ActorRef `fallback.text`). Read them
@@ -255,16 +288,15 @@ own per-flow status into the spec's node ids — see `LEAVE_V1_CaseDetail`'s
 `deriveTrail(case)` for the pattern (status → `{ completed: string[],
 current: string | null }`, ids match `spec.flow.nodes[].id`).
 
-`LEAVE_V1_InboxProvider` plugs into the backend via a DI assembly
+`<CODE>_V<N>_InboxProvider` plugs into the backend via a DI assembly
 scan that registers every non-abstract `ITypedInboxProvider` at
-startup. Because the impl lives in **Application**, the scan needs
-to cover the Application assembly (target: `Application.DependencyInjection`).
-The historical scan in `Persistence.DependencyInjection` only covered
-the Persistence assembly — if your cook lands while the scan is
-still Persistence-only, your provider compiles but the runtime
-silently skips it. Verify the scan covers your provider's assembly
-before declaring the cook done; if it doesn't, **stop and ask** —
-this is lead-side work.
+startup. Both `Application.DependencyInjection` (canonical for
+Clean-Arch cooks where the provider lives in Application) and
+`Persistence.DependencyInjection` (legacy LEAVE V1 reference, where
+the provider still lives in Persistence) run this scan, so a
+provider in either assembly gets picked up. If a future scan
+regression breaks one of them, the provider compiles but the runtime
+silently skips it — **stop and ask** rather than working around it.
 
 The React component is **bespoke per flow** — there is no generic
 `<DynamicForm spec />` runtime. The wizard's `spec.layout` is your
@@ -272,6 +304,164 @@ blueprint for what JSX to emit. Use the corresponding hand-coded form
 under `bpm-ui/src/screens/forms/Reference_*.tsx` (where one exists)
 for tone / sectioning / table-vs-card invoices — but don't copy logic
 blindly. The spec is authoritative.
+
+### 3.4 Per-flow data-access port — `I<CODE>_V<N>_CaseStore`
+
+`Application.csproj` does NOT (and cannot) reference
+`Persistence.csproj` — Persistence already references Application, and
+reversing the link creates a cycle. So the per-flow state-machine
+service in Application **cannot** touch `AppDbContext`, the per-flow
+EF entity's `DbSet<>`, or any `SharedX*` DbSet directly.
+
+The chef pattern that works: ship a per-flow store **interface** in
+Application alongside the service, and an EF-backed **impl** in
+Persistence.
+
+`bpm-svc/src/Application/Features/<CODE>/V<N>/I<CODE>_V<N>_CaseStore.cs`:
+
+```csharp
+public interface IPURCHASE_REQUEST_V1_CaseStore
+{
+    void Add(PURCHASE_REQUEST_V1_Case @case);
+    Task<PURCHASE_REQUEST_V1_Case?> FindByIdAsync(Guid caseId, CancellationToken ct = default);
+    Task<IReadOnlyList<PURCHASE_REQUEST_V1_Case>> FindMineAsync(Guid submitterUserId, CancellationToken ct = default);
+    Task<IReadOnlyList<PURCHASE_REQUEST_V1_Case>> FindPendingAsync(Guid assigneeUserId, CancellationToken ct = default);
+    Task SaveChangesAsync(CancellationToken ct = default);
+}
+```
+
+`bpm-svc/src/Persistence/Features/<CODE>/V<N>/<CODE>_V<N>_CaseStore.cs`:
+
+```csharp
+public sealed class PURCHASE_REQUEST_V1_CaseStore(AppDbContext db) : IPURCHASE_REQUEST_V1_CaseStore
+{
+    public void Add(PURCHASE_REQUEST_V1_Case @case) => db.Set<PURCHASE_REQUEST_V1_Case>().Add(@case);
+    public Task<PURCHASE_REQUEST_V1_Case?> FindByIdAsync(Guid caseId, CancellationToken ct = default)
+        => db.Set<PURCHASE_REQUEST_V1_Case>().SingleOrDefaultAsync(c => c.Id == caseId, ct);
+    // …
+    public Task SaveChangesAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
+}
+```
+
+`Persistence/DependencyInjection.cs` then binds the interface to the
+impl (one line per cook).
+
+The service / inbox provider / controller all depend on
+`I<CODE>_V<N>_CaseStore`, not on `AppDbContext`. For
+`SharedPrincipal` / `SharedRole` reads use the existing
+`IOrgChartReader` + `IPrincipalDirectory` (see §1 rule 5) — same
+reason: chef code in Application can't import Persistence types.
+
+⚠️ The LEAVE V1 reference predates this split: its service +
+inbox provider live in `Persistence/Features/LEAVE/V1/` and read
+`AppDbContext.LEAVE_V1_Cases` + SharedX DbSets directly. That shape
+is **legacy**; new cooks ship the Clean-Arch split above. PURCHASE_REQUEST
+V1 is the canonical reference.
+
+### 3.5 Actions → state machine + UI buttons
+
+Every `userTask` and `approval` carries an `actions[]` array. Each
+entry is a button at the bottom of the user-facing screen **and** a
+state-machine transition you emit on the backend. Treat them as the
+single source of truth for "what can the user do at this node?".
+
+**TaskAction shape** (verbatim from `bpm-admin-ui/src/lib/onboarding.ts`):
+
+```ts
+{
+  id: string                // stable, used in routes + audit
+  kind: TaskActionKind      // see table below
+  label: { 'zh-TW'?: string; en?: string }   // at least one populated
+  targetEdgeId?: string     // required when node has > 1 outgoing edge
+  guard?: string            // CEL — false → button disabled
+  confirm?: boolean         // show "are you sure?" modal first
+  promptComment?: boolean   // collect a comment textarea before sending
+}
+```
+
+| kind | Where | Default service method | Emits transition |
+|---|---|---|---|
+| `submit`     | userTask    | `Submit*` (`Service.Submit(req)`) | progresses along the userTask's outgoing edge |
+| `save_draft` | userTask    | `SaveDraft*` | persists fields, no state change; case stays in same Pending state |
+| `complete`   | userTask    | `Complete*` | terminal — case ends |
+| `cancel`     | userTask / approval | `Cancel*` | mid-flow abort → terminal `Cancelled` |
+| `revoke`     | userTask / approval | `Revoke*` | post-`Completed` reversal → terminal `Revoked`. **Always** add `guard: "status == 'Completed'"`. |
+| `approve`    | approval    | `ApproveByX*` | walks the approval node's success edge |
+| `reject`     | approval    | `RejectByX*` | inspect `targetEdgeId.target`: |
+|              |             |              | `endEvent` → terminal `Rejected` (clear pending data) |
+|              |             |              | `userTask` → send-back: revert assignee to original submitter, preserve form values for re-edit |
+| `custom`     | both        | name from action.id slug | uses `targetEdgeId` verbatim — no implicit routing |
+
+**Method naming**: `<Approver><Method>` or `<Stage><Method>` — e.g.
+`LEAVE_V1_LeaveService.ApproveByManager(caseId, comment, actorUserId)`,
+`LEAVE_V1_LeaveService.RejectByManager(caseId, comment, actorUserId)`.
+The `<Approver>` segment comes from approval node id (drop the
+`approval_` prefix, PascalCase).
+
+**guard CEL** evaluates against case context (`status`, field values,
+`actor.role`). At codegen time, lower the CEL into a C# precondition
+check that throws `ValidationException` with a friendly message.
+
+**promptComment=true** ⇒ the per-flow REST DTO requires `comment:
+string` (non-null when promptComment=true), and the React side opens
+a modal collecting the value before posting.
+
+**confirm=true** ⇒ React side wraps the button click in a `confirm()`
+or a shadcn `<AlertDialog>`. No backend impact.
+
+**UI**: per-flow `CaseDetail.tsx` (chef-cooked, under
+`bpm-ui/src/features/<CODE>/V<N>/`) **must** render its action buttons
+via the shared `<ActionFooter>` from `@/components/ui/action-footer`
+— not inline buttons. Maps each `TaskAction` → one `ActionFooterItem`.
+See `bpm-ui/src/features/LEAVE/V1/LEAVE_V1_CaseDetail.tsx` for the
+canonical pattern.
+
+**Migration of older specs**: spec.json without `actions[]` predates
+the schema; admin-ui's `migrateDraft` backfills `[submit]` for
+userTasks and `[approve, reject]` for approvals on next load. The
+bundle you receive will already have the field populated.
+
+**Action-bound notifications**: `notifications[].trigger` can be
+`{ kind: 'action', actionId }`. When you wire up a per-flow service
+method for an action, also dispatch matching action-bound notifications
+right after the state-machine transition lands (use
+`INotifyDispatcher` — see §3.6). Event-bound notifications
+(`{ kind: 'event', event: 'on_assign' }` etc.) still fire on the
+existing cross-cutting hook the same way they used to.
+
+### 3.6 INotifyDispatcher — sending notifications
+
+Per-flow service injects `INotifyDispatcher` (from
+`Bpm.Application.Notifications`). Pre-render subject + body via your
+flow's `<FLOW>_<V>_NotificationTemplates` static class, then call
+`DispatchAsync(NotifyMessage{...})`. The POC ships
+`FileNotifyDispatcher` which appends to a local text file; production
+deployments swap the binding for a real SMTP / Teams sender. **Do
+not** call the legacy `INotificationDispatcher` (Model A) — it's
+retired and only compiles for binary compat.
+
+```csharp
+// Resolve recipient + body (already pseudo-code; see LEAVE_V1_LeaveService).
+var rendered = LEAVE_V1_NotificationTemplates.RenderAssignManager(…);
+await notify.DispatchAsync(new NotifyMessage(
+    SourceId:   $"LEAVE_V1.notify_assign_manager",
+    Subject:    rendered.Subject,
+    Body:       rendered.Body,
+    Channels:   new[] { "email", "in_app" },
+    Recipients: new[] { new NotifyRecipient(managerUserId, managerEmail, managerName) },
+    Context:    new Dictionary<string, string?>
+    {
+        ["caseId"]      = c.Id.ToString(),
+        ["flowCode"]    = FlowCode,
+        ["flowVersion"] = FlowVersion.ToString(),
+    }
+), ct);
+```
+
+Tests: pass a fake `INotifyDispatcher` in unit tests (NoOp is fine);
+use the real `FileNotifyDispatcher` with a temp file path in integration
+/ E2E tests to assert delivery — see `LEAVE_V1_NotifyDispatchE2ETests`
+for the canonical pattern.
 
 ## 4. Reading order
 
@@ -318,6 +508,161 @@ bpm-ui ships no JS test runner today. Form correctness is verified by
 `tsc -p tsconfig.app.json --noEmit` plus a chrome-devtools click-through
 of the happy path. Flag this in the final report; don't add a jest /
 vitest dependency without asking lead first.
+
+## 5.5 Talking to admin (MCP)
+
+A chef session also has a live line back to admin-svc. Every session
+posts state transitions + memos so the admin user sees the cook in
+real time, and reads user replies when blocked.
+
+### Connection
+
+admin-svc hosts the MCP server in-process at
+`http://localhost:5266/mcp` (HTTP / SSE transport). Auth is a single
+static bearer token in admin's appsettings under `Bpm:Chef:Token`.
+
+**Dev shortcut**: when admin-svc runs in Development mode and no
+`Bpm:Chef:Token` is configured, it auto-falls-back to the literal
+`dev-chef-token`. Chef's `.mcp.json` can then use that string
+directly — no shell export, no per-machine config.
+
+```json
+{
+  "mcpServers": {
+    "flowcook-admin": {
+      "type": "sse",
+      "url": "http://localhost:5266/mcp",
+      "headers": { "Authorization": "Bearer dev-chef-token" }
+    }
+  }
+}
+```
+
+For production: set `Bpm:Chef:Token` in admin's appsettings (or
+`BPM__CHEF__TOKEN` env var) to a real value and update the header
+in chef's `.mcp.json` to match.
+
+The tools become available in the chef session as `chef_get_flow`,
+`chef_get_messages`, `chef_post_message`, `chef_transition`.
+
+### Where does the flow id come from?
+
+From the bundle: every bundle's `manifest.json` carries a `flowId`
+field. Chef reads the bundle at session start, picks the id out, and
+uses it for every subsequent MCP call. There is no separate
+`BPM_FLOW_ID` env var to set — the bundle is the source of truth.
+
+### Session lifecycle (one-shot — DO NOT poll)
+
+A chef session is short-lived. Don't run a polling loop waiting for
+user replies; instead, exit when blocked and let Jason relaunch
+chef. Admin-ui surfaces a copy-paste resume command when the flow
+is OnHold.
+
+Happy path:
+
+1. Read bundle → grab `manifest.flowId`.
+2. Call `chef_get_flow(flowId)` — confirm the state. If it's
+   already `Cooking` or `OnHold` you're a resumed session — call
+   `chef_get_messages(flowId)` first to see the user's most recent
+   reply and `chef_transition(target='Resume')`. Otherwise call
+   `chef_transition(target='Cooking')`.
+3. **Stamp the worktree** via `chef_set_worktree(flowId,
+   branch='<current branch>', notes='starting Domain layer')` so
+   admin can find your code at a glance. Keep `notes` fresh on each
+   milestone memo.
+4. Post the kick-off memo: `chef_post_message(kind='Memo',
+   content='Picking up; will scaffold Domain → Application →
+   Persistence → Api → UI')`.
+4. Cook. After each major layer (Domain / Application / Persistence /
+   Api / UI) post another `Memo` so the user sees live progress.
+5. When done: `chef_transition(target='Committed')` then
+   `chef_post_message(kind='Completion', version='V<flowVersion>.<cookIteration>',
+   artifactsJson=JSON.stringify({branch, fileCount, testsPassing}))`.
+
+   **Version label = `V<flowVersion>.<cookIteration>`** —
+   `flowVersion` mirrors `spec.json.meta.flowVersion` (the spec's
+   identity), `cookIteration` starts at 0 and bumps by 1 on every
+   Committed transition this chef makes against the same spec
+   version. So a fresh cook of LEAVE V1 ships `V1.0`; the next
+   Committed cycle after an Issue or follow-up reply is `V1.1`,
+   then `V1.2`, and so on. When admin rolls the spec to v2 and
+   chef cooks against it, the count resets to `V2.0`. Do NOT use
+   semver-style patch suffixes (`V1.0.1`) — chef rounds aren't
+   patch/minor/major; they're just iterations. To find the next
+   cookIteration: `chef_get_messages(flowId)` and count prior
+   `kind=Completion` rows whose `version` shares the same major.
+6. Exit.
+
+Blocked path:
+
+1. `chef_transition(target='OnHold', question='…')` (this also
+   appends a Question chat row automatically).
+2. **Exit the session.** No polling.
+
+Resume path (new chef Claude Code session, after user replied or
+opened an issue):
+
+1. Bundle → flowId (same as before).
+2. `chef_get_messages(flowId)` — find the most recent
+   `sender=User, kind=Reply` OR `kind=Issue` row; that's what the
+   user wants addressed. Admin auto-flips the state to OnHold when
+   an Issue is opened on a Committed/Approved flow (PR-X4), so the
+   resume path is identical in both cases.
+3. `chef_transition(target='Resume')` — flips state OnHold → Cooking.
+4. Continue cooking; post memos on each milestone.
+
+### Tool contract cheatsheet
+
+| Tool | When |
+|---|---|
+| `chef_get_flow(flowId)` | Session start — confirm state + grab spec |
+| `chef_get_messages(flowId, since?)` | After OnHold resume, or when curious about user activity |
+| `chef_post_message(flowId, kind, content, artifactsJson?, version?)` | Memos / completion artifacts; chef can only post `Memo` / `Question` / `Completion` |
+| `chef_transition(flowId, target, question?)` | `Cooking` / `Resume` / `OnHold` / `Committed` |
+| `chef_set_worktree(flowId, branch, notes?)` | Right after `chef_transition('Cooking')` so admin sees the branch chip in CookPanel + list page. Re-call to update `notes` ("Domain layer done"); pass empty string to clear when done. |
+| `chef_download_bundle(flowId)` | Pull the cached bundle zip as base64. Use on resume sessions when the local bundle dir was lost, or to re-sync after admin edits the spec. Admin's Download bundle / Submit refreshes the cache. |
+| `chef_list_roles()` | Confirm a spec's `role:XXX` actor refs target a role that actually exists |
+| `chef_list_principals(roleName?, kind?, search?)` | Inspect the org graph shape — who holds HR, what depts exist, search by display name |
+| `chef_walk_org(submitterUserId, path)` | Sanity-check the resolver C# you're about to write by walking the org from a sample submitter (paths: `manager`, `manager.manager`, `department`, `department.head`, `department.parent`, `department.parent.head`) |
+
+### Verifying actor refs before coding the resolver
+
+Before baking a resolver method into `<FLOW>_<V>_<Stage>Service.cs`,
+spend a tool call confirming the path actually returns somebody:
+
+1. Pick a sample submitter id from `sample-org.json` (or `chef_list_principals(kind='user')`).
+2. Call `chef_walk_org(submitter, '<the actor path>')`.
+3. Each step's `resolved` array shows what the EF join produces; an
+   empty `final` means the path dead-ends (e.g. submitter has no
+   manager, or the department has no head) — fall back to the spec's
+   `ActorRefFallback.text` instead of silently raising
+   `ConflictException`.
+
+For `role:XXX` refs, call `chef_list_principals(roleName='XXX')` to
+confirm the role has members; if the role exists but no one holds it,
+flag it via `chef_post_message(kind='Question', ...)` before coding —
+the customer probably forgot to assign the role.
+
+### Artifacts: metadata only
+
+Don't shovel diffs into admin-svc. The actual code lives on chef's
+testbed branch (see `workflow.md` — chef runs against the same
+checkout Jason works in, no separate worktree, per-flow branches
+like `leave-test-N`). Jason reads diffs in GitKraken. `artifactsJson`
+on a Completion should be a tiny summary like:
+
+```json
+{
+  "branch": "leave-test-6",
+  "fileCount": 14,
+  "testsPassing": 23,
+  "previewLabel": "Form + Case detail screenshots in PR"
+}
+```
+
+The admin Cook tab parses this and renders chips beside the
+completion message.
 
 ## 6. When to stop and ask
 

@@ -17,6 +17,7 @@ import { usePageHeader } from '@/flowcook/app/pageHeader'
 import { UserMenu } from '@/flowcook/app/UserMenu'
 import { UserRolePage } from '@/flowcook/pages/UserRolePage'
 import { AiKitchenPage } from '@/flowcook/pages/AiKitchenPage'
+import { SiteSettingPage } from '@/flowcook/pages/SiteSettingPage'
 
 export type FlowcookPage = 'ai-kitchen' | 'user-role' | 'sandbox' | 'audit' | 'site-setting'
 
@@ -190,13 +191,7 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
                 description="Read-only event ledger. Every action across admin, bpm, chef, syncer lands here as an append-only event. The viewer opens with Step 6 once syncer carries bpm events back."
               />
             } />
-            <Route path="/site-setting" element={
-              <PagePlaceholder
-                title="Site Setting"
-                kicker="incremental"
-                description="Shared configuration — admin SMTP, Anthropic API key, persona-switch allow-list, bpm timezone, default language, tenant branding. Each tab arrives as the feature behind it ships."
-              />
-            } />
+            <Route path="/site-setting/*" element={<SiteSettingPage />} />
             <Route path="*" element={<Navigate to="/ai-kitchen" replace />} />
           </Routes>
         </main>

@@ -1,0 +1,28 @@
+{
+  "id": "notify_d3c1",
+  "trigger": {
+    "kind": "event",
+    "event": "on_approve"
+  },
+  "channel": [
+    "email"
+  ],
+  "recipients": [
+    {
+      "type": "principal",
+      "ref": "role:HR"
+    }
+  ],
+  "template": {
+    "subject": {
+      "zh-TW": "\u3010\u5DF2\u6838\u51C6\u3011{{applicant.name}} \u7684\u7533\u8ACB"
+    },
+    "body": {
+      "zh-TW": "\u6848\u4EF6\u5DF2\u6838\u51C6\u5B8C\u7562\u3002\n\u7533\u8ACB\u4EBA\uFF1A{{applicant.name}}\n\n\u8A73\u7D30\uFF1A{{caseUrl}}"
+    },
+    "variables": [
+      "applicant.name",
+      "caseUrl"
+    ]
+  }
+}

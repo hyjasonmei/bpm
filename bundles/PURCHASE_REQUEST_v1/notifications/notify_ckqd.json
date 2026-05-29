@@ -1,0 +1,27 @@
+{
+  "id": "notify_ckqd",
+  "trigger": {
+    "kind": "event",
+    "event": "on_submit"
+  },
+  "channel": [
+    "email",
+    "in_app"
+  ],
+  "recipients": [
+    {
+      "type": "submitter"
+    }
+  ],
+  "template": {
+    "subject": {
+      "zh-TW": "\u3010\u5DF2\u6536\u5230\u3011\u60A8\u7684\u7533\u8ACB\u5DF2\u9001\u51FA"
+    },
+    "body": {
+      "zh-TW": "\u60A8\u7684\u7533\u8ACB\u5DF2\u9001\u51FA\uFF0C\u7B49\u5F85\u4E3B\u7BA1\u6838\u51C6\u4E2D\u3002\n\u67E5\u770B\u9032\u5EA6\uFF1A{{caseUrl}}"
+    },
+    "variables": [
+      "caseUrl"
+    ]
+  }
+}

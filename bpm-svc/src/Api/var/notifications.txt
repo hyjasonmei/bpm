@@ -1,0 +1,122 @@
+﻿---
+at: 2026-05-29T09:23:01.5338758Z
+source: PURCHASE_REQUEST_V1.notify_ckqd
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 482bd754-e91a-4974-8adb-bc80240c4e4f
+  flowCode: PURCHASE_REQUEST
+  flowVersion: 1
+  stage: PendingDeptHead
+  round: 1
+subject: 【已收到】您的申請已送出
+body: |
+  您的申請已送出，等待主管核准中。
+  查看進度：/cases/purchase-request/482bd754-e91a-4974-8adb-bc80240c4e4f
+
+---
+at: 2026-05-29T09:23:01.5910554Z
+source: PURCHASE_REQUEST_V1.notify_crme
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 482bd754-e91a-4974-8adb-bc80240c4e4f
+  flowCode: PURCHASE_REQUEST
+  flowVersion: 1
+  stage: PendingDeptHead
+  round: 1
+subject: 【待簽】Bob 的申請
+body: |
+  申請人：Bob
+  摘要：採購申請 — 1 invoice
+  
+  請點此核准：/cases/purchase-request/482bd754-e91a-4974-8adb-bc80240c4e4f
+
+---
+at: 2026-05-29T09:24:41.2134614Z
+source: PURCHASE_REQUEST_V1.notify_crme
+channels: email,in_app
+recipients: Grace <grace@acme.example>
+context:
+  caseId: 482bd754-e91a-4974-8adb-bc80240c4e4f
+  flowCode: PURCHASE_REQUEST
+  flowVersion: 1
+  stage: PendingFinance
+  round: 1
+subject: 【待簽】Bob 的申請
+body: |
+  申請人：Bob
+  摘要：採購申請 — 1 invoice
+  
+  請點此核准：/cases/purchase-request/482bd754-e91a-4974-8adb-bc80240c4e4f
+
+---
+at: 2026-05-29T09:25:05.6533516Z
+source: PURCHASE_REQUEST_V1.notify_ckqd
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: f3082096-b999-4ece-bed8-da78540579ad
+  flowCode: PURCHASE_REQUEST
+  flowVersion: 1
+  stage: PendingDeptHead
+  round: 1
+subject: 【已收到】您的申請已送出
+body: |
+  您的申請已送出，等待主管核准中。
+  查看進度：/cases/purchase-request/f3082096-b999-4ece-bed8-da78540579ad
+
+---
+at: 2026-05-29T09:25:05.6552415Z
+source: PURCHASE_REQUEST_V1.notify_crme
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: f3082096-b999-4ece-bed8-da78540579ad
+  flowCode: PURCHASE_REQUEST
+  flowVersion: 1
+  stage: PendingDeptHead
+  round: 1
+subject: 【待簽】Bob 的申請
+body: |
+  申請人：Bob
+  摘要：採購申請 — 1 invoice
+  
+  請點此核准：/cases/purchase-request/f3082096-b999-4ece-bed8-da78540579ad
+
+---
+at: 2026-05-29T09:25:06.8760418Z
+source: PURCHASE_REQUEST_V1.notify_crme
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: f3082096-b999-4ece-bed8-da78540579ad
+  flowCode: PURCHASE_REQUEST
+  flowVersion: 1
+  stage: ResubmitRequired
+  round: 1
+subject: 【待簽】Bob 的申請
+body: |
+  申請人：Bob
+  摘要：採購申請 — 1 invoice
+  
+  請點此核准：/cases/purchase-request/f3082096-b999-4ece-bed8-da78540579ad
+
+---
+at: 2026-05-29T09:25:09.0821489Z
+source: PURCHASE_REQUEST_V1.notify_crme
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: f3082096-b999-4ece-bed8-da78540579ad
+  flowCode: PURCHASE_REQUEST
+  flowVersion: 1
+  stage: PendingDeptHead
+  round: 2
+subject: 【待簽】Bob 的申請
+body: |
+  申請人：Bob
+  摘要：採購申請 — 1 invoice
+  
+  請點此核准：/cases/purchase-request/f3082096-b999-4ece-bed8-da78540579ad
+

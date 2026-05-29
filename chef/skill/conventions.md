@@ -12,12 +12,20 @@ Don't create new csproj files or edit `bpm-svc.slnx`.
 | Allowed (write) | What lives here |
 |---|---|
 | `bpm-svc/src/Domain/Features/<CODE>/V<N>/**` | Entity + status enum + value objects (POCO, no deps) |
-| `bpm-svc/src/Application/Features/<CODE>/V<N>/**` | State-machine service + notification templates + `ITypedInboxProvider` impl + actor-resolution helpers (all business logic) |
-| `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` | **EF mapping only** (`<CODE>_V<N>_<Purpose>Configuration.cs`) |
+| `bpm-svc/src/Application/Features/<CODE>/V<N>/**` | State-machine service + notification templates + `ITypedInboxProvider` impl + actor-resolution helpers + per-flow `I<CODE>_V<N>_CaseStore` interface (all business logic) |
+| `bpm-svc/src/Persistence/Features/<CODE>/V<N>/**` | EF `<CODE>_V<N>_<Purpose>Configuration` + EF-backed `<CODE>_V<N>_CaseStore` impl of the Application-side interface (Persistence is the only place that knows the per-flow entity by type) |
 | `bpm-svc/src/Persistence/Migrations/<ts>_<CODE>_V<N>_*.cs` + `AppDbContextModelSnapshot.cs` | `dotnet ef migrations add` regenerates these — let it drive |
 | `bpm-svc/src/Api/Features/<CODE>/V<N>/**` | Controller + DTOs |
 | `bpm-svc/tests/Bpm.Tests/Features/<CODE>/V<N>/**` | Unit + integration tests |
-| `bpm-ui/src/features/<CODE>/V<N>/**` | React form + manifest + case-detail page; registry globs `*/V*/manifest.ts` automatically |
+| `bpm-ui/src/features/<CODE>/V<N>/**` | React form + manifest + case-detail page + bundle's `bpmn.xml` (copy verbatim); registry globs `*/V*/manifest.ts` automatically |
+
+Bounded lead-side touches (allowed when unavoidable, flag in final report):
+
+| Lead-side path | Why chef has to touch it |
+|---|---|
+| `bpm-svc/src/Application/DependencyInjection.cs` | `AddScoped<<CODE>_V<N>_<Purpose>Service>()` registration. (The `ITypedInboxProvider` scan in this file already picks up providers automatically — usually no edit needed.) |
+| `bpm-svc/src/Persistence/DependencyInjection.cs` | Bind `I<CODE>_V<N>_CaseStore` to its EF impl. |
+| `bpm-ui/src/lib/workflow.ts` | Extend `FormCode` union + add `FORMS.<CODE>` entry (label / steps / ownerByStep) so `FormShell` + `BpmnView` can render the flow. |
 
 The five Clean-Arch layers (Domain / Application / Persistence /
 Api / SeedCli) are the same shape both backends use. **Entities don't
@@ -116,19 +124,27 @@ spec's `approval_vp` fallback "若部門主管不在請走 VP 角色" became
 
 ## Actor resolution helpers
 
-Chef-side, against admin's SharedIdentity tables (read-only DbSets
-already on `AppDbContext` — chef uses `db.Set<T>()`):
+Chef-side resolvers run in **Application** and therefore can't touch
+SharedX DbSets directly. Use the lead-shipped ports:
 
-| Need | Tables to read |
-|---|---|
-| Manager of a user | `SharedUserManager` (UserId → ManagerUserId) |
-| Primary dept of a user | `SharedUserDept` where `IsPrimary` |
-| Dept head | `SharedDeptHead` (DeptId → HeadUserId) |
-| First user in a role | `SharedRole` (by Name) → `SharedPrincipalRole` |
-| Membership check | `SharedRole` + `SharedPrincipalRole` |
-| Display name | `SharedPrincipal` (Id → DisplayName) |
+| Need | Port + method | Returns |
+|---|---|---|
+| Manager of a user | `IOrgChartReader.GetManagerIdAsync(userId)` | `Guid?` |
+| Primary dept of a user | `IOrgChartReader.GetPrimaryDepartmentIdAsync(userId)` | `Guid?` |
+| Dept head | `IOrgChartReader.GetDepartmentHeadIdAsync(deptId)` | `Guid?` |
+| Dept parent | `IOrgChartReader.GetDepartmentParentIdAsync(deptId)` | `Guid?` |
+| Role assignees by name | `IOrgChartReader.GetRoleAssigneesAsync(roleName, flowCode?)` | `(PrincipalId, RoleId)[]` |
+| Group expansion | `IOrgChartReader.ExpandGroupAsync(groupId)` | `GroupExpansion` |
+| First active User in role by name | `IPrincipalDirectory.FindFirstUserInRoleAsync(roleName)` | `Guid?` |
+| Display name / email lookup | `IPrincipalDirectory.GetByIdAsync(principalId)` / `GetManyAsync(ids)` | `PrincipalInfo?` / dict |
 
-See `LEAVE_V1_LeaveService` for the canonical helper shapes.
+For per-flow case data — your own table — go through your
+`I<CODE>_V<N>_CaseStore` (see SKILL §3.4), never `AppDbContext`.
+
+⚠️ The LEAVE V1 reference still queries SharedX DbSets directly
+because its service lives in Persistence. **Don't copy that
+pattern** — see `PURCHASE_REQUEST_V1_PurchaseRequestService` for the
+Clean-Arch shape.
 
 ## Cross-cutting primitives chef MUST consume
 
@@ -136,17 +152,23 @@ Lead-maintained — chef imports, never reinvents.
 
 | Concern | Primitive | Notes |
 |---|---|---|
-| Unified inbox | `Bpm.Application.Inbox.ITypedInboxProvider` + `InboxRow` | Required per feature. `DependencyInjection` auto-registers all impls. |
+| Unified inbox | `Bpm.Application.Inbox.ITypedInboxProvider` + `InboxRow` | Required per feature. Both Application and Persistence DI scans auto-register impls. |
+| Per-flow data access | chef-shipped `I<CODE>_V<N>_CaseStore` (Application) + EF impl (Persistence) — see SKILL §3.4 | Mandatory: Application can't reference Persistence, so the service must talk to its own table through this port |
+| Org-chart reads | `Bpm.Application.Org.IOrgChartReader` | manager / primary dept / dept head / dept parent / group expansion / role assignees by name |
+| Principal lookup | `Bpm.Application.Common.Directory.IPrincipalDirectory` | `GetByIdAsync`, `GetManyAsync`, `FindFirstUserInRoleAsync(roleName)` — display name / email / Kind / Active |
+| Notification send | `Bpm.Application.Notifications.INotifyDispatcher` + `NotifyMessage` | POC binds to `FileNotifyDispatcher` writing `var/notifications.txt`; production swaps the binding |
 | File upload (UI) | `@/components/ui/FilePicker` | Returns `{ id, fileName, contentType, sizeBytes }` |
 | File storage (backend) | `Bpm.Application.Files.IFileStorageService` | Read bytes by id |
 | Buttons | `@/components/ui/button` | `variant=primary\|outline\|ghost\|destructive`, `size=xs\|sm\|md` |
 | Form inputs | `@/components/ui/form` | `<Input>`, `<Textarea>`, `<Select>`, `<Field>`, `<InfoBanner>` |
 | Section cards | `@/components/ui/card` | `<SectionCard>`, `<SectionTitle>` |
+| Action footer | `@/components/ui/action-footer/ActionFooter` | Sticky bottom bar — required for case-detail decision buttons (no inline buttons) |
 | Confirm dialog | `@/components/ui/ConfirmDialog` | Used by every form submit |
 | Read-only field | `@/components/ui/readonly` | |
-| API fetch (UI) | `@/lib/apiFetch` | Wraps fetch with the JWT |
+| API fetch (UI) | `@/lib/apiFetch` (+ `BPM_SVC_URL`, `getJwt`) | Wraps fetch with the JWT |
+| JWT decode | `@/lib/jwt` (`decodeJwt`) | Read `sub` to identify the current viewer in CaseDetail |
 | Auth (backend) | `BpmControllerBase.RequireUserId()` | JWT `sub` claim |
-| Logging | `ILogger<T>` | Notification dispatch is a stub today — log subject + recipient |
+| Logging | `ILogger<T>` | Diagnostic only — real delivery goes through `INotifyDispatcher` |
 
 If you need a UI control or backend service not in this table, stop
 and ask Jason. Lead ships the primitive; chef consumes it.
@@ -211,8 +233,8 @@ coordinate with lead before adding new top-level routes.
 
 ## Case-detail page
 
-Every chef-cooked feature MUST ship a read-only detail page in
-`bpm-ui/src/features/<CODE>/V<N>/<CODE>_V<N>_CaseDetail.tsx`,
+Every chef-cooked feature MUST ship a read-only-by-default detail page
+in `bpm-ui/src/features/<CODE>/V<N>/<CODE>_V<N>_CaseDetail.tsx`,
 exported via `manifest.detailComponent`. The
 `/cases/:flowCode/:caseId` route auto-binds:
 
@@ -223,14 +245,62 @@ import { LEAVE_V1_CaseDetail } from './LEAVE_V1_CaseDetail'
 const manifest: FormManifest = { …, detailComponent: LEAVE_V1_CaseDetail }
 ```
 
-The page is **view-only** — no approve / reject buttons on detail. A
-small footer banner pointing approvers at the Pending inbox keeps the
-contract obvious. Fetch the case via `apiFetch('/api/<flow>/v<n>/{id}')`
-and render: header (title + status pill), field grid (every business
-data + spec-driven fields), 簽核 timeline (one row per approval stage
-with state dot / actor display / decision timestamp / comment), plus
-a "View BPMN" button that opens the shared `BpmnView` modal pre-fed
-with status-derived markers (see next section).
+The page renders: header (title + status pill), field grid (every
+business data + spec-driven field), 簽核 timeline (one row per approval
+stage with state dot / actor display / decision timestamp / comment),
+plus a "View BPMN" button that opens the shared `BpmnView` modal
+pre-fed with status-derived markers (see next section).
+
+### Action buttons → `<ActionFooter>`
+
+When the current viewer is the active assignee, the case-detail page
+exposes the node's `actions[]` as buttons via the shared
+`<ActionFooter>` primitive in `@/components/ui/action-footer`. **Inline
+buttons are not allowed** — the sticky footer keeps decision controls
+uniform across flows and reserves the left slot for future SLA / hint
+chips.
+
+```tsx
+import { ActionFooter, type ActionFooterItem } from '@/components/ui/action-footer/ActionFooter'
+
+const footerActions: ActionFooterItem[] = useMemo(() => {
+  if (!isCurrentAssignee) return []
+  // Derive from spec.actions[] for this stage. Translate kind →
+  // backend route + variant per SKILL.md §3.5.
+  return [
+    { id: 'reject',  label: '退件 / Reject',  variant: 'destructive', pending, onClick: () => postDecision(false) },
+    { id: 'approve', label: '核准 / Approve', variant: 'primary',     pending, onClick: () => postDecision(true)  },
+  ]
+}, [isCurrentAssignee, pending])
+
+return (
+  <div className="mx-auto max-w-screen-lg space-y-4 p-6 pb-24">
+    {/* … rest of the page … */}
+    <ActionFooter hint={footerHint} actions={footerActions} />
+  </div>
+)
+```
+
+Comment / archive note text inputs live inside in-page SectionCards
+(so the user can scroll back through the case while typing); the
+footer reads their state for the onClick handler. Add `pb-24` (or
+similar) to the page's scroll container so the footer doesn't cover
+real content.
+
+Variants map from `TaskAction.kind`: `submit`/`approve`/`complete` →
+`primary`, `reject`/`cancel`/`revoke` → `destructive`,
+`save_draft`/`custom` → default. Hide actions whose `guard` evaluates
+to false (or disable via `disabled` + `title`).
+
+### Retired-flow banner
+
+Mount `<FlowStateBanner flowCode={'…'} flowVersion={N} />` from
+`@/components/ui/flow-state-banner/FlowStateBanner` near the top of
+the case detail (above the status grid). Renders nothing for Approved
+flows; surfaces a warning row when the case's flow has been retired
+by admin — existing cases stay actionable, but the launcher is
+hidden, so the user needs the cue when they hit the case via deep
+link. Backed by a single cached `useFlowRegistry` fetch.
 
 ## BPMN passthrough
 

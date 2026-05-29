@@ -8,7 +8,8 @@ import { useState } from 'react'
 import { AlertCircle, CheckCircle2, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { ActorRefEditor, emptyActor } from '@/components/wizard/ActorRefEditor'
-import type { Approval, DraftSpec, ActorRef } from '@/lib/onboarding'
+import { ActionsEditor } from '@/components/actions-editor/ActionsEditor'
+import { defaultApprovalActions, type Approval, type DraftSpec, type ActorRef } from '@/lib/onboarding'
 
 export function StepApprovers({ draft, setDraft }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void }) {
   const approvalNodes = draft.flow.nodes.filter(n => n.type === 'approval')
@@ -30,7 +31,7 @@ export function StepApprovers({ draft, setDraft }: { draft: DraftSpec; setDraft:
   }
 
   const getOrCreate = (id: string): Approval =>
-    draft.approvals.find(a => a.id === id) ?? { id, approver: emptyActor('expr') }
+    draft.approvals.find(a => a.id === id) ?? { id, approver: emptyActor('expr'), actions: defaultApprovalActions() }
 
   const activeNode = approvalNodes.find(n => n.id === safeActiveId)!
   const activeApproval = getOrCreate(safeActiveId)
@@ -100,6 +101,32 @@ export function StepApprovers({ draft, setDraft }: { draft: DraftSpec; setDraft:
             value={activeApproval.approver}
             onChange={(next: ActorRef) => upsert({ ...activeApproval, approver: next })}
           />
+
+          {/* Actions — decision buttons (approve / reject / custom). chef
+              reads approval.actions[] and emits the matching transition
+              + ActionFooter buttons on the per-flow CaseDetail. */}
+          <div className="border-t border-rule pt-3">
+            <div className="mb-2 flex items-baseline gap-1.5">
+              <span className="text-xs font-semibold text-ink">決策按鈕 / Actions</span>
+              <span className="font-mono text-[10px] text-ink-faint">
+                approve / reject 必填；reject 的目標是 endEvent = 永久駁回，是 userTask = 退回補件
+              </span>
+            </div>
+            <ActionsEditor
+              actions={activeApproval.actions}
+              onChange={next => upsert({ ...activeApproval, actions: next })}
+              nodeType="approval"
+              outgoingEdges={draft.flow.edges.filter(e => e.source === activeApproval.id)}
+              edgeTargetMeta={edgeId => {
+                const edge = draft.flow.edges.find(e => e.id === edgeId)
+                if (!edge) return undefined
+                const target = draft.flow.nodes.find(n => n.id === edge.target)
+                return target ? { label: target.label, type: target.type } : undefined
+              }}
+              siblingFieldIds={[]}
+              variableNames={draft.variables.map(v => v.name).filter(Boolean)}
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -168,10 +168,99 @@ namespace Bpm.Admin.Persistence.Migrations
                     b.ToTable("Admin_Delegations", (string)null);
                 });
 
+            modelBuilder.Entity("Bpm.Admin.Domain.Flows.Environment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("SortOrder");
+
+                    b.ToTable("Admin_Environments", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Admin.Domain.Flows.FeatureRegistration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FlowCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("FlowId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("RegisteredAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TableNamesJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FlowId");
+
+                    b.HasIndex("FlowCode", "Version");
+
+                    b.ToTable("Admin_FeatureRegistrations", (string)null);
+                });
+
             modelBuilder.Entity("Bpm.Admin.Domain.Flows.Flow", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ArchivedTableNamesJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("BundleBlob")
+                        .HasColumnType("BLOB");
+
+                    b.Property<DateTime?>("BundleBuiltAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ChefWorkContextJson")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
@@ -191,6 +280,12 @@ namespace Bpm.Admin.Persistence.Migrations
                     b.Property<string>("FlowCode")
                         .IsRequired()
                         .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("GroupId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastChefHeartbeatAt")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("LineageId")
@@ -214,6 +309,8 @@ namespace Bpm.Admin.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("GroupId");
+
                     b.HasIndex("LineageId");
 
                     b.HasIndex("State");
@@ -224,6 +321,132 @@ namespace Bpm.Admin.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Admin_Flows", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Admin.Domain.Flows.FlowChatMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ArtifactsJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("AuthorUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("FlowId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Sender")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Version")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FlowId");
+
+                    b.HasIndex("FlowId", "CreatedAt");
+
+                    b.ToTable("Admin_FlowChatMessages", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Admin.Domain.Flows.FlowDeployment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeployedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("DeployedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("EnvironmentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("FlowId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FlowId");
+
+                    b.HasIndex("FlowId", "EnvironmentId")
+                        .IsUnique();
+
+                    b.ToTable("Admin_FlowDeployments", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Admin.Domain.Flows.FlowGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayNameJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("SortOrder");
+
+                    b.ToTable("Admin_FlowGroups", (string)null);
                 });
 
             modelBuilder.Entity("Bpm.Admin.Domain.Principals.DeptHead", b =>

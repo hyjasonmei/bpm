@@ -3,8 +3,9 @@ import type {
   Decision, Approval, Notification, NodeSLA, TestCase,
   FlowNode, FlowEdge,
   FormField, FieldType, ActorRef, NotifyTrigger, NotifyRecipient,
+  UserTask, LayoutChild,
 } from './onboarding'
-import { ACTOR_PATH_WHITELIST, EMPTY_DRAFT, testCaseToSnapshot } from './onboarding'
+import { ACTOR_PATH_WHITELIST, EMPTY_DRAFT, defaultApprovalActions, defaultUserTaskActions, newFieldUid, testCaseToSnapshot } from './onboarding'
 
 const FLOW_NODE_TYPES = [
   'startEvent', 'endEvent', 'userTask', 'approval', 'gateway', 'serviceTask', 'notify',
@@ -49,18 +50,23 @@ const FIELD_TYPES: FieldType[] = [
 // Forms — one tool call replaces ONE user task's field list. Targeting per-task
 // keeps the input small and makes "add X to the request form" unambiguous when
 // there are multiple user tasks.
+//
+// Optional `repeaters` param replaces the itemFields[] of named repeaters in
+// the user task's layout tree. Without it the model can only edit outer
+// fields; repeater contents (e.g. line items) used to be opaque to AI.
 const formsTool: StepToolBinding = {
   tool: {
     name: 'emit_form_fields',
-    description: 'Replace the entire field list for one user task. Pass the COMPLETE list of fields the task should have after the change (existing + new + modified). Each field id must be unique within the task and snake_case.',
+    description: 'Update the field list for ONE user task. `taskId` MUST be one of draftSummary.availableUserTasks[].id verbatim — never invent ids like `task_1` / `task__1` / `userTask_1`. Pass the COMPLETE outer `fields` list (existing + new + modified); ids snake_case unique within the task. To edit a repeater\'s line-item fields (line items / attachments), pass `repeaters` with the repeater id from draftSummary.availableUserTasks[].repeaters[].id and the COMPLETE replacement itemFields[] for that repeater. Outer fields and repeaters are independent — omit `repeaters` if you only touch outer fields, omit `fields` (or pass it unchanged) if you only touch repeater contents.',
     input_schema: {
       type: 'object',
-      required: ['taskId', 'fields'],
+      required: ['taskId'],
       properties: {
-        taskId: { type: 'string', description: 'The user task node id (matches flow.nodes[].id)' },
+        taskId: { type: 'string', description: 'Must be one of draftSummary.availableUserTasks[].id verbatim. Never invent.' },
         formCode: { type: 'string', description: 'Optional: override the form code (UPPERCASE_SNAKE)' },
         fields: {
           type: 'array',
+          description: 'COMPLETE replacement for the outer fields[]. Omit (undefined) to leave outer fields untouched.',
           items: {
             type: 'object',
             required: ['id', 'labelZh', 'type', 'required'],
@@ -84,49 +90,146 @@ const formsTool: StepToolBinding = {
             },
           },
         },
+        repeaters: {
+          type: 'array',
+          description: 'Replace the itemFields[] of named repeaters. Each entry targets one repeater by id; the entire itemFields[] is overwritten with the supplied list.',
+          items: {
+            type: 'object',
+            required: ['repeaterId', 'itemFields'],
+            properties: {
+              repeaterId: { type: 'string', description: 'Must be one of draftSummary.availableUserTasks[].repeaters[].id verbatim.' },
+              itemFields: {
+                type: 'array',
+                description: 'COMPLETE replacement for this repeater\'s itemFields[].',
+                items: {
+                  type: 'object',
+                  required: ['id', 'labelZh', 'type', 'required'],
+                  properties: {
+                    id: { type: 'string', description: 'snake_case unique within this repeater' },
+                    labelZh: { type: 'string' },
+                    labelEn: { type: 'string' },
+                    type: { type: 'string', enum: FIELD_TYPES },
+                    required: { type: 'boolean' },
+                    noteZh: { type: 'string' },
+                    options: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        required: ['value', 'label'],
+                        properties: { value: { type: 'string' }, label: { type: 'string' } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
   },
   apply: (draft, raw) => {
+    type ToolField = {
+      id: string
+      labelZh: string
+      labelEn?: string
+      type: FieldType
+      required: boolean
+      noteZh?: string
+      conditional?: string
+      options?: { value: string; label: string }[]
+    }
     const input = raw as {
       taskId: string
       formCode?: string
-      fields: Array<{
-        id: string
-        labelZh: string
-        labelEn?: string
-        type: FieldType
-        required: boolean
-        noteZh?: string
-        conditional?: string
-        options?: { value: string; label: string }[]
-      }>
+      fields?: ToolField[]
+      repeaters?: Array<{ repeaterId: string; itemFields: ToolField[] }>
     }
     const node = draft.flow.nodes.find(n => n.id === input.taskId)
-    if (!node) throw new Error(`User task "${input.taskId}" 不存在於 flow.nodes`)
-
+    if (!node) {
+      const valid = draft.flow.nodes.filter(n => n.type === 'userTask').map(n => n.id)
+      throw new Error(`taskId "${input.taskId}" 不存在；valid: ${valid.join(', ') || '(no user task nodes yet — draw one on the BPMN canvas first)'}`)
+    }
     const existingTask = draft.userTasks.find(t => t.id === input.taskId)
-    const newFields: FormField[] = input.fields.map(f => ({
+    const mapField = (f: ToolField): FormField => ({
       id: f.id,
       label: { 'zh-TW': f.labelZh, ...(f.labelEn ? { en: f.labelEn } : {}) },
       type: f.type,
       required: f.required,
+      _uid: newFieldUid(),
       ...(f.noteZh ? { note: { 'zh-TW': f.noteZh } } : {}),
       ...(f.conditional ? { conditional: f.conditional } : {}),
       ...(f.options ? { options: f.options } : {}),
-    }))
+    })
 
-    const nextTask = {
+    const outerFields: FormField[] = input.fields
+      ? input.fields.map(mapField)
+      : existingTask?.fields ?? []
+
+    let nextLayout = existingTask?.layout
+    if (input.repeaters?.length) {
+      if (!nextLayout?.length) {
+        throw new Error(`task "${input.taskId}" 沒有任何 repeater 可以更新；先手動加 repeater 再叫 AI 編輯`)
+      }
+      const updates = new Map(input.repeaters.map(r => [r.repeaterId, r.itemFields]))
+      const seen = new Set<string>()
+      nextLayout = patchRepeaterFields(nextLayout, updates, mapField, seen)
+      const missing = [...updates.keys()].filter(id => !seen.has(id))
+      if (missing.length) {
+        const valid = collectAllRepeaterIds(existingTask?.layout ?? []).join(', ')
+        throw new Error(`repeaterId ${missing.join(', ')} 不存在於 task "${input.taskId}"；valid: ${valid || '(none)'}`)
+      }
+    }
+
+    const nextTask: UserTask = {
       id: input.taskId,
       formCode: input.formCode ?? existingTask?.formCode ?? `${draft.meta.flowCode || 'FLOW'}_${node.label.toUpperCase().replace(/\s+/g, '_').slice(0, 12)}`,
-      fields: newFields,
+      fields: outerFields,
+      ...(nextLayout ? { layout: nextLayout } : {}),
       permissions: existingTask?.permissions ?? { submitter: 'self', viewers: ['self'] },
+      // Preserve existing actions; new tasks get the standard `submit`.
+      actions: existingTask?.actions ?? defaultUserTaskActions(),
     }
     return {
       ...draft,
       userTasks: [...draft.userTasks.filter(t => t.id !== input.taskId), nextTask],
     }
   },
+}
+
+function patchRepeaterFields(
+  children: LayoutChild[],
+  updates: Map<string, Array<{ id: string; labelZh: string; labelEn?: string; type: FieldType; required: boolean; noteZh?: string; options?: { value: string; label: string }[] }>>,
+  mapField: (f: { id: string; labelZh: string; labelEn?: string; type: FieldType; required: boolean; noteZh?: string; options?: { value: string; label: string }[] }) => FormField,
+  seen: Set<string>,
+): LayoutChild[] {
+  return children.map(c => {
+    if (c.kind === 'repeater') {
+      const upd = updates.get(c.id)
+      if (upd) {
+        seen.add(c.id)
+        return { ...c, itemFields: upd.map(mapField), itemLayout: patchRepeaterFields(c.itemLayout, updates, mapField, seen) }
+      }
+      return { ...c, itemLayout: patchRepeaterFields(c.itemLayout, updates, mapField, seen) }
+    }
+    if (c.kind === 'section' || c.kind === 'row') {
+      return { ...c, children: patchRepeaterFields(c.children, updates, mapField, seen) } as LayoutChild
+    }
+    return c
+  })
+}
+
+function collectAllRepeaterIds(children: LayoutChild[]): string[] {
+  const out: string[] = []
+  for (const c of children) {
+    if (c.kind === 'repeater') {
+      out.push(c.id)
+      out.push(...collectAllRepeaterIds(c.itemLayout))
+    } else if (c.kind === 'section' || c.kind === 'row') {
+      out.push(...collectAllRepeaterIds(c.children))
+    }
+  }
+  return out
 }
 
 const decisionsTool: StepToolBinding = {
@@ -272,7 +375,15 @@ const approversTool: StepToolBinding = {
   },
   apply: (draft, raw) => {
     const input = raw as { approvals: Array<{ id: string; approver: ActorRef }> }
-    const next: Approval[] = input.approvals.map(a => ({ id: a.id, approver: a.approver }))
+    const next: Approval[] = input.approvals.map(a => {
+      const existing = draft.approvals.find(x => x.id === a.id)
+      return {
+        id: a.id,
+        approver: a.approver,
+        // Preserve existing actions; brand-new approvals get [approve, reject].
+        actions: existing?.actions ?? defaultApprovalActions(),
+      }
+    })
     return { ...draft, approvals: next }
   },
 }
@@ -346,7 +457,9 @@ If a notification's \`nodeId\` is already set in draftSummary, treat it as node-
     }
     const next: Notification[] = input.notifications.map(n => ({
       id: n.id,
-      trigger: n.trigger,
+      // AI tool emits the legacy event-only enum (back-compat).
+      // Wizard authors who want action-scoped triggers do it in UI.
+      trigger: { kind: 'event' as const, event: n.trigger },
       channel: n.channel,
       recipients: n.recipients,
       template: {

@@ -8,6 +8,7 @@ export type FlowState =
   | 'Committed'
   | 'Approved'
   | 'Rejected'
+  | 'Retired'
 
 export interface FlowSummary {
   id: string
@@ -18,12 +19,36 @@ export interface FlowSummary {
   displayName: string
   createdAt: string
   updatedAt: string
+  /** Last chef MCP call touch (PR-K1). Drives the list-page stall pill. */
+  lastChefHeartbeatAt: string | null
+  /** Assigned launcher group, or null when unassigned (PR-G1). */
+  groupId: string | null
+  /** Denormalised group code so the list row can chip without a second fetch. */
+  groupCode: string | null
+  /** Free-form JSON about chef's workspace (PR-W1). Today shape:
+   *  { branch, notes?, setAt }. Null when no chef session has set it. */
+  chefWorkContextJson: string | null
 }
 
 export interface FlowDetail extends FlowSummary {
   specJson: string
   notes: string | null
   createdByUserId: string | null
+}
+
+/** Parse the chef work-context JSON helper; tolerant of nulls / garbage. */
+export interface ChefWorkContext {
+  branch?: string
+  notes?: string
+  setAt?: string
+}
+export function parseChefWorkContext(json: string | null | undefined): ChefWorkContext | null {
+  if (!json) return null
+  try {
+    const parsed = JSON.parse(json) as ChefWorkContext
+    if (!parsed.branch) return null
+    return parsed
+  } catch { return null }
 }
 
 export interface CreateFlowRequest {
@@ -72,6 +97,14 @@ export function resumeFlow(id: string): Promise<FlowDetail> {
 
 export function cloneFlowVersion(id: string): Promise<FlowDetail> {
   return api<FlowDetail>(`/api/flows/${id}/clone-version`, { method: 'POST' })
+}
+
+export function retireFlow(id: string): Promise<FlowDetail> {
+  return api<FlowDetail>(`/api/flows/${id}/retire`, { method: 'POST' })
+}
+
+export function unretireFlow(id: string): Promise<FlowDetail> {
+  return api<FlowDetail>(`/api/flows/${id}/unretire`, { method: 'POST' })
 }
 
 export function deleteFlow(id: string): Promise<void> {

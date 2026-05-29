@@ -3,7 +3,7 @@ import { Send, Bot, User, AlertTriangle, Wand2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/cn'
-import type { OnboardingStep, DraftSpec } from '@/lib/onboarding'
+import type { OnboardingStep, DraftSpec, UserTask, LayoutChild } from '@/lib/onboarding'
 import { STEP_TOOLS } from '@/lib/onboardingTools'
 import { api, ApiError } from '@/flowcook/api'
 
@@ -109,6 +109,23 @@ const STEP_OPENERS: Record<string, string> = {
   notes:          '有要交代給 chef（產 code 的 AI）或驗收者的補充嗎？右邊 textarea 自己寫或跟我說「加一段：金額大於 50K 一定要 board approval」這種，我會幫你補進去。',
 }
 
+function collectRepeaterIds(ut: UserTask | undefined): { id: string; itemFieldIds: string[] }[] {
+  if (!ut) return []
+  const out: { id: string; itemFieldIds: string[] }[] = []
+  function walk(children: LayoutChild[]) {
+    for (const c of children) {
+      if (c.kind === 'repeater') {
+        out.push({ id: c.id, itemFieldIds: c.itemFields.map(f => f.id) })
+        walk(c.itemLayout)
+      } else if (c.kind === 'section' || c.kind === 'row') {
+        walk(c.children)
+      }
+    }
+  }
+  walk(ut.layout ?? [])
+  return out
+}
+
 function summarizeDraft(d: DraftSpec) {
   return {
     meta: d.meta,
@@ -123,6 +140,25 @@ function summarizeDraft(d: DraftSpec) {
       id: e.id, source: e.source, target: e.target,
       label: e.label, condition: e.condition, isDefault: e.isDefault,
     })),
+    // Pre-computed valid taskIds for emit_form_fields. The tool's
+    // apply() rejects any taskId not present in flow.nodes, and the
+    // model has been observed inventing placeholders like `task__1`
+    // when it doesn't spot the existing user-task nodes in the full
+    // nodes[] array. Surfacing them in their own short list (with the
+    // human label) makes the choice obvious. Repeater ids are surfaced
+    // the same way so emit_form_fields' `repeaters` parameter can
+    // address them verbatim instead of guessing.
+    availableUserTasks: d.flow.nodes
+      .filter(n => n.type === 'userTask')
+      .map(n => {
+        const ut = d.userTasks.find(t => t.id === n.id)
+        return {
+          id: n.id,
+          label: n.label,
+          fieldIds: ut?.fields.map(f => f.id) ?? [],
+          repeaters: collectRepeaterIds(ut),
+        }
+      }),
     // userTask field IDs — gateway conditions / validators / notify
     // templates all reference these by exact id (e.g. `leave_days`,
     // NOT `leaveDays`). Surface the canonical id + type so the model
@@ -140,7 +176,13 @@ function summarizeDraft(d: DraftSpec) {
     // unmentioned entries because the tools have「replace COMPLETE
     // list」semantics.
     notifications: d.notifications.map(n => ({
-      id: n.id, trigger: n.trigger, nodeId: n.nodeId,
+      id: n.id,
+      // Flatten the v2 binding back to the legacy string the AI tool
+      // emits — event triggers send the event name, action-bound ones
+      // surface as `action:<id>` so the model knows it can't change it
+      // through emit_notifications (would need a future tool).
+      trigger: n.trigger.kind === 'event' ? n.trigger.event : `action:${n.trigger.actionId}`,
+      nodeId: n.nodeId,
       recipients: n.recipients.length, channel: n.channel,
     })),
     sla: d.sla?.perNode

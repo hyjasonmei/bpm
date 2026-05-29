@@ -29,6 +29,11 @@ public class AdminDbContext : DbContext
     public DbSet<UserCredential> UserCredentials => Set<UserCredential>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<Flow> Flows => Set<Flow>();
+    public DbSet<FlowChatMessage> FlowChatMessages => Set<FlowChatMessage>();
+    public DbSet<FlowGroup> FlowGroups => Set<FlowGroup>();
+    public DbSet<FeatureRegistration> FeatureRegistrations => Set<FeatureRegistration>();
+    public DbSet<Bpm.Admin.Domain.Flows.Environment> Environments => Set<Bpm.Admin.Domain.Flows.Environment>();
+    public DbSet<FlowDeployment> FlowDeployments => Set<FlowDeployment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

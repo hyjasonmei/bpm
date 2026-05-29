@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, CheckCircle2, Code2, Eye, LayoutGrid, ListChecks, Pencil, Plus, Send, StickyNote, Trash2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Code2, Eye, LayoutGrid, ListChecks, MousePointer, Pencil, Plus, Send, StickyNote, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Field, Input, Select, Checkbox } from '@/components/ui/form'
 import { OptionsEditorModal } from '@/components/options-editor/OptionsEditorModal'
@@ -7,8 +7,10 @@ import { ExpressionEditorModal } from '@/components/expression-editor/Expression
 import { FormPreviewModal } from '@/components/form-preview/FormPreviewModal'
 import { FormLayoutEditor } from '@/components/form-layout-editor/FormLayoutEditor'
 import { NoteEditorModal } from '@/components/note-editor/NoteEditorModal'
+import { ActionsEditor } from '@/components/actions-editor/ActionsEditor'
 import type { ExpressionShape } from '@/lib/expressions'
-import type { DraftSpec, FormField, UserTask, FieldType } from '@/lib/onboarding'
+import { defaultUserTaskActions, hasMeaningfulInput, newFieldUid, type DraftSpec, type FormField, type UserTask, type FieldType } from '@/lib/onboarding'
+import { DragGrip, mergeDragStyle, SortableList, type SortableHandleProps } from '@/components/sortable-list/SortableList'
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'text', label: 'Text' },
@@ -48,6 +50,7 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
       formCode: `${draft.meta.flowCode || 'FLOW'}_${suffix}`,
       fields: [],
       permissions: { submitter: 'self', viewers: ['self'] },
+      actions: defaultUserTaskActions(),
     }
   }
 
@@ -76,12 +79,12 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
 
   const activeNode = userTaskNodes.find(n => n.id === safeActiveId)!
   const activeTask = draft.userTasks.find(t => t.id === safeActiveId) ?? getOrCreate(safeActiveId)
-  const hasRequired = activeTask.fields.some(f => f.required)
+  const meaningful = hasMeaningfulInput(activeTask)
 
   return (
     <div className="flex flex-col gap-4">
       <p className="text-xs text-ink-muted">
-        每個 user task 需要至少一個欄位、一個必填欄位才能往下一步。
+        每個 user task 需要至少一個欄位，且要有必填欄位或必填 repeater (minCount ≥ 1 或內含必填欄位) 才能往下一步。
       </p>
 
       {/* Pill row — one per user task; first pill marked as 送單 trigger */}
@@ -90,7 +93,7 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
           const task = draft.userTasks.find(t => t.id === node.id) ?? getOrCreate(node.id)
           const isActive = node.id === safeActiveId
           const isTrigger = node.id === firstTaskId
-          const taskValid = task.fields.length > 0 && task.fields.some(f => f.required)
+          const taskValid = hasMeaningfulInput(task)
           return (
             <button
               key={node.id}
@@ -132,18 +135,16 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
           </div>
           <div className="flex items-baseline gap-3">
             <div className="text-[11px] text-ink-muted">
-              {activeTask.fields.length === 0
-                ? <span className="text-warn">沒有欄位</span>
-                : !hasRequired
-                  ? <span className="text-warn">缺必填欄位</span>
-                  : <span className="text-good">✓ OK</span>}
+              {!meaningful
+                ? <span className="text-warn">缺必填欄位或必填 repeater</span>
+                : <span className="text-good">✓ OK</span>}
               {' · '}
               {activeTask.fields.length} fields, {activeTask.fields.filter(f => f.required).length} required
             </div>
             <button
               type="button"
               onClick={() => setPreviewOpen(true)}
-              disabled={activeTask.fields.length === 0}
+              disabled={activeTask.fields.length === 0 && (activeTask.layout?.length ?? 0) === 0}
               className="inline-flex items-center gap-1 rounded border border-rule bg-white px-2 py-1 text-[11px] font-medium text-ink hover:border-primary hover:text-primary disabled:opacity-40 disabled:hover:border-rule disabled:hover:text-ink"
             >
               <Eye className="h-3.5 w-3.5" />
@@ -176,6 +177,7 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
                   label: { 'zh-TW': '新欄位' },
                   type: 'text',
                   required: false,
+                  _uid: newFieldUid(),
                 }
                 upsertTask({ ...activeTask, fields: [...activeTask.fields, newField] })
               }}
@@ -191,22 +193,28 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
             </div>
           ) : (
             <div className="space-y-2">
-              {activeTask.fields.map((field, idx) => (
-                <FieldEditor
-                  key={field.id}
-                  field={field}
-                  siblingFieldIds={activeTask.fields.filter((_, i) => i !== idx).map(f => f.id)}
-                  variableNames={draft.variables.map(v => v.name).filter(Boolean)}
-                  onChange={f => upsertTask({
-                    ...activeTask,
-                    fields: activeTask.fields.map((x, i) => i === idx ? f : x),
-                  })}
-                  onRemove={() => upsertTask({
-                    ...activeTask,
-                    fields: activeTask.fields.filter((_, i) => i !== idx),
-                  })}
-                />
-              ))}
+              <SortableList
+                items={activeTask.fields}
+                getId={(f, idx) => f._uid ?? `${f.id}-${idx}`}
+                onReorder={next => upsertTask({ ...activeTask, fields: next })}
+              >
+                {(field, idx, handle) => (
+                  <FieldEditor
+                    field={field}
+                    dragHandle={handle}
+                    siblingFieldIds={activeTask.fields.filter((_, i) => i !== idx).map(f => f.id)}
+                    variableNames={draft.variables.map(v => v.name).filter(Boolean)}
+                    onChange={f => upsertTask({
+                      ...activeTask,
+                      fields: activeTask.fields.map((x, i) => i === idx ? f : x),
+                    })}
+                    onRemove={() => upsertTask({
+                      ...activeTask,
+                      fields: activeTask.fields.filter((_, i) => i !== idx),
+                    })}
+                  />
+                )}
+              </SortableList>
             </div>
           )}
         </div>
@@ -224,6 +232,33 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
           </div>
           <FormLayoutEditor task={activeTask} onChange={upsertTask} />
         </div>
+
+        {/* Actions — buttons that fire when the user submits the form.
+            chef reads `userTask.actions[]` and emits one service method
+            + state-machine transition per entry. */}
+        <div className="border-t border-rule pt-3">
+          <div className="mb-2 flex items-center gap-1.5">
+            <MousePointer className="h-3.5 w-3.5 text-ink-muted" />
+            <span className="text-xs font-semibold text-ink">Actions</span>
+            <span className="font-mono text-[10px] text-ink-faint">
+              送出 / 存草稿 / 棄案 之類；chef bake 成 React 按鈕 + state machine
+            </span>
+          </div>
+          <ActionsEditor
+            actions={activeTask.actions}
+            onChange={next => upsertTask({ ...activeTask, actions: next })}
+            nodeType="userTask"
+            outgoingEdges={draft.flow.edges.filter(e => e.source === activeTask.id)}
+            edgeTargetMeta={edgeId => {
+              const edge = draft.flow.edges.find(e => e.id === edgeId)
+              if (!edge) return undefined
+              const target = draft.flow.nodes.find(n => n.id === edge.target)
+              return target ? { label: target.label, type: target.type } : undefined
+            }}
+            siblingFieldIds={activeTask.fields.map(f => f.id)}
+            variableNames={draft.variables.map(v => v.name).filter(Boolean)}
+          />
+        </div>
       </div>
 
       <FormPreviewModal
@@ -236,7 +271,7 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
   )
 }
 
-function FieldEditor({ field, siblingFieldIds, variableNames, onChange, onRemove }: {
+function FieldEditor({ field, siblingFieldIds, variableNames, onChange, onRemove, dragHandle }: {
   field: FormField
   /** Other field IDs on the same form (for CEL context). */
   siblingFieldIds: string[]
@@ -244,10 +279,19 @@ function FieldEditor({ field, siblingFieldIds, variableNames, onChange, onRemove
   variableNames: string[]
   onChange: (f: FormField) => void
   onRemove: () => void
+  dragHandle?: SortableHandleProps
 }) {
   return (
-    <div className="rounded border border-rule bg-slate-50 p-3 space-y-2">
+    <div
+      ref={dragHandle?.setNodeRef}
+      style={mergeDragStyle(dragHandle)}
+      className={cn(
+        'rounded border border-rule bg-slate-50 p-3 space-y-2',
+        dragHandle?.isDragging && 'opacity-60 shadow-lg',
+      )}
+    >
       <div className="flex items-start gap-2">
+        <DragGrip handle={dragHandle} className="mt-7" iconClassName="h-3.5 w-3.5" />
         <div className="flex-1 grid grid-cols-3 gap-2">
           <Field label="ID" hint="snake_case，唯一">
             <Input

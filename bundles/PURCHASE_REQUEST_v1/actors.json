@@ -1,0 +1,6 @@
+[
+  "current_approver",
+  "expr:submitter.department.head",
+  "self",
+  "submitter"
+]

@@ -198,7 +198,35 @@ public sealed class ClaudeCliBackend : IAiBackend
     public ClaudeCliBackend(ILogger<ClaudeCliBackend> logger)
     {
         _logger = logger;
-        _claudeBin = Environment.GetEnvironmentVariable("BPM_CLAUDE_CLI_PATH") ?? "claude";
+        var configured = Environment.GetEnvironmentVariable("BPM_CLAUDE_CLI_PATH") ?? "claude";
+        _claudeBin = ResolveBin(configured);
+    }
+
+    // Process.Start with UseShellExecute=false skips PATHEXT on Windows, so a
+    // bare "claude" misses claude.cmd / claude.exe even when the shell resolves
+    // it fine. POSIX execvp handles PATH lookup natively — no-op on mac/linux.
+    private static string ResolveBin(string name)
+    {
+        if (!OperatingSystem.IsWindows()) return name;
+        if (Path.IsPathRooted(name)
+            || name.Contains(Path.DirectorySeparatorChar)
+            || name.Contains(Path.AltDirectorySeparatorChar)
+            || Path.HasExtension(name))
+            return name;
+
+        var exts = (Environment.GetEnvironmentVariable("PATHEXT") ?? ".COM;.EXE;.BAT;.CMD")
+            .Split(';', StringSplitOptions.RemoveEmptyEntries);
+        var dirs = (Environment.GetEnvironmentVariable("PATH") ?? "")
+            .Split(';', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var dir in dirs)
+        {
+            foreach (var ext in exts)
+            {
+                var candidate = Path.Combine(dir, name + ext);
+                if (File.Exists(candidate)) return candidate;
+            }
+        }
+        return name;
     }
 
     public string Name => "cli";

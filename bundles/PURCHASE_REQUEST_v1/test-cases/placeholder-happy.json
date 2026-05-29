@@ -1,0 +1,9 @@
+{
+  "id": "placeholder-happy",
+  "name": "Happy path (placeholder \u2014 fill in step 8)",
+  "inputs": {},
+  "expectedTrace": [],
+  "expectedFinalStatus": "Completed",
+  "expectedNotifications": null,
+  "expectedWebhooks": null
+}

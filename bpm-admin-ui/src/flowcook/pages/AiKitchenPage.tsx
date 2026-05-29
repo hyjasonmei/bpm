@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ArchiveRestore,
+  ArchiveX,
   CheckCircle2,
   ChefHat,
   Copy,
@@ -14,16 +16,18 @@ import {
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { Onboarding } from '@/screens/onboarding/Onboarding'
-import { EMPTY_DRAFT, migrateDraft, type DraftSpec } from '@/lib/onboarding'
+import { EMPTY_DRAFT, migrateDraft, ONBOARDING_STEPS, stripFieldUids, validators, type DraftSpec } from '@/lib/onboarding'
 import { flowToBpmnXml } from '@/lib/bpmnXml'
 import { useSetPageHeader, type PageHeader } from '@/flowcook/app/pageHeader'
-import { PhaseTabs, type PhaseId } from '@/flowcook/app/PhaseTabs'
+import { PhaseTabs, type PhaseId, type PhaseDef } from '@/flowcook/app/PhaseTabs'
 import { OverflowMenu, type OverflowGroup } from '@/flowcook/app/OverflowMenu'
 import {
   cancelFlow,
   cloneFlowVersion,
   createFlow,
   deleteFlow,
+  retireFlow,
+  unretireFlow,
   type FlowDetail,
   type FlowState,
   type FlowSummary,
@@ -32,6 +36,12 @@ import {
   submitFlow,
   updateFlowSpec,
 } from '@/flowcook/api/flows'
+import { assignFlowGroup, listFlowGroups, type FlowGroupDto } from '@/flowcook/api/flowGroups'
+import { resolveIcon } from '@/flowcook/pages/sitesetting/FlowGroupsTab'
+import { FolderPlus, GitBranch, Tag } from 'lucide-react'
+import { parseChefWorkContext } from '@/flowcook/api/flows'
+import { CookPanel } from './aiKitchen/CookPanel'
+import { ServePanel } from './aiKitchen/ServePanel'
 
 export function AiKitchenPage() {
   // Nested routes under /ai-kitchen:
@@ -43,6 +53,7 @@ export function AiKitchenPage() {
     <Routes>
       <Route index element={<CookedFlowsListRoute />} />
       <Route path=":flowId" element={<WizardRoute />} />
+      <Route path=":flowId/:phase" element={<WizardRoute />} />
       <Route path="*" element={<Navigate to="" replace />} />
     </Routes>
   )
@@ -54,8 +65,13 @@ function CookedFlowsListRoute() {
 }
 
 function WizardRoute() {
-  const { flowId } = useParams<{ flowId: string }>()
+  const { flowId, phase: phaseParam } = useParams<{ flowId: string; phase: string }>()
   const navigate = useNavigate()
+  // Default phase = prep when URL has no phase segment; an unknown
+  // segment also falls back to prep (validator in WizardView clamps it).
+  const phase: PhaseId = (phaseParam === 'cook' || phaseParam === 'serve' || phaseParam === 'prep')
+    ? phaseParam
+    : 'prep'
   const [flow, setFlow] = useState<FlowDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -69,10 +85,19 @@ function WizardRoute() {
     return () => { cancelled = true }
   }, [flowId])
 
+  // Both `..` and `../..` go to the kitchen list now that the URL has
+  // an optional phase segment: from `/ai-kitchen/<id>` the parent is
+  // `/ai-kitchen`; from `/ai-kitchen/<id>/cook` it's `/ai-kitchen/<id>`.
+  // Always navigate to the absolute kitchen list to keep behaviour
+  // identical regardless of which phase we were on.
+  const goToKitchen = () => navigate('/ai-kitchen')
+  const goToPhase = (next: PhaseId) =>
+    navigate(`/ai-kitchen/${flowId}/${next}`, { replace: true })
+
   if (error) {
     return (
       <div className="rounded border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-        {error} · <button onClick={() => navigate('..')} className="underline">回 kitchen</button>
+        {error} · <button onClick={goToKitchen} className="underline">回 kitchen</button>
       </div>
     )
   }
@@ -83,7 +108,9 @@ function WizardRoute() {
     <WizardView
       flow={flow}
       onFlowChange={setFlow}
-      onClose={() => navigate('..')}
+      onClose={goToKitchen}
+      phase={phase}
+      onPhaseChange={goToPhase}
     />
   )
 }
@@ -93,16 +120,23 @@ function WizardRoute() {
 // ──────────────────────────────────────────────────────────────
 
 function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<void> }) {
+  const navigate = useNavigate()
   const [flows, setFlows] = useState<FlowSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [rowPending, setRowPending] = useState<string | null>(null)
+  // PR-G2: groups for the row chip + assignment sub-menu. Loaded
+  // alongside flows on mount.
+  const [groups, setGroups] = useState<FlowGroupDto[]>([])
 
   const refresh = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      setFlows(await listFlows())
+      const [flowsRes, groupsRes] = await Promise.all([listFlows(), listFlowGroups()])
+      setFlows(flowsRes)
+      setGroups(groupsRes)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load flows')
     } finally {
@@ -111,6 +145,49 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
   }, [])
 
   useEffect(() => { void refresh() }, [refresh])
+
+  // Row-level lifecycle actions. Each runs the relevant POST, refreshes
+  // the list, then navigates if the action creates a new flow (clone).
+  async function withPending<T>(rowId: string, fn: () => Promise<T>): Promise<T | null> {
+    setRowPending(rowId)
+    try {
+      return await fn()
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Action failed')
+      return null
+    } finally {
+      setRowPending(null)
+    }
+  }
+
+  async function handleCloneAsNewVersion(row: FlowSummary) {
+    const cloned = await withPending(row.id, () => cloneFlowVersion(row.id))
+    if (!cloned) return
+    await refresh()
+    navigate(cloned.id)
+  }
+
+  async function handleRetire(row: FlowSummary) {
+    if (!window.confirm(`下架 "${row.displayName}" v${row.version}？new case 將不能再啟動，現有案件仍可走完。`)) return
+    await withPending(row.id, () => retireFlow(row.id))
+    await refresh()
+  }
+
+  async function handleUnretire(row: FlowSummary) {
+    await withPending(row.id, () => unretireFlow(row.id))
+    await refresh()
+  }
+
+  async function handleDelete(row: FlowSummary) {
+    if (!window.confirm(`刪除 draft "${row.displayName}"？此為 soft-delete，可由 admin DB 還原。`)) return
+    await withPending(row.id, () => deleteFlow(row.id))
+    await refresh()
+  }
+
+  async function handleAssignGroup(row: FlowSummary, groupId: string | null) {
+    await withPending(row.id, () => assignFlowGroup(row.id, groupId))
+    await refresh()
+  }
 
   async function cookNew(flowCode: string, displayName: string) {
     // Seed `spec.meta` from the row inputs so the wizard's SOURCE step
@@ -203,30 +280,134 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                   <th className="px-5 py-2 font-normal">Flow</th>
                   <th className="px-3 py-2 font-normal">Version</th>
                   <th className="px-3 py-2 font-normal">State</th>
+                  <th className="px-3 py-2 font-normal">Group</th>
                   <th className="px-3 py-2 font-normal">Updated</th>
+                  <th className="w-10 px-3 py-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-rule">
-                {flows.map((f) => (
-                  <tr
-                    key={f.id}
-                    onClick={() => void onOpenFlow(f.id)}
-                    data-testid={`flow-row-${f.flowCode}`}
-                    className="cursor-pointer hover:bg-bg"
-                  >
-                    <td className="px-5 py-3">
-                      <div className="font-medium text-ink">{f.displayName}</div>
-                      <div className="mt-0.5 font-mono text-[11px] text-ink-muted">{f.flowCode}</div>
-                    </td>
-                    <td className="px-3 py-3 font-mono text-xs text-ink-muted">v{f.version}</td>
-                    <td className="px-3 py-3">
-                      <StatePill state={f.state} />
-                    </td>
-                    <td className="px-3 py-3 font-mono text-[11px] text-ink-muted">
-                      {formatDate(f.updatedAt)}
-                    </td>
-                  </tr>
-                ))}
+                {flows.map((f) => {
+                  const isDraft    = f.state === 'Draft'
+                  const isApproved = f.state === 'Approved'
+                  const isRetired  = f.state === 'Retired'
+                  const rowBusy    = rowPending === f.id
+                  const menuGroups: OverflowGroup[] = [
+                    {
+                      items: [
+                        {
+                          id: 'open',
+                          label: 'Open',
+                          icon: <ChefHat className="h-3 w-3" />,
+                          onClick: () => { void onOpenFlow(f.id) },
+                        },
+                        ...((isApproved || isRetired) ? [{
+                          id: 'clone',
+                          label: 'Clone as new version draft',
+                          icon: <Copy className="h-3 w-3" />,
+                          tone: 'productive' as const,
+                          disabled: rowBusy,
+                          hint: '複製成 v+1，原版本維持不動',
+                          onClick: () => { void handleCloneAsNewVersion(f) },
+                        }] : []),
+                      ],
+                    },
+                    {
+                      label: 'Group',
+                      items: [
+                        ...groups.map(g => ({
+                          id: `assign-${g.id}`,
+                          label: `${g.displayName['zh-TW'] ?? g.code}${f.groupId === g.id ? ' ✓' : ''}`,
+                          icon: <Tag className="h-3 w-3" />,
+                          tone: 'productive' as const,
+                          disabled: rowBusy || f.groupId === g.id,
+                          onClick: () => { void handleAssignGroup(f, g.id) },
+                        })),
+                        ...(f.groupId ? [{
+                          id: 'unassign-group',
+                          label: 'Unassign group',
+                          icon: <FolderPlus className="h-3 w-3" />,
+                          tone: 'risky' as const,
+                          disabled: rowBusy,
+                          onClick: () => { void handleAssignGroup(f, null) },
+                        }] : []),
+                      ],
+                    },
+                    {
+                      items: [
+                        ...(isApproved ? [{
+                          id: 'retire',
+                          label: 'Retire flow',
+                          icon: <ArchiveX className="h-3 w-3" />,
+                          tone: 'risky' as const,
+                          disabled: rowBusy,
+                          hint: '下架：end-user launcher 不再列出此版本',
+                          onClick: () => { void handleRetire(f) },
+                        }] : []),
+                        ...(isRetired ? [{
+                          id: 'unretire',
+                          label: 'Unretire flow',
+                          icon: <ArchiveRestore className="h-3 w-3" />,
+                          tone: 'productive' as const,
+                          disabled: rowBusy,
+                          hint: '上架回 Approved',
+                          onClick: () => { void handleUnretire(f) },
+                        }] : []),
+                        ...(isDraft ? [{
+                          id: 'delete',
+                          label: 'Delete draft',
+                          icon: <Trash2 className="h-3 w-3" />,
+                          tone: 'danger' as const,
+                          disabled: rowBusy,
+                          hint: 'Soft-delete — 可由 admin DB 還原',
+                          onClick: () => { void handleDelete(f) },
+                        }] : []),
+                      ],
+                    },
+                  ]
+                  return (
+                    <tr
+                      key={f.id}
+                      onClick={() => void onOpenFlow(f.id)}
+                      data-testid={`flow-row-${f.flowCode}`}
+                      className={cn(
+                        'cursor-pointer hover:bg-bg',
+                        isRetired && 'opacity-60',
+                      )}
+                    >
+                      <td className="px-5 py-3">
+                        <div className="font-medium text-ink">{f.displayName}</div>
+                        <div className="mt-0.5 font-mono text-[11px] text-ink-muted">{f.flowCode}</div>
+                      </td>
+                      <td className="px-3 py-3 font-mono text-xs text-ink-muted">v{f.version}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <StatePill state={f.state} />
+                          {isChefStalled(f) && (
+                            <span
+                              title={`Cooking but no chef heartbeat for >30 min (last: ${f.lastChefHeartbeatAt ?? 'never'})`}
+                              className="inline-flex items-center gap-1 rounded-full bg-warn/15 px-1.5 py-0.5 font-mono text-[9px] tracking-wide text-warn"
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-warn" /> stalled
+                            </span>
+                          )}
+                          <ChefBranchChip flow={f} />
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        <GroupChip flow={f} groups={groups} />
+                      </td>
+                      <td className="px-3 py-3 font-mono text-[11px] text-ink-muted">
+                        {formatDate(f.updatedAt)}
+                      </td>
+                      <td
+                        className="px-3 py-3"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <OverflowMenu groups={menuGroups} buttonTitle="Flow actions" />
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -379,19 +560,39 @@ function WizardView({
   flow,
   onFlowChange,
   onClose,
+  phase,
+  onPhaseChange,
 }: {
   flow: FlowDetail
   onFlowChange: (f: FlowDetail) => void
   onClose: () => void
+  /** Active phase, sourced from the URL (`:phase` segment) so that
+   *  a hard reload on /cook stays on Cook rather than snapping to
+   *  Prep. */
+  phase: PhaseId
+  /** Navigates to `/ai-kitchen/<flowId>/<next>` so the URL stays in
+   *  sync; uses replace to avoid polluting the back-stack with every
+   *  tab click. */
+  onPhaseChange: (next: PhaseId) => void
 }) {
   const navigate = useNavigate()
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
   const [transitionPending, setTransitionPending] = useState<null | 'submit' | 'cancel' | 'delete' | 'clone'>(null)
   const [downloading, setDownloading] = useState(false)
-  const [phase, setPhase] = useState<PhaseId>('prep')
+  const setPhase = onPhaseChange
   const timerRef = useRef<number | null>(null)
   const latestDraftRef = useRef<DraftSpec | null>(null)
+
+  // ── FE-only POC state for Cook / Serve tabs ─────────────────
+  // `mockState` overrides flow.state once we're past Draft. The
+  // initial value mirrors the real backend state so refreshing the
+  // page keeps the StatePill consistent; subsequent simulate-chef
+  // and user actions only update local state (no admin-svc calls).
+  // When the real chef pipeline + serve runtime exist, replace
+  // these with proper API-backed state.
+  const [mockState, setMockState] = useState<FlowState>(flow.state)
+  useEffect(() => { setMockState(flow.state) }, [flow.id, flow.state])
 
   // Parse initial spec into a DraftSpec; tolerate parse errors by falling
   // back to EMPTY_DRAFT (a partial spec from chef-on-hold or an external
@@ -408,12 +609,18 @@ function WizardView({
     }
   })()
 
+  // PR-X2: shadow the wizard's live draft so the Submit button can
+  // gate on every step's validator, not just the current step's. The
+  // ref already exists for autosave; this state is purely for the
+  // render path.
+  const [currentDraft, setCurrentDraft] = useState<DraftSpec>(initialDraft)
+
   const persistDraft = useCallback(async (draft: DraftSpec) => {
     setSaveState('saving')
     setSaveError(null)
     try {
       const updated = await updateFlowSpec(flow.id, {
-        specJson: JSON.stringify(draft),
+        specJson: JSON.stringify(stripFieldUids(draft)),
       })
       onFlowChange(updated)
       setSaveState('saved')
@@ -425,6 +632,7 @@ function WizardView({
 
   const handleDraftChange = useCallback((draft: DraftSpec) => {
     latestDraftRef.current = draft
+    setCurrentDraft(draft)
     if (flow.state !== 'Draft') return // read-only once submitted
     if (timerRef.current) window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => {
@@ -444,14 +652,57 @@ function WizardView({
         window.clearTimeout(timerRef.current)
         if (latestDraftRef.current) await persistDraft(latestDraftRef.current)
       }
+      // PR-X3: build the bundle server-side at submit time so the zip is
+      // cached on the Flow row for chef MCP download. Failure here
+      // shouldn't block submit (chef can still get spec via chef_get_flow);
+      // surface a warning instead of bailing.
+      try {
+        await buildBundleSilent()
+      } catch (err) {
+        console.warn('Bundle pre-cache failed; chef MCP download will return 409 until admin clicks Download bundle', err)
+      }
       const updated = await submitFlow(flow.id)
       onFlowChange(updated)
-      onClose()
+      // Stay on the flow page (don't bounce back to the kitchen list).
+      // Land on Prep so the user sees the now-locked spec; Cook tab
+      // becomes enabled and they can click in to watch chef work.
+      setMockState(updated.state)
+      // PR-K3: chat thread persists server-side now; no FE seed needed.
+      setPhase('prep')
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Submit failed')
     } finally {
       setTransitionPending(null)
     }
+  }
+
+  /** Build + cache the bundle on the server without triggering a
+   *  download. Reuses the same /bundle endpoint downloadBundle uses;
+   *  the server persists bytes to Flow.BundleBlob unconditionally so
+   *  chef can later pull via MCP. */
+  async function buildBundleSilent() {
+    const draft = latestDraftRef.current ?? initialDraft
+    const bpmnXml = await flowToBpmnXml(draft)
+    const testCases = draft.testCases.length > 0 ? draft.testCases : [{
+      id: 'placeholder-happy',
+      name: 'Happy path (placeholder — fill in step 8)',
+      inputs: {},
+      expectedTrace: [],
+      expectedFinalStatus: 'Completed',
+    }]
+    const res = await fetch(`/api/flows/${flow.id}/bundle`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bpmnXml,
+        sampleOrg: draft.sampleOrg,
+        testCases,
+        sourceInstanceId: `flow:${flow.id}`,
+      }),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+    await res.blob()  // drain so the connection releases
   }
 
   async function cancel() {
@@ -552,17 +803,49 @@ function WizardView({
   const canCancel = flow.state === 'Submitted' || flow.state === 'Cooking' || flow.state === 'OnHold'
   const canDelete = flow.state === 'Draft'
 
+  // PR-X2: run every step's validator before allowing Submit; surfaces
+  // the failing steps in the disabled button's tooltip so the user
+  // knows what to fix without diving back into the wizard.
+  const submitGate = useMemo(() => {
+    const failures = ONBOARDING_STEPS
+      .map(s => ({ step: s, result: validators[s.id](currentDraft) }))
+      .filter(x => !x.result.valid)
+    return { ready: failures.length === 0, failures }
+  }, [currentDraft])
+
   // Push flow context into the AppShell top bar (kicker + back + title +
   // version + state). Save status sits with the action buttons in the
   // main page header, not here. Memoize so the effect only fires when
-  // values actually change.
+  // values actually change. StatePill reflects `mockState` so cook
+  // simulations (Cooking ↔ OnHold ↔ Committed) update the top-bar pill.
   const pageHeader = useMemo<PageHeader>(() => ({
     back: { label: 'Back to kitchen', onClick: onClose },
     title: flow.displayName,
     subtitle: `${flow.flowCode} · v${flow.version}`,
-    badges: <StatePill state={flow.state} />,
-  }), [flow.displayName, flow.flowCode, flow.version, flow.state, onClose])
+    badges: <StatePill state={mockState} />,
+  }), [flow.displayName, flow.flowCode, flow.version, mockState, onClose])
   useSetPageHeader(pageHeader)
+
+  // PhaseTabs: Cook unlocks once chef takes over (state !== Draft).
+  // Serve always available past Draft — env board renders even before
+  // any cook, and Approve is gated by state === 'Committed' inside.
+  const phaseDefs = useMemo<PhaseDef[]>(() => {
+    const cookOpen  = mockState !== 'Draft'
+    const serveOpen = mockState !== 'Draft'
+    return [
+      { id: 'prep',  label: 'Prep',  hint: '備料 — 用 wizard 把 spec 寫清楚' },
+      {
+        id: 'cook',  label: 'Cook',  hint: '烹調 — chef 與你的對話、版本紀錄',
+        disabled: !cookOpen,
+        disabledHint: 'Submit to chef 之後才會啟用',
+      },
+      {
+        id: 'serve', label: 'Serve', hint: '上菜 — 環境部署 + Approve',
+        disabled: !serveOpen,
+        disabledHint: 'Submit to chef 之後才會啟用',
+      },
+    ]
+  }, [mockState])
 
   const overflowGroups: OverflowGroup[] = [
     {
@@ -608,10 +891,10 @@ function WizardView({
           overflow menu on the right. Flow title / version / state pill /
           save status now live in the AppShell top bar via pageHeader. */}
       <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-        <PhaseTabs active={phase} onChange={setPhase} />
+        <PhaseTabs active={phase} onChange={setPhase} phases={phaseDefs} />
 
         <div className="flex items-center gap-2">
-          <SaveStatusBadge state={saveState} error={saveError} />
+          {phase === 'prep' && <SaveStatusBadge state={saveState} error={saveError} />}
           <button
             onClick={() => void downloadBundle()}
             disabled={downloading || transitionPending !== null}
@@ -624,11 +907,18 @@ function WizardView({
           {canSubmit && (
             <button
               onClick={() => void submit()}
-              disabled={transitionPending !== null}
+              disabled={transitionPending !== null || !submitGate.ready}
+              title={submitGate.ready
+                ? 'Hand the draft to chef. State flips to Submitted.'
+                : `尚未可送出 (${submitGate.failures.length} step 未通過)：\n${submitGate.failures.slice(0, 3).map(f => `· ${f.step.en} — ${f.result.errors[0] ?? 'validator failed'}`).join('\n')}${submitGate.failures.length > 3 ? `\n…還有 ${submitGate.failures.length - 3} 條` : ''}`}
               className="inline-flex items-center gap-1.5 rounded bg-primary px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
-              {transitionPending === 'submit' ? 'Submitting…' : 'Submit to chef'}
+              {transitionPending === 'submit'
+                ? 'Submitting…'
+                : submitGate.ready
+                  ? 'Submit to chef'
+                  : `Submit to chef (${submitGate.failures.length} step 未通過)`}
             </button>
           )}
           <OverflowMenu groups={overflowGroups} />
@@ -636,11 +926,28 @@ function WizardView({
       </div>
 
       <div className="flex-1 min-h-0">
-        <Onboarding
-          initialDraft={initialDraft}
-          onDraftChange={handleDraftChange}
-          hideTopBar
-        />
+        {phase === 'prep' && (
+          <Onboarding
+            initialDraft={initialDraft}
+            onDraftChange={handleDraftChange}
+            hideTopBar
+          />
+        )}
+        {phase === 'cook' && (
+          <CookPanel
+            flowId={flow.id}
+            flowVersion={flow.version}
+            state={mockState}
+            onStateChange={setMockState}
+          />
+        )}
+        {phase === 'serve' && (
+          <ServePanel
+            flowId={flow.id}
+            state={mockState}
+            onStateChange={setMockState}
+          />
+        )}
       </div>
     </div>
   )
@@ -683,6 +990,7 @@ const STATE_TONE: Record<FlowState, string> = {
   Committed: 'bg-good/10 text-good',
   Approved:  'bg-good/15 text-good',
   Rejected:  'bg-danger/10 text-danger',
+  Retired:   'bg-slate-200 text-slate-600',
 }
 
 function StatePill({ state }: { state: FlowState }) {
@@ -694,6 +1002,47 @@ function StatePill({ state }: { state: FlowState }) {
       {state.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()}
     </span>
   )
+}
+
+function GroupChip({ flow, groups }: { flow: FlowSummary; groups: FlowGroupDto[] }) {
+  if (!flow.groupId) {
+    return <span className="rounded-full bg-slate-100 px-2 py-0.5 font-mono text-[10px] tracking-wide text-ink-faint">未分組</span>
+  }
+  const group = groups.find(g => g.id === flow.groupId)
+  if (!group) {
+    return <span className="rounded-full bg-warn/15 px-2 py-0.5 font-mono text-[10px] tracking-wide text-warn">已刪除</span>
+  }
+  const Icon = resolveIcon(group.icon)
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+      <Icon className="h-3 w-3" />
+      {group.displayName['zh-TW'] ?? group.code}
+    </span>
+  )
+}
+
+function ChefBranchChip({ flow }: { flow: FlowSummary }) {
+  const ctx = parseChefWorkContext(flow.chefWorkContextJson)
+  if (!ctx?.branch) return null
+  return (
+    <span
+      title={ctx.notes ? `${ctx.notes}\nset ${ctx.setAt ?? ''}` : `set ${ctx.setAt ?? ''}`}
+      className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] tracking-wide text-primary"
+    >
+      <GitBranch className="h-2.5 w-2.5" />
+      {ctx.branch}
+    </span>
+  )
+}
+
+const CHEF_STALL_TTL_MS = 30 * 60 * 1000
+
+function isChefStalled(f: FlowSummary): boolean {
+  if (f.state !== 'Cooking') return false
+  if (!f.lastChefHeartbeatAt) return true
+  const last = new Date(f.lastChefHeartbeatAt).getTime()
+  if (Number.isNaN(last)) return false
+  return Date.now() - last > CHEF_STALL_TTL_MS
 }
 
 function formatDate(s: string): string {

@@ -111,7 +111,8 @@ public sealed class BundleBuilder(
                 ExportedAt: clock.GetUtcNow(),
                 SourceInstanceId: req.SourceInstanceId,
                 Parent: null,
-                Files: entries);
+                Files: entries,
+                FlowId: req.FlowId);
 
             var manifestJson = JsonSerializer.Serialize(manifest, JsonOpts);
             WriteRaw(archive, "manifest.json", Encoding.UTF8.GetBytes(manifestJson));

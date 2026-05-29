@@ -39,4 +39,58 @@ public class Flow : ISoftDeletable
     public Guid? CreatedByUserId { get; set; }
 
     public DateTime? DeletedAt { get; set; }
+
+    /// <summary>
+    /// Last time any chef API call touched this flow. Used by the
+    /// admin UI to surface "chef stalled" when a flow has been in
+    /// <see cref="FlowState.Cooking"/> for too long with no heartbeat.
+    /// Updated by chef-token endpoints; null for flows that no chef has
+    /// ever touched.
+    /// </summary>
+    public DateTime? LastChefHeartbeatAt { get; set; }
+
+    /// <summary>
+    /// Launcher group for the bpm employee Home page. Null means
+    /// "unassigned" — the bpm-ui renders these under a built-in
+    /// "其他" pseudo-group. Soft-deleting the referenced group
+    /// leaves a dangling pointer here; bpm-svc filters via SharedFlowGroup
+    /// (soft-delete query filter) so dangling rows surface as null.
+    /// </summary>
+    public Guid? GroupId { get; set; }
+
+    /// <summary>
+    /// Set when admin archives this flow's chef-cooked tables. Orthogonal
+    /// to <see cref="State"/> and <see cref="DeletedAt"/>: admin can
+    /// archive any state. Archived rows are hidden from the bpm-ui
+    /// launcher even if their state would otherwise qualify, and their
+    /// FlowCode no longer blocks a new Submit (the active-uniqueness
+    /// check ignores archived rows).
+    /// </summary>
+    public DateTime? ArchivedAt { get; set; }
+
+    /// <summary>
+    /// JSON-encoded list of the renamed table names produced by the
+    /// archive operation. Used by Restore to find them back.
+    /// Format: <c>["LEAVE_V1_leave_case__arch_a3c7f1e2", …]</c>.
+    /// </summary>
+    public string? ArchivedTableNamesJson { get; set; }
+
+    /// <summary>
+    /// Free-form JSON about chef's current workspace. Today shape:
+    /// <c>{ "branch": "leave-test-6", "notes": "Domain layer done", "setAt": "2026-05-29T01:00:00Z" }</c>.
+    /// Surfaced in admin-ui CookPanel + list page so the operator can
+    /// find chef's in-flight code or relaunch session in the right
+    /// worktree. Updated by the chef MCP tool <c>chef_set_worktree</c>.
+    /// </summary>
+    public string? ChefWorkContextJson { get; set; }
+
+    /// <summary>
+    /// Cached bundle zip bytes. Populated every time the /bundle
+    /// endpoint builds successfully so chef can re-download via MCP
+    /// without admin-ui being open. Null until the first build runs.
+    /// </summary>
+    public byte[]? BundleBlob { get; set; }
+
+    /// <summary>When <see cref="BundleBlob"/> was last refreshed.</summary>
+    public DateTime? BundleBuiltAt { get; set; }
 }

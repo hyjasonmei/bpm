@@ -10,6 +10,7 @@ using Bpm.Domain.Entities.Notifications;
 using Bpm.Domain.Entities.Process;
 using Bpm.Domain.Entities.Sandbox;
 using Bpm.Domain.Entities.Spec;
+using Bpm.Persistence.Features.LEAVE.V1;
 using Bpm.Persistence.SharedIdentity;
 using Microsoft.EntityFrameworkCore;
 
@@ -44,6 +45,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<FileBlob> FileBlobs => Set<FileBlob>();
 
+    // Chef-cooked features — one DbSet per per-flow entity.
+    public DbSet<LEAVE_V1_Case> LEAVE_V1_Cases => Set<LEAVE_V1_Case>();
+
     // Shared identity — admin-svc owns the Admin_* schemas; bpm-svc reads
     // through these mappings with ExcludeFromMigrations so it never tries
     // to CreateTable / DropTable them.
@@ -56,6 +60,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SharedDeptParent> SharedDeptParents => Set<SharedDeptParent>();
     public DbSet<SharedDeptHead> SharedDeptHeads => Set<SharedDeptHead>();
     public DbSet<SharedGroupMember> SharedGroupMembers => Set<SharedGroupMember>();
+    /// <summary>Read-only flow-registry view onto Admin_Flows — see SharedFlow.</summary>
+    public DbSet<SharedFlow> SharedFlows => Set<SharedFlow>();
+    /// <summary>Read-only launcher-group view onto Admin_FlowGroups — see SharedFlowGroup.</summary>
+    public DbSet<SharedFlowGroup> SharedFlowGroups => Set<SharedFlowGroup>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

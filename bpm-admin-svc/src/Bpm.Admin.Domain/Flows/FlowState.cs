@@ -12,4 +12,10 @@ public enum FlowState
     Committed = 4,
     Approved = 5,
     Rejected = 6,
+    /// <summary>
+    /// Admin has retired this flow version. New case instances are not
+    /// allowed (bpm-svc filters retired flows out of the launcher); in-
+    /// flight cases continue to terminal. Reversible via UnretireAsync.
+    /// </summary>
+    Retired = 7,
 }

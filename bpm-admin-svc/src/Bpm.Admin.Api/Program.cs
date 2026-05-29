@@ -20,6 +20,26 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
+// PR-K1 / K2 dev ergonomics: when running in Development with no chef
+// token configured, fall back to a known constant. Lets a local chef
+// Claude Code session connect with a literal `Bearer dev-chef-token`
+// (no env-var export required). Production deployments must set
+// Bpm:Chef:Token explicitly — config-driven middleware skips the chef
+// auth path entirely when the value is empty.
+if (builder.Environment.IsDevelopment() && string.IsNullOrEmpty(builder.Configuration["Bpm:Chef:Token"]))
+{
+    builder.Configuration["Bpm:Chef:Token"] = "dev-chef-token";
+}
+
+// PR-K2: in-process MCP server. Tools are auto-discovered from the
+// API assembly via [McpServerToolType]. The HTTP transport piggybacks
+// on Kestrel — same port, same DI container. Chef Claude Code sessions
+// connect at /mcp.
+builder.Services
+    .AddMcpServer()
+    .WithHttpTransport()
+    .WithToolsFromAssembly(typeof(Program).Assembly);
+
 builder.Services.AddSingleton<AuditingSaveChangesInterceptor>();
 builder.Services.AddDbContext<AdminDbContext>((sp, options) =>
 {
@@ -48,6 +68,12 @@ builder.Services.AddScoped<IGroupMembershipService, GroupMembershipService>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFlowLifecycleService, FlowLifecycleService>();
+builder.Services.AddScoped<IFlowChatService, FlowChatService>();
+builder.Services.AddScoped<IFlowGroupService, FlowGroupService>();
+builder.Services.AddScoped<IFeatureTablesService, FeatureTablesService>();
+builder.Services.AddScoped<IChefOrgQueryService, ChefOrgQueryService>();
+builder.Services.AddScoped<IEnvironmentService, EnvironmentService>();
+builder.Services.AddScoped<IFlowDeploymentService, FlowDeploymentService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<Bpm.Admin.Application.Common.Abstractions.IClock, Bpm.Admin.Api.Common.AdminSystemClock>();
 builder.Services.AddSingleton<Bpm.Admin.Application.Spec.Expressions.IExpressionEvaluator, Bpm.Admin.Application.Spec.Expressions.CelNetExpressionEvaluator>();
@@ -82,6 +108,12 @@ builder.Services.AddSingleton<IAiBackend>(sp => aiBackendName switch
 
 var app = builder.Build();
 app.Logger.LogInformation("AI backend: {Backend} (set FLOWCOOK_AI_BACKEND=api|cli to switch)", aiBackendName);
+if (app.Environment.IsDevelopment())
+{
+    app.Logger.LogInformation("Chef token (dev): '{Token}' — chef .mcp.json should send `Authorization: Bearer {Token}`",
+        app.Configuration["Bpm:Chef:Token"] ?? "(unset)",
+        app.Configuration["Bpm:Chef:Token"] ?? "(unset)");
+}
 
 // Auto-apply admin migrations on startup so admin's `Admin_*` tables
 // exist on the shared db (post-Phase 1.1 db merge). Mirrors bpm-svc's
@@ -111,6 +143,63 @@ using (var scope = app.Services.CreateScope())
             await Bpm.Admin.Persistence.Seed.Seeder.SeedOrgAsync(conn);
             logger.LogInformation("Admin seed complete. Demo password: {DemoPassword}", Bpm.Admin.Persistence.Seed.Seeder.DemoPassword);
         }
+
+        // PR-G1: seed default flow groups so a fresh demo lights up
+        // with launcher sections immediately. Only on empty table; admins
+        // can rename / reorder / delete afterwards.
+        if (allowSeed && !await db.FlowGroups.AnyAsync())
+        {
+            var now = DateTime.UtcNow;
+            var defaults = new (string Code, string ZhTw, string En, int Sort, string Icon)[]
+            {
+                ("hr",       "人事", "HR",       10, "Users"),
+                ("purchase", "採購", "Purchase", 20, "ShoppingCart"),
+                ("it",       "IT",   "IT",       30, "Wrench"),
+                ("office",   "行政", "Admin",    40, "FileText"),
+            };
+            foreach (var (code, zh, en, sort, icon) in defaults)
+            {
+                db.FlowGroups.Add(new Bpm.Admin.Domain.Flows.FlowGroup
+                {
+                    Id = Guid.NewGuid(),
+                    Code = code,
+                    DisplayNameJson = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string> { ["zh-TW"] = zh, ["en"] = en }),
+                    SortOrder = sort,
+                    Icon = icon,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                });
+            }
+            await db.SaveChangesAsync();
+            logger.LogInformation("Seeded {Count} default flow groups", defaults.Length);
+        }
+
+        // PR-S1: seed default environments so the Serve tab + Site
+        // Setting list aren't empty on first boot. Same gate as above.
+        if (allowSeed && !await db.Environments.AnyAsync())
+        {
+            var now = DateTime.UtcNow;
+            var envs = new (string Code, string Name, int Sort)[]
+            {
+                ("dev", "DEV", 10),
+                ("stg", "STG", 20),
+                ("prd", "PRD", 30),
+            };
+            foreach (var (code, name, sort) in envs)
+            {
+                db.Environments.Add(new Bpm.Admin.Domain.Flows.Environment
+                {
+                    Id = Guid.NewGuid(),
+                    Code = code,
+                    DisplayName = name,
+                    SortOrder = sort,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                });
+            }
+            await db.SaveChangesAsync();
+            logger.LogInformation("Seeded {Count} default environments", envs.Length);
+        }
     }
     catch (Exception ex)
     {
@@ -125,9 +214,24 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<SessionAuthMiddleware>();
+// PR-K1: chef token auth runs *after* the user session middleware so
+// the chef token never overrides an already-logged-in admin user, but
+// can claim an otherwise-anonymous request as a Chef.
+app.UseMiddleware<ChefTokenAuthMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// PR-K2: MCP HTTP endpoint. Auth is enforced by ChefTokenAuthMiddleware
+// upstream — calls without a valid chef Bearer drop through as
+// anonymous, and the MCP tools call User.IsInRole("Chef")... actually
+// no: MCP tools execute in DI scope but don't carry HttpContext.User
+// implicitly. The chef-token check runs middleware-level: if the chef
+// header is missing the request is anonymous, and the MCP server sees
+// nothing useful in HttpContext. We still surface the endpoint at /mcp;
+// follow-up will harden the gate (refuse the SSE handshake when not
+// in chef role).
+app.MapMcp("/mcp");
 
 // ── AI minimal-API endpoints (moved from bpm-svc in Phase D) ──
 // These were on bpm-svc until "AI is flowcook IP" became a hard rule:

@@ -45,10 +45,15 @@ public class FlowsController : ControllerBase
         if (state.HasValue) q = q.Where(f => f.State == state.Value);
         if (lineageId.HasValue) q = q.Where(f => f.LineageId == lineageId.Value);
 
+        // LEFT JOIN against FlowGroups so the row carries the group code
+        // for the admin-ui chip without a second round-trip per row.
         var rows = await q
             .OrderByDescending(f => f.UpdatedAt)
             .Select(f => new FlowSummaryDto(
-                f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.CreatedAt, f.UpdatedAt))
+                f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt,
+                f.GroupId,
+                f.GroupId == null ? null : _db.FlowGroups.Where(g => g.Id == f.GroupId).Select(g => g.Code).FirstOrDefault(),
+                f.ChefWorkContextJson))
             .ToListAsync(ct);
         return Ok(rows);
     }
@@ -58,9 +63,7 @@ public class FlowsController : ControllerBase
     {
         var f = await _db.Flows.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (f is null) return NotFound();
-        return Ok(new FlowDetailDto(
-            f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.SpecJson, f.Notes,
-            f.CreatedByUserId, f.CreatedAt, f.UpdatedAt));
+        return Ok(ToDetail(f));
     }
 
     [HttpPost]
@@ -100,6 +103,140 @@ public class FlowsController : ControllerBase
     [HttpPost("{id:guid}/clone-version")]
     public Task<ActionResult<FlowDetailDto>> CloneVersion(Guid id, CancellationToken ct)
         => RunTransition(() => _lifecycle.CloneVersionAsync(id, CurrentUserId(), ct));
+
+    /// <summary>User-side ship-it (PR-S1): Committed → Approved. Called
+    /// from the Serve tab Approve button.</summary>
+    [HttpPost("{id:guid}/approve")]
+    public Task<ActionResult<FlowDetailDto>> Approve(Guid id, CancellationToken ct)
+        => RunTransition(() => _lifecycle.ApproveAsync(id, CurrentUserId(), ct));
+
+    [HttpGet("{id:guid}/deployments")]
+    public async Task<ActionResult<IEnumerable<FlowDeploymentDto>>> ListDeployments(
+        Guid id,
+        [FromServices] IFlowDeploymentService deployments,
+        CancellationToken ct)
+        => Ok(await deployments.ListAsync(id, ct));
+
+    [HttpPost("{id:guid}/deployments/{envId:guid}")]
+    public async Task<ActionResult<FlowDeploymentDto>> SetDeployment(
+        Guid id,
+        Guid envId,
+        [FromBody] SetDeploymentBody req,
+        [FromServices] IFlowDeploymentService deployments,
+        CancellationToken ct)
+    {
+        try
+        {
+            var result = await deployments.SetStatusAsync(
+                new SetFlowDeploymentRequest(id, envId, req.Status, req.Notes),
+                CurrentUserId(), ct);
+            return Ok(result);
+        }
+        catch (FlowLifecycleException ex) { return Conflict(ex.Message); }
+    }
+
+    public sealed record SetDeploymentBody(Bpm.Admin.Domain.Flows.FlowDeploymentStatus Status, string? Notes);
+
+    [HttpPost("{id:guid}/retire")]
+    public Task<ActionResult<FlowDetailDto>> Retire(Guid id, CancellationToken ct)
+        => RunTransition(() => _lifecycle.RetireAsync(id, CurrentUserId(), ct));
+
+    [HttpPost("{id:guid}/unretire")]
+    public Task<ActionResult<FlowDetailDto>> Unretire(Guid id, CancellationToken ct)
+        => RunTransition(() => _lifecycle.UnretireAsync(id, CurrentUserId(), ct));
+
+    /// <summary>
+    /// User-side escape hatch when chef appears stalled (state stuck on
+    /// Cooking with no recent <c>LastChefHeartbeatAt</c>). Drops the
+    /// flow back to Submitted so a fresh chef session can re-accept.
+    /// </summary>
+    [HttpPost("{id:guid}/chef-stall-reset")]
+    public Task<ActionResult<FlowDetailDto>> ChefStallReset(Guid id, CancellationToken ct)
+        => RunTransition(() => _lifecycle.ChefStallResetAsync(id, CurrentUserId(), ct));
+
+    // ── PR-K1: Cook tab chat thread (user side) ──────────────────────
+
+    /// <summary>
+    /// User-visible message thread. Same payload chef sees over MCP /
+    /// the chef HTTP API, but gated on user JWT.
+    /// </summary>
+    [HttpGet("{id:guid}/messages")]
+    public async Task<ActionResult<IEnumerable<FlowChatMessageDto>>> ListMessages(
+        Guid id,
+        [FromQuery] DateTime? since,
+        [FromServices] IFlowChatService chat,
+        CancellationToken ct)
+    {
+        var exists = await _db.Flows.AnyAsync(f => f.Id == id, ct);
+        if (!exists) return NotFound();
+        var rows = await chat.ListAsync(id, since, ct);
+        return Ok(rows.Select(m => new FlowChatMessageDto(
+            m.Id, m.FlowId, m.Sender.ToString(), m.Kind.ToString(),
+            m.Content, m.ArtifactsJson, m.Version, m.CreatedAt, m.AuthorUserId)));
+    }
+
+    /// <summary>
+    /// User posts a reply / issue. Only legal when the flow is OnHold
+    /// (Reply) or Committed (Issue). Chef picks it up on its next
+    /// <c>chef_get_messages</c> call.
+    /// </summary>
+    [HttpPost("{id:guid}/chat-reply")]
+    public async Task<ActionResult<FlowChatMessageDto>> ChatReply(
+        Guid id,
+        [FromBody] UserChatReplyRequest req,
+        [FromServices] IFlowChatService chat,
+        CancellationToken ct)
+    {
+        if (!Enum.TryParse<FlowChatKind>(req.Kind, ignoreCase: true, out var kind)
+            || (kind != FlowChatKind.Reply && kind != FlowChatKind.Issue))
+        {
+            return BadRequest("kind must be 'Reply' or 'Issue'");
+        }
+        var flow = await _db.Flows.AsNoTracking().FirstOrDefaultAsync(f => f.Id == id, ct);
+        if (flow is null) return NotFound();
+
+        if (kind == FlowChatKind.Reply && flow.State != FlowState.OnHold)
+            return Conflict($"Reply only allowed when state == OnHold (current: {flow.State})");
+        if (kind == FlowChatKind.Issue && flow.State != FlowState.Committed && flow.State != FlowState.Approved)
+            return Conflict($"Issue only allowed when state == Committed/Approved (current: {flow.State})");
+
+        try
+        {
+            var row = await chat.AppendAsync(new AppendChatMessageInput(
+                FlowId: id,
+                Sender: FlowChatSender.User,
+                Kind: kind,
+                Content: req.Content,
+                AuthorUserId: CurrentUserId()), ct);
+            // PR-X4: Issue auto-reopens the flow so chef's next session
+            // sees state=OnHold and resumes via chef_transition('Resume').
+            // Reply doesn't change state — the flow is already OnHold,
+            // chef just needs to read it.
+            if (kind == FlowChatKind.Issue)
+            {
+                try
+                {
+                    await _lifecycle.ReopenForIssueAsync(id, CurrentUserId(), ct);
+                    await chat.AppendAsync(new AppendChatMessageInput(
+                        FlowId: id,
+                        Sender: FlowChatSender.System,
+                        Kind: FlowChatKind.System,
+                        Content: $"Issue opened — flow auto-reopened (state → OnHold). Chef will pick up on next session via chef_transition('Resume')."), ct);
+                }
+                catch (FlowLifecycleException ex)
+                {
+                    // Transition refused (e.g. raced past Approved) — keep
+                    // the chat row, but tell the caller the auto-reopen
+                    // didn't fire. Frontend can still poll the state.
+                    return Conflict($"Issue logged but auto-reopen failed: {ex.Message}");
+                }
+            }
+            return Ok(new FlowChatMessageDto(
+                row.Id, row.FlowId, row.Sender.ToString(), row.Kind.ToString(),
+                row.Content, row.ArtifactsJson, row.Version, row.CreatedAt, row.AuthorUserId));
+        }
+        catch (FlowLifecycleException ex) { return BadRequest(ex.Message); }
+    }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
@@ -145,8 +282,16 @@ public class FlowsController : ControllerBase
                 BpmnXml: req.BpmnXml ?? string.Empty,
                 SampleOrg: req.SampleOrg,
                 TestCases: req.TestCases ?? Array.Empty<TestCaseSnapshot>(),
-                SourceInstanceId: req.SourceInstanceId ?? $"flow:{row.Id}");
+                SourceInstanceId: req.SourceInstanceId ?? $"flow:{row.Id}",
+                FlowId: row.Id);
             var bytes = await builder.BuildAsync(buildReq, ct);
+
+            // PR-X3: cache the latest zip on the Flow row so chef can
+            // re-download via MCP without admin-ui being open.
+            var tracked = await _db.Flows.FirstAsync(f => f.Id == row.Id, ct);
+            tracked.BundleBlob = bytes;
+            tracked.BundleBuiltAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
 
             await audit.LogAsync(
                 actionType: "flow_bundle_built",
@@ -194,7 +339,30 @@ public class FlowsController : ControllerBase
         catch (FlowLifecycleException ex) { return Conflict(ex.Message); }
     }
 
-    private static FlowDetailDto ToDetail(Flow f) => new(
-        f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.SpecJson, f.Notes,
-        f.CreatedByUserId, f.CreatedAt, f.UpdatedAt);
+    private FlowDetailDto ToDetail(Flow f)
+    {
+        var groupCode = f.GroupId.HasValue
+            ? _db.FlowGroups.AsNoTracking().Where(g => g.Id == f.GroupId.Value).Select(g => g.Code).FirstOrDefault()
+            : null;
+        return new(
+            f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.SpecJson, f.Notes,
+            f.CreatedByUserId, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt,
+            f.GroupId, groupCode, f.ChefWorkContextJson);
+    }
+
+    /// <summary>Set or clear the flow's launcher group. Empty body /
+    /// <c>{ "groupId": null }</c> unassigns.</summary>
+    [HttpPost("{id:guid}/group")]
+    public async Task<ActionResult<FlowDetailDto>> AssignGroup(
+        Guid id,
+        [FromBody] AssignFlowGroupRequest req,
+        CancellationToken ct)
+    {
+        try
+        {
+            var flow = await _lifecycle.AssignGroupAsync(id, req.GroupId, CurrentUserId(), ct);
+            return Ok(ToDetail(flow));
+        }
+        catch (FlowLifecycleException ex) { return Conflict(ex.Message); }
+    }
 }
