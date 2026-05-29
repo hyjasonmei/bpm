@@ -13,13 +13,16 @@ import {
   GitBranch,
   HelpCircle,
   MessageSquareWarning,
+  RotateCcw,
   Send,
   Sparkles,
   User as UserIcon,
+  Wrench,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { getFlow, parseChefWorkContext, type ChefWorkContext, type FlowState } from '@/flowcook/api/flows'
 import {
+  chefStallReset,
   postChatReply,
   simulateChefAsk,
   simulateChefComplete,
@@ -165,6 +168,23 @@ export function CookPanel({
     void runSim('resume', () => simulateChefResume(flowId), 'Cooking')
   }
 
+  // PR-X8 escape hatch: when chef MCP is unreachable mid-cook (e.g.
+  // tool returns 404 because chef session has the wrong flowId, or
+  // the chef worker died silently), admin needs a way to flip the
+  // state forward without waiting for chef to call chef_transition.
+  // Reuses the SimulateChef endpoints already used by the demo
+  // buttons — same audit_type, same state-machine path. Confirm
+  // dialog is just window.confirm because this is admin-only and
+  // intentionally friction-y.
+  function manualStallReset() {
+    if (!window.confirm(
+      'Reset chef session?\n\n' +
+      'Flow state: Cooking → Submitted. Use when chef is stalled (heartbeat dead, MCP unreachable).\n' +
+      'After reset, you can relaunch chef and it picks up the spec fresh.',
+    )) return
+    void runSim('stall-reset', () => chefStallReset(flowId), 'Submitted')
+  }
+
   const latestVersion = cookedVersionLabel(flowVersion, cookedCount)
 
   return (
@@ -198,6 +218,7 @@ export function CookPanel({
           onAsk={simulateAskQuestion}
           onComplete={simulateCompleteCook}
           onResume={simulateResume}
+          onStallReset={manualStallReset}
         />
       </header>
 
@@ -321,8 +342,9 @@ function EmptyState() {
         <p className="text-sm text-ink">Chef hasn't started yet.</p>
         <p className="mt-1 text-xs text-ink-muted">
           Once chef picks up the spec, their memos, questions and completions land here.
-          Use the <span className="font-mono text-ink">demo</span> menu (top right) to
-          simulate chef behavior while the real pipeline is being wired.
+          The <span className="font-mono text-ink">manual</span> menu (top right) is your escape hatch
+          when chef MCP is unreachable — Force Accept / Commit / Stall Reset push the state machine
+          server-side without chef having to call <span className="font-mono text-ink">chef_transition</span>.
         </p>
       </div>
     </div>
@@ -357,29 +379,55 @@ function SimulateChefMenu({
   onAsk,
   onComplete,
   onResume,
+  onStallReset,
 }: {
   state: FlowState
   onStart: () => void
   onAsk: () => void
   onComplete: () => void
   onResume: () => void
+  onStallReset: () => void
 }) {
+  // PR-X8: these were originally "demo" buttons but they also function
+  // as the manual override path when chef MCP is unreachable (chef can't
+  // call chef_transition for whatever reason — wrong flowId, token
+  // mismatch, server hiccup). Re-label and wrap the state-machine
+  // jumps in a confirm so an accidental click can't quietly push a
+  // real flow to Committed.
+  const guardedStart = () => {
+    if (!window.confirm('Force Accept this flow?\n\nSubmitted → Cooking. Use as manual override when chef MCP is unreachable; otherwise wait for the real chef session.')) return
+    onStart()
+  }
+  const guardedComplete = () => {
+    if (!window.confirm('Force Commit this flow?\n\nCooking → Committed. Use only after you have verified chef actually finished the cook (branch + tests). Audit log records this as a simulated transition.')) return
+    onComplete()
+  }
+  const guardedResume = () => {
+    if (!window.confirm('Force Resume this flow?\n\nOnHold → Cooking. Use when chef MCP is down and you want to clear the hold manually.')) return
+    onResume()
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-faint">
-        demo
+      <span
+        title="Manual transitions — fire the same state machine paths as the chef MCP tools, but signed by the admin user. Use when chef MCP is unreachable or chef stalls."
+        className="inline-flex items-center gap-1 rounded border border-warn/30 bg-warn/5 px-1.5 py-0.5 font-mono text-[10px] tracking-[0.14em] uppercase text-warn"
+      >
+        <Wrench className="h-3 w-3" />
+        manual
       </span>
       {state === 'Submitted' && (
-        <SimButton onClick={onStart} icon={<Bot className="h-3 w-3" />} label="Chef picks up" />
+        <SimButton onClick={guardedStart} icon={<Bot className="h-3 w-3" />} label="Force Accept" />
       )}
       {state === 'Cooking' && (
         <>
-          <SimButton onClick={onAsk} icon={<HelpCircle className="h-3 w-3" />} label="Chef asks question" tone="warn" />
-          <SimButton onClick={onComplete} icon={<CheckCheck className="h-3 w-3" />} label="Chef completes cook" tone="good" />
+          <SimButton onClick={onAsk} icon={<HelpCircle className="h-3 w-3" />} label="Sim question (demo)" tone="warn" />
+          <SimButton onClick={guardedComplete} icon={<CheckCheck className="h-3 w-3" />} label="Force Commit" tone="good" />
+          <SimButton onClick={onStallReset} icon={<RotateCcw className="h-3 w-3" />} label="Stall Reset" tone="warn" />
         </>
       )}
       {state === 'OnHold' && (
-        <SimButton onClick={onResume} icon={<Bot className="h-3 w-3" />} label="Chef resumes" />
+        <SimButton onClick={guardedResume} icon={<Bot className="h-3 w-3" />} label="Force Resume" />
       )}
       {state === 'Committed' && (
         <span className="text-[11px] italic text-ink-faint">
