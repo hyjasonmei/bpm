@@ -104,6 +104,39 @@ public class FlowsController : ControllerBase
     public Task<ActionResult<FlowDetailDto>> CloneVersion(Guid id, CancellationToken ct)
         => RunTransition(() => _lifecycle.CloneVersionAsync(id, CurrentUserId(), ct));
 
+    /// <summary>User-side ship-it (PR-S1): Committed → Approved. Called
+    /// from the Serve tab Approve button.</summary>
+    [HttpPost("{id:guid}/approve")]
+    public Task<ActionResult<FlowDetailDto>> Approve(Guid id, CancellationToken ct)
+        => RunTransition(() => _lifecycle.ApproveAsync(id, CurrentUserId(), ct));
+
+    [HttpGet("{id:guid}/deployments")]
+    public async Task<ActionResult<IEnumerable<FlowDeploymentDto>>> ListDeployments(
+        Guid id,
+        [FromServices] IFlowDeploymentService deployments,
+        CancellationToken ct)
+        => Ok(await deployments.ListAsync(id, ct));
+
+    [HttpPost("{id:guid}/deployments/{envId:guid}")]
+    public async Task<ActionResult<FlowDeploymentDto>> SetDeployment(
+        Guid id,
+        Guid envId,
+        [FromBody] SetDeploymentBody req,
+        [FromServices] IFlowDeploymentService deployments,
+        CancellationToken ct)
+    {
+        try
+        {
+            var result = await deployments.SetStatusAsync(
+                new SetFlowDeploymentRequest(id, envId, req.Status, req.Notes),
+                CurrentUserId(), ct);
+            return Ok(result);
+        }
+        catch (FlowLifecycleException ex) { return Conflict(ex.Message); }
+    }
+
+    public sealed record SetDeploymentBody(Bpm.Admin.Domain.Flows.FlowDeploymentStatus Status, string? Notes);
+
     [HttpPost("{id:guid}/retire")]
     public Task<ActionResult<FlowDetailDto>> Retire(Guid id, CancellationToken ct)
         => RunTransition(() => _lifecycle.RetireAsync(id, CurrentUserId(), ct));

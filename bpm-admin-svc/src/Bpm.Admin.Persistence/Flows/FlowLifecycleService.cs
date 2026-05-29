@@ -193,6 +193,10 @@ public class FlowLifecycleService : IFlowLifecycleService
         => TransitionAsync(flowId, FlowState.Submitted, "chef_stall_reset", actorUserId,
             new[] { FlowState.Cooking, FlowState.OnHold }, ct);
 
+    public Task<Flow> ApproveAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
+        => TransitionAsync(flowId, FlowState.Approved, "flow_approved", actorUserId,
+            new[] { FlowState.Committed }, ct);
+
     public async Task BumpChefHeartbeatAsync(Guid flowId, CancellationToken ct = default)
     {
         var row = await Load(flowId, ct);

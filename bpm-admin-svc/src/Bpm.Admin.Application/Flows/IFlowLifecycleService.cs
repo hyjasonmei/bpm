@@ -40,6 +40,13 @@ public interface IFlowLifecycleService
     /// User still needs to flip Committed → Approved separately.</summary>
     Task<Flow> ChefCommitAsync(Guid flowId, CancellationToken ct = default);
 
+    /// <summary>
+    /// User-side ship-it: Committed → Approved. Called from the Serve
+    /// tab; bpm launcher starts showing the flow after this. Gated to
+    /// Committed only — admin can't approve directly from Cooking.
+    /// </summary>
+    Task<Flow> ApproveAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
+
     /// <summary>User-triggered escape hatch when chef appears stalled.
     /// Cooking → Submitted (so a fresh chef session can pick up). Auth
     /// requires the user JWT; not exposed on the chef API surface.</summary>
