@@ -1,0 +1,19 @@
+{
+  "id": "task_apply",
+  "fields": [
+    {
+      "id": "field_631m",
+      "label": {
+        "zh-TW": "\u65B0\u6B04\u4F4D"
+      },
+      "type": "text",
+      "required": false
+    }
+  ],
+  "permissions": {
+    "submitter": "self",
+    "viewers": [
+      "self"
+    ]
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "bundleSchemaVersion": 1,
+  "flowCode": "PURCHASE_REQUEST",
+  "flowVersion": 1,
+  "exportedAt": "2026-05-29T08:17:22.5490649+00:00",
+  "sourceInstanceId": "flow:33841e28-78b8-4226-8e08-55afad81b11d",
+  "parent": null,
+  "files": [
+    {
+      "path": "spec.json",
+      "sha256": "EA8F41251D9397956B76BC00735CE9E04F02567DCFF8D9CE8BECDB5E624A212C",
+      "sizeBytes": 7118,
+      "kind": "spec"
+    },
+    {
+      "path": "bpmn.xml",
+      "sha256": "916E9C4DE5A4A4124AC0FF89BD323E09254AA9FB72D6EEDDC57B1E92274F7F31",
+      "sizeBytes": 7525,
+      "kind": "bpmnXml"
+    },
+    {
+      "path": "spec.md",
+      "sha256": "3E8117C7E34FAB0DD27D44C598BE9239CC63A44F63092D8E2D4A129418D86187",
+      "sizeBytes": 1001,
+      "kind": "specMd"
+    },
+    {
+      "path": "README.md",
+      "sha256": "AE48D711526C81BFCD938FA70276F55BAA76DC8DA89DD703FBCC95AB4FCF3EE6",
+      "sizeBytes": 372,
+      "kind": "readme"
+    },
+    {
+      "path": "walkthrough.md",
+      "sha256": "82733EC88373944AA085C6B44D9F599FC85F3951D7074869C11FADB3C1E7AD49",
+      "sizeBytes": 617,
+      "kind": "walkthrough"
+    },
+    {
+      "path": "forms/task_apply.json",
+      "sha256": "718DA16E62BABB78A745E96800F94F8E5548C18A396F83DA5CB5D43879705B74",
+      "sizeBytes": 294,
+      "kind": "form"
+    },
+    {
+      "path": "notifications/notify_ckqd.json",
+      "sha256": "2456F1B9512DAC520EE688B804838265F2E07E4FBB3FD35CA54DEAAD6565C44E",
+      "sizeBytes": 578,
+      "kind": "notification"
+    },
+    {
+      "path": "notifications/notify_d3c1.json",
+      "sha256": "A22E91565DB4BB1CB14C198D7684C670A3802C6EF82E730D421AA8EE75042E6A",
+      "sizeBytes": 595,
+      "kind": "notification"
+    },
+    {
+      "path": "notifications/notify_crme.json",
+      "sha256": "6844AE1FFC81459E0E58112A21D98F012754735B3515BDF784F1D66C38FF758E",
+      "sizeBytes": 602,
+      "kind": "notification"
+    },
+    {
+      "path": "sla.json",
+      "sha256": "09F4969F2CE9440AAE1048F18C8787FC6BAEE9B280D470856794DF4DA1C76010",
+      "sizeBytes": 21,
+      "kind": "sla"
+    },
+    {
+      "path": "actors.json",
+      "sha256": "70B3B1889D3A3416851F7A5C4A7568861C42D482E16FDD2B30BECAFD837768E8",
+      "sizeBytes": 90,
+      "kind": "actors"
+    },
+    {
+      "path": "sample-org.json",
+      "sha256": "7C96871EB9AE9818187D761FFE1AC6062D773D1FF0ED9E9F80A3D1217C7B2BF3",
+      "sizeBytes": 1563,
+      "kind": "sampleOrg"
+    },
+    {
+      "path": "test-cases/placeholder-happy.json",
+      "sha256": "7BD84C9F47280D34366A982A4232DAF3A37888213D994082A36D24B094768945",
+      "sizeBytes": 237,
+      "kind": "testCase"
+    }
+  ],
+  "flowId": "33841e28-78b8-4226-8e08-55afad81b11d"
+}

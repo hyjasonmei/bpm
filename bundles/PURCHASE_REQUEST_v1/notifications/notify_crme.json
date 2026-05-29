@@ -1,0 +1,29 @@
+{
+  "id": "notify_crme",
+  "trigger": {
+    "kind": "event",
+    "event": "on_assign"
+  },
+  "channel": [
+    "email",
+    "in_app"
+  ],
+  "recipients": [
+    {
+      "type": "current_approver"
+    }
+  ],
+  "template": {
+    "subject": {
+      "zh-TW": "\u3010\u5F85\u7C3D\u3011{{applicant.name}} \u7684\u7533\u8ACB"
+    },
+    "body": {
+      "zh-TW": "\u7533\u8ACB\u4EBA\uFF1A{{applicant.name}}\n\u6458\u8981\uFF1A{{summary}}\n\n\u8ACB\u9EDE\u6B64\u6838\u51C6\uFF1A{{caseUrl}}"
+    },
+    "variables": [
+      "applicant.name",
+      "summary",
+      "caseUrl"
+    ]
+  }
+}
