@@ -1110,8 +1110,11 @@ export const validators: Record<OnboardingStepId, (s: DraftSpec) => ValidationRe
         errors.push(`User task "${n.label}" 尚未配置欄位`)
         continue
       }
-      if (ut.fields.length === 0) errors.push(`"${n.label}" 沒有任何欄位`)
-      else if (!hasMeaningfulInput(ut)) errors.push(`"${n.label}" 至少要有一個必填欄位或必填 repeater (minCount ≥ 1 或內含必填欄位)`)
+      // A form is valid with outer fields only, repeaters only, or both —
+      // hasMeaningfulInput already accepts a repeater with minCount ≥ 1 or
+      // a required item field as standalone content. Empty layout + empty
+      // fields is still rejected via the same check.
+      if (!hasMeaningfulInput(ut)) errors.push(`"${n.label}" 至少要有一個必填欄位或必填 repeater (minCount ≥ 1 或內含必填欄位)`)
       if (!ut.actions || ut.actions.length === 0) {
         errors.push(`"${n.label}" 沒有任何 action 按鈕（至少要有送出 / 完成 / 棄案 其一）`)
       } else {

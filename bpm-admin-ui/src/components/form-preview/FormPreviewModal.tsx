@@ -37,10 +37,15 @@ export function FormPreviewModal({ open, task, taskLabel, onClose }: Props) {
       <div className="space-y-3 bg-slate-50 p-6">
         <div className="rounded-md border border-rule bg-white p-5">
           <h3 className="mb-4 border-b border-rule pb-2 text-sm font-semibold text-ink">{taskLabel}</h3>
-          {task.fields.length === 0 ? (
+          {task.fields.length === 0 && (task.layout?.length ?? 0) === 0 ? (
             <p className="py-6 text-center text-sm text-ink-faint">這張表單還沒有欄位。</p>
           ) : (
             <div className="space-y-4">
+              {task.fields.length === 0 && (
+                <p className="rounded border border-dashed border-rule bg-slate-50 p-3 text-[11px] text-ink-muted">
+                  此表單沒有 outer fields，內容由 layout 樹（譬如 repeater）撐起。預覽以 outer fields 為主，repeater 內容請在排版區即時檢視。
+                </p>
+              )}
               {task.fields.map(f => <FieldPreview key={f.id} field={f} />)}
               <div className="flex flex-wrap items-center justify-end gap-2 border-t border-rule pt-3">
                 {task.actions.length === 0 && (

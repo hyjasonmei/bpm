@@ -93,7 +93,7 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
           const task = draft.userTasks.find(t => t.id === node.id) ?? getOrCreate(node.id)
           const isActive = node.id === safeActiveId
           const isTrigger = node.id === firstTaskId
-          const taskValid = task.fields.length > 0 && hasMeaningfulInput(task)
+          const taskValid = hasMeaningfulInput(task)
           return (
             <button
               key={node.id}
@@ -135,18 +135,16 @@ export function StepForms({ draft, setDraft }: { draft: DraftSpec; setDraft: (d:
           </div>
           <div className="flex items-baseline gap-3">
             <div className="text-[11px] text-ink-muted">
-              {activeTask.fields.length === 0
-                ? <span className="text-warn">沒有欄位</span>
-                : !meaningful
-                  ? <span className="text-warn">缺必填欄位或必填 repeater</span>
-                  : <span className="text-good">✓ OK</span>}
+              {!meaningful
+                ? <span className="text-warn">缺必填欄位或必填 repeater</span>
+                : <span className="text-good">✓ OK</span>}
               {' · '}
               {activeTask.fields.length} fields, {activeTask.fields.filter(f => f.required).length} required
             </div>
             <button
               type="button"
               onClick={() => setPreviewOpen(true)}
-              disabled={activeTask.fields.length === 0}
+              disabled={activeTask.fields.length === 0 && (activeTask.layout?.length ?? 0) === 0}
               className="inline-flex items-center gap-1 rounded border border-rule bg-white px-2 py-1 text-[11px] font-medium text-ink hover:border-primary hover:text-primary disabled:opacity-40 disabled:hover:border-rule disabled:hover:text-ink"
             >
               <Eye className="h-3.5 w-3.5" />

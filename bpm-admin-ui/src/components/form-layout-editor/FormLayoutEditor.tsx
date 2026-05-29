@@ -78,13 +78,10 @@ export function FormLayoutEditor({ task, onChange }: Props) {
     updateSection(sectionIdx, { children })
   }
 
-  if (task.fields.length === 0) {
-    return (
-      <div className="rounded border border-dashed border-rule p-6 text-center text-xs text-ink-faint">
-        先在上方加欄位，再來這裡排版。
-      </div>
-    )
-  }
+  // No early return here: a form that's all repeater (e.g. just
+  // line-items) is meaningful even with zero outer fields. The buttons
+  // below ("多筆 repeater" inside a section, or the section / row /
+  // banner controls) work without any outer fields existing first.
 
   return (
     <div className="space-y-3">
