@@ -53,6 +53,7 @@ export function AiKitchenPage() {
     <Routes>
       <Route index element={<CookedFlowsListRoute />} />
       <Route path=":flowId" element={<WizardRoute />} />
+      <Route path=":flowId/:phase" element={<WizardRoute />} />
       <Route path="*" element={<Navigate to="" replace />} />
     </Routes>
   )
@@ -64,8 +65,13 @@ function CookedFlowsListRoute() {
 }
 
 function WizardRoute() {
-  const { flowId } = useParams<{ flowId: string }>()
+  const { flowId, phase: phaseParam } = useParams<{ flowId: string; phase: string }>()
   const navigate = useNavigate()
+  // Default phase = prep when URL has no phase segment; an unknown
+  // segment also falls back to prep (validator in WizardView clamps it).
+  const phase: PhaseId = (phaseParam === 'cook' || phaseParam === 'serve' || phaseParam === 'prep')
+    ? phaseParam
+    : 'prep'
   const [flow, setFlow] = useState<FlowDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -79,10 +85,19 @@ function WizardRoute() {
     return () => { cancelled = true }
   }, [flowId])
 
+  // Both `..` and `../..` go to the kitchen list now that the URL has
+  // an optional phase segment: from `/ai-kitchen/<id>` the parent is
+  // `/ai-kitchen`; from `/ai-kitchen/<id>/cook` it's `/ai-kitchen/<id>`.
+  // Always navigate to the absolute kitchen list to keep behaviour
+  // identical regardless of which phase we were on.
+  const goToKitchen = () => navigate('/ai-kitchen')
+  const goToPhase = (next: PhaseId) =>
+    navigate(`/ai-kitchen/${flowId}/${next}`, { replace: true })
+
   if (error) {
     return (
       <div className="rounded border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-        {error} · <button onClick={() => navigate('..')} className="underline">回 kitchen</button>
+        {error} · <button onClick={goToKitchen} className="underline">回 kitchen</button>
       </div>
     )
   }
@@ -93,7 +108,9 @@ function WizardRoute() {
     <WizardView
       flow={flow}
       onFlowChange={setFlow}
-      onClose={() => navigate('..')}
+      onClose={goToKitchen}
+      phase={phase}
+      onPhaseChange={goToPhase}
     />
   )
 }
@@ -543,17 +560,27 @@ function WizardView({
   flow,
   onFlowChange,
   onClose,
+  phase,
+  onPhaseChange,
 }: {
   flow: FlowDetail
   onFlowChange: (f: FlowDetail) => void
   onClose: () => void
+  /** Active phase, sourced from the URL (`:phase` segment) so that
+   *  a hard reload on /cook stays on Cook rather than snapping to
+   *  Prep. */
+  phase: PhaseId
+  /** Navigates to `/ai-kitchen/<flowId>/<next>` so the URL stays in
+   *  sync; uses replace to avoid polluting the back-stack with every
+   *  tab click. */
+  onPhaseChange: (next: PhaseId) => void
 }) {
   const navigate = useNavigate()
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
   const [transitionPending, setTransitionPending] = useState<null | 'submit' | 'cancel' | 'delete' | 'clone'>(null)
   const [downloading, setDownloading] = useState(false)
-  const [phase, setPhase] = useState<PhaseId>('prep')
+  const setPhase = onPhaseChange
   const timerRef = useRef<number | null>(null)
   const latestDraftRef = useRef<DraftSpec | null>(null)
 
