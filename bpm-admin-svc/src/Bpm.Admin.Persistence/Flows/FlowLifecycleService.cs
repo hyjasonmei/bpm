@@ -92,7 +92,74 @@ public class FlowLifecycleService : IFlowLifecycleService
             throw new FlowLifecycleException(
                 $"FlowCode '{row.FlowCode}' is already used by another active flow; archive or retire that one first.");
 
+        // PR-X2: server-side spec sanity gate. admin-ui's per-step
+        // validators are the rich check; backend keeps a small subset
+        // here so half-baked drafts can't slip past via raw API call.
+        var problems = SubmitSanityIssues(row);
+        if (problems.Count > 0)
+            throw new FlowLifecycleException(
+                $"Spec is not ready to submit: {string.Join("; ", problems)}");
+
         return await TransitionAsync(flowId, FlowState.Submitted, "flow_submitted", actorUserId, new[] { FlowState.Draft }, ct);
+    }
+
+    private static IReadOnlyList<string> SubmitSanityIssues(Flow row)
+    {
+        var problems = new List<string>();
+        if (string.IsNullOrWhiteSpace(row.FlowCode)) problems.Add("flowCode is empty");
+        if (string.IsNullOrWhiteSpace(row.DisplayName)) problems.Add("flow name is empty");
+        if (string.IsNullOrWhiteSpace(row.SpecJson) || row.SpecJson == "{}")
+        {
+            problems.Add("spec is empty — walk the wizard before submitting");
+            return problems;
+        }
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(row.SpecJson);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("flow", out var flow) && flow.TryGetProperty("nodes", out var nodes) && nodes.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                var hasStart = false; var hasEnd = false; var userTaskCount = 0;
+                foreach (var n in nodes.EnumerateArray())
+                {
+                    var type = n.TryGetProperty("type", out var t) ? t.GetString() : null;
+                    if (type == "startEvent") hasStart = true;
+                    else if (type == "endEvent") hasEnd = true;
+                    else if (type == "userTask") userTaskCount++;
+                }
+                if (!hasStart) problems.Add("flow missing a startEvent");
+                if (!hasEnd) problems.Add("flow missing an endEvent");
+                if (userTaskCount == 0) problems.Add("flow has no userTask — chef has nothing to scaffold a form against");
+            }
+            else
+            {
+                problems.Add("spec.flow.nodes is missing or not an array");
+            }
+
+            if (root.TryGetProperty("userTasks", out var userTasks) && userTasks.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                var hasAnyField = false;
+                foreach (var ut in userTasks.EnumerateArray())
+                {
+                    if (ut.TryGetProperty("fields", out var fields)
+                        && fields.ValueKind == System.Text.Json.JsonValueKind.Array
+                        && fields.GetArrayLength() > 0)
+                    {
+                        hasAnyField = true; break;
+                    }
+                }
+                if (!hasAnyField) problems.Add("no user task has any field configured");
+            }
+            else
+            {
+                problems.Add("spec.userTasks missing");
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            problems.Add("spec is not valid JSON");
+        }
+        return problems;
     }
 
     public Task<Flow> CancelAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)

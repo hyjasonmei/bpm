@@ -16,7 +16,7 @@ import {
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { Onboarding } from '@/screens/onboarding/Onboarding'
-import { EMPTY_DRAFT, migrateDraft, stripFieldUids, type DraftSpec } from '@/lib/onboarding'
+import { EMPTY_DRAFT, migrateDraft, ONBOARDING_STEPS, stripFieldUids, validators, type DraftSpec } from '@/lib/onboarding'
 import { flowToBpmnXml } from '@/lib/bpmnXml'
 import { useSetPageHeader, type PageHeader } from '@/flowcook/app/pageHeader'
 import { PhaseTabs, type PhaseId, type PhaseDef } from '@/flowcook/app/PhaseTabs'
@@ -598,6 +598,12 @@ function WizardView({
     }
   })()
 
+  // PR-X2: shadow the wizard's live draft so the Submit button can
+  // gate on every step's validator, not just the current step's. The
+  // ref already exists for autosave; this state is purely for the
+  // render path.
+  const [currentDraft, setCurrentDraft] = useState<DraftSpec>(initialDraft)
+
   const persistDraft = useCallback(async (draft: DraftSpec) => {
     setSaveState('saving')
     setSaveError(null)
@@ -615,6 +621,7 @@ function WizardView({
 
   const handleDraftChange = useCallback((draft: DraftSpec) => {
     latestDraftRef.current = draft
+    setCurrentDraft(draft)
     if (flow.state !== 'Draft') return // read-only once submitted
     if (timerRef.current) window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => {
@@ -747,6 +754,16 @@ function WizardView({
   const canCancel = flow.state === 'Submitted' || flow.state === 'Cooking' || flow.state === 'OnHold'
   const canDelete = flow.state === 'Draft'
 
+  // PR-X2: run every step's validator before allowing Submit; surfaces
+  // the failing steps in the disabled button's tooltip so the user
+  // knows what to fix without diving back into the wizard.
+  const submitGate = useMemo(() => {
+    const failures = ONBOARDING_STEPS
+      .map(s => ({ step: s, result: validators[s.id](currentDraft) }))
+      .filter(x => !x.result.valid)
+    return { ready: failures.length === 0, failures }
+  }, [currentDraft])
+
   // Push flow context into the AppShell top bar (kicker + back + title +
   // version + state). Save status sits with the action buttons in the
   // main page header, not here. Memoize so the effect only fires when
@@ -840,11 +857,18 @@ function WizardView({
           {canSubmit && (
             <button
               onClick={() => void submit()}
-              disabled={transitionPending !== null}
+              disabled={transitionPending !== null || !submitGate.ready}
+              title={submitGate.ready
+                ? 'Hand the draft to chef. State flips to Submitted.'
+                : `尚未可送出 (${submitGate.failures.length} step 未通過)：\n${submitGate.failures.slice(0, 3).map(f => `· ${f.step.en} — ${f.result.errors[0] ?? 'validator failed'}`).join('\n')}${submitGate.failures.length > 3 ? `\n…還有 ${submitGate.failures.length - 3} 條` : ''}`}
               className="inline-flex items-center gap-1.5 rounded bg-primary px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
-              {transitionPending === 'submit' ? 'Submitting…' : 'Submit to chef'}
+              {transitionPending === 'submit'
+                ? 'Submitting…'
+                : submitGate.ready
+                  ? 'Submit to chef'
+                  : `Submit to chef (${submitGate.failures.length} step 未通過)`}
             </button>
           )}
           <OverflowMenu groups={overflowGroups} />
