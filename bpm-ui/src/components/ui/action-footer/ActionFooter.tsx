@@ -44,33 +44,43 @@ export interface ActionFooterProps {
  * Render once at the bottom of the page; the host page should add
  * `pb-24` (or similar) on its scroll container so the footer doesn't
  * cover real content.
+ *
+ * PR-X12: switched from `sticky bottom-0` to `fixed bottom-0` so the
+ * bar is always pinned to the viewport edge, not the bottom of the
+ * content. Previously short pages would render the bar inline below
+ * the content (sticky has no effect until the page can scroll), which
+ * read as "below the content" rather than "fixed at the bottom" —
+ * Jason called this out as a regression. Inner row stays centred via
+ * `max-w-screen-2xl` to line up with the header.
  */
 export function ActionFooter({ actions, hint, className }: ActionFooterProps) {
   if (actions.length === 0) return null
   return (
     <div
       className={cn(
-        'sticky bottom-0 z-20 -mx-4 mt-4 flex items-center gap-3 border-t border-rule bg-card/95 px-4 py-3 shadow-[0_-4px_12px_-8px_rgba(15,23,42,0.18)] backdrop-blur',
+        'fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-card/95 shadow-[0_-4px_12px_-8px_rgba(15,23,42,0.18)] backdrop-blur',
         className,
       )}
     >
-      <div className="min-w-0 flex-1 text-xs text-ink-muted">
-        {hint}
-      </div>
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {actions.map(a => (
-          <Button
-            key={a.id}
-            variant={a.variant ?? 'primary'}
-            size="md"
-            disabled={a.disabled || a.pending}
-            title={a.title}
-            onClick={() => { void a.onClick() }}
-          >
-            {a.pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {a.label}
-          </Button>
-        ))}
+      <div className="mx-auto flex max-w-screen-2xl items-center gap-3 px-4 py-3">
+        <div className="min-w-0 flex-1 text-xs text-ink-muted">
+          {hint}
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {actions.map(a => (
+            <Button
+              key={a.id}
+              variant={a.variant ?? 'primary'}
+              size="md"
+              disabled={a.disabled || a.pending}
+              title={a.title}
+              onClick={() => { void a.onClick() }}
+            >
+              {a.pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {a.label}
+            </Button>
+          ))}
+        </div>
       </div>
     </div>
   )

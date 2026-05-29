@@ -11,7 +11,6 @@ import {
   FileDiff,
   FlaskConical,
   GitBranch,
-  HelpCircle,
   MessageSquareWarning,
   RotateCcw,
   Send,
@@ -24,7 +23,6 @@ import { getFlow, parseChefWorkContext, type ChefWorkContext, type FlowState } f
 import {
   chefStallReset,
   postChatReply,
-  simulateChefAsk,
   simulateChefComplete,
   simulateChefResume,
   simulateChefStart,
@@ -135,17 +133,6 @@ export function CookPanel({
     void runSim('start', () => simulateChefStart(flowId), 'Cooking')
   }
 
-  function simulateAskQuestion() {
-    const question =
-      "Need clarification on the **approver chain**:\n\n" +
-      "- Spec says `approver: manager` but the sample org has dotted-line reports.\n" +
-      "- Should I:\n" +
-      "  1. Resolve to the *primary* manager only, or\n" +
-      "  2. Fan out to **primary + dotted-line** in parallel?\n\n" +
-      "Also — what's the SLA when the manager is on leave?"
-    void runSim('ask', () => simulateChefAsk(flowId, question), 'OnHold')
-  }
-
   function simulateCompleteCook() {
     const version = `V${flowVersion}.${cookedCount}`
     const artifacts = JSON.stringify({
@@ -215,7 +202,6 @@ export function CookPanel({
         <SimulateChefMenu
           state={state}
           onStart={simulateStartCooking}
-          onAsk={simulateAskQuestion}
           onComplete={simulateCompleteCook}
           onResume={simulateResume}
           onStallReset={manualStallReset}
@@ -376,14 +362,12 @@ function ComposerHint({ state }: { state: FlowState }) {
 function SimulateChefMenu({
   state,
   onStart,
-  onAsk,
   onComplete,
   onResume,
   onStallReset,
 }: {
   state: FlowState
   onStart: () => void
-  onAsk: () => void
   onComplete: () => void
   onResume: () => void
   onStallReset: () => void
@@ -393,7 +377,9 @@ function SimulateChefMenu({
   // call chef_transition for whatever reason — wrong flowId, token
   // mismatch, server hiccup). Re-label and wrap the state-machine
   // jumps in a confirm so an accidental click can't quietly push a
-  // real flow to Committed.
+  // real flow to Committed. PR-X12 removed the "Sim question (demo)"
+  // button — it injected mock text and felt like dev scaffolding,
+  // which conflicted with the manual-override framing.
   const guardedStart = () => {
     if (!window.confirm('Force Accept this flow?\n\nSubmitted → Cooking. Use as manual override when chef MCP is unreachable; otherwise wait for the real chef session.')) return
     onStart()
@@ -421,7 +407,6 @@ function SimulateChefMenu({
       )}
       {state === 'Cooking' && (
         <>
-          <SimButton onClick={onAsk} icon={<HelpCircle className="h-3 w-3" />} label="Sim question (demo)" tone="warn" />
           <SimButton onClick={guardedComplete} icon={<CheckCheck className="h-3 w-3" />} label="Force Commit" tone="good" />
           <SimButton onClick={onStallReset} icon={<RotateCcw className="h-3 w-3" />} label="Stall Reset" tone="warn" />
         </>

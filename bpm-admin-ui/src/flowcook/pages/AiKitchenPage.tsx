@@ -895,15 +895,22 @@ function WizardView({
 
         <div className="flex items-center gap-2">
           {phase === 'prep' && <SaveStatusBadge state={saveState} error={saveError} />}
-          <button
-            onClick={() => void downloadBundle()}
-            disabled={downloading || transitionPending !== null}
-            title="Build a portable .zip bundle from the current draft"
-            className="inline-flex items-center gap-1 rounded border border-rule bg-card px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
-          >
-            <Download className="h-3 w-3" />
-            {downloading ? 'Bundling…' : 'Download bundle'}
-          </button>
+          {/* PR-X12: Download bundle is a Prep-phase action — once the
+              user has moved on to Cook / Serve the bundle should have
+              been built server-side at Submit time (or by chef via the
+              MCP download tool). Hiding the button in Cook / Serve
+              removes a redundant control. */}
+          {phase === 'prep' && (
+            <button
+              onClick={() => void downloadBundle()}
+              disabled={downloading || transitionPending !== null}
+              title="Build a portable .zip bundle from the current draft"
+              className="inline-flex items-center gap-1 rounded border border-rule bg-card px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+            >
+              <Download className="h-3 w-3" />
+              {downloading ? 'Bundling…' : 'Download bundle'}
+            </button>
+          )}
           {canSubmit && (
             <button
               onClick={() => void submit()}
