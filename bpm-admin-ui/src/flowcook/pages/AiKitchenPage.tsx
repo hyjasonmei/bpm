@@ -641,6 +641,15 @@ function WizardView({
         window.clearTimeout(timerRef.current)
         if (latestDraftRef.current) await persistDraft(latestDraftRef.current)
       }
+      // PR-X3: build the bundle server-side at submit time so the zip is
+      // cached on the Flow row for chef MCP download. Failure here
+      // shouldn't block submit (chef can still get spec via chef_get_flow);
+      // surface a warning instead of bailing.
+      try {
+        await buildBundleSilent()
+      } catch (err) {
+        console.warn('Bundle pre-cache failed; chef MCP download will return 409 until admin clicks Download bundle', err)
+      }
       const updated = await submitFlow(flow.id)
       onFlowChange(updated)
       // Stay on the flow page (don't bounce back to the kitchen list).
@@ -654,6 +663,35 @@ function WizardView({
     } finally {
       setTransitionPending(null)
     }
+  }
+
+  /** Build + cache the bundle on the server without triggering a
+   *  download. Reuses the same /bundle endpoint downloadBundle uses;
+   *  the server persists bytes to Flow.BundleBlob unconditionally so
+   *  chef can later pull via MCP. */
+  async function buildBundleSilent() {
+    const draft = latestDraftRef.current ?? initialDraft
+    const bpmnXml = await flowToBpmnXml(draft)
+    const testCases = draft.testCases.length > 0 ? draft.testCases : [{
+      id: 'placeholder-happy',
+      name: 'Happy path (placeholder — fill in step 8)',
+      inputs: {},
+      expectedTrace: [],
+      expectedFinalStatus: 'Completed',
+    }]
+    const res = await fetch(`/api/flows/${flow.id}/bundle`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bpmnXml,
+        sampleOrg: draft.sampleOrg,
+        testCases,
+        sourceInstanceId: `flow:${flow.id}`,
+      }),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
+    await res.blob()  // drain so the connection releases
   }
 
   async function cancel() {

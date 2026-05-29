@@ -83,4 +83,14 @@ public class Flow : ISoftDeletable
     /// worktree. Updated by the chef MCP tool <c>chef_set_worktree</c>.
     /// </summary>
     public string? ChefWorkContextJson { get; set; }
+
+    /// <summary>
+    /// Cached bundle zip bytes. Populated every time the /bundle
+    /// endpoint builds successfully so chef can re-download via MCP
+    /// without admin-ui being open. Null until the first build runs.
+    /// </summary>
+    public byte[]? BundleBlob { get; set; }
+
+    /// <summary>When <see cref="BundleBlob"/> was last refreshed.</summary>
+    public DateTime? BundleBuiltAt { get; set; }
 }

@@ -131,15 +131,13 @@ public sealed class ChefFlowsController : ControllerBase
         var f = await _db.Flows.AsNoTracking().FirstOrDefaultAsync(x => x.Id == flowId, ct);
         if (f is null) return NotFound();
         await _lifecycle.BumpChefHeartbeatAsync(flowId, ct);
-        // Real bundle build is owned by the user-facing FlowsController
-        // /bundle action which takes a richer request. For chef we
-        // re-use the same builder with a minimal input shape; admin-ui
-        // is expected to have stashed sampleOrg + testCases on the
-        // flow when it was submitted.
-        // TODO(K2): wire to a richer chef bundle builder once we
-        // surface this from MCP. For now return a hint.
-        return StatusCode(StatusCodes.Status501NotImplemented,
-            "chef bundle download not wired yet — use the admin-ui Download bundle for now");
+        if (f.BundleBlob is null || f.BundleBlob.Length == 0)
+        {
+            return Conflict("Bundle hasn't been built yet — admin must download or submit at least once so the zip is cached.");
+        }
+        var filename = $"{f.FlowCode}_v{f.Version}.zip";
+        Response.Headers["X-Bundle-Built-At"] = (f.BundleBuiltAt ?? default).ToString("o");
+        return File(f.BundleBlob, "application/zip", filename);
     }
 
     private bool RequireChef()

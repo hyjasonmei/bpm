@@ -152,6 +152,31 @@ public sealed class ChefMcpTools
         }
     }
 
+    [McpServerTool(Name = "chef_download_bundle")]
+    [Description("Fetch the bundle zip for a flow as base64. Returns the bytes admin cached on the last `/bundle` build (admin-ui's Download bundle / Submit triggers a fresh build). Decode + write to a local file in your worktree to read spec.json / bpmn.xml / sample-org.json / test-cases.")]
+    public async Task<object?> DownloadBundle(
+        [Description("Flow id (UUID)")] string flowId,
+        CancellationToken ct = default)
+    {
+        if (!Guid.TryParse(flowId, out var id)) return Error($"invalid flowId '{flowId}'");
+        var f = await _db.Flows.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (f is null) return Error($"flow {id} not found");
+        await _lifecycle.BumpChefHeartbeatAsync(id, ct);
+        if (f.BundleBlob is null || f.BundleBlob.Length == 0)
+        {
+            return Error("bundle not cached yet — ask admin to click Download bundle once (or submit) so the zip is persisted.");
+        }
+        return new
+        {
+            flowCode = f.FlowCode,
+            version = f.Version,
+            filename = $"{f.FlowCode}_v{f.Version}.zip",
+            builtAt = f.BundleBuiltAt,
+            byteCount = f.BundleBlob.Length,
+            base64 = Convert.ToBase64String(f.BundleBlob),
+        };
+    }
+
     [McpServerTool(Name = "chef_set_worktree")]
     [Description("Record the git branch (or worktree path) chef is cooking in, so admin operators can find your in-flight code. Call right after `chef_transition('Cooking')`. Optional `notes` for a one-line status. Pass `branch=''` to clear.")]
     public async Task<object?> SetWorktree(

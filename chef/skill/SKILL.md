@@ -529,6 +529,7 @@ Resume path (new chef Claude Code session, after user replied):
 | `chef_post_message(flowId, kind, content, artifactsJson?, version?)` | Memos / completion artifacts; chef can only post `Memo` / `Question` / `Completion` |
 | `chef_transition(flowId, target, question?)` | `Cooking` / `Resume` / `OnHold` / `Committed` |
 | `chef_set_worktree(flowId, branch, notes?)` | Right after `chef_transition('Cooking')` so admin sees the branch chip in CookPanel + list page. Re-call to update `notes` ("Domain layer done"); pass empty string to clear when done. |
+| `chef_download_bundle(flowId)` | Pull the cached bundle zip as base64. Use on resume sessions when the local bundle dir was lost, or to re-sync after admin edits the spec. Admin's Download bundle / Submit refreshes the cache. |
 | `chef_list_roles()` | Confirm a spec's `role:XXX` actor refs target a role that actually exists |
 | `chef_list_principals(roleName?, kind?, search?)` | Inspect the org graph shape — who holds HR, what depts exist, search by display name |
 | `chef_walk_org(submitterUserId, path)` | Sanity-check the resolver C# you're about to write by walking the org from a sample submitter (paths: `manager`, `manager.manager`, `department`, `department.head`, `department.parent`, `department.parent.head`) |

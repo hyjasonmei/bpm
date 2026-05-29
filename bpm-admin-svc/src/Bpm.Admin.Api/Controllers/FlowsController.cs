@@ -230,6 +230,13 @@ public class FlowsController : ControllerBase
                 FlowId: row.Id);
             var bytes = await builder.BuildAsync(buildReq, ct);
 
+            // PR-X3: cache the latest zip on the Flow row so chef can
+            // re-download via MCP without admin-ui being open.
+            var tracked = await _db.Flows.FirstAsync(f => f.Id == row.Id, ct);
+            tracked.BundleBlob = bytes;
+            tracked.BundleBuiltAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+
             await audit.LogAsync(
                 actionType: "flow_bundle_built",
                 targetType: "flow",
