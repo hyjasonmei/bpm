@@ -300,10 +300,16 @@ silently skips it — **stop and ask** rather than working around it.
 
 The React component is **bespoke per flow** — there is no generic
 `<DynamicForm spec />` runtime. The wizard's `spec.layout` is your
-blueprint for what JSX to emit. Use the corresponding hand-coded form
-under `bpm-ui/src/screens/forms/Reference_*.tsx` (where one exists)
-for tone / sectioning / table-vs-card invoices — but don't copy logic
-blindly. The spec is authoritative.
+blueprint for what JSX to emit. **Before writing JSX**, open the
+matching `bpm-ui/src/screens/forms/Reference_*.tsx` — those eleven
+hand-written forms are the visual ground truth for layout, section
+cards, two-column grids, repeater header bars, currency-paired
+amount inputs and right-side row-action gutters. A form that skips
+this step works but looks amateur next to a reference. See
+**conventions.md § "Visual baseline — crib from a Reference_*.tsx"**
+for the shape-to-reference lookup table, the DO copy / DO NOT copy
+list (model A runtime hooks like `useFormRuntime` / `FormShell` /
+`useFlowSubmit` are stripped) and the step-by-step recipe.
 
 ### 3.4 Per-flow data-access port — `I<CODE>_V<N>_CaseStore`
 

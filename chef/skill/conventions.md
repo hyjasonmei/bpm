@@ -193,6 +193,102 @@ When the spec uses a construct that isn't here yet, **stop and ask
 Jason** — lead ships the primitive (or extends this table) before
 chef ships.
 
+## Visual baseline — crib from a `Reference_*.tsx`
+
+The eleven hand-written reference forms under
+`bpm-ui/src/screens/forms/Reference_*.tsx` are the visual ground
+truth for the customer-facing UI. They predate model B and ride the
+old `useFormRuntime` runtime, but their *layout* (section cards,
+two-column grids, repeater header bars, currency-paired amount
+inputs, right-side action gutters) is what Jason expects every
+chef-cooked form to look like.
+
+**Pick one before you write a line of JSX.** A bare form built only
+from `<Input>` / `<Select>` will work but look amateur next to the
+references; visiting the matching `Reference_*.tsx` first is what
+gets the cook past "functional" into "presentable".
+
+### Shape → reference lookup
+
+| Spec shape | Closest reference | What to crib |
+|---|---|---|
+| Repeater + amount + currency + running total | `Reference_GEEForm` (差旅費) | Per-row `SectionCard` with `bg-slate-50` header bar (`Invoice #N`, date, no.), 2-col grid for `Charge to / Project` + `Category / Amount`, currency `<Select>` glued to `<Input type=number>`, dual NTD/USD display via `fmtNTD` / `fmtUSD`, right-side gutter with Plus/Copy/Trash row actions, Totals row in its own `SectionCard` at the bottom |
+| Repeater with sub-lines (parent → children) | `Reference_GEVForm` | Nested repeater: outer invoices, inner line-items with their own add/copy/del. Use sparingly — keep one repeater level when you can. |
+| Repeater + attachment cluster per row | `Reference_HWPForm` (hardware purchase) | Same row card shape as GEE; each row owns a `<FilePicker>` + a metadata strip below. |
+| Repeater + line-item table style (no header bar) | `Reference_APEForm` (採購) | Flat table-style rows when each entry is a single line, not a sub-form. |
+| Single form + multi-section approval-friendly | `Reference_LeaveForm` (請假) | Stacked `SectionCard` + `SectionTitle` blocks per logical group; `InfoBanner` for policy text. Good shape for any approval-heavy single-form flow. |
+| Personnel-action form (lots of name / dept / date fields) | `Reference_DeptxForm` (調動) / `Reference_ResignForm` | Dense two-column grids, bilingual labels via `FieldLabel`, `<Field hint>` for inline help. |
+| Read-mostly view (case detail style) | `Reference_TEOView` / `Reference_ITPRView` / `Reference_TRQView` / `Reference_EXTOBView` | `SectionCard` blocks with read-only paired data; use these as the **case-detail** baseline, not the form baseline. |
+
+When the spec doesn't match any reference exactly, pick the closest
+shape from the list above and tell the user in your cook complete
+report which one you used.
+
+### DO copy (structural)
+
+- `SectionCard` + `SectionTitle` from `@/components/ui/card` for every
+  top-level block — never a bare `<div>`.
+- 2-column `grid grid-cols-2 gap-5` for paired fields; `gap-x-6
+  gap-y-2` flex rows for inline label+input chips.
+- `FieldLabel required` / `FieldLabel tip="..."` (from
+  `@/components/ui/form`) for every field — the asterisk + tooltip
+  hint are part of the visual language.
+- Repeater header bar (`flex flex-wrap items-center gap-x-6 gap-y-2
+  border-b border-rule bg-slate-50 px-4 py-2.5`) with the row index
+  on the left and 2-3 "summary" inputs inline.
+- Right-side row-action gutter (`flex flex-col items-center gap-1.5
+  border-l border-rule bg-slate-50/60 p-2`) with `Plus`, `Copy`,
+  `Trash2` lucide icons stacked vertically.
+- Currency-paired amount: `<Select className="w-24 flex-shrink-0">`
+  glued to `<Input type=number className="text-right font-mono">`,
+  with NTD/USD computed-total below.
+- `InfoBanner` for policy / reminder text at the top of the form
+  (Chinese + English subtitle is the established pattern).
+- Totals row in its own `SectionCard` at the bottom with
+  right-aligned `font-mono` amounts.
+
+### DO NOT copy (model A internals)
+
+The references all wrap themselves in model A runtime plumbing.
+Strip every one of these out — chef writes pure model B:
+
+- `import { useFormRuntime, FlowToast, type FormRuntimeProps } from
+  '@/hooks/useFormRuntime'` — model A spec-driven runtime hook;
+  delete entirely.
+- `<FormShell code="…" activeStep={…} setActiveStep={…} persona={…}
+  mode={runtime.mode}>` — model A wizard chrome with persona switch
+  + step nav; chef-cooked forms render bare (the bpm-ui router
+  wraps them with its own layout).
+- `import { useFlowSubmit } from '@/hooks/useFlowSubmit'` /
+  `useFlowTask` — model A submit + task plumbing; chef does its
+  own `<form onSubmit>` calling `apiFetch` against
+  `/api/<flow>/v<n>/...`.
+- Mock catalogs from `@/lib/mocks` (`CHARGE_OPTS`, `PROJECT_OPTS`,
+  `GEE_CATS`, `CURRENCIES`, etc.) — these are demo seed only. Pull
+  options from `field.options[]` in the spec, or call a real catalog
+  API.
+- `ActionBar` from `./FormShell` — replace with `ActionFooter` from
+  `@/components/ui/action-footer/ActionFooter` (the lead-shipped
+  sticky bottom bar for case detail / form submit buttons).
+- `instance` / `submission` / `runtime.toast` / `FlowToast` — all
+  model A runtime state; not part of model B.
+
+### Workflow recipe
+
+1. Open the matching `Reference_*.tsx` side-by-side with the spec.
+2. Copy the JSX structure verbatim into your
+   `<CODE>_V<N>_<Purpose>Form.tsx`.
+3. Delete every `FormShell` / `useFormRuntime` / `FlowToast` /
+   `ActionBar` reference. The diff should remove ~30-60 lines.
+4. Replace mock catalogs with `field.options` from the spec.
+5. Replace the model A submit (`useFlowSubmit`) with a plain `<form
+   onSubmit>` calling your controller's POST endpoint via
+   `apiFetch`.
+6. Wrap the bottom buttons in `ActionFooter` instead of `ActionBar`.
+7. Confirm the result by eyeballing it next to the original
+   reference — if they don't look like cousins, the layout was
+   damaged in step 3 and needs a re-pass.
+
 ## Inbox provider
 
 Every chef-cooked feature MUST implement
