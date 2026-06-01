@@ -4,7 +4,14 @@ using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Directory;
 using Bpm.Application.Common.Services;
 using Bpm.Application.Delegation;
+using Bpm.Application.Features.APE.V1;
+using Bpm.Application.Features.EOB.V1;
+using Bpm.Application.Features.FAD.V1;
+using Bpm.Application.Features.FAP.V1;
 using Bpm.Application.Features.PURCHASE_REQUEST.V1;
+using Bpm.Application.Features.ETM.V1;
+using Bpm.Application.Features.TEO.V1;
+using Bpm.Application.Features.TRQ.V1;
 using Bpm.Application.Features.VENDOR_EXPENSE.V1;
 using Bpm.Application.Files;
 using Bpm.Application.Impersonation;
@@ -24,7 +31,14 @@ using Bpm.Persistence.Attendance;
 using Bpm.Persistence.Common;
 using Bpm.Persistence.Common.Directory;
 using Bpm.Persistence.Features.LEAVE.V1;
+using Bpm.Persistence.Features.APE.V1;
+using Bpm.Persistence.Features.EOB.V1;
+using Bpm.Persistence.Features.ETM.V1;
+using Bpm.Persistence.Features.FAD.V1;
+using Bpm.Persistence.Features.FAP.V1;
 using Bpm.Persistence.Features.PURCHASE_REQUEST.V1;
+using Bpm.Persistence.Features.TEO.V1;
+using Bpm.Persistence.Features.TRQ.V1;
 using Bpm.Persistence.Features.VENDOR_EXPENSE.V1;
 using Bpm.Persistence.Delegation;
 using Bpm.Persistence.Files;
@@ -172,6 +186,13 @@ public static class DependencyInjection
         // and the EF impl in Persistence/Features/<CODE>/V<N>/, then wires
         // the binding here so DI can hand the impl to Application services.
         services.AddScoped<IPURCHASE_REQUEST_V1_CaseStore, PURCHASE_REQUEST_V1_CaseStore>();
+        services.AddScoped<ITRQ_V1_CaseStore, TRQ_V1_CaseStore>();
+        services.AddScoped<IAPE_V1_CaseStore, APE_V1_CaseStore>();
+        services.AddScoped<ITEO_V1_CaseStore, TEO_V1_CaseStore>();
+        services.AddScoped<IFAP_V1_CaseStore, FAP_V1_CaseStore>();
+        services.AddScoped<IFAD_V1_CaseStore, FAD_V1_CaseStore>();
+        services.AddScoped<IEOB_V1_CaseStore, EOB_V1_CaseStore>();
+        services.AddScoped<IETM_V1_CaseStore, ETM_V1_CaseStore>();
         services.AddScoped<IVENDOR_EXPENSE_V1_CaseStore, VENDOR_EXPENSE_V1_CaseStore>();
 
         // Unified inbox: scan this assembly for ITypedInboxProvider

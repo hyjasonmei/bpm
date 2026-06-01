@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="def_ETM" targetNamespace="http://flowcook/ETM">
+  <bpmn:process id="ETM" isExecutable="true">
+    <bpmn:startEvent id="s" name="離職意願發生"><bpmn:outgoing>f1</bpmn:outgoing></bpmn:startEvent>
+    <bpmn:userTask id="req" name="申請單 Employee Request">
+      <bpmn:incoming>f1</bpmn:incoming><bpmn:incoming>f4</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="ap" name="簽核流程 Approval">
+      <bpmn:incoming>f2</bpmn:incoming><bpmn:outgoing>f3</bpmn:outgoing><bpmn:outgoing>f4</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="ho" name="交接 / 基本設定 Handover">
+      <bpmn:incoming>f3</bpmn:incoming><bpmn:outgoing>f5</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="e" name="結案"><bpmn:incoming>f5</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="f1" sourceRef="s" targetRef="req" />
+    <bpmn:sequenceFlow id="f2" sourceRef="req" targetRef="ap" />
+    <bpmn:sequenceFlow id="f3" sourceRef="ap" targetRef="ho" name="Pass" />
+    <bpmn:sequenceFlow id="f4" sourceRef="ap" targetRef="req" name="Reject" />
+    <bpmn:sequenceFlow id="f5" sourceRef="ho" targetRef="e" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="diagram">
+    <bpmndi:BPMNPlane id="plane" bpmnElement="ETM">
+      <bpmndi:BPMNShape id="s_di" bpmnElement="s"><dc:Bounds x="150" y="142" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="req_di" bpmnElement="req"><dc:Bounds x="240" y="120" width="120" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ap_di" bpmnElement="ap"><dc:Bounds x="420" y="120" width="110" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ho_di" bpmnElement="ho"><dc:Bounds x="590" y="120" width="130" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="e_di" bpmnElement="e"><dc:Bounds x="780" y="142" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="f1_di" bpmnElement="f1"><di:waypoint x="186" y="160" /><di:waypoint x="240" y="160" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f2_di" bpmnElement="f2"><di:waypoint x="360" y="160" /><di:waypoint x="420" y="160" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f3_di" bpmnElement="f3"><di:waypoint x="530" y="160" /><di:waypoint x="590" y="160" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f5_di" bpmnElement="f5"><di:waypoint x="720" y="160" /><di:waypoint x="780" y="160" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f4_di" bpmnElement="f4"><di:waypoint x="475" y="200" /><di:waypoint x="475" y="270" /><di:waypoint x="300" y="270" /><di:waypoint x="300" y="200" /></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

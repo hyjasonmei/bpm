@@ -3,7 +3,14 @@ using FluentValidation;
 using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Behaviors;
 using Bpm.Application.Common.Services;
+using Bpm.Application.Features.APE.V1;
+using Bpm.Application.Features.EOB.V1;
+using Bpm.Application.Features.FAD.V1;
+using Bpm.Application.Features.FAP.V1;
 using Bpm.Application.Features.PURCHASE_REQUEST.V1;
+using Bpm.Application.Features.ETM.V1;
+using Bpm.Application.Features.TEO.V1;
+using Bpm.Application.Features.TRQ.V1;
 using Bpm.Application.Features.VENDOR_EXPENSE.V1;
 using Bpm.Application.Inbox;
 using Bpm.Application.Notifications;
@@ -82,6 +89,13 @@ public static class DependencyInjection
         // (Legacy LEAVE V1 reference is registered from Persistence/DI
         // because its service lives there in the old shape.)
         services.AddScoped<PURCHASE_REQUEST_V1_PurchaseRequestService>();
+        services.AddScoped<TRQ_V1_TravelRequestService>();
+        services.AddScoped<APE_V1_AdvancePaymentService>();
+        services.AddScoped<TEO_V1_TravelExpenseService>();
+        services.AddScoped<FAP_V1_PurchaseService>();
+        services.AddScoped<FAD_V1_DisposalService>();
+        services.AddScoped<EOB_V1_OnboardingService>();
+        services.AddScoped<ETM_V1_TerminationService>();
         services.AddScoped<VENDOR_EXPENSE_V1_VendorExpenseService>();
 
         // Unified inbox: scan the Application assembly for

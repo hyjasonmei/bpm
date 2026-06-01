@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="def_FAP" targetNamespace="http://flowcook/FAP">
+  <bpmn:process id="FAP" isExecutable="true">
+    <bpmn:startEvent id="s" name="資產外購"><bpmn:outgoing>f1</bpmn:outgoing></bpmn:startEvent>
+    <bpmn:userTask id="pr" name="請購單 Purchase Request">
+      <bpmn:incoming>f1</bpmn:incoming><bpmn:incoming>f4</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="ap" name="簽核流程 Approval">
+      <bpmn:incoming>f2</bpmn:incoming><bpmn:outgoing>f3</bpmn:outgoing><bpmn:outgoing>f4</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="po" name="採購單成立 Issue PO">
+      <bpmn:incoming>f3</bpmn:incoming><bpmn:outgoing>f5</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="vf" name="驗收 Verification">
+      <bpmn:incoming>f5</bpmn:incoming><bpmn:outgoing>f6</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="e" name="入資產清冊 Book List"><bpmn:incoming>f6</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="f1" sourceRef="s" targetRef="pr" />
+    <bpmn:sequenceFlow id="f2" sourceRef="pr" targetRef="ap" />
+    <bpmn:sequenceFlow id="f3" sourceRef="ap" targetRef="po" name="Pass" />
+    <bpmn:sequenceFlow id="f4" sourceRef="ap" targetRef="pr" name="Reject" />
+    <bpmn:sequenceFlow id="f5" sourceRef="po" targetRef="vf" />
+    <bpmn:sequenceFlow id="f6" sourceRef="vf" targetRef="e" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="diagram">
+    <bpmndi:BPMNPlane id="plane" bpmnElement="FAP">
+      <bpmndi:BPMNShape id="s_di" bpmnElement="s"><dc:Bounds x="140" y="142" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="pr_di" bpmnElement="pr"><dc:Bounds x="220" y="120" width="110" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ap_di" bpmnElement="ap"><dc:Bounds x="380" y="120" width="110" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="po_di" bpmnElement="po"><dc:Bounds x="540" y="120" width="110" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="vf_di" bpmnElement="vf"><dc:Bounds x="700" y="120" width="110" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="e_di" bpmnElement="e"><dc:Bounds x="860" y="142" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="f1_di" bpmnElement="f1"><di:waypoint x="176" y="160" /><di:waypoint x="220" y="160" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f2_di" bpmnElement="f2"><di:waypoint x="330" y="160" /><di:waypoint x="380" y="160" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f3_di" bpmnElement="f3"><di:waypoint x="490" y="160" /><di:waypoint x="540" y="160" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f5_di" bpmnElement="f5"><di:waypoint x="650" y="160" /><di:waypoint x="700" y="160" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f6_di" bpmnElement="f6"><di:waypoint x="810" y="160" /><di:waypoint x="860" y="160" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="f4_di" bpmnElement="f4"><di:waypoint x="435" y="200" /><di:waypoint x="435" y="270" /><di:waypoint x="275" y="270" /><di:waypoint x="275" y="200" /></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
