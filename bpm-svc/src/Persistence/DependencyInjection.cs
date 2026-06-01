@@ -4,6 +4,7 @@ using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Directory;
 using Bpm.Application.Common.Services;
 using Bpm.Application.Delegation;
+using Bpm.Application.Features.APE.V1;
 using Bpm.Application.Features.PURCHASE_REQUEST.V1;
 using Bpm.Application.Features.TRQ.V1;
 using Bpm.Application.Features.VENDOR_EXPENSE.V1;
@@ -25,6 +26,7 @@ using Bpm.Persistence.Attendance;
 using Bpm.Persistence.Common;
 using Bpm.Persistence.Common.Directory;
 using Bpm.Persistence.Features.LEAVE.V1;
+using Bpm.Persistence.Features.APE.V1;
 using Bpm.Persistence.Features.PURCHASE_REQUEST.V1;
 using Bpm.Persistence.Features.TRQ.V1;
 using Bpm.Persistence.Features.VENDOR_EXPENSE.V1;
@@ -175,6 +177,7 @@ public static class DependencyInjection
         // the binding here so DI can hand the impl to Application services.
         services.AddScoped<IPURCHASE_REQUEST_V1_CaseStore, PURCHASE_REQUEST_V1_CaseStore>();
         services.AddScoped<ITRQ_V1_CaseStore, TRQ_V1_CaseStore>();
+        services.AddScoped<IAPE_V1_CaseStore, APE_V1_CaseStore>();
         services.AddScoped<IVENDOR_EXPENSE_V1_CaseStore, VENDOR_EXPENSE_V1_CaseStore>();
 
         // Unified inbox: scan this assembly for ITypedInboxProvider
