@@ -35,7 +35,7 @@ export interface FormDef {
   initialActive: number
 }
 
-export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB' | 'RESIGN' | 'DEPTX' | 'PURCHASE_REQUEST' | 'VENDOR_EXPENSE'
+export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB' | 'RESIGN' | 'DEPTX' | 'PURCHASE_REQUEST' | 'VENDOR_EXPENSE' | 'FAP' | 'FAD' | 'EOB' | 'ETM'
 
 const STEP = (id: string, en: string, zh: string): Step => ({ id, en, zh })
 
@@ -217,6 +217,59 @@ export const FORMS: Record<FormCode, FormDef> = {
       STEP('closed', 'CLOSED', '結案'),
     ],
     ownerByStep: ['employee', 'manager', 'finance', 'manager', null],
+    initialActive: 0,
+  },
+  FAP: {
+    code: 'FAP',
+    label: 'Fixed Asset Purchase',
+    zhLabel: '固定資產採購',
+    steps: [
+      STEP('apply', 'APPLY', '請購單'),
+      STEP('approve', 'APPROVE', '主管簽核'),
+      STEP('po', 'PO', '採購單成立'),
+      STEP('verify', 'VERIFICATION', '驗收'),
+      STEP('closed', 'CLOSED', '入帳'),
+    ],
+    ownerByStep: ['employee', 'manager', null, 'employee', null],
+    initialActive: 0,
+  },
+  FAD: {
+    code: 'FAD',
+    label: 'Fixed Asset Disposal',
+    zhLabel: '固定資產處分',
+    steps: [
+      STEP('apply', 'APPLY', '處份申請單'),
+      STEP('judge', 'IT JUDGE', '固定資產判別'),
+      STEP('confirm', 'CONFIRMED', '領收確認'),
+      STEP('closed', 'CLOSED', '處份'),
+    ],
+    ownerByStep: ['employee', 'manager', 'employee', null],
+    initialActive: 0,
+  },
+  EOB: {
+    code: 'EOB',
+    label: 'Employee Onboarding',
+    zhLabel: '新進員工登入',
+    steps: [
+      STEP('apply', 'APPLY', '申請單'),
+      STEP('approve', 'APPROVE', '主管簽核'),
+      STEP('setup', 'SETUP', '基本設定'),
+      STEP('closed', 'CLOSED', '結案'),
+    ],
+    ownerByStep: ['employee', 'manager', 'employee', null],
+    initialActive: 0,
+  },
+  ETM: {
+    code: 'ETM',
+    label: 'Employee Termination',
+    zhLabel: '員工離職',
+    steps: [
+      STEP('apply', 'APPLY', '申請單'),
+      STEP('approve', 'APPROVE', '主管簽核'),
+      STEP('handover', 'HANDOVER', '交接'),
+      STEP('closed', 'CLOSED', '結案'),
+    ],
+    ownerByStep: ['employee', 'manager', 'employee', null],
     initialActive: 0,
   },
 }
