@@ -8,6 +8,7 @@ using Bpm.Application.Features.EOB.V1;
 using Bpm.Application.Features.FAD.V1;
 using Bpm.Application.Features.FAP.V1;
 using Bpm.Application.Features.PURCHASE_REQUEST.V1;
+using Bpm.Application.Features.ETM.V1;
 using Bpm.Application.Features.TEO.V1;
 using Bpm.Application.Features.TRQ.V1;
 using Bpm.Application.Features.VENDOR_EXPENSE.V1;
@@ -94,6 +95,7 @@ public static class DependencyInjection
         services.AddScoped<FAP_V1_PurchaseService>();
         services.AddScoped<FAD_V1_DisposalService>();
         services.AddScoped<EOB_V1_OnboardingService>();
+        services.AddScoped<ETM_V1_TerminationService>();
         services.AddScoped<VENDOR_EXPENSE_V1_VendorExpenseService>();
 
         // Unified inbox: scan the Application assembly for
