@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "flowcook-admin": {
-      "type": "sse",
+      "type": "http",
       "url": "http://localhost:5266/mcp",
       "headers": { "Authorization": "Bearer dev-chef-token" }
     }
