@@ -5,6 +5,7 @@ using Bpm.Application.Common.Directory;
 using Bpm.Application.Common.Services;
 using Bpm.Application.Delegation;
 using Bpm.Application.Features.PURCHASE_REQUEST.V1;
+using Bpm.Application.Features.VENDOR_EXPENSE.V1;
 using Bpm.Application.Files;
 using Bpm.Application.Impersonation;
 using Bpm.Application.Inbox;
@@ -24,6 +25,7 @@ using Bpm.Persistence.Common;
 using Bpm.Persistence.Common.Directory;
 using Bpm.Persistence.Features.LEAVE.V1;
 using Bpm.Persistence.Features.PURCHASE_REQUEST.V1;
+using Bpm.Persistence.Features.VENDOR_EXPENSE.V1;
 using Bpm.Persistence.Delegation;
 using Bpm.Persistence.Files;
 using Bpm.Persistence.Impersonation;
@@ -170,6 +172,7 @@ public static class DependencyInjection
         // and the EF impl in Persistence/Features/<CODE>/V<N>/, then wires
         // the binding here so DI can hand the impl to Application services.
         services.AddScoped<IPURCHASE_REQUEST_V1_CaseStore, PURCHASE_REQUEST_V1_CaseStore>();
+        services.AddScoped<IVENDOR_EXPENSE_V1_CaseStore, VENDOR_EXPENSE_V1_CaseStore>();
 
         // Unified inbox: scan this assembly for ITypedInboxProvider
         // implementations and register each one. Chef-cooked flows
