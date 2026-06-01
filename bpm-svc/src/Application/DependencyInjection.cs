@@ -4,6 +4,7 @@ using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Behaviors;
 using Bpm.Application.Common.Services;
 using Bpm.Application.Features.PURCHASE_REQUEST.V1;
+using Bpm.Application.Features.TRQ.V1;
 using Bpm.Application.Features.VENDOR_EXPENSE.V1;
 using Bpm.Application.Inbox;
 using Bpm.Application.Notifications;
@@ -82,6 +83,7 @@ public static class DependencyInjection
         // (Legacy LEAVE V1 reference is registered from Persistence/DI
         // because its service lives there in the old shape.)
         services.AddScoped<PURCHASE_REQUEST_V1_PurchaseRequestService>();
+        services.AddScoped<TRQ_V1_TravelRequestService>();
         services.AddScoped<VENDOR_EXPENSE_V1_VendorExpenseService>();
 
         // Unified inbox: scan the Application assembly for
