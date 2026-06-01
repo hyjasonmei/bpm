@@ -4,6 +4,7 @@ using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Behaviors;
 using Bpm.Application.Common.Services;
 using Bpm.Application.Features.APE.V1;
+using Bpm.Application.Features.FAP.V1;
 using Bpm.Application.Features.PURCHASE_REQUEST.V1;
 using Bpm.Application.Features.TEO.V1;
 using Bpm.Application.Features.TRQ.V1;
@@ -88,6 +89,7 @@ public static class DependencyInjection
         services.AddScoped<TRQ_V1_TravelRequestService>();
         services.AddScoped<APE_V1_AdvancePaymentService>();
         services.AddScoped<TEO_V1_TravelExpenseService>();
+        services.AddScoped<FAP_V1_PurchaseService>();
         services.AddScoped<VENDOR_EXPENSE_V1_VendorExpenseService>();
 
         // Unified inbox: scan the Application assembly for
