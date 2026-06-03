@@ -67,6 +67,7 @@ public sealed class TRQ_V1_InboxProvider(
         TRQ_V1_CaseStatus.PendingManager   => "待主管核准",
         TRQ_V1_CaseStatus.ResubmitRequired => "退回補件",
         TRQ_V1_CaseStatus.Completed        => "已核准",
+        TRQ_V1_CaseStatus.Cancelled        => "已撤回",
         _ => s.ToString(),
     };
 }

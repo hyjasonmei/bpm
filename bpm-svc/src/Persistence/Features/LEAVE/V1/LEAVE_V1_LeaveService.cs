@@ -126,6 +126,30 @@ public sealed class LEAVE_V1_LeaveService(
         return c;
     }
 
+    /// <summary>
+    /// Submitter withdraws their own case. Allowed in any non-terminal
+    /// state (PendingManager / PendingVp / PendingHr); once Completed,
+    /// Rejected or already Cancelled it can no longer be withdrawn.
+    /// Clears the assignee so the case drops out of every inbox.
+    /// </summary>
+    public async Task<LEAVE_V1_Case> CancelAsync(Guid caseId, Guid actorUserId, CancellationToken ct)
+    {
+        var c = await db.LEAVE_V1_Cases.SingleOrDefaultAsync(x => x.Id == caseId, ct)
+                ?? throw new NotFoundException("LEAVE_V1_Case", caseId);
+        if (c.SubmitterUserId != actorUserId)
+            throw new ForbiddenException("only the original submitter may withdraw this case");
+        if (c.Status is LEAVE_V1_CaseStatus.Completed or LEAVE_V1_CaseStatus.Rejected or LEAVE_V1_CaseStatus.Cancelled)
+            throw new ConflictException($"case is in status {c.Status} and can no longer be withdrawn");
+
+        c.Status = LEAVE_V1_CaseStatus.Cancelled;
+        c.CurrentAssigneeUserId = null;
+        c.CompletedAt = clock.UtcNow;
+        c.LastActivityAt = clock.UtcNow;
+        await db.SaveChangesAsync(ct);
+        log.LogInformation("LEAVE/{CaseId}: withdrawn by submitter", c.Id);
+        return c;
+    }
+
     public async Task<LEAVE_V1_Case> VpDecisionAsync(Guid caseId, Guid actorUserId, bool approve, string? comment, CancellationToken ct)
     {
         var c = await db.LEAVE_V1_Cases.SingleOrDefaultAsync(x => x.Id == caseId, ct)

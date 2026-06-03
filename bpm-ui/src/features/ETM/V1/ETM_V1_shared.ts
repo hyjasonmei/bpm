@@ -23,5 +23,6 @@ export function zhStatus(s: ETM_V1_Status): string {
     case 'PendingHandover':  return '待交接'
     case 'ResubmitRequired': return '退回補件'
     case 'Completed':        return '已完成'
+    case 'Cancelled':        return '已撤回'
   }
 }

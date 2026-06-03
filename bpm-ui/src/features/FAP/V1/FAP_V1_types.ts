@@ -1,4 +1,4 @@
-export type FAP_V1_Status = 'PendingManager' | 'PendingVerification' | 'ResubmitRequired' | 'Completed'
+export type FAP_V1_Status = 'PendingManager' | 'PendingVerification' | 'ResubmitRequired' | 'Completed' | 'Cancelled'
 
 export interface FAP_V1_PurchaseItemDto {
   category: string | null

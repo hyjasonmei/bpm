@@ -19,7 +19,7 @@ public sealed class FAD_V1_CaseStore(AppDbContext db) : IFAD_V1_CaseStore
 
     public async Task<IReadOnlyList<FAD_V1_Case>> FindPendingAsync(Guid assigneeUserId, CancellationToken ct = default)
         => await db.Set<FAD_V1_Case>().AsNoTracking()
-            .Where(c => c.CurrentAssigneeUserId == assigneeUserId && c.Status != FAD_V1_CaseStatus.Completed)
+            .Where(c => c.CurrentAssigneeUserId == assigneeUserId && c.Status != FAD_V1_CaseStatus.Completed && c.Status != FAD_V1_CaseStatus.Cancelled)
             .OrderByDescending(c => c.LastActivityAt).ToListAsync(ct);
 
     public Task SaveChangesAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);

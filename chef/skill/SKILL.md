@@ -427,6 +427,28 @@ the schema; admin-ui's `migrateDraft` backfills `[submit]` for
 userTasks and `[approve, reject]` for approvals on next load. The
 bundle you receive will already have the field populated.
 
+**Baseline: submitter withdraw (always emit, even when the spec omits
+it).** Every flow gets a submitter-only "withdraw / 撤回" capability by
+default — do NOT wait for the spec to list a `cancel` action. A spec
+opts OUT only by setting `meta.noWithdraw: true`. Wire it as:
+- **Service** `CancelAsync(caseId, actorUserId, ct)` — guard
+  `SubmitterUserId == actorUserId` (else `ForbiddenException`); reject
+  if the case is already terminal (`Completed` / `Rejected` /
+  `Cancelled` → `ConflictException`); otherwise set
+  `Status = Cancelled`, `CurrentAssigneeUserId = null`, stamp the
+  terminal timestamp (`CompletedAt`) + `LastActivityAt`, save, log.
+  Withdrawable = any non-terminal state (every Pending* stage AND
+  ResubmitRequired). No spec edit and no EF migration needed —
+  `Cancelled` is just the next enum int.
+- **Controller** `[HttpPost("{caseId:guid}/cancel")]` → `CancelAsync`.
+- **Inbox** add `Cancelled` to the pending-filter exclusion list AND
+  the `ZhStatus` map (`已撤回` / `已取消`).
+- **CaseDetail** append a destructive `撤回申請` `<ActionFooter>` item
+  shown when `isSubmitter && status` is non-terminal (the submitter
+  sees it even when they are NOT the current assignee), guarded by a
+  confirm. Add `Cancelled` to every exhaustive status switch.
+APE V1 is the canonical reference for this whole shape.
+
 **Action-bound notifications**: `notifications[].trigger` can be
 `{ kind: 'action', actionId }`. When you wire up a per-flow service
 method for an action, also dispatch matching action-bound notifications

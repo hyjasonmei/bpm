@@ -48,6 +48,7 @@ public sealed class FAD_V1_InboxProvider(
         FAD_V1_CaseStatus.PendingConfirm   => "待領收確認",
         FAD_V1_CaseStatus.ResubmitRequired => "退回補件",
         FAD_V1_CaseStatus.Completed        => "已處份",
+        FAD_V1_CaseStatus.Cancelled        => "已撤回",
         _ => s.ToString(),
     };
 }

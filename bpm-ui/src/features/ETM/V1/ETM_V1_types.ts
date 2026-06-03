@@ -1,4 +1,4 @@
-export type ETM_V1_Status = 'PendingManager' | 'PendingHandover' | 'ResubmitRequired' | 'Completed'
+export type ETM_V1_Status = 'PendingManager' | 'PendingHandover' | 'ResubmitRequired' | 'Completed' | 'Cancelled'
 
 export interface ETM_V1_ReturnItemDto {
   assetType: string | null

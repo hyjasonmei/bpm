@@ -134,6 +134,29 @@ public sealed class TRQ_V1_TravelRequestService(
         return c;
     }
 
+    /// <summary>
+    /// Submitter withdraws their own case. Allowed in any non-terminal
+    /// state (PendingManager or ResubmitRequired) — once Completed or
+    /// already Cancelled it can no longer be withdrawn. Clears the
+    /// assignee so the case drops out of every inbox.
+    /// </summary>
+    public async Task<TRQ_V1_Case> CancelAsync(Guid caseId, Guid actorUserId, CancellationToken ct)
+    {
+        var c = await LoadAsync(caseId, ct);
+        if (c.SubmitterUserId != actorUserId)
+            throw new ForbiddenException("only the original submitter may withdraw this case");
+        if (c.Status is TRQ_V1_CaseStatus.Completed or TRQ_V1_CaseStatus.Cancelled)
+            throw new ConflictException($"case is in status {c.Status} and can no longer be withdrawn");
+
+        c.Status = TRQ_V1_CaseStatus.Cancelled;
+        c.CurrentAssigneeUserId = null;
+        c.CompletedAt = clock.UtcNow;
+        c.LastActivityAt = clock.UtcNow;
+        await store.SaveChangesAsync(ct);
+        log.LogInformation("TRQ/{CaseId}: withdrawn by submitter", c.Id);
+        return c;
+    }
+
     // ============================================================
     // ap.actions[approve / reject]  (approver = submitter.manager)
     // ============================================================

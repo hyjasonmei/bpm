@@ -41,6 +41,13 @@ public sealed class ETM_V1_Controller(
         return await BuildResponseAsync(c, ct);
     }
 
+    [HttpPost("{caseId:guid}/cancel")]
+    public async Task<ActionResult<ETM_V1_CaseResponse>> Cancel(Guid caseId, CancellationToken ct)
+    {
+        var c = await service.CancelAsync(caseId, RequireUserId(), ct);
+        return await BuildResponseAsync(c, ct);
+    }
+
     [HttpPost("{caseId:guid}/handover")]
     public async Task<ActionResult<ETM_V1_CaseResponse>> Handover(Guid caseId, [FromBody] ETM_V1_HandoverRequest req, CancellationToken ct)
     {

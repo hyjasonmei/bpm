@@ -1,7 +1,7 @@
 import { cn } from '@/lib/cn'
 
 export type StatusKind =
-  | 'draft' | 'pending' | 'approved' | 'fin_review' | 'it_spec_review' | 'returned' | 'closed' | 'rejected'
+  | 'draft' | 'pending' | 'approved' | 'fin_review' | 'it_spec_review' | 'returned' | 'closed' | 'rejected' | 'cancelled'
 
 const STATUS = {
   draft:           { bg: 'bg-slate-100',  fg: 'text-slate-600',  border: 'border-slate-200', en: 'Draft',          zh: '草稿' },
@@ -12,6 +12,7 @@ const STATUS = {
   returned:        { bg: 'bg-orange-50',  fg: 'text-orange-700', border: 'border-orange-200',en: 'Returned',       zh: '退件' },
   closed:          { bg: 'bg-green-50',   fg: 'text-green-700',  border: 'border-green-200', en: 'Closed',         zh: '結案' },
   rejected:        { bg: 'bg-red-50',     fg: 'text-red-700',    border: 'border-red-200',   en: 'Rejected',       zh: '拒絕' },
+  cancelled:       { bg: 'bg-slate-100',  fg: 'text-slate-500',  border: 'border-slate-300', en: 'Cancelled',      zh: '已撤回' },
 } as const
 
 export function StatusBadge({ kind, className, withZh = false }: { kind: StatusKind; className?: string; withZh?: boolean }) {

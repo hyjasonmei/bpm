@@ -14,5 +14,6 @@ export function zhStatus(s: FAP_V1_Status): string {
     case 'PendingVerification': return '待驗收'
     case 'ResubmitRequired':    return '退回補件'
     case 'Completed':           return '已入帳'
+    case 'Cancelled':           return '已撤回'
   }
 }

@@ -18,4 +18,5 @@ public enum VENDOR_EXPENSE_V1_CaseStatus
     PendingSign         = 2,
     ResubmitRequired    = 3,
     Completed           = 4,
+    Cancelled           = 5,
 }

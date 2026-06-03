@@ -322,10 +322,29 @@ manager-side title in LEAVE V1 is "Bob 申請 特休 3.0 天"; the
 submitter-side title is "特休 3.0 天". Resolve display names once per
 call (`SharedPrincipal.DisplayName`) and reuse.
 
-`InboxRow.detailUrl` is the per-flow case-detail page chef provides
-(e.g. `/cases/leave/{caseId}`). The bpm-ui router needs a matching
-route — for v0 features lead seeds it; future features should
-coordinate with lead before adding new top-level routes.
+`InboxRow.detailUrl` is the per-flow case-detail page chef provides.
+It MUST be `/cases/{slug}/{caseId}` where **`{slug}` is the flowCode
+lower-cased with underscores preserved** — i.e. `flowCode.ToLower()`,
+NOT a kebab-case slug. The bpm-ui router resolves it via
+`lookupForm(slug.replace('-','_').toUpperCase())` against the manifest
+`code` (which is UPPER_SNAKE).
+
+```
+flowCode LEAVE            → /cases/leave/{id}            ✓
+flowCode VENDOR_EXPENSE   → /cases/vendor_expense/{id}   ✓
+flowCode PURCHASE_REQUEST → /cases/purchase_request/{id} ✓
+                          → /cases/purchase-request/{id} ✗ HYPHEN — historically
+                            shipped this; toUpperCase gave "PURCHASE-REQUEST"
+                            which missed the registry key and rendered
+                            "還沒提供 case detail view". Single-word flows hid
+                            the bug; multi-word flows break. Always underscore.
+```
+
+Do NOT borrow the REST route's kebab-case (`/api/purchase-request/v1`)
+for the detailUrl — the REST path and the UI `/cases/` slug use
+different separators. The bpm-ui router needs a matching route — for
+v0 features lead seeds it; future features should coordinate with lead
+before adding new top-level routes.
 
 ## Case-detail page
 
@@ -341,11 +360,38 @@ import { LEAVE_V1_CaseDetail } from './LEAVE_V1_CaseDetail'
 const manifest: FormManifest = { …, detailComponent: LEAVE_V1_CaseDetail }
 ```
 
-The page renders: header (title + status pill), field grid (every
-business data + spec-driven field), 簽核 timeline (one row per approval
-stage with state dot / actor display / decision timestamp / comment),
-plus a "View BPMN" button that opens the shared `BpmnView` modal
-pre-fed with status-derived markers (see next section).
+The page renders: header (title + status pill), a **progress stepper**
+(see below), field grid (every business data + spec-driven field), 簽核
+timeline (one row per approval stage with state dot / actor display /
+decision timestamp / comment), plus a "View BPMN" button that opens the
+shared `BpmnView` modal pre-fed with status-derived markers (see next
+section).
+
+**Progress stepper (required).** The detail page MUST show the SAME
+horizontal stepper the create form shows, so a case reads consistently
+whether you're filling it in or tracking it. Render the shared
+`<Stepper>` from `@/components/Stepper` in a slate bar near the top
+(right after `<FlowStateBanner/>`), driven by the case status:
+
+```tsx
+import { Stepper } from '@/components/Stepper'
+import { FORMS } from '@/lib/workflow'
+// …inside the rendered case, after <FlowStateBanner/>:
+<SectionCard className="!p-0">
+  <div className="bg-slate-50 px-4 py-2">
+    <Stepper steps={FORMS.<CODE>.steps} activeStep={activeStepFor(data.status)} withZh />
+  </div>
+</SectionCard>
+```
+
+Add a module-level `activeStepFor(status): number` with an **exhaustive**
+switch mapping each status to the 0-based index into `FORMS.<CODE>.steps`:
+a "pending <approver>" status → that approver's step; a send-back
+(`ResubmitRequired`) → the first approval step; the terminal success
+status (`Completed`) → the last step; reject/cancel terminals → the
+approval step where they stopped. APE V1 is the canonical reference.
+`FORMS.<CODE>.steps` may have fewer entries than the state machine has
+statuses — map each status to the closest conceptual step.
 
 ### Action buttons → `<ActionFooter>`
 

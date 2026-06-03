@@ -25,5 +25,6 @@ export function zhStatus(s: EOB_V1_Status): string {
     case 'PendingSetup':     return '待基本設定'
     case 'ResubmitRequired': return '退回補件'
     case 'Completed':        return '已完成'
+    case 'Cancelled':        return '已撤回'
   }
 }

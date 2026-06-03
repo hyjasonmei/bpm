@@ -1,5 +1,5 @@
 /** Mirrors APE_V1_CaseStatus on the backend. */
-export type APE_V1_Status = 'PendingManager' | 'ResubmitRequired' | 'Completed'
+export type APE_V1_Status = 'PendingManager' | 'ResubmitRequired' | 'Completed' | 'Cancelled'
 
 export interface APE_V1_SubmitPayload {
   expectReceiveDate: string

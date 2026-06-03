@@ -1,4 +1,4 @@
-export type EOB_V1_Status = 'PendingManager' | 'PendingSetup' | 'ResubmitRequired' | 'Completed'
+export type EOB_V1_Status = 'PendingManager' | 'PendingSetup' | 'ResubmitRequired' | 'Completed' | 'Cancelled'
 
 export interface EOB_V1_SetupTaskDto {
   task: string | null

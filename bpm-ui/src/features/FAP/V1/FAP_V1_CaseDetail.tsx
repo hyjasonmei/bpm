@@ -8,6 +8,7 @@ import { StatusBadge, type StatusKind } from '@/components/ui/badge'
 import { Field, Select, Textarea, InfoBanner } from '@/components/ui/form'
 import { ActionFooter, type ActionFooterItem } from '@/components/ui/action-footer/ActionFooter'
 import { FlowStateBanner } from '@/components/ui/flow-state-banner/FlowStateBanner'
+import { Stepper } from '@/components/Stepper'
 import { BpmnView } from '@/components/BpmnView'
 import { apiFetch, getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
@@ -78,27 +79,42 @@ export function FAP_V1_CaseDetail({ caseId }: CaseDetailProps) {
     } catch (e) { setActionError(e instanceof Error ? e.message : String(e)) } finally { setActionPending(false) }
   }, [caseId, received, verifyRemark, load])
 
+  const postCancel = useCallback(async () => {
+    if (!window.confirm('確定要撤回此申請？撤回後無法復原。')) return
+    setActionPending(true); setActionError(null)
+    try {
+      const res = await apiFetch(`/api/fap/v1/${caseId}/cancel`, { method: 'POST' })
+      if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`)
+      await load()
+    } catch (e) { setActionError(e instanceof Error ? e.message : String(e)) } finally { setActionPending(false) }
+  }, [caseId, load])
+
   const footerActions: ActionFooterItem[] = useMemo(() => {
     if (!data) return []
+    const actions: ActionFooterItem[] = []
     if (isCurrentAssignee && data.status === 'PendingManager') {
-      return [
+      actions.push(
         { id: 'reject',  label: '退件 / Reject',  variant: 'destructive', pending: actionPending, onClick: () => postManagerDecision(false) },
         { id: 'approve', label: '核准 / Approve', variant: 'primary',     pending: actionPending, onClick: () => postManagerDecision(true)  },
-      ]
+      )
     }
     if (isCurrentAssignee && data.status === 'PendingVerification') {
-      return [{ id: 'verify', label: '完成驗收 / Complete verification', variant: 'primary', pending: actionPending, onClick: () => postVerify() }]
+      actions.push({ id: 'verify', label: '完成驗收 / Complete verification', variant: 'primary', pending: actionPending, onClick: () => postVerify() })
     }
     if (isSubmitter && data.status === 'ResubmitRequired') {
-      return [{
+      actions.push({
         id: 'resubmit',
         label: <span className="inline-flex items-center gap-1"><RotateCcw className="h-3.5 w-3.5" />修正後重新送出</span>,
         variant: 'primary', pending: actionPending,
         onClick: () => navigate(`/apply/FAP?resubmit=${data.id}`),
-      }]
+      })
     }
-    return []
-  }, [data, isCurrentAssignee, isSubmitter, actionPending, postManagerDecision, postVerify, navigate])
+    // Submitter may withdraw their own case while it is still in flight.
+    if (isSubmitter && data.status !== 'Completed' && data.status !== 'Cancelled') {
+      actions.push({ id: 'withdraw', label: '撤回申請', variant: 'destructive', pending: actionPending, onClick: () => postCancel() })
+    }
+    return actions
+  }, [data, isCurrentAssignee, isSubmitter, actionPending, postManagerDecision, postVerify, postCancel, navigate])
 
   const footerHint = (() => {
     if (!data) return null
@@ -126,6 +142,12 @@ export function FAP_V1_CaseDetail({ caseId }: CaseDetailProps) {
       {data && (
         <>
           <FlowStateBanner flowCode="FAP" flowVersion={1} />
+
+          <SectionCard className="!p-0">
+            <div className="bg-slate-50 px-4 py-2">
+              <Stepper steps={FORMS.FAP.steps} activeStep={activeStepFor(data.status)} withZh />
+            </div>
+          </SectionCard>
 
           <SectionCard>
             <SectionTitle>狀態 / Status</SectionTitle>
@@ -164,7 +186,7 @@ export function FAP_V1_CaseDetail({ caseId }: CaseDetailProps) {
               <TimelineRow label="驗收 / Verification" actor={data.verification?.displayName ?? '—'}
                 state={data.verification ? 'done' : data.status === 'PendingVerification' ? 'current' : 'idle'}
                 at={data.verification?.verifiedAt} comment={data.verification?.received ? `${data.verification.received}${data.verification.remark ? ' — ' + data.verification.remark : ''}` : null} />
-              <TimelineRow label="入帳 / Closed" actor={data.status === 'Completed' ? '系統' : '—'} state={data.status === 'Completed' ? 'done' : 'idle'} at={data.completedAt} />
+              <TimelineRow label="入帳 / Closed" actor={data.status === 'Completed' ? '系統' : data.status === 'Cancelled' ? '申請人撤回' : '—'} state={data.status === 'Completed' ? 'done' : data.status === 'Cancelled' ? 'rejected' : 'idle'} at={data.completedAt} />
             </ol>
           </SectionCard>
 
@@ -269,6 +291,19 @@ function statusKind(s: FAP_V1_Status): StatusKind {
     case 'PendingVerification': return 'fin_review'
     case 'ResubmitRequired':    return 'returned'
     case 'Completed':           return 'closed'
+    case 'Cancelled':           return 'cancelled'
+  }
+}
+
+/** Map the case status → index into FORMS.FAP.steps for the header stepper
+ *  (apply 0 · approve 1 · po 2 · verify 3 · closed 4). */
+function activeStepFor(status: FAP_V1_Status): number {
+  switch (status) {
+    case 'PendingManager':      return 1
+    case 'PendingVerification': return 3
+    case 'ResubmitRequired':    return 1
+    case 'Completed':           return 4
+    case 'Cancelled':           return 1
   }
 }
 
@@ -278,6 +313,7 @@ function deriveTrail(status: FAP_V1_Status): { completed: string[]; current: str
     case 'PendingVerification': return { completed: ['s', 'pr', 'ap', 'po'], current: 'vf' }
     case 'ResubmitRequired':    return { completed: ['s'], current: 'pr' }
     case 'Completed':           return { completed: ['s', 'pr', 'ap', 'po', 'vf', 'e'], current: null }
+    case 'Cancelled':           return { completed: ['s'], current: null }
   }
 }
 

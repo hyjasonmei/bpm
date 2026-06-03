@@ -4,6 +4,7 @@ export type PURCHASE_REQUEST_V1_Status =
   | 'PendingFinance'
   | 'ResubmitRequired'
   | 'Completed'
+  | 'Cancelled'
 
 export interface PURCHASE_REQUEST_V1_InvoiceDto {
   invoiceDate: string

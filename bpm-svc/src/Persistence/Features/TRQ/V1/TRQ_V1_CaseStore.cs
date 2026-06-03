@@ -29,7 +29,8 @@ public sealed class TRQ_V1_CaseStore(AppDbContext db) : ITRQ_V1_CaseStore
         Guid assigneeUserId, CancellationToken ct = default)
         => await db.Set<TRQ_V1_Case>().AsNoTracking()
             .Where(c => c.CurrentAssigneeUserId == assigneeUserId
-                        && c.Status != TRQ_V1_CaseStatus.Completed)
+                        && c.Status != TRQ_V1_CaseStatus.Completed
+                        && c.Status != TRQ_V1_CaseStatus.Cancelled)
             .OrderByDescending(c => c.LastActivityAt)
             .ToListAsync(ct);
 

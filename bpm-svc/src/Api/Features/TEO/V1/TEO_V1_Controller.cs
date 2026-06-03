@@ -31,6 +31,13 @@ public sealed class TEO_V1_Controller(
         return await BuildResponseAsync(c, ct);
     }
 
+    [HttpPost("{caseId:guid}/cancel")]
+    public async Task<ActionResult<TEO_V1_CaseResponse>> Cancel(Guid caseId, CancellationToken ct)
+    {
+        var c = await service.CancelAsync(caseId, RequireUserId(), ct);
+        return await BuildResponseAsync(c, ct);
+    }
+
     [HttpPost("{caseId:guid}/manager-decision")]
     public async Task<ActionResult<TEO_V1_CaseResponse>> ManagerDecision(Guid caseId, [FromBody] DecisionRequest req, CancellationToken ct)
     {

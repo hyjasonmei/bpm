@@ -125,6 +125,18 @@ public static class DependencyInjection
         // wiring; the logging class is kept around for tests / other callers
         // that want the no-side-effects stub.
         services.AddScoped<INotificationDispatcher, SandboxCapturingNotificationDispatcher>();
+
+        // Model-B notify fan-out: keep the dev file log AND persist in-app
+        // rows for the header bell. Override the Application-layer
+        // INotifyDispatcher (FileNotifyDispatcher) with a composite of the
+        // two concretes. Construct with explicit instances so the composite
+        // never resolves itself via IEnumerable<INotifyDispatcher>.
+        services.AddScoped<FileNotifyDispatcher>();
+        services.AddScoped<InAppNotifyDispatcher>();
+        services.AddScoped<INotifyDispatcher>(sp => new CompositeNotifyDispatcher(
+            sp.GetRequiredService<FileNotifyDispatcher>(),
+            sp.GetRequiredService<InAppNotifyDispatcher>()));
+
         services.AddScoped<IProcessRuntime, ProcessRuntime>();
         services.AddScoped<IProcessQueryService, ProcessQueryService>();
 

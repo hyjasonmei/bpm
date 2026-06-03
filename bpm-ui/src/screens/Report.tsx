@@ -19,6 +19,7 @@ const STATUS_COLOR: Record<StatusKind, { hex: string; bar: string; bg: string; l
   returned:        { hex: '#f97316', bar: 'bg-orange-500',  bg: 'bg-orange-50',   fg: 'text-orange-700',  label: 'Returned' },
   closed:          { hex: '#22c55e', bar: 'bg-green-500',   bg: 'bg-green-50',    fg: 'text-green-700',   label: 'Closed' },
   rejected:        { hex: '#ef4444', bar: 'bg-red-500',     bg: 'bg-red-50',      fg: 'text-red-700',     label: 'Rejected' },
+  cancelled:       { hex: '#94a3b8', bar: 'bg-slate-400',   bg: 'bg-slate-100',   fg: 'text-slate-500',   label: 'Cancelled' },
 }
 
 export function Report() {

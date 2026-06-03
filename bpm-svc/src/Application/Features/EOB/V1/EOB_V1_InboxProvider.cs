@@ -48,6 +48,7 @@ public sealed class EOB_V1_InboxProvider(
         EOB_V1_CaseStatus.PendingSetup     => "待基本設定",
         EOB_V1_CaseStatus.ResubmitRequired => "退回補件",
         EOB_V1_CaseStatus.Completed        => "已完成",
+        EOB_V1_CaseStatus.Cancelled        => "已撤回",
         _ => s.ToString(),
     };
 }

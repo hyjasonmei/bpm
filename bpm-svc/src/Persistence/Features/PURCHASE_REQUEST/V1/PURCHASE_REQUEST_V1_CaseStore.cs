@@ -29,7 +29,8 @@ public sealed class PURCHASE_REQUEST_V1_CaseStore(AppDbContext db) : IPURCHASE_R
         Guid assigneeUserId, CancellationToken ct = default)
         => await db.Set<PURCHASE_REQUEST_V1_Case>().AsNoTracking()
             .Where(c => c.CurrentAssigneeUserId == assigneeUserId
-                        && c.Status != PURCHASE_REQUEST_V1_CaseStatus.Completed)
+                        && c.Status != PURCHASE_REQUEST_V1_CaseStatus.Completed
+                        && c.Status != PURCHASE_REQUEST_V1_CaseStatus.Cancelled)
             .OrderByDescending(c => c.LastActivityAt)
             .ToListAsync(ct);
 

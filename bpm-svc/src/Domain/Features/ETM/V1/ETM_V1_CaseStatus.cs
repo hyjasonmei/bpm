@@ -6,4 +6,5 @@ public enum ETM_V1_CaseStatus
     PendingHandover  = 1,
     ResubmitRequired = 2,
     Completed        = 3,
+    Cancelled        = 4,
 }

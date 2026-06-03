@@ -1,4 +1,4 @@
-export type FAD_V1_Status = 'PendingManager' | 'PendingConfirm' | 'ResubmitRequired' | 'Completed'
+export type FAD_V1_Status = 'PendingManager' | 'PendingConfirm' | 'ResubmitRequired' | 'Completed' | 'Cancelled'
 
 export interface FAD_V1_DecisionDto {
   userId: string | null

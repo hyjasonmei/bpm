@@ -47,6 +47,7 @@ public sealed class TEO_V1_InboxProvider(
         TEO_V1_CaseStatus.PendingFinance   => "待財務核准",
         TEO_V1_CaseStatus.ResubmitRequired => "退回補件",
         TEO_V1_CaseStatus.Completed        => "已核准",
+        TEO_V1_CaseStatus.Cancelled        => "已撤回",
         _ => s.ToString(),
     };
 }

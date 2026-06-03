@@ -11,7 +11,8 @@ namespace Bpm.Domain.Features.VENDOR_EXPENSE.V1;
 /// <see cref="VENDOR_EXPENSE_V1_CaseStatus.ResubmitRequired"/> with the
 /// assignee reverted to the original submitter; on resubmit the case
 /// re-enters <see cref="VENDOR_EXPENSE_V1_CaseStatus.PendingSupervisor"/>.
-/// The spec declares no cancel / revoke action.
+/// The submitter may withdraw their own case from any non-terminal
+/// state, ending it at <c>Cancelled</c> (baseline withdraw).
 ///
 /// Stages 1 and 3 both resolve to <c>submitter.department.head</c> per
 /// the spec, so the same person reviews then formally signs off — the

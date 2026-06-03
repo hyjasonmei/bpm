@@ -30,7 +30,7 @@ public sealed class PURCHASE_REQUEST_V1_InboxProvider(
             Status: ZhStatus(c.Status),
             SubmittedAt: c.SubmittedAt,
             LastActivityAt: c.LastActivityAt,
-            DetailUrl: $"/cases/purchase-request/{c.Id}")).ToList();
+            DetailUrl: $"/cases/purchase_request/{c.Id}")).ToList();
     }
 
     public async Task<IReadOnlyList<InboxRow>> GetPendingAsync(Guid userId, CancellationToken ct)
@@ -52,7 +52,7 @@ public sealed class PURCHASE_REQUEST_V1_InboxProvider(
                 Status: ZhStatus(c.Status),
                 SubmittedAt: c.SubmittedAt,
                 LastActivityAt: c.LastActivityAt,
-                DetailUrl: $"/cases/purchase-request/{c.Id}");
+                DetailUrl: $"/cases/purchase_request/{c.Id}");
         }).ToList();
     }
 
@@ -68,6 +68,7 @@ public sealed class PURCHASE_REQUEST_V1_InboxProvider(
         PURCHASE_REQUEST_V1_CaseStatus.PendingFinance    => "待財務核准",
         PURCHASE_REQUEST_V1_CaseStatus.ResubmitRequired  => "退回補件",
         PURCHASE_REQUEST_V1_CaseStatus.Completed         => "已核准",
+        PURCHASE_REQUEST_V1_CaseStatus.Cancelled         => "已撤回",
         _ => s.ToString(),
     };
 }

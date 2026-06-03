@@ -50,6 +50,7 @@ public sealed class APE_V1_InboxProvider(
         APE_V1_CaseStatus.PendingManager   => "待主管核准",
         APE_V1_CaseStatus.ResubmitRequired => "退回補件",
         APE_V1_CaseStatus.Completed        => "已核准",
+        APE_V1_CaseStatus.Cancelled        => "已撤回",
         _ => s.ToString(),
     };
 }

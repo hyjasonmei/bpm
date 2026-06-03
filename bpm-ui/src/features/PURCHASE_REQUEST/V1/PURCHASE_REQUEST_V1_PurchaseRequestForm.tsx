@@ -127,7 +127,7 @@ export function PURCHASE_REQUEST_V1_PurchaseRequestForm({
       }
       const body = (await res.json()) as PURCHASE_REQUEST_V1_CaseResponse
       onSubmitted?.()
-      navigate(`/cases/purchase-request/${body.id}`)
+      navigate(`/cases/purchase_request/${body.id}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {

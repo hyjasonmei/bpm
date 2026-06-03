@@ -26,5 +26,6 @@ export function zhStatus(s: TRQ_V1_Status): string {
     case 'PendingManager':   return '待主管核准'
     case 'ResubmitRequired': return '退回補件'
     case 'Completed':        return '已核准'
+    case 'Cancelled':        return '已撤回'
   }
 }

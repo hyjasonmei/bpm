@@ -5,4 +5,5 @@ public enum APE_V1_CaseStatus
     PendingManager   = 0,
     ResubmitRequired = 1,
     Completed        = 2,
+    Cancelled        = 3,
 }

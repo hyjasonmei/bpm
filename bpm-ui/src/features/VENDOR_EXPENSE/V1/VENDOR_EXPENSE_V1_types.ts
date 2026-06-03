@@ -5,6 +5,7 @@ export type VENDOR_EXPENSE_V1_Status =
   | 'PendingSign'
   | 'ResubmitRequired'
   | 'Completed'
+  | 'Cancelled'
 
 export interface VENDOR_EXPENSE_V1_InvoiceDto {
   invoiceDate: string | null

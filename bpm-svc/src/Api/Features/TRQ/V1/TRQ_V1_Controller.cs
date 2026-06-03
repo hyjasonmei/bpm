@@ -51,6 +51,14 @@ public sealed class TRQ_V1_Controller(
         return await BuildResponseAsync(c, ct);
     }
 
+    [HttpPost("{caseId:guid}/cancel")]
+    public async Task<ActionResult<TRQ_V1_CaseResponse>> Cancel(Guid caseId, CancellationToken ct)
+    {
+        var userId = RequireUserId();
+        var c = await service.CancelAsync(caseId, userId, ct);
+        return await BuildResponseAsync(c, ct);
+    }
+
     [HttpGet("{caseId:guid}")]
     public async Task<ActionResult<TRQ_V1_CaseResponse>> GetById(Guid caseId, CancellationToken ct)
     {

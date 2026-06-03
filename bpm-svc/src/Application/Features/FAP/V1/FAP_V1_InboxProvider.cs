@@ -48,6 +48,7 @@ public sealed class FAP_V1_InboxProvider(
         FAP_V1_CaseStatus.PendingVerification => "待驗收",
         FAP_V1_CaseStatus.ResubmitRequired    => "退回補件",
         FAP_V1_CaseStatus.Completed           => "已入帳",
+        FAP_V1_CaseStatus.Cancelled           => "已撤回",
         _ => s.ToString(),
     };
 }

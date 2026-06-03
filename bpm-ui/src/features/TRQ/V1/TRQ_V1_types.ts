@@ -3,6 +3,7 @@ export type TRQ_V1_Status =
   | 'PendingManager'
   | 'ResubmitRequired'
   | 'Completed'
+  | 'Cancelled'
 
 /** Submit / resubmit payload — dates are ISO yyyy-MM-dd strings on the wire. */
 export interface TRQ_V1_SubmitPayload {

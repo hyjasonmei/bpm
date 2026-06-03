@@ -19,7 +19,9 @@ public sealed class APE_V1_CaseStore(AppDbContext db) : IAPE_V1_CaseStore
 
     public async Task<IReadOnlyList<APE_V1_Case>> FindPendingAsync(Guid assigneeUserId, CancellationToken ct = default)
         => await db.Set<APE_V1_Case>().AsNoTracking()
-            .Where(c => c.CurrentAssigneeUserId == assigneeUserId && c.Status != APE_V1_CaseStatus.Completed)
+            .Where(c => c.CurrentAssigneeUserId == assigneeUserId
+                        && c.Status != APE_V1_CaseStatus.Completed
+                        && c.Status != APE_V1_CaseStatus.Cancelled)
             .OrderByDescending(c => c.LastActivityAt).ToListAsync(ct);
 
     public Task SaveChangesAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);

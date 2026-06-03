@@ -8,8 +8,9 @@ namespace Bpm.Domain.Features.PURCHASE_REQUEST.V1;
 ///
 /// Rejection at either gateway loops back to <c>ResubmitRequired</c>
 /// with the assignee reverted to the original submitter; on resubmit
-/// the case re-enters <c>PendingDeptHead</c>. There is no cancel or
-/// revoke action in the spec.
+/// the case re-enters <c>PendingDeptHead</c>. The submitter may
+/// withdraw their own case from any non-terminal state, ending it at
+/// <c>Cancelled</c> (baseline withdraw, see CancelAsync).
 /// </summary>
 public class PURCHASE_REQUEST_V1_Case
 {

@@ -29,7 +29,8 @@ public sealed class VENDOR_EXPENSE_V1_CaseStore(AppDbContext db) : IVENDOR_EXPEN
         Guid assigneeUserId, CancellationToken ct = default)
         => await db.Set<VENDOR_EXPENSE_V1_Case>().AsNoTracking()
             .Where(c => c.CurrentAssigneeUserId == assigneeUserId
-                        && c.Status != VENDOR_EXPENSE_V1_CaseStatus.Completed)
+                        && c.Status != VENDOR_EXPENSE_V1_CaseStatus.Completed
+                        && c.Status != VENDOR_EXPENSE_V1_CaseStatus.Cancelled)
             .OrderByDescending(c => c.LastActivityAt)
             .ToListAsync(ct);
 

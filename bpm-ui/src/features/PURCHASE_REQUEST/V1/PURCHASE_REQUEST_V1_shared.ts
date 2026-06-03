@@ -22,5 +22,6 @@ export function zhStatus(s: PURCHASE_REQUEST_V1_Status): string {
     case 'PendingFinance':    return '待財務核准'
     case 'ResubmitRequired':  return '退回補件'
     case 'Completed':         return '已核准'
+    case 'Cancelled':         return '已撤回'
   }
 }

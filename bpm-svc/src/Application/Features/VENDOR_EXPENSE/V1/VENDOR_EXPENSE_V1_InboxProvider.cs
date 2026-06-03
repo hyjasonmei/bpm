@@ -82,6 +82,7 @@ public sealed class VENDOR_EXPENSE_V1_InboxProvider(
         VENDOR_EXPENSE_V1_CaseStatus.PendingSign        => "待簽核",
         VENDOR_EXPENSE_V1_CaseStatus.ResubmitRequired   => "退回重填",
         VENDOR_EXPENSE_V1_CaseStatus.Completed          => "已核准",
+        VENDOR_EXPENSE_V1_CaseStatus.Cancelled          => "已撤回",
         _ => s.ToString(),
     };
 }

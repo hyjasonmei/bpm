@@ -8,6 +8,7 @@ import { StatusBadge, type StatusKind } from '@/components/ui/badge'
 import { Field, Textarea, InfoBanner } from '@/components/ui/form'
 import { ActionFooter, type ActionFooterItem } from '@/components/ui/action-footer/ActionFooter'
 import { FlowStateBanner } from '@/components/ui/flow-state-banner/FlowStateBanner'
+import { Stepper } from '@/components/Stepper'
 import { BpmnView } from '@/components/BpmnView'
 import { apiFetch, getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
@@ -57,6 +58,7 @@ export function LEAVE_V1_CaseDetail({ caseId }: CaseDetailProps) {
   }, [])
 
   const isCurrentAssignee = !!data && !!viewerUserId && data.currentAssigneeUserId === viewerUserId
+  const isSubmitter       = !!data && !!viewerUserId && data.submitterUserId === viewerUserId
   const trail = useMemo(() => (data ? deriveTrail(data.status) : null), [data])
 
   // Decision form holds the comment / note text; ActionFooter at the
@@ -103,29 +105,46 @@ export function LEAVE_V1_CaseDetail({ caseId }: CaseDetailProps) {
     }
   }, [caseId, archiveNote, load])
 
+  const postCancel = useCallback(async () => {
+    if (!window.confirm('確定要撤回此申請？撤回後無法復原。')) return
+    setActionPending(true); setActionError(null)
+    try {
+      const res = await apiFetch(`/api/leave/v1/${caseId}/cancel`, { method: 'POST' })
+      if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`)
+      await load()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setActionPending(false)
+    }
+  }, [caseId, load])
+
   const footerActions: ActionFooterItem[] = useMemo(() => {
-    if (!data || !isCurrentAssignee) return []
-    if (data.status === 'PendingManager' || data.status === 'PendingVp') {
-      return [
+    if (!data) return []
+    const actions: ActionFooterItem[] = []
+    if (isCurrentAssignee && (data.status === 'PendingManager' || data.status === 'PendingVp')) {
+      actions.push(
         { id: 'reject',  label: '退件 / Reject',  variant: 'destructive', pending: actionPending, onClick: () => postApproval(false) },
         { id: 'approve', label: '核准 / Approve', variant: 'primary',     pending: actionPending, onClick: () => postApproval(true)  },
-      ]
+      )
     }
-    if (data.status === 'PendingHr') {
-      return [
-        {
-          id: 'archive',
-          label: '送出備案 / Archive',
-          variant: 'primary',
-          disabled: !archiveNote.trim(),
-          pending: actionPending,
-          title: !archiveNote.trim() ? '請先填寫備案備註' : undefined,
-          onClick: postArchive,
-        },
-      ]
+    if (isCurrentAssignee && data.status === 'PendingHr') {
+      actions.push({
+        id: 'archive',
+        label: '送出備案 / Archive',
+        variant: 'primary',
+        disabled: !archiveNote.trim(),
+        pending: actionPending,
+        title: !archiveNote.trim() ? '請先填寫備案備註' : undefined,
+        onClick: postArchive,
+      })
     }
-    return []
-  }, [data, isCurrentAssignee, actionPending, archiveNote, postApproval, postArchive])
+    // Submitter may withdraw their own case while it is still in flight.
+    if (isSubmitter && data.status !== 'Completed' && data.status !== 'Rejected' && data.status !== 'Cancelled') {
+      actions.push({ id: 'withdraw', label: '撤回申請', variant: 'destructive', pending: actionPending, onClick: () => postCancel() })
+    }
+    return actions
+  }, [data, isCurrentAssignee, isSubmitter, actionPending, archiveNote, postApproval, postArchive, postCancel])
 
   const footerHint = (() => {
     if (!data) return null
@@ -162,6 +181,13 @@ export function LEAVE_V1_CaseDetail({ caseId }: CaseDetailProps) {
       {data && (
         <>
           <FlowStateBanner flowCode="LEAVE" flowVersion={1} />
+
+          <SectionCard className="!p-0">
+            <div className="bg-slate-50 px-4 py-2">
+              <Stepper steps={FORMS.LEAVE.steps} activeStep={activeStepFor(data.status)} withZh />
+            </div>
+          </SectionCard>
+
           <SectionCard>
             <SectionTitle>狀態 / Status</SectionTitle>
             <div className="grid grid-cols-2 gap-4 px-5 py-4 text-sm md:grid-cols-4">
@@ -367,10 +393,25 @@ function statusKind(s: LEAVE_V1_Status): StatusKind {
   switch (s) {
     case 'Completed':       return 'closed'
     case 'Rejected':        return 'rejected'
-    case 'Cancelled':       return 'returned'
+    case 'Cancelled':       return 'cancelled'
     case 'PendingManager':  return 'pending'
     case 'PendingVp':       return 'pending'
     case 'PendingHr':       return 'fin_review'
+  }
+}
+
+/** Map the case status → index into FORMS.LEAVE.steps for the header stepper
+ *  (apply 0 · manager_approve 1 · hr_record 2 · closed 3). LEAVE.steps has no
+ *  separate VP step, so PendingManager and PendingVp both map to the approve
+ *  step. */
+function activeStepFor(status: LEAVE_V1_Status): number {
+  switch (status) {
+    case 'PendingManager': return 1
+    case 'PendingVp':      return 1
+    case 'PendingHr':      return 2
+    case 'Completed':      return 3
+    case 'Rejected':       return 1
+    case 'Cancelled':      return 1
   }
 }
 

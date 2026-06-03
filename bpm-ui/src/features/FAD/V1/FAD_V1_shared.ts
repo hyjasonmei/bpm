@@ -9,5 +9,6 @@ export function zhStatus(s: FAD_V1_Status): string {
     case 'PendingConfirm':   return '待領收確認'
     case 'ResubmitRequired': return '退回補件'
     case 'Completed':        return '已處份'
+    case 'Cancelled':        return '已撤回'
   }
 }

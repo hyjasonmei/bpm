@@ -48,6 +48,7 @@ public sealed class ETM_V1_InboxProvider(
         ETM_V1_CaseStatus.PendingHandover  => "待交接",
         ETM_V1_CaseStatus.ResubmitRequired => "退回補件",
         ETM_V1_CaseStatus.Completed        => "已完成",
+        ETM_V1_CaseStatus.Cancelled        => "已撤回",
         _ => s.ToString(),
     };
 }

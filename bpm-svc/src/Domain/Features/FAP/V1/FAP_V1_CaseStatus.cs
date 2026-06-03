@@ -6,4 +6,5 @@ public enum FAP_V1_CaseStatus
     PendingVerification = 1,
     ResubmitRequired    = 2,
     Completed           = 3,
+    Cancelled           = 4,
 }

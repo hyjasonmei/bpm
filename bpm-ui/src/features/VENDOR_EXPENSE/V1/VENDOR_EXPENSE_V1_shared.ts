@@ -22,5 +22,6 @@ export function zhStatus(s: VENDOR_EXPENSE_V1_Status): string {
     case 'PendingSign':        return '待簽核'
     case 'ResubmitRequired':   return '退回重填'
     case 'Completed':          return '已核准'
+    case 'Cancelled':          return '已撤回'
   }
 }

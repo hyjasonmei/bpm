@@ -1,4 +1,4 @@
-export type TEO_V1_Status = 'PendingManager' | 'PendingFinance' | 'ResubmitRequired' | 'Completed'
+export type TEO_V1_Status = 'PendingManager' | 'PendingFinance' | 'ResubmitRequired' | 'Completed' | 'Cancelled'
 
 export interface TEO_V1_ExpenseItemDto {
   date: string

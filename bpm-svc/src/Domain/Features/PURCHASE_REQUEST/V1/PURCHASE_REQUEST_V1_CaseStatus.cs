@@ -6,4 +6,5 @@ public enum PURCHASE_REQUEST_V1_CaseStatus
     PendingFinance    = 1,
     ResubmitRequired  = 2,
     Completed         = 3,
+    Cancelled         = 4,
 }
