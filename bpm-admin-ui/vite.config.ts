@@ -15,6 +15,14 @@ export default defineConfig({
         target: 'http://localhost:5266',
         changeOrigin: false,
       },
+      // White-label branding lives on bpm-svc's shared TenantSettings; the
+      // Branding tab writes it there. POC convenience — production would
+      // front both services behind one gateway / an admin-svc proxy endpoint.
+      '/bpmsvc': {
+        target: 'http://localhost:5290',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/bpmsvc/, ''),
+      },
     },
   },
 })

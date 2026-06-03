@@ -17,4 +17,12 @@ public sealed class TenantSettings : AuditableEntity
     // /api/sandbox/clock/advance can do an atomic +N update without rewriting
     // the SandboxConfigJson blob. Real time + offset = sandbox time.
     public long SandboxClockOffsetSeconds { get; set; } = 0;
+
+    // White-label branding, set from admin's Site Setting → Branding tab and
+    // read by bpm-ui (header / login / favicon / page title). Images are kept
+    // as small base64 data-URIs — a per-customer logo / favicon is a few KB,
+    // so a TEXT column avoids a blob-storage round-trip across services.
+    public string? SystemName { get; set; }
+    public string? LogoDataUri { get; set; }
+    public string? FaviconDataUri { get; set; }
 }

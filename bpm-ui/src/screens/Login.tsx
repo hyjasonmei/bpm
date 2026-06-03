@@ -3,6 +3,7 @@ import { LogIn, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Field } from '@/components/ui/form'
 import { login } from '@/lib/api/auth'
+import { useBranding } from '@/lib/branding'
 
 // Demo credentials match admin-svc's seeded Bob (employee persona,
 // reports to Alice the Backend dept head). Pre-filling matches the
@@ -15,6 +16,7 @@ export function Login({ onLoggedIn }: { onLoggedIn?: () => void }) {
   const [password, setPassword] = useState(DEMO_PASSWORD)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const branding = useBranding()
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -38,10 +40,14 @@ export function Login({ onLoggedIn }: { onLoggedIn?: () => void }) {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white text-lg font-bold mb-3">
-            BPM
-          </div>
-          <h1 className="text-xl font-semibold text-ink">flowcook BPM</h1>
+          {branding.logoDataUri ? (
+            <img src={branding.logoDataUri} alt="" className="mx-auto mb-3 h-12 w-auto max-w-[160px] object-contain" />
+          ) : (
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white text-lg font-bold mb-3">
+              BPM
+            </div>
+          )}
+          <h1 className="text-xl font-semibold text-ink">{branding.systemName ?? 'flowcook BPM'}</h1>
           <p className="text-xs text-ink-muted mt-1">員工流程平台</p>
         </div>
 

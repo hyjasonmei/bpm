@@ -11,6 +11,7 @@ import { HelpReportMenu } from '@/components/HelpReportMenu'
 import type { PersonaCode } from '@/lib/role'
 import { FORMS, type FormCode } from '@/lib/workflow'
 import { getSandboxStatus } from '@/lib/api/sandbox'
+import { useBranding } from '@/lib/branding'
 
 interface AppLayoutProps {
   persona: PersonaCode
@@ -45,6 +46,8 @@ export function AppLayout({ persona, setPersona, authedFullName = null, authPend
   // its own context inside the form body).
   const applyMatch = useMatch('/apply/:code')
 
+  const branding = useBranding()
+
   return (
     <div className="min-h-screen bg-bg">
       <SandboxBanner />
@@ -54,8 +57,12 @@ export function AppLayout({ persona, setPersona, authedFullName = null, authPend
         <div className="mx-auto flex h-12 max-w-screen-2xl items-center gap-2 px-4">
           {/* Logo */}
           <Link to="/" className="mr-4 flex items-center gap-2 transition-opacity hover:opacity-90">
-            <div className="flex h-7 w-7 items-center justify-center rounded bg-red-500 text-[10.5px] font-bold tracking-wider text-white">BPM</div>
-            <span className="text-sm font-bold tracking-wide">BPM System</span>
+            {branding.logoDataUri ? (
+              <img src={branding.logoDataUri} alt="" className="h-7 w-auto max-w-[120px] object-contain" />
+            ) : (
+              <div className="flex h-7 w-7 items-center justify-center rounded bg-red-500 text-[10.5px] font-bold tracking-wider text-white">BPM</div>
+            )}
+            <span className="text-sm font-bold tracking-wide">{branding.systemName ?? 'BPM System'}</span>
           </Link>
 
           {/* Nav */}
