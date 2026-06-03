@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   Activity,
   ArrowLeft,
+  BarChart3,
   ChefHat,
   ExternalLink,
   FlaskConical,
@@ -18,8 +19,9 @@ import { UserMenu } from '@/flowcook/app/UserMenu'
 import { UserRolePage } from '@/flowcook/pages/UserRolePage'
 import { AiKitchenPage } from '@/flowcook/pages/AiKitchenPage'
 import { SiteSettingPage } from '@/flowcook/pages/SiteSettingPage'
+import { ReportsPage } from '@/flowcook/pages/ReportsPage'
 
-export type FlowcookPage = 'ai-kitchen' | 'user-role' | 'sandbox' | 'audit' | 'site-setting'
+export type FlowcookPage = 'ai-kitchen' | 'user-role' | 'sandbox' | 'audit' | 'reports' | 'site-setting'
 
 interface NavEntry {
   id: FlowcookPage
@@ -34,6 +36,7 @@ const NAV: NavEntry[] = [
   { id: 'user-role',    path: '/user-role',    label: 'User & Role',  hint: 'principals',   icon: Users },
   { id: 'sandbox',      path: '/sandbox',      label: 'Sandbox',      hint: 'safe testing', icon: FlaskConical },
   { id: 'audit',        path: '/audit',        label: 'Audit',        hint: 'history',      icon: Activity },
+  { id: 'reports',      path: '/reports',      label: 'Reports',      hint: 'analytics',    icon: BarChart3 },
   { id: 'site-setting', path: '/site-setting', label: 'Site Setting', hint: 'globals',      icon: Settings },
 ]
 
@@ -191,6 +194,7 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
                 description="Read-only event ledger. Every action across admin, bpm, chef, syncer lands here as an append-only event. The viewer opens with Step 6 once syncer carries bpm events back."
               />
             } />
+            <Route path="/reports" element={<ReportsPage />} />
             <Route path="/site-setting/*" element={<SiteSettingPage />} />
             <Route path="*" element={<Navigate to="/ai-kitchen" replace />} />
           </Routes>

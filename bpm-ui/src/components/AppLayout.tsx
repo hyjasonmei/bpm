@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Plus, Search, BarChart3, Home as HomeIcon, ChevronDown, Clock, FlaskConical } from 'lucide-react'
+import { Plus, Search, Home as HomeIcon, ChevronDown, Clock, FlaskConical } from 'lucide-react'
 import { Link, NavLink, useMatch } from 'react-router-dom'
 
 import { cn } from '@/lib/cn'
@@ -63,7 +63,7 @@ export function AppLayout({ persona, setPersona, authedFullName = null, authPend
             <NavBtnLink to="/" end icon={<HomeIcon className="h-4 w-4" />}>Home</NavBtnLink>
             <NavBtnLink to="/create" icon={<Plus className="h-4 w-4" />}>Create</NavBtnLink>
             <NavBtnLink to="/search" icon={<Search className="h-4 w-4" />}>Search</NavBtnLink>
-            <NavBtnLink to="/reports" icon={<BarChart3 className="h-4 w-4" />}>Report</NavBtnLink>
+            <NavBtnLink to="/attendance" icon={<Clock className="h-4 w-4" />}>Attendance</NavBtnLink>
           </div>
 
           {/* Right side */}
@@ -71,7 +71,6 @@ export function AppLayout({ persona, setPersona, authedFullName = null, authPend
             {sandboxOn && (
               <NavBtnLink to="/sandbox/mailbox" icon={<FlaskConical className="h-4 w-4" />}>Sandbox</NavBtnLink>
             )}
-            <NavBtnLink to="/attendance" icon={<Clock className="h-4 w-4" />}>Attendance</NavBtnLink>
             <NotificationsMenu />
             <HelpReportMenu />
             <AccountMenu

@@ -3,14 +3,55 @@ import { TrendingUp, TrendingDown, Minus, FileText, CheckCircle2, Clock, Activit
 import { cn } from '@/lib/cn'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { TypeChip } from '@/components/ui/badge'
-import { MOCK_CASES } from '@/lib/mocks'
-import type { FormCode } from '@/lib/workflow'
-import type { StatusKind } from '@/components/ui/badge'
+
+/* ─── Self-contained mock data (no API, no bpm-ui imports) ──── */
+
+type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'HWP' | 'ITPR' | 'TRQ' | 'TEO' | 'EXTOB'
+
+/** Subset of bpm-ui's CaseMock — only the fields Reports actually uses. */
+interface CaseMock {
+  type: FormCode
+  status: string
+  submitted: string
+  updated: string
+}
+
+const MOCK_CASES: CaseMock[] = [
+  { type: 'LEAVE', status: 'pending',        submitted: '2026/04/24', updated: '2026/04/24' },
+  { type: 'LEAVE', status: 'pending',        submitted: '2026/04/23', updated: '2026/04/23' },
+  { type: 'GEE',   status: 'pending',        submitted: '2026/04/22', updated: '2026/04/23' },
+  { type: 'GEE',   status: 'pending',        submitted: '2026/04/23', updated: '2026/04/23' },
+  { type: 'GEV',   status: 'pending',        submitted: '2026/04/21', updated: '2026/04/21' },
+  { type: 'TRQ',   status: 'pending',        submitted: '2026/04/20', updated: '2026/04/20' },
+  { type: 'APE',   status: 'pending',        submitted: '2026/04/19', updated: '2026/04/19' },
+  { type: 'GEE',   status: 'pending',        submitted: '2026/04/17', updated: '2026/04/17' },
+  { type: 'GEV',   status: 'pending',        submitted: '2026/04/13', updated: '2026/04/13' },
+  { type: 'GEE',   status: 'pending',        submitted: '2026/04/14', updated: '2026/04/14' },
+  { type: 'TEO',   status: 'fin_review',     submitted: '2026/04/01', updated: '2026/04/21' },
+  { type: 'TEO',   status: 'fin_review',     submitted: '2026/04/18', updated: '2026/04/18' },
+  { type: 'TEO',   status: 'fin_review',     submitted: '2026/04/11', updated: '2026/04/11' },
+  { type: 'HWP',   status: 'it_spec_review', submitted: '2026/03/20', updated: '2026/04/01' },
+  { type: 'HWP',   status: 'it_spec_review', submitted: '2026/04/15', updated: '2026/04/15' },
+  { type: 'LEAVE', status: 'pending',        submitted: '2026/04/15', updated: '2026/04/19' },
+  { type: 'EXTOB', status: 'pending',        submitted: '2026/04/05', updated: '2026/04/12' },
+  { type: 'APE',   status: 'draft',          submitted: '2026/04/08', updated: '2026/04/08' },
+  { type: 'LEAVE', status: 'draft',          submitted: '2026/04/22', updated: '2026/04/22' },
+  { type: 'TRQ',   status: 'closed',         submitted: '2026/04/10', updated: '2026/04/15' },
+  { type: 'GEE',   status: 'closed',         submitted: '2026/03/28', updated: '2026/04/05' },
+  { type: 'GEV',   status: 'closed',         submitted: '2026/03/15', updated: '2026/03/22' },
+  { type: 'TRQ',   status: 'closed',         submitted: '2026/03/01', updated: '2026/03/10' },
+  { type: 'APE',   status: 'closed',         submitted: '2026/02/10', updated: '2026/02/20' },
+  { type: 'ITPR',  status: 'closed',         submitted: '2026/01/20', updated: '2026/02/05' },
+  { type: 'LEAVE', status: 'closed',         submitted: '2026/02/14', updated: '2026/02/16' },
+  { type: 'GEE',   status: 'approved',       submitted: '2026/02/25', updated: '2026/03/01' },
+  { type: 'GEV',   status: 'approved',       submitted: '2026/04/18', updated: '2026/04/20' },
+  { type: 'GEE',   status: 'returned',       submitted: '2026/02/01', updated: '2026/02/03' },
+]
 
 const FORM_TYPES: FormCode[] = ['LEAVE', 'GEE', 'GEV', 'APE', 'HWP', 'ITPR', 'TRQ', 'TEO', 'EXTOB']
-const STATUS_ORDER: StatusKind[] = ['draft', 'pending', 'approved', 'fin_review', 'it_spec_review', 'returned', 'closed', 'rejected']
+const STATUS_ORDER = ['draft', 'pending', 'approved', 'fin_review', 'it_spec_review', 'returned', 'closed', 'rejected'] as const
 
-const STATUS_COLOR: Record<StatusKind, { hex: string; bar: string; bg: string; label: string; fg: string }> = {
+const STATUS_COLOR: Record<string, { hex: string; bar: string; bg: string; label: string; fg: string }> = {
   draft:           { hex: '#94a3b8', bar: 'bg-slate-400',   bg: 'bg-slate-100',   fg: 'text-slate-700',   label: 'Draft' },
   pending:         { hex: '#f59e0b', bar: 'bg-amber-500',   bg: 'bg-amber-50',    fg: 'text-amber-700',   label: 'Pending' },
   approved:        { hex: '#3b82f6', bar: 'bg-blue-500',    bg: 'bg-blue-50',     fg: 'text-blue-700',    label: 'Approved' },
@@ -22,7 +63,7 @@ const STATUS_COLOR: Record<StatusKind, { hex: string; bar: string; bg: string; l
   cancelled:       { hex: '#94a3b8', bar: 'bg-slate-400',   bg: 'bg-slate-100',   fg: 'text-slate-500',   label: 'Cancelled' },
 }
 
-export function Report() {
+export function ReportsPage() {
   /* ─── Aggregations ─────────────────────────────────────── */
 
   const byType = useMemo(() => {
@@ -35,7 +76,7 @@ export function Report() {
   const maxByType = Math.max(...byType.map(b => b.count), 1)
 
   const byStatus = useMemo(() => {
-    const out: Record<StatusKind, number> = Object.fromEntries(STATUS_ORDER.map(s => [s, 0])) as Record<StatusKind, number>
+    const out: Record<string, number> = Object.fromEntries(STATUS_ORDER.map(s => [s, 0]))
     for (const c of MOCK_CASES) out[c.status] = (out[c.status] ?? 0) + 1
     return STATUS_ORDER.map(s => ({ status: s, count: out[s] })).filter(d => d.count > 0)
   }, [])
@@ -81,7 +122,7 @@ export function Report() {
     <div className="space-y-4">
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-lg font-bold text-ink">Report</h1>
+          <h1 className="text-lg font-bold text-ink">Reports</h1>
           <p className="text-sm text-ink-muted">表單流量統計 — derived from {MOCK_CASES.length} mock cases</p>
         </div>
         <div className="text-[10.5px] uppercase tracking-wider text-ink-faint">
