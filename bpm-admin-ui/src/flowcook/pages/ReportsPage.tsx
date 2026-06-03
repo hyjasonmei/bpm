@@ -1,194 +1,117 @@
-import { useMemo } from 'react'
-import { TrendingUp, TrendingDown, Minus, FileText, CheckCircle2, Clock, Activity } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { TrendingUp, TrendingDown, Minus, FileText, CheckCircle2, Clock, Activity, Loader2, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { Button } from '@/components/ui/button'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { TypeChip } from '@/components/ui/badge'
+import { getReportSummary, type ReportSummary } from '@/flowcook/api/reports'
 
-/* ─── Self-contained mock data (no API, no bpm-ui imports) ──── */
-
-type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'HWP' | 'ITPR' | 'TRQ' | 'TEO' | 'EXTOB'
-
-/** Subset of bpm-ui's CaseMock — only the fields Reports actually uses. */
-interface CaseMock {
-  type: FormCode
-  status: string
-  submitted: string
-  updated: string
-}
-
-const MOCK_CASES: CaseMock[] = [
-  { type: 'LEAVE', status: 'pending',        submitted: '2026/04/24', updated: '2026/04/24' },
-  { type: 'LEAVE', status: 'pending',        submitted: '2026/04/23', updated: '2026/04/23' },
-  { type: 'GEE',   status: 'pending',        submitted: '2026/04/22', updated: '2026/04/23' },
-  { type: 'GEE',   status: 'pending',        submitted: '2026/04/23', updated: '2026/04/23' },
-  { type: 'GEV',   status: 'pending',        submitted: '2026/04/21', updated: '2026/04/21' },
-  { type: 'TRQ',   status: 'pending',        submitted: '2026/04/20', updated: '2026/04/20' },
-  { type: 'APE',   status: 'pending',        submitted: '2026/04/19', updated: '2026/04/19' },
-  { type: 'GEE',   status: 'pending',        submitted: '2026/04/17', updated: '2026/04/17' },
-  { type: 'GEV',   status: 'pending',        submitted: '2026/04/13', updated: '2026/04/13' },
-  { type: 'GEE',   status: 'pending',        submitted: '2026/04/14', updated: '2026/04/14' },
-  { type: 'TEO',   status: 'fin_review',     submitted: '2026/04/01', updated: '2026/04/21' },
-  { type: 'TEO',   status: 'fin_review',     submitted: '2026/04/18', updated: '2026/04/18' },
-  { type: 'TEO',   status: 'fin_review',     submitted: '2026/04/11', updated: '2026/04/11' },
-  { type: 'HWP',   status: 'it_spec_review', submitted: '2026/03/20', updated: '2026/04/01' },
-  { type: 'HWP',   status: 'it_spec_review', submitted: '2026/04/15', updated: '2026/04/15' },
-  { type: 'LEAVE', status: 'pending',        submitted: '2026/04/15', updated: '2026/04/19' },
-  { type: 'EXTOB', status: 'pending',        submitted: '2026/04/05', updated: '2026/04/12' },
-  { type: 'APE',   status: 'draft',          submitted: '2026/04/08', updated: '2026/04/08' },
-  { type: 'LEAVE', status: 'draft',          submitted: '2026/04/22', updated: '2026/04/22' },
-  { type: 'TRQ',   status: 'closed',         submitted: '2026/04/10', updated: '2026/04/15' },
-  { type: 'GEE',   status: 'closed',         submitted: '2026/03/28', updated: '2026/04/05' },
-  { type: 'GEV',   status: 'closed',         submitted: '2026/03/15', updated: '2026/03/22' },
-  { type: 'TRQ',   status: 'closed',         submitted: '2026/03/01', updated: '2026/03/10' },
-  { type: 'APE',   status: 'closed',         submitted: '2026/02/10', updated: '2026/02/20' },
-  { type: 'ITPR',  status: 'closed',         submitted: '2026/01/20', updated: '2026/02/05' },
-  { type: 'LEAVE', status: 'closed',         submitted: '2026/02/14', updated: '2026/02/16' },
-  { type: 'GEE',   status: 'approved',       submitted: '2026/02/25', updated: '2026/03/01' },
-  { type: 'GEV',   status: 'approved',       submitted: '2026/04/18', updated: '2026/04/20' },
-  { type: 'GEE',   status: 'returned',       submitted: '2026/02/01', updated: '2026/02/03' },
-]
-
-const FORM_TYPES: FormCode[] = ['LEAVE', 'GEE', 'GEV', 'APE', 'HWP', 'ITPR', 'TRQ', 'TEO', 'EXTOB']
-const STATUS_ORDER = ['draft', 'pending', 'approved', 'fin_review', 'it_spec_review', 'returned', 'closed', 'rejected'] as const
-
-const STATUS_COLOR: Record<string, { hex: string; bar: string; bg: string; label: string; fg: string }> = {
-  draft:           { hex: '#94a3b8', bar: 'bg-slate-400',   bg: 'bg-slate-100',   fg: 'text-slate-700',   label: 'Draft' },
-  pending:         { hex: '#f59e0b', bar: 'bg-amber-500',   bg: 'bg-amber-50',    fg: 'text-amber-700',   label: 'Pending' },
-  approved:        { hex: '#3b82f6', bar: 'bg-blue-500',    bg: 'bg-blue-50',     fg: 'text-blue-700',    label: 'Approved' },
-  fin_review:      { hex: '#8b5cf6', bar: 'bg-violet-500',  bg: 'bg-violet-50',   fg: 'text-violet-700',  label: 'FIN Review' },
-  it_spec_review:  { hex: '#06b6d4', bar: 'bg-cyan-500',    bg: 'bg-cyan-50',     fg: 'text-cyan-700',    label: 'IT Review' },
-  returned:        { hex: '#f97316', bar: 'bg-orange-500',  bg: 'bg-orange-50',   fg: 'text-orange-700',  label: 'Returned' },
-  closed:          { hex: '#22c55e', bar: 'bg-green-500',   bg: 'bg-green-50',    fg: 'text-green-700',   label: 'Closed' },
-  rejected:        { hex: '#ef4444', bar: 'bg-red-500',     bg: 'bg-red-50',      fg: 'text-red-700',     label: 'Rejected' },
-  cancelled:       { hex: '#94a3b8', bar: 'bg-slate-400',   bg: 'bg-slate-100',   fg: 'text-slate-500',   label: 'Cancelled' },
+// Cross-flow outcome buckets the backend collapses every per-flow status into.
+const BUCKET_COLOR: Record<string, string> = {
+  'Completed':   '#22c55e',
+  'In progress': '#f59e0b',
+  'Cancelled':   '#94a3b8',
+  'Rejected':    '#ef4444',
 }
 
 export function ReportsPage() {
-  /* ─── Aggregations ─────────────────────────────────────── */
+  const [data, setData] = useState<ReportSummary | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const byType = useMemo(() => {
-    const out: Record<FormCode, number> = Object.fromEntries(FORM_TYPES.map(t => [t, 0])) as Record<FormCode, number>
-    for (const c of MOCK_CASES) out[c.type] = (out[c.type] ?? 0) + 1
-    return Object.entries(out)
-      .map(([type, count]) => ({ type: type as FormCode, count }))
-      .sort((a, b) => b.count - a.count)
-  }, [])
-  const maxByType = Math.max(...byType.map(b => b.count), 1)
-
-  const byStatus = useMemo(() => {
-    const out: Record<string, number> = Object.fromEntries(STATUS_ORDER.map(s => [s, 0]))
-    for (const c of MOCK_CASES) out[c.status] = (out[c.status] ?? 0) + 1
-    return STATUS_ORDER.map(s => ({ status: s, count: out[s] })).filter(d => d.count > 0)
-  }, [])
-
-  const monthly = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const c of MOCK_CASES) {
-      const ym = c.submitted.slice(0, 7)
-      counts[ym] = (counts[ym] ?? 0) + 1
+  const load = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      setData(await getReportSummary())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load report')
+    } finally {
+      setLoading(false)
     }
-    const months = Object.keys(counts).sort().slice(-6)
-    return months.map(m => ({ month: m, count: counts[m] ?? 0 }))
-  }, [])
+  }
 
-  /* ─── KPIs ─────────────────────────────────────────────── */
+  useEffect(() => { void load() }, [])
 
-  const kpis = useMemo(() => {
-    const total = MOCK_CASES.length
-    const thisMonth = monthly[monthly.length - 1]?.count ?? 0
-    const lastMonth = monthly[monthly.length - 2]?.count ?? 0
-    const monthDelta = lastMonth === 0 ? 0 : Math.round(((thisMonth - lastMonth) / lastMonth) * 100)
+  const monthDelta = useMemo(() => {
+    const m = data?.monthly ?? []
+    const cur = m[m.length - 1]?.count ?? 0
+    const prev = m[m.length - 2]?.count ?? 0
+    return prev === 0 ? 0 : Math.round(((cur - prev) / prev) * 100)
+  }, [data])
 
-    const approvedCount = MOCK_CASES.filter(c => c.status === 'approved' || c.status === 'closed').length
-    const rejectedCount = MOCK_CASES.filter(c => c.status === 'rejected').length
-    const decided = approvedCount + rejectedCount
-    const approvalRate = decided === 0 ? 0 : Math.round((approvedCount / decided) * 100)
+  if (loading && !data) {
+    return <div className="flex items-center gap-2 px-1 py-10 text-sm text-ink-muted"><Loader2 className="h-4 w-4 animate-spin" /> 載入報表…</div>
+  }
+  if (error && !data) {
+    return (
+      <div className="space-y-3 px-1 py-8">
+        <p className="text-sm text-danger">報表載入失敗：{error}</p>
+        <Button variant="outline" size="sm" onClick={() => void load()}><RefreshCw className="h-3.5 w-3.5" /> 重試</Button>
+      </div>
+    )
+  }
+  if (!data) return null
 
-    // Avg cycle days = (updated - submitted) for terminal-state cases
-    const terminal = MOCK_CASES.filter(c => c.status === 'closed' || c.status === 'rejected' || c.status === 'approved')
-    const cycleDays = terminal.length === 0 ? 0 :
-      Math.round(terminal.reduce((sum, c) => {
-        const start = Date.parse(c.submitted)
-        const end = Date.parse(c.updated)
-        return sum + Math.max(1, Math.round((end - start) / 86400000))
-      }, 0) / terminal.length)
-
-    return { total, thisMonth, monthDelta, approvalRate, cycleDays }
-  }, [monthly])
-
-  /* ─── Render ───────────────────────────────────────────── */
+  const maxByFlow = Math.max(...data.byFlow.map(b => b.count), 1)
+  const approvalPct = Math.round(data.approvalRate * 100)
 
   return (
     <div className="space-y-4">
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-lg font-bold text-ink">Reports</h1>
-          <p className="text-sm text-ink-muted">表單流量統計 — derived from {MOCK_CASES.length} mock cases</p>
+          <p className="text-sm text-ink-muted">
+            全流程案件統計 — {data.totalCases} 件實際案件（即時）
+          </p>
         </div>
-        <div className="text-[10.5px] uppercase tracking-wider text-ink-faint">
-          Reporting period · last 6 months · all departments
+        <div className="flex items-center gap-3">
+          <span className="text-[10.5px] uppercase tracking-wider text-ink-faint">last 6 months · all flows · all users</span>
+          <Button variant="outline" size="xs" onClick={() => void load()} disabled={loading}>
+            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Refresh
+          </Button>
         </div>
       </div>
 
-      {/* KPI strip */}
+      {/* KPI strip — headline metrics; Completed / In progress live in the
+          status donut below so the first row stays uncluttered. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi
-          icon={<FileText className="h-4 w-4" />}
-          label="Total cases"
-          value={kpis.total.toString()}
-          accent="bg-blue-50 text-blue-700"
-          sub={<>累計件數</>}
-        />
-        <Kpi
-          icon={<Activity className="h-4 w-4" />}
-          label="This month"
-          value={kpis.thisMonth.toString()}
-          accent="bg-amber-50 text-amber-700"
-          sub={<DeltaTag delta={kpis.monthDelta} />}
-        />
-        <Kpi
-          icon={<CheckCircle2 className="h-4 w-4" />}
-          label="Approval rate"
-          value={`${kpis.approvalRate}%`}
-          accent="bg-green-50 text-green-700"
-          sub={<>已決議案件中通過比例</>}
-        />
-        <Kpi
-          icon={<Clock className="h-4 w-4" />}
-          label="Avg cycle"
-          value={`${kpis.cycleDays}d`}
-          accent="bg-violet-50 text-violet-700"
-          sub={<>送出 → 結案平均天數</>}
-        />
+        <Kpi icon={<FileText className="h-4 w-4" />} label="Total cases" value={data.totalCases.toString()} accent="bg-blue-50 text-blue-700" sub={<>累計件數</>} />
+        <Kpi icon={<Activity className="h-4 w-4" />} label="This month" value={data.thisMonth.toString()} accent="bg-amber-50 text-amber-700" sub={<DeltaTag delta={monthDelta} />} />
+        <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label="Approval rate" value={`${approvalPct}%`} accent="bg-green-50 text-green-700" sub={<>結案案件通過比例</>} />
+        <Kpi icon={<Clock className="h-4 w-4" />} label="Avg cycle" value={data.avgCycleDays == null ? '—' : `${data.avgCycleDays}d`} accent="bg-violet-50 text-violet-700" sub={<>送出 → 結案平均天數</>} />
       </div>
 
-      {/* Donut + Type bars */}
+      {/* Donut + flow bars */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <SectionCard>
             <SectionTitle>Status Breakdown / 狀態分布</SectionTitle>
             <div className="p-5">
-              <DonutChart
-                data={byStatus.map(s => ({ key: s.status, label: STATUS_COLOR[s.status].label, value: s.count, color: STATUS_COLOR[s.status].hex }))}
-                centerLabel="Total"
-                centerValue={kpis.total.toString()}
-              />
+              {data.byStatus.length === 0 ? (
+                <p className="py-8 text-center text-sm text-ink-faint">尚無案件</p>
+              ) : (
+                <DonutChart
+                  data={data.byStatus.map(s => ({ key: s.bucket, label: s.bucket, value: s.count, color: BUCKET_COLOR[s.bucket] ?? '#94a3b8' }))}
+                  centerLabel="Total"
+                  centerValue={data.totalCases.toString()}
+                />
+              )}
             </div>
           </SectionCard>
         </div>
 
         <div className="lg:col-span-3">
           <SectionCard>
-            <SectionTitle>Counts by Form Type / 各表單數量</SectionTitle>
+            <SectionTitle>Counts by Flow / 各流程數量</SectionTitle>
             <div className="space-y-2.5 p-5">
-              {byType.map(({ type, count }) => (
-                <div key={type} className="grid grid-cols-[120px_1fr_50px] items-center gap-3">
-                  <div className="flex items-center gap-2"><TypeChip type={type} /></div>
+              {data.byFlow.length === 0 ? (
+                <p className="py-8 text-center text-sm text-ink-faint">尚無案件</p>
+              ) : data.byFlow.map(({ flowCode, count }) => (
+                <div key={flowCode} className="grid grid-cols-[150px_1fr_50px] items-center gap-3">
+                  <div className="flex items-center gap-2 min-w-0"><TypeChip type={flowCode} /></div>
                   <div className="h-7 overflow-hidden rounded bg-slate-100">
-                    <div
-                      className="h-full rounded bg-gradient-to-r from-blue-500 to-blue-400 transition-all"
-                      style={{ width: `${(count / maxByType) * 100}%` }}
-                    />
+                    <div className="h-full rounded bg-gradient-to-r from-blue-500 to-blue-400 transition-all" style={{ width: `${(count / maxByFlow) * 100}%` }} />
                   </div>
                   <div className="text-right font-mono text-sm font-semibold tabular text-ink">{count}</div>
                 </div>
@@ -202,7 +125,7 @@ export function ReportsPage() {
       <SectionCard>
         <SectionTitle>Monthly Volume / 月份送件量 (last 6 months)</SectionTitle>
         <div className="p-5">
-          <AreaLineChart points={monthly.map(m => ({ x: m.month, y: m.count }))} />
+          <AreaLineChart points={data.monthly.map(m => ({ x: m.month, y: m.count }))} />
         </div>
       </SectionCard>
     </div>
