@@ -467,11 +467,14 @@ canonical create-form shape.
 
 Mount `<FlowStateBanner flowCode={'…'} flowVersion={N} />` from
 `@/components/ui/flow-state-banner/FlowStateBanner` near the top of
-the case detail (above the status grid). Renders nothing for Approved
-flows; surfaces a warning row when the case's flow has been retired
-by admin — existing cases stay actionable, but the launcher is
+the case detail (above the status grid). Renders nothing for live
+(Published) flows; surfaces a warning row when the case's flow has been
+retired by admin — existing cases stay actionable, but the launcher is
 hidden, so the user needs the cue when they hit the case via deep
-link. Backed by a single cached `useFlowRegistry` fetch.
+link. (Live-gate is `state === 'Published'`: a flow goes Committed →
+Approved [reviewed] → Published [live in this env]; chef code never
+touches this — lead owns the lifecycle + launcher gate.) Backed by a
+single cached `useFlowRegistry` fetch.
 
 ## BPMN passthrough
 

@@ -64,4 +64,6 @@ public enum SharedFlowState
     Approved = 5,
     Rejected = 6,
     Retired = 7,
+    /// <summary>Reviewed AND live in this environment — the launcher only offers Published flows.</summary>
+    Published = 8,
 }

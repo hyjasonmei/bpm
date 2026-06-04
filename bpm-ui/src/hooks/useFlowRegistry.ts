@@ -6,7 +6,7 @@ export interface FlowRegistryEntry {
   flowCode: string
   version: number
   /** Stringified Bpm.Admin.Domain.Flows.FlowState — see SharedFlowState. */
-  state: 'Draft' | 'Submitted' | 'Cooking' | 'OnHold' | 'Committed' | 'Approved' | 'Rejected' | 'Retired' | string
+  state: 'Draft' | 'Submitted' | 'Cooking' | 'OnHold' | 'Committed' | 'Approved' | 'Rejected' | 'Retired' | 'Published' | string
   displayName: string
   updatedAt: string
   /** Per-flow curated lucide icon name for the launcher tile, null = default. */

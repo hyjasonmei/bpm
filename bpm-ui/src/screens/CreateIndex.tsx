@@ -39,7 +39,7 @@ export function CreateIndex() {
     [...formRegistry.values()]
       .filter(m => {
         if (!gateByState) return true
-        return latest.get(m.code)?.state === 'Approved'
+        return latest.get(m.code)?.state === 'Published'
       })
       .map(m => {
         const entry = latest.get(m.code)

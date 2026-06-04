@@ -63,6 +63,14 @@ public interface IFlowLifecycleService
     /// </summary>
     Task<Flow> ApproveAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
 
+    /// <summary>Approved → Published. Makes the flow live in this environment
+    /// (the bpm-ui launcher only offers Published flows).</summary>
+    Task<Flow> PublishAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
+
+    /// <summary>Published → Approved. Takes the flow offline in this environment
+    /// while keeping it reviewed.</summary>
+    Task<Flow> UnpublishAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
+
     /// <summary>User-triggered escape hatch when chef appears stalled.
     /// Cooking → Submitted (so a fresh chef session can pick up). Auth
     /// requires the user JWT; not exposed on the chef API surface.</summary>

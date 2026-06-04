@@ -69,7 +69,9 @@ public class FlowLifecycleService : IFlowLifecycleService
                 Id = Guid.NewGuid(),
                 LineageId = Guid.NewGuid(),
                 Version = 1,
-                State = FlowState.Approved,
+                // Blank-env one-click bootstrap: deployed flows go straight to
+                // Published (live), not just Approved — that's the button's whole job.
+                State = FlowState.Published,
                 FlowCode = code,
                 DisplayName = string.IsNullOrWhiteSpace(f.DisplayName) ? code : f.DisplayName.Trim(),
                 SpecJson = "{}",
@@ -216,10 +218,16 @@ public class FlowLifecycleService : IFlowLifecycleService
         => TransitionAsync(flowId, FlowState.Submitted, "flow_resumed", actorUserId, new[] { FlowState.OnHold }, ct);
 
     public Task<Flow> RetireAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
-        => TransitionAsync(flowId, FlowState.Retired, "flow_retired", actorUserId, new[] { FlowState.Approved }, ct);
+        => TransitionAsync(flowId, FlowState.Retired, "flow_retired", actorUserId, new[] { FlowState.Approved, FlowState.Published }, ct);
 
     public Task<Flow> UnretireAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
         => TransitionAsync(flowId, FlowState.Approved, "flow_unretired", actorUserId, new[] { FlowState.Retired }, ct);
+
+    public Task<Flow> PublishAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
+        => TransitionAsync(flowId, FlowState.Published, "flow_published", actorUserId, new[] { FlowState.Approved }, ct);
+
+    public Task<Flow> UnpublishAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
+        => TransitionAsync(flowId, FlowState.Approved, "flow_unpublished", actorUserId, new[] { FlowState.Published }, ct);
 
     // ── chef-driven transitions (PR-K1) ──────────────────────────────
 

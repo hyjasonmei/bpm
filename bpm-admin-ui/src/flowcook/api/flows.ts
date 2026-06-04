@@ -9,6 +9,7 @@ export type FlowState =
   | 'Approved'
   | 'Rejected'
   | 'Retired'
+  | 'Published'
 
 export interface FlowSummary {
   id: string
@@ -89,6 +90,17 @@ export function updateFlowSpec(id: string, req: UpdateFlowSpecRequest): Promise<
 
 export function submitFlow(id: string): Promise<FlowDetail> {
   return api<FlowDetail>(`/api/flows/${id}/submit`, { method: 'POST' })
+}
+
+// Two-stage go-live: approve (reviewed) → publish (live in this env) ⇄ unpublish.
+export function approveFlow(id: string): Promise<FlowDetail> {
+  return api<FlowDetail>(`/api/flows/${id}/approve`, { method: 'POST' })
+}
+export function publishFlow(id: string): Promise<FlowDetail> {
+  return api<FlowDetail>(`/api/flows/${id}/publish`, { method: 'POST' })
+}
+export function unpublishFlow(id: string): Promise<FlowDetail> {
+  return api<FlowDetail>(`/api/flows/${id}/unpublish`, { method: 'POST' })
 }
 
 export function cancelFlow(id: string): Promise<FlowDetail> {

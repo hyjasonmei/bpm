@@ -124,32 +124,16 @@ public class FlowsController : ControllerBase
     public Task<ActionResult<FlowDetailDto>> Approve(Guid id, CancellationToken ct)
         => RunTransition(() => _lifecycle.ApproveAsync(id, CurrentUserId(), ct));
 
-    [HttpGet("{id:guid}/deployments")]
-    public async Task<ActionResult<IEnumerable<FlowDeploymentDto>>> ListDeployments(
-        Guid id,
-        [FromServices] IFlowDeploymentService deployments,
-        CancellationToken ct)
-        => Ok(await deployments.ListAsync(id, ct));
+    /// <summary>Approved → Published. Makes the flow live in this environment's
+    /// launcher. (Serve tab Publish button.)</summary>
+    [HttpPost("{id:guid}/publish")]
+    public Task<ActionResult<FlowDetailDto>> Publish(Guid id, CancellationToken ct)
+        => RunTransition(() => _lifecycle.PublishAsync(id, CurrentUserId(), ct));
 
-    [HttpPost("{id:guid}/deployments/{envId:guid}")]
-    public async Task<ActionResult<FlowDeploymentDto>> SetDeployment(
-        Guid id,
-        Guid envId,
-        [FromBody] SetDeploymentBody req,
-        [FromServices] IFlowDeploymentService deployments,
-        CancellationToken ct)
-    {
-        try
-        {
-            var result = await deployments.SetStatusAsync(
-                new SetFlowDeploymentRequest(id, envId, req.Status, req.Notes),
-                CurrentUserId(), ct);
-            return Ok(result);
-        }
-        catch (FlowLifecycleException ex) { return Conflict(ex.Message); }
-    }
-
-    public sealed record SetDeploymentBody(Bpm.Admin.Domain.Flows.FlowDeploymentStatus Status, string? Notes);
+    /// <summary>Published → Approved. Takes it offline here but keeps it reviewed.</summary>
+    [HttpPost("{id:guid}/unpublish")]
+    public Task<ActionResult<FlowDetailDto>> Unpublish(Guid id, CancellationToken ct)
+        => RunTransition(() => _lifecycle.UnpublishAsync(id, CurrentUserId(), ct));
 
     [HttpPost("{id:guid}/retire")]
     public Task<ActionResult<FlowDetailDto>> Retire(Guid id, CancellationToken ct)

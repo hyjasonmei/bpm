@@ -82,7 +82,7 @@ export function CookPanel({
   }, [messages.length])
 
   const isOnHold = state === 'OnHold'
-  const isCompleted = state === 'Committed' || state === 'Approved'
+  const isCompleted = state === 'Committed' || state === 'Approved' || state === 'Published'
   const canType = isOnHold || isCompleted
   // cookedCount derives from the persisted thread; latest Completion
   // wins. cookedVersionLabel formats the badge.

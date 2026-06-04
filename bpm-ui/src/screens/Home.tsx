@@ -340,7 +340,7 @@ function QuickActionsPanel() {
     .filter(m => {
       if (!filterByState) return true
       const entry = latest.get(m.code)
-      return entry?.state === 'Approved'
+      return entry?.state === 'Published'
     })
     .map(m => {
       const entry = latest.get(m.code)

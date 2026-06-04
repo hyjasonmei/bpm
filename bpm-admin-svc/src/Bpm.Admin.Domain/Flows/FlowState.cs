@@ -18,4 +18,10 @@ public enum FlowState
     /// flight cases continue to terminal. Reversible via UnretireAsync.
     /// </summary>
     Retired = 7,
+    /// <summary>
+    /// Reviewed (Approved) AND made live in this environment. The bpm-ui
+    /// launcher only offers flows in this state. Publish = Approved → Published;
+    /// Unpublish = Published → Approved (offline but still reviewed).
+    /// </summary>
+    Published = 8,
 }

@@ -45,7 +45,7 @@ export function LauncherPreviewPanel({
   /** Refetch flows after a mutation so the panel + the main list stay in sync. */
   onChanged: () => Promise<void>
 }) {
-  const [approvedOnly, setApprovedOnly] = useState(true)
+  const [publishedOnly, setPublishedOnly] = useState(true)
   // Local mirror so a drag reorders instantly; re-synced whenever the
   // parent refetch lands new props.
   const [local, setLocal] = useState<FlowSummary[]>(flows)
@@ -56,7 +56,7 @@ export function LauncherPreviewPanel({
   useEffect(() => { setLocal(flows) }, [flows])
 
   const sections = useMemo<GroupSection[]>(() => {
-    const visible = approvedOnly ? local.filter(f => f.state === 'Approved') : local
+    const visible = publishedOnly ? local.filter(f => f.state === 'Published') : local
     const groupsBySort = [...groups].sort((a, b) => a.sortOrder - b.sortOrder)
 
     const byGroup = new Map<string, FlowSummary[]>()
@@ -83,7 +83,7 @@ export function LauncherPreviewPanel({
       out.push({ key: UNGROUPED, label: '其他', icon: null, flows: sortFlows(ungrouped) })
     }
     return out
-  }, [local, groups, approvedOnly])
+  }, [local, groups, publishedOnly])
 
   async function persist(fn: () => Promise<unknown>) {
     setBusy(true)
@@ -127,11 +127,11 @@ export function LauncherPreviewPanel({
         <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-ink-muted">
           <input
             type="checkbox"
-            checked={approvedOnly}
-            onChange={e => setApprovedOnly(e.target.checked)}
+            checked={publishedOnly}
+            onChange={e => setPublishedOnly(e.target.checked)}
             className="h-3.5 w-3.5 accent-primary"
           />
-          Approved only
+          Published only
         </label>
       </header>
 
@@ -142,8 +142,8 @@ export function LauncherPreviewPanel({
       <div className={cn('flex-1 overflow-auto p-3', busy && 'pointer-events-none opacity-60')}>
         {totalShown === 0 ? (
           <div className="px-3 py-10 text-center text-xs text-ink-muted">
-            {approvedOnly
-              ? '尚無 Approved 流程 — 核准後才會出現在員工的 Create 頁。'
+            {publishedOnly
+              ? '尚無已上線（Published）流程 — publish 後才會出現在員工的 Create 頁。'
               : '尚無流程。'}
           </div>
         ) : (

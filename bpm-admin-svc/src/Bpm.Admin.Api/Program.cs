@@ -72,8 +72,6 @@ builder.Services.AddScoped<IFlowChatService, FlowChatService>();
 builder.Services.AddScoped<IFlowGroupService, FlowGroupService>();
 builder.Services.AddScoped<IFeatureTablesService, FeatureTablesService>();
 builder.Services.AddScoped<IChefOrgQueryService, ChefOrgQueryService>();
-builder.Services.AddScoped<IEnvironmentService, EnvironmentService>();
-builder.Services.AddScoped<IFlowDeploymentService, FlowDeploymentService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<Bpm.Admin.Application.Common.Abstractions.IClock, Bpm.Admin.Api.Common.AdminSystemClock>();
 builder.Services.AddSingleton<Bpm.Admin.Application.Spec.Expressions.IExpressionEvaluator, Bpm.Admin.Application.Spec.Expressions.CelNetExpressionEvaluator>();
@@ -172,33 +170,6 @@ using (var scope = app.Services.CreateScope())
             }
             await db.SaveChangesAsync();
             logger.LogInformation("Seeded {Count} default flow groups", defaults.Length);
-        }
-
-        // PR-S1: seed default environments so the Serve tab + Site
-        // Setting list aren't empty on first boot. Same gate as above.
-        if (allowSeed && !await db.Environments.AnyAsync())
-        {
-            var now = DateTime.UtcNow;
-            var envs = new (string Code, string Name, int Sort)[]
-            {
-                ("dev", "DEV", 10),
-                ("stg", "STG", 20),
-                ("prd", "PRD", 30),
-            };
-            foreach (var (code, name, sort) in envs)
-            {
-                db.Environments.Add(new Bpm.Admin.Domain.Flows.Environment
-                {
-                    Id = Guid.NewGuid(),
-                    Code = code,
-                    DisplayName = name,
-                    SortOrder = sort,
-                    CreatedAt = now,
-                    UpdatedAt = now,
-                });
-            }
-            await db.SaveChangesAsync();
-            logger.LogInformation("Seeded {Count} default environments", envs.Length);
         }
     }
     catch (Exception ex)

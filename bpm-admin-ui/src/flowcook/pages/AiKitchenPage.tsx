@@ -254,7 +254,7 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
             <button
               onClick={() => void handleRegisterShipped()}
               disabled={registering || loading}
-              title="把已部署但未註冊的流程一鍵註冊 + 核准，員工 launcher 才看得到"
+              title="把已部署但未註冊的流程一鍵註冊 + 上線（Published），員工 launcher 才看得到"
               className="inline-flex items-center gap-1.5 rounded border border-rule bg-card px-3 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
             >
               <PackagePlus className={cn('h-3.5 w-3.5', registering && 'animate-pulse')} />
@@ -322,6 +322,8 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                 {flows.map((f) => {
                   const isDraft    = f.state === 'Draft'
                   const isApproved = f.state === 'Approved'
+                  const isPublished = f.state === 'Published'
+                  const isLive     = isApproved || isPublished   // reviewed or live
                   const isRetired  = f.state === 'Retired'
                   const rowBusy    = rowPending === f.id
                   const menuGroups: OverflowGroup[] = [
@@ -333,7 +335,7 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                           icon: <ChefHat className="h-3 w-3" />,
                           onClick: () => { void onOpenFlow(f.id) },
                         },
-                        ...((isApproved || isRetired) ? [{
+                        ...((isLive || isRetired) ? [{
                           id: 'clone',
                           label: 'Clone as new version draft',
                           icon: <Copy className="h-3 w-3" />,
@@ -367,7 +369,7 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                     },
                     {
                       items: [
-                        ...(isApproved ? [{
+                        ...(isLive ? [{
                           id: 'retire',
                           label: 'Retire flow',
                           icon: <ArchiveX className="h-3 w-3" />,
@@ -1002,7 +1004,8 @@ const STATE_TONE: Record<FlowState, string> = {
   Cooking:   'bg-accent/15 text-accent',
   OnHold:    'bg-warn/15 text-warn',
   Committed: 'bg-good/10 text-good',
-  Approved:  'bg-good/15 text-good',
+  Approved:  'bg-amber-500/15 text-amber-600',
+  Published: 'bg-good/15 text-good',
   Rejected:  'bg-danger/10 text-danger',
   Retired:   'bg-slate-200 text-slate-600',
 }
