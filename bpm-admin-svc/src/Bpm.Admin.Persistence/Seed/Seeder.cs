@@ -78,13 +78,14 @@ public static class Seeder
             new GroupMember { GroupId = groupSecurity, MemberPrincipalId = users[7].Id, MemberType = PrincipalType.User }
         );
 
-        // ---- 14 roles
+        // ---- 15 roles
         var roleDefs = new (string Code, string Name, string Desc)[]
         {
             ("APPROVER",       "簽核者",           "通用簽核者"),
             ("SUBMITTER",      "申請人",           "流程申請人"),
             ("REVIEWER",       "審查者",           "覆核 / 審查"),
             ("DIRECTOR",       "總監",             "部門總監"),
+            ("VP",             "副總",             "Vice President"),
             ("CEO",            "執行長",           "Chief Executive Officer"),
             ("CFO",            "財務長",           "Chief Financial Officer"),
             ("HR_MANAGER",     "人資主管",         "Human Resources manager"),
@@ -125,7 +126,14 @@ public static class Seeder
             // Reviewer group-wide
             new PrincipalRole { PrincipalId = groupSecurity, RoleId = roleIds["REVIEWER"], InheritToMembers = true },
             // Director assigned to user 0 (Alice) direct
-            new PrincipalRole { PrincipalId = users[0].Id, RoleId = roleIds["DIRECTOR"], InheritToMembers = false }
+            new PrincipalRole { PrincipalId = users[0].Id, RoleId = roleIds["DIRECTOR"], InheritToMembers = false },
+            // Operational approvers the cooked flows resolve: Finance (Frank,
+            // the finance persona), Procurement (Grace), VP (Leo). Direct user
+            // grants so role:FINANCE / role:PROCUREMENT / role:VP resolve in
+            // TEO / PURCHASE_REQUEST / VENDOR_EXPENSE / long-leave.
+            new PrincipalRole { PrincipalId = users[5].Id, RoleId = roleIds["FINANCE"], InheritToMembers = false },
+            new PrincipalRole { PrincipalId = users[6].Id, RoleId = roleIds["PROCUREMENT"], InheritToMembers = false },
+            new PrincipalRole { PrincipalId = users[11].Id, RoleId = roleIds["VP"], InheritToMembers = false }
         );
 
         // ---- Dept heads (added by unify-user-store change so bpm-svc
