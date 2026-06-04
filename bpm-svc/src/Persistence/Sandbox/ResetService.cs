@@ -101,6 +101,39 @@ public sealed class ResetService(
         return summary;
     }
 
+    public async Task<ResetSummary> FactoryResetAsync(CancellationToken ct = default)
+    {
+        // Deliberately NOT gated behind EnsureSandboxOnAsync and not
+        // tenant-scoped — this is the admin "wipe back to seed-init" button,
+        // not a sandbox tester action. ExecuteDeleteAsync bypasses interceptors
+        // so the append-only TaskHistory guard doesn't fire. Child-before-parent
+        // order for the HR-flow pair (Postgres FK-safe).
+        var casesDeleted = await DeleteModelBCasesAsync(onlyFlowCode: null, ct);
+        var historyDeleted = await db.TaskHistory.ExecuteDeleteAsync(ct);
+        var tasksDeleted = await db.ProcessTasks.ExecuteDeleteAsync(ct);
+        var instancesDeleted = await db.ProcessInstances.ExecuteDeleteAsync(ct);
+        var capturedDeleted = await db.SandboxCapturedMessages.ExecuteDeleteAsync(ct);
+        await db.UserNotifications.ExecuteDeleteAsync(ct);
+        await db.NotificationDispatchAudits.ExecuteDeleteAsync(ct);
+        await db.ActorResolutionAudits.ExecuteDeleteAsync(ct);
+        await db.DoctorActionLogs.ExecuteDeleteAsync(ct);
+        await db.ImpersonationSessions.ExecuteDeleteAsync(ct);
+        await db.AttendancePunches.ExecuteDeleteAsync(ct);
+        await db.HrFlowActions.ExecuteDeleteAsync(ct);
+        await db.HrFlowInstances.ExecuteDeleteAsync(ct);
+
+        // Clock offset is a sandbox-only concept; resetting it is itself
+        // sandbox-gated. When sandbox is off there's no offset to clear, so
+        // swallow the gate exception rather than fail the whole wipe.
+        try { await clockService.ResetAsync(ct); }
+        catch (SandboxOffException) { /* no offset when sandbox is off */ }
+
+        logger.LogWarning(
+            "FACTORY RESET: wiped all runtime data — {Cases} cases, {Instances} instances, {Tasks} tasks, {History} history, {Captured} captured",
+            casesDeleted, instancesDeleted, tasksDeleted, historyDeleted, capturedDeleted);
+        return new ResetSummary(instancesDeleted, tasksDeleted, historyDeleted, capturedDeleted, casesDeleted);
+    }
+
     public async Task<ResetSummary> ResetFlowAsync(string flowCode, Guid actorUserId, CancellationToken ct = default)
     {
         await EnsureSandboxOnAsync(ct);

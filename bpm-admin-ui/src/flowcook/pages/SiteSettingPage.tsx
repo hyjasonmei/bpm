@@ -1,14 +1,16 @@
-import { Database, FolderTree, Palette } from 'lucide-react'
+import { Database, FolderTree, Palette, RotateCcw } from 'lucide-react'
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { FlowGroupsTab } from './sitesetting/FlowGroupsTab'
 import { FeatureTablesTab } from './sitesetting/FeatureTablesTab'
 import { BrandingTab } from './sitesetting/BrandingTab'
+import { ResetTab } from './sitesetting/ResetTab'
 
 const TABS = [
   { path: '/site-setting/branding',       label: 'Branding',       icon: Palette },
   { path: '/site-setting/flow-groups',    label: 'Flow Groups',    icon: FolderTree },
   { path: '/site-setting/feature-tables', label: 'Feature Tables', icon: Database },
+  { path: '/site-setting/reset',          label: 'Reset',          icon: RotateCcw },
 ] as const
 
 export function SiteSettingPage() {
@@ -41,6 +43,7 @@ export function SiteSettingPage() {
           <Route path="branding" element={<BrandingTab />} />
           <Route path="flow-groups" element={<FlowGroupsTab />} />
           <Route path="feature-tables" element={<FeatureTablesTab />} />
+          <Route path="reset" element={<ResetTab />} />
           <Route path="*" element={<Navigate to="branding" replace />} />
         </Routes>
       </div>

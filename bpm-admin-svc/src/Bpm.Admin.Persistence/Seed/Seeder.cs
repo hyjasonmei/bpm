@@ -190,6 +190,45 @@ public static class Seeder
         await ctx.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Truncates every admin-owned table (in FK-safe reverse order) after
+    /// ensuring the schema is current. The shared SQLite file's bpm-owned
+    /// tables are left untouched — wipe those via bpm-svc. Shared by the
+    /// SeedCli <c>clear</c>/<c>seed</c> commands and the admin Reset endpoint.
+    /// </summary>
+    public static async Task ClearOrgAsync(string connectionString)
+    {
+        var options = new DbContextOptionsBuilder<AdminDbContext>()
+            .UseSqlite(connectionString, sqlite =>
+                sqlite.MigrationsHistoryTable("__AdminEFMigrationsHistory"))
+            .Options;
+        await using var ctx = new AdminDbContext(options);
+        await ctx.Database.MigrateAsync();
+        await ctx.Database.ExecuteSqlRawAsync(@"
+            DELETE FROM Admin_UserSessions;
+            DELETE FROM Admin_UserCredentials;
+            DELETE FROM Admin_AuditEvents;
+            DELETE FROM Admin_Delegations;
+            DELETE FROM Admin_PrincipalRoles;
+            DELETE FROM Admin_GroupMembers;
+            DELETE FROM Admin_DeptHeads;
+            DELETE FROM Admin_UserManagers;
+            DELETE FROM Admin_UserDepts;
+            DELETE FROM Admin_DeptParents;
+            DELETE FROM Admin_Flows;
+            DELETE FROM Admin_Roles;
+            DELETE FROM Admin_Principals;
+        ");
+    }
+
+    /// <summary>Clear + re-seed the org graph in one call — the canonical
+    /// "back to demo init" for admin-owned identity tables.</summary>
+    public static async Task ResetOrgAsync(string connectionString)
+    {
+        await ClearOrgAsync(connectionString);
+        await SeedOrgAsync(connectionString);
+    }
+
     private static Guid AddPrincipal(AdminDbContext ctx, PrincipalType type, string name)
     {
         var p = new Principal

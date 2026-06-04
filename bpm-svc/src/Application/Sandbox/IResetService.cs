@@ -18,6 +18,18 @@ public interface IResetService
     /// without wiping the rest. Sandbox-gated like the others.
     /// </summary>
     Task<ResetSummary> ResetFlowAsync(string flowCode, Guid actorUserId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Full demo "factory reset": unconditionally hard-deletes ALL runtime
+    /// data — every Model-B case table, process instances / tasks / history,
+    /// captured mail, user notifications, dispatch + actor-resolution audits,
+    /// doctor logs, impersonation sessions, attendance punches, HR-flow rows —
+    /// and clears the sandbox clock offset. Unlike <see cref="ResetAllAsync"/>
+    /// this is NOT gated behind the sandbox toggle and is not tenant-scoped:
+    /// it backs the admin-ui Reset tab's "wipe DB back to seed-init" button.
+    /// Identity (the Shared* tables) is owned by admin-svc and reseeded there.
+    /// </summary>
+    Task<ResetSummary> FactoryResetAsync(CancellationToken ct = default);
 }
 
 /// <summary>

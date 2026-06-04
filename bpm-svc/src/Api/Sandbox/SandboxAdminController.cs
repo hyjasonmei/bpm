@@ -170,6 +170,16 @@ public sealed class SandboxAdminController(
         catch (SandboxOffException) { return BadRequest(new { error = "sandbox_off" }); }
     }
 
+    /// <summary>
+    /// Full demo factory wipe of ALL bpm-owned runtime data — not gated behind
+    /// the sandbox toggle. Backs the admin-ui Reset tab, which calls this first,
+    /// then admin-svc reseeds identity + re-registers flows. Destructive; the
+    /// admin UI guards it with a type-to-confirm dialog.
+    /// </summary>
+    [HttpPost("factory-reset")]
+    public async Task<IActionResult> FactoryReset(CancellationToken ct)
+        => Ok(await resetService.FactoryResetAsync(ct));
+
     [HttpPost("reset/flow/{flowCode}")]
     public async Task<IActionResult> ResetFlow(string flowCode, CancellationToken ct)
     {

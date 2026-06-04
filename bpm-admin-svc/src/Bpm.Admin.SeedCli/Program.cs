@@ -32,13 +32,13 @@ var includeOrg = args.Any(a => a == "--org");
 switch (sub)
 {
     case "clear":
-        await Clear(connectionString);
+        await Seeder.ClearOrgAsync(connectionString);
         Console.WriteLine("Admin-owned tables truncated (Principals / Roles / Flows / etc).");
         Console.WriteLine("bpm-owned tables in the shared db file are LEFT IN PLACE — run bpm-svc SeedCli to reset those.");
         break;
 
     case "seed":
-        await Clear(connectionString);
+        await Seeder.ClearOrgAsync(connectionString);
         Console.WriteLine("Admin DB recreated.");
         if (includeOrg)
         {
@@ -69,32 +69,6 @@ switch (sub)
 }
 
 return 0;
-
-static async Task Clear(string connectionString)
-{
-    // Post-db-merge: admin and bpm share one SQLite file. EnsureDeleted
-    // would nuke bpm tables too. Truncate only admin-owned tables via
-    // raw SQL, in FK-safe reverse order, then re-run the admin
-    // migration set to make sure schema is current.
-    var options = AdminOptions(connectionString);
-    await using var ctx = new AdminDbContext(options);
-    await ctx.Database.MigrateAsync();
-    await ctx.Database.ExecuteSqlRawAsync(@"
-        DELETE FROM Admin_UserSessions;
-        DELETE FROM Admin_UserCredentials;
-        DELETE FROM Admin_AuditEvents;
-        DELETE FROM Admin_Delegations;
-        DELETE FROM Admin_PrincipalRoles;
-        DELETE FROM Admin_GroupMembers;
-        DELETE FROM Admin_DeptHeads;
-        DELETE FROM Admin_UserManagers;
-        DELETE FROM Admin_UserDepts;
-        DELETE FROM Admin_DeptParents;
-        DELETE FROM Admin_Flows;
-        DELETE FROM Admin_Roles;
-        DELETE FROM Admin_Principals;
-    ");
-}
 
 static async Task Status(string connectionString)
 {
