@@ -9,6 +9,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  Stethoscope,
   Users,
 } from 'lucide-react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
@@ -21,8 +22,9 @@ import { SiteSettingPage } from '@/flowcook/pages/SiteSettingPage'
 import { ReportsPage } from '@/flowcook/pages/ReportsPage'
 import { AuditPage } from '@/flowcook/pages/AuditPage'
 import { SandboxPage } from '@/flowcook/pages/SandboxPage'
+import { DoctorPage } from '@/flowcook/pages/DoctorPage'
 
-export type FlowcookPage = 'ai-kitchen' | 'user-role' | 'sandbox' | 'audit' | 'reports' | 'site-setting'
+export type FlowcookPage = 'ai-kitchen' | 'user-role' | 'sandbox' | 'audit' | 'reports' | 'doctor' | 'site-setting'
 
 interface NavEntry {
   id: FlowcookPage
@@ -38,6 +40,7 @@ const NAV: NavEntry[] = [
   { id: 'sandbox',      path: '/sandbox',      label: 'Sandbox',      hint: 'safe testing', icon: FlaskConical },
   { id: 'audit',        path: '/audit',        label: 'Audit',        hint: 'history',      icon: Activity },
   { id: 'reports',      path: '/reports',      label: 'Reports',      hint: 'analytics',    icon: BarChart3 },
+  { id: 'doctor',       path: '/doctor',       label: 'Doctor',       hint: 'health',       icon: Stethoscope },
   { id: 'site-setting', path: '/site-setting', label: 'Site Setting', hint: 'globals',      icon: Settings },
 ]
 
@@ -184,6 +187,7 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
             <Route path="/sandbox" element={<SandboxPage />} />
             <Route path="/audit" element={<AuditPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/doctor" element={<DoctorPage />} />
             <Route path="/site-setting/*" element={<SiteSettingPage />} />
             <Route path="*" element={<Navigate to="/ai-kitchen" replace />} />
           </Routes>

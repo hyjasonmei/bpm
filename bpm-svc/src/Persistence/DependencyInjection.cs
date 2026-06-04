@@ -114,6 +114,7 @@ public static class DependencyInjection
         services.AddScoped<IResetService, ResetService>();
         services.AddScoped<IMailboxService, MailboxService>();
         services.AddScoped<IFlowSandboxConfigService, FlowSandboxConfigService>();
+        services.AddScoped<Bpm.Application.Doctor.IDoctorService, Bpm.Persistence.Doctor.DoctorService>();
         services.AddScoped<IRoleAdminService, RoleAdminService>();
 
         // Process runtime + collaborator stubs (Delegation / Notifications /
