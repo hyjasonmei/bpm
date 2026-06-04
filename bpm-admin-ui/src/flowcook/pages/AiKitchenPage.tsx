@@ -6,6 +6,7 @@ import {
   ChefHat,
   Copy,
   Download,
+  PackagePlus,
   RefreshCw,
   Save,
   Sparkles,
@@ -18,6 +19,7 @@ import { cn } from '@/lib/cn'
 import { Onboarding } from '@/screens/onboarding/Onboarding'
 import { EMPTY_DRAFT, migrateDraft, ONBOARDING_STEPS, stripFieldUids, validators, type DraftSpec } from '@/lib/onboarding'
 import { flowToBpmnXml } from '@/lib/bpmnXml'
+import { getDeployedFlowCodes, registerShippedFlows } from '@/flowcook/api/shippedFlows'
 import { useSetPageHeader, type PageHeader } from '@/flowcook/app/pageHeader'
 import { PhaseTabs, type PhaseId, type PhaseDef } from '@/flowcook/app/PhaseTabs'
 import { OverflowMenu, type OverflowGroup } from '@/flowcook/app/OverflowMenu'
@@ -146,6 +148,28 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
 
   useEffect(() => { void refresh() }, [refresh])
 
+  // One-click: register every flow whose code is deployed on bpm-svc but
+  // that isn't yet in the registry, directly as Approved, so the bpm
+  // launcher lists it. Closes the "shipped as code, never registered" gap.
+  const [registering, setRegistering] = useState(false)
+  const handleRegisterShipped = useCallback(async () => {
+    setRegistering(true)
+    try {
+      const deployed = await getDeployedFlowCodes()
+      if (deployed.length === 0) { window.alert('bpm-svc 沒有偵測到任何已部署的流程。'); return }
+      const res = await registerShippedFlows(deployed)
+      await refresh()
+      window.alert(
+        `完成：新註冊 ${res.registered.length} 隻、略過 ${res.skipped.length} 隻（已存在）。\n` +
+        `新增：${res.registered.join(', ') || '—'}`,
+      )
+    } catch (err) {
+      window.alert('註冊失敗：' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setRegistering(false)
+    }
+  }, [refresh])
+
   // Row-level lifecycle actions. Each runs the relevant POST, refreshes
   // the list, then navigates if the action creates a new flow (clone).
   async function withPending<T>(rowId: string, fn: () => Promise<T>): Promise<T | null> {
@@ -226,6 +250,15 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
               className="flex h-7 w-7 items-center justify-center rounded border border-rule bg-card text-ink-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
             >
               <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
+            </button>
+            <button
+              onClick={() => void handleRegisterShipped()}
+              disabled={registering || loading}
+              title="把已部署但未註冊的流程一鍵註冊 + 核准，員工 launcher 才看得到"
+              className="inline-flex items-center gap-1.5 rounded border border-rule bg-card px-3 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+            >
+              <PackagePlus className={cn('h-3.5 w-3.5', registering && 'animate-pulse')} />
+              {registering ? '註冊中…' : 'Register shipped'}
             </button>
             <button
               onClick={() => setCreating(true)}

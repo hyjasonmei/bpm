@@ -35,6 +35,8 @@ public record FlowDetailDto(
 
 public record CreateFlowRequest(string FlowCode, string DisplayName, string? SpecJson);
 
+public record RegisterShippedRequest(List<ShippedFlowInput> Flows);
+
 public record UpdateFlowSpecRequest(string SpecJson, string? FlowCode, string? DisplayName);
 
 public record OnHoldRequest(string Question);

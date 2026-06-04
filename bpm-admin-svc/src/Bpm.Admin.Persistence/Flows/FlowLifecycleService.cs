@@ -47,6 +47,52 @@ public class FlowLifecycleService : IFlowLifecycleService
         return row;
     }
 
+    public async Task<RegisterShippedResult> RegisterShippedAsync(
+        IReadOnlyList<ShippedFlowInput> flows, Guid? actorUserId, CancellationToken ct = default)
+    {
+        var registered = new List<string>();
+        var skipped = new List<string>();
+
+        foreach (var f in flows)
+        {
+            var code = (f.FlowCode ?? string.Empty).Trim().ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(code)) continue;
+
+            // Idempotent: an active (non-archived / non-retired / non-deleted)
+            // row with this code already covers the launcher → skip.
+            var exists = await _db.Flows.AnyAsync(x =>
+                x.FlowCode == code && x.ArchivedAt == null && x.DeletedAt == null && x.State != FlowState.Retired, ct);
+            if (exists) { skipped.Add(code); continue; }
+
+            var row = new Flow
+            {
+                Id = Guid.NewGuid(),
+                LineageId = Guid.NewGuid(),
+                Version = 1,
+                State = FlowState.Approved,
+                FlowCode = code,
+                DisplayName = string.IsNullOrWhiteSpace(f.DisplayName) ? code : f.DisplayName.Trim(),
+                SpecJson = "{}",
+                CreatedByUserId = actorUserId,
+            };
+            _db.Flows.Add(row);
+            await _db.SaveChangesAsync(ct);
+
+            await _audit.LogAsync(
+                actionType: "flow_registered_shipped",
+                targetType: "flow",
+                targetId: row.Id.ToString(),
+                actorUserId: actorUserId,
+                actorPrincipalId: null,
+                after: new { row.Id, row.LineageId, row.Version, row.FlowCode, row.DisplayName, State = row.State.ToString() },
+                ct: ct);
+
+            registered.Add(code);
+        }
+
+        return new RegisterShippedResult(registered, skipped);
+    }
+
     public async Task<Flow> UpdateSpecAsync(Guid flowId, string specJson, string? flowCode, string? displayName, Guid? actorUserId, CancellationToken ct = default)
     {
         var row = await Load(flowId, ct);

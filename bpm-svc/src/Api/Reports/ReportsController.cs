@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Text.RegularExpressions;
 using Bpm.Application.Common.Abstractions;
 using Bpm.Persistence;
 using Microsoft.AspNetCore.Authorization;
@@ -29,7 +30,9 @@ public sealed class ReportsController(AppDbContext db, IClock clock) : Controlle
 {
     private sealed record CaseFact(string FlowCode, string Status, DateTime Submitted, DateTime? Completed);
 
-    private const string CaseSuffix = "_V1_Case";
+    // Any version: <CODE>_V<N>_Case → code group is version-stripped, so all
+    // versions of a flow roll up under one code.
+    private static readonly Regex CaseTypeRe = new(@"^(?<code>.+)_V\d+_Case$", RegexOptions.Compiled);
 
     [HttpGet("summary")]
     public ReportSummaryDto Summary()
@@ -93,23 +96,37 @@ public sealed class ReportsController(AppDbContext db, IClock clock) : Controlle
 
         var caseTypes = db.Model.GetEntityTypes()
             .Select(e => e.ClrType)
-            .Where(t => t.Name.EndsWith(CaseSuffix, StringComparison.Ordinal))
+            .Select(t => new { Type = t, Match = CaseTypeRe.Match(t.Name) })
+            .Where(x => x.Match.Success)
             .Distinct();
 
         var setMethod = typeof(DbContext).GetMethods()
             .First(m => m.Name == nameof(DbContext.Set) && m.IsGenericMethod && m.GetParameters().Length == 0);
 
-        foreach (var t in caseTypes)
+        foreach (var x in caseTypes)
         {
+            var t = x.Type;
             var pSubmitted = t.GetProperty("SubmittedAt");
             var pStatus = t.GetProperty("Status");
             if (pSubmitted is null || pStatus is null) continue;
             var pCompleted = t.GetProperty("CompletedAt");
 
-            var flowCode = t.Name[..^CaseSuffix.Length];
+            var flowCode = x.Match.Groups["code"].Value;
 
-            var queryable = (IQueryable)setMethod.MakeGenericMethod(t).Invoke(db, null)!;
-            foreach (var row in queryable.Cast<object>().ToList())
+            // A flow whose backing table is missing (archived, or registered in
+            // the model before its migration runs) must not 500 the whole
+            // report — skip it, like the unified inbox does.
+            List<object> rows;
+            try
+            {
+                rows = ((IQueryable)setMethod.MakeGenericMethod(t).Invoke(db, null)!).Cast<object>().ToList();
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var row in rows)
             {
                 var status = pStatus.GetValue(row)?.ToString() ?? "Unknown";
                 var submitted = (DateTime)pSubmitted.GetValue(row)!;

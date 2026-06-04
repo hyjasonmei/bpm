@@ -77,6 +77,19 @@ public class FlowsController : ControllerBase
         catch (FlowLifecycleException ex) { return BadRequest(ex.Message); }
     }
 
+    /// <summary>
+    /// One-click backfill: register flows whose runtime code is deployed on
+    /// bpm-svc but that never went through the wizard, directly in Approved
+    /// state so the bpm launcher lists them. Idempotent. Drives admin-ui's
+    /// "register shipped flows" button in AI Kitchen.
+    /// </summary>
+    [HttpPost("register-shipped")]
+    public async Task<ActionResult<RegisterShippedResult>> RegisterShipped([FromBody] RegisterShippedRequest req, CancellationToken ct)
+    {
+        var result = await _lifecycle.RegisterShippedAsync(req.Flows ?? new List<ShippedFlowInput>(), CurrentUserId(), ct);
+        return Ok(result);
+    }
+
     [HttpPut("{id:guid}/spec")]
     public async Task<ActionResult<FlowDetailDto>> UpdateSpec(Guid id, [FromBody] UpdateFlowSpecRequest req, CancellationToken ct)
     {

@@ -7,9 +7,25 @@ public class FlowLifecycleException : Exception
     public FlowLifecycleException(string message) : base(message) { }
 }
 
+/// <summary>A deployed flow's code + display name, for register-shipped.</summary>
+public sealed record ShippedFlowInput(string FlowCode, string DisplayName);
+
+/// <summary>Outcome of a register-shipped batch.</summary>
+public sealed record RegisterShippedResult(IReadOnlyList<string> Registered, IReadOnlyList<string> Skipped);
+
 public interface IFlowLifecycleService
 {
     Task<Flow> CreateDraftAsync(string flowCode, string displayName, string? specJson, Guid? actorUserId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Backfill: register flows whose runtime code is already deployed on
+    /// bpm-svc (the <c>&lt;CODE&gt;_V1_Case</c> tables) but that never went
+    /// through the AI Kitchen wizard, directly in <see cref="FlowState.Approved"/>
+    /// so the bpm launcher lists them. Idempotent by FlowCode — an existing
+    /// active (non-archived / non-retired / non-deleted) row is skipped.
+    /// Bypasses the Draft → … → Committed cook lifecycle.
+    /// </summary>
+    Task<RegisterShippedResult> RegisterShippedAsync(IReadOnlyList<ShippedFlowInput> flows, Guid? actorUserId, CancellationToken ct = default);
 
     Task<Flow> UpdateSpecAsync(Guid flowId, string specJson, string? flowCode, string? displayName, Guid? actorUserId, CancellationToken ct = default);
 
