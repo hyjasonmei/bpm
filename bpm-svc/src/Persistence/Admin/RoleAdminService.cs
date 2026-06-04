@@ -16,7 +16,7 @@ public sealed class RoleAdminService(AppDbContext db) : IRoleAdminService
 {
     // Admin role name in the unified seed (admin-svc Seeder). Renamed from
     // bpm-local "admin" → admin-svc's "SystemAdmin" by unify-user-store.
-    private const string AdminRoleName = "SystemAdmin";
+    private const string AdminRoleName = "SYSTEM_ADMIN";
 
     public async Task<IReadOnlyList<RoleSummaryDto>> ListRolesAsync(CancellationToken ct = default)
     {

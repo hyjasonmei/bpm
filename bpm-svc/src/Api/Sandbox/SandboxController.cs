@@ -27,7 +27,7 @@ public sealed class SandboxController(
         => await service.GetStatusAsync(ct);
 
     [HttpPut("status")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "SYSTEM_ADMIN")]
     public async Task<IActionResult> SetStatus([FromBody] UpdateSandboxRequest req, CancellationToken ct)
     {
         // PR-J5 §12.4: defense-in-depth for prod deploys — when the operator
@@ -56,7 +56,7 @@ public sealed class SandboxController(
         => await clockService.GetAsync(ct);
 
     [HttpPost("clock/advance")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "SYSTEM_ADMIN")]
     public async Task<IActionResult> AdvanceClock([FromBody] AdvanceClockRequest req, CancellationToken ct)
     {
         try
@@ -71,7 +71,7 @@ public sealed class SandboxController(
     }
 
     [HttpPost("clock/reset")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "SYSTEM_ADMIN")]
     public async Task<IActionResult> ResetClock(CancellationToken ct)
     {
         try
@@ -93,7 +93,7 @@ public sealed class SandboxController(
     /// stamps <c>SandboxActualActor</c> on every row the persona writes.
     /// </summary>
     [HttpPost("persona")]
-    [Authorize(Roles = "Persona_Switch,SystemAdmin,admin")]
+    [Authorize(Roles = "PERSONA_SWITCH,SYSTEM_ADMIN")]
     public async Task<IActionResult> SwitchPersona([FromBody] SwitchPersonaRequest req, CancellationToken ct)
     {
         // Sandbox-on gate first — the persona switch is intentionally a
@@ -111,12 +111,12 @@ public sealed class SandboxController(
         if (persona is null)
             return NotFound(new { error = "user_not_found", userId = req.UserId });
 
-        // Resolve persona's role names via the unified Admin_PrincipalRoles + Admin_Roles.
+        // Resolve persona's role codes via the unified Admin_PrincipalRoles + Admin_Roles.
         var roleNames = await (
             from pr in db.SharedPrincipalRoles.AsNoTracking()
             join r in db.SharedRoles.AsNoTracking() on pr.RoleId equals r.Id
             where pr.PrincipalId == persona.Id
-            select r.Name).Distinct().ToListAsync(ct);
+            select r.Code).Distinct().ToListAsync(ct);
 
         var (token, expiresAt) = jwt.IssueSandboxPersonaToken(
             personaUserId: persona.Id,
@@ -249,7 +249,7 @@ public sealed class SandboxController(
     // ===== PR-J4 §8.4-8.5 — Reset endpoints =====
 
     [HttpPost("reset/instance/{id:guid}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "SYSTEM_ADMIN")]
     public async Task<IActionResult> ResetInstance(Guid id, CancellationToken ct)
     {
         try
@@ -264,7 +264,7 @@ public sealed class SandboxController(
     }
 
     [HttpPost("reset/all")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "SYSTEM_ADMIN")]
     public async Task<IActionResult> ResetAll(CancellationToken ct)
     {
         try

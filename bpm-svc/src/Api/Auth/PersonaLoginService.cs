@@ -48,7 +48,7 @@ public sealed class PersonaLoginService(AppDbContext db, JwtTokenService tokens,
             from pr in db.SharedPrincipalRoles.AsNoTracking()
             join r in db.SharedRoles.AsNoTracking() on pr.RoleId equals r.Id
             where pr.PrincipalId == user.Id
-            select r.Name).Distinct().ToListAsync(ct);
+            select r.Code).Distinct().ToListAsync(ct);
 
         var primaryDept = await (
             from ud in db.SharedUserDepts.AsNoTracking()

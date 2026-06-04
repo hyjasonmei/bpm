@@ -11,10 +11,15 @@ public class RoleConfiguration : IEntityTypeConfiguration<Role>
         builder.ToTable("Roles");
         builder.HasKey(x => x.Id);
 
+        builder.Property(x => x.Code)
+            .IsRequired()
+            .HasMaxLength(64);
+
         builder.Property(x => x.Name)
             .IsRequired()
             .HasMaxLength(100);
 
-        builder.HasIndex(x => x.Name).IsUnique();
+        // Code is the stable identifier — unique. Name is a display label.
+        builder.HasIndex(x => x.Code).IsUnique();
     }
 }

@@ -67,7 +67,10 @@ export function RolesTab({ roles, refreshRoles }: RolesTabProps) {
                         <ShieldCheck className="h-4 w-4" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-[15px] font-medium text-ink">{r.name}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-[15px] font-medium text-ink">{r.name}</span>
+                          <code className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-ink-muted">{r.code}</code>
+                        </div>
                         {r.description && (
                           <div className="mt-0.5 truncate text-xs text-ink-muted">{r.description}</div>
                         )}
@@ -169,9 +172,12 @@ function RoleEditor({ mode, role, onCancel, onSaved, onDeleted }: RoleEditorProp
     setError(null)
     try {
       if (mode === 'create') {
+        // Code = the stable identifier (SCREAMING_SNAKE), derived from the
+        // display name; the server uppercases + enforces uniqueness.
+        const code = name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '')
         const created = await api<Role>('/api/roles', {
           method: 'POST',
-          json: { name: name.trim(), description: description.trim() || null, isSystem: false },
+          json: { code, name: name.trim(), description: description.trim() || null, isSystem: false },
         })
         await onSaved(created)
       } else if (role) {

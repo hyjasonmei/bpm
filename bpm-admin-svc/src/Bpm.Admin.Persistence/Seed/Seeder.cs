@@ -79,34 +79,53 @@ public static class Seeder
         );
 
         // ---- 14 roles
-        string[] roleNames =
+        var roleDefs = new (string Code, string Name, string Desc)[]
         {
-            "Approver","Submitter","Reviewer","Director","CEO","CFO","HR_Manager",
-            "Procurement","Finance","Auditor","FlowOwner","SystemAdmin","Persona_Switch","Watcher"
+            ("APPROVER",       "簽核者",           "通用簽核者"),
+            ("SUBMITTER",      "申請人",           "流程申請人"),
+            ("REVIEWER",       "審查者",           "覆核 / 審查"),
+            ("DIRECTOR",       "總監",             "部門總監"),
+            ("CEO",            "執行長",           "Chief Executive Officer"),
+            ("CFO",            "財務長",           "Chief Financial Officer"),
+            ("HR_MANAGER",     "人資主管",         "Human Resources manager"),
+            ("PROCUREMENT",    "採購",             "採購審核"),
+            ("FINANCE",        "財務",             "財務審核"),
+            ("AUDITOR",        "稽核",             "稽核 / 監察"),
+            ("FLOW_OWNER",     "流程負責人",       "Flow owner"),
+            ("SYSTEM_ADMIN",   "系統管理員",       "System administrator"),
+            ("PERSONA_SWITCH", "Persona 切換權限", "可在 sandbox 以他人身分操作（代理切換）"),
+            ("WATCHER",        "關注者",           "唯讀關注者"),
         };
         var roleIds = new Dictionary<string, Guid>();
-        foreach (var name in roleNames)
+        foreach (var (code, name, desc) in roleDefs)
         {
-            var r = new Role { Id = Guid.NewGuid(), Name = name, IsSystem = name is "SystemAdmin" or "Persona_Switch" };
+            var r = new Role
+            {
+                Id = Guid.NewGuid(),
+                Code = code,
+                Name = name,
+                Description = desc,
+                IsSystem = code is "SYSTEM_ADMIN" or "PERSONA_SWITCH",
+            };
             ctx.Roles.Add(r);
-            roleIds[name] = r.Id;
+            roleIds[code] = r.Id;
         }
 
         // ---- PrincipalRole sample assignments
         ctx.PrincipalRoles.AddRange(
             // SystemAdmin: assigned direct to user 9 (Jack)
-            new PrincipalRole { PrincipalId = users[9].Id, RoleId = roleIds["SystemAdmin"], InheritToMembers = false },
+            new PrincipalRole { PrincipalId = users[9].Id, RoleId = roleIds["SYSTEM_ADMIN"], InheritToMembers = false },
             // Persona_Switch: assigned to users[9] and users[10]
-            new PrincipalRole { PrincipalId = users[9].Id, RoleId = roleIds["Persona_Switch"], InheritToMembers = false },
-            new PrincipalRole { PrincipalId = users[10].Id, RoleId = roleIds["Persona_Switch"], InheritToMembers = false },
+            new PrincipalRole { PrincipalId = users[9].Id, RoleId = roleIds["PERSONA_SWITCH"], InheritToMembers = false },
+            new PrincipalRole { PrincipalId = users[10].Id, RoleId = roleIds["PERSONA_SWITCH"], InheritToMembers = false },
             // Approver inherits to all engineering staff
-            new PrincipalRole { PrincipalId = deptEng, RoleId = roleIds["Approver"], InheritToMembers = true },
+            new PrincipalRole { PrincipalId = deptEng, RoleId = roleIds["APPROVER"], InheritToMembers = true },
             // HR_Manager inherits to HR staff
-            new PrincipalRole { PrincipalId = deptHR, RoleId = roleIds["HR_Manager"], InheritToMembers = true },
+            new PrincipalRole { PrincipalId = deptHR, RoleId = roleIds["HR_MANAGER"], InheritToMembers = true },
             // Reviewer group-wide
-            new PrincipalRole { PrincipalId = groupSecurity, RoleId = roleIds["Reviewer"], InheritToMembers = true },
+            new PrincipalRole { PrincipalId = groupSecurity, RoleId = roleIds["REVIEWER"], InheritToMembers = true },
             // Director assigned to user 0 (Alice) direct
-            new PrincipalRole { PrincipalId = users[0].Id, RoleId = roleIds["Director"], InheritToMembers = false }
+            new PrincipalRole { PrincipalId = users[0].Id, RoleId = roleIds["DIRECTOR"], InheritToMembers = false }
         );
 
         // ---- Dept heads (added by unify-user-store change so bpm-svc

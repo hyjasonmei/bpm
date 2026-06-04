@@ -39,7 +39,7 @@ public sealed class PrincipalDirectory(AppDbContext db) : IPrincipalDirectory
     public async Task<Guid?> FindFirstUserInRoleAsync(string roleName, CancellationToken ct = default)
     {
         var roleId = await db.SharedRoles.AsNoTracking()
-            .Where(r => r.Name == roleName)
+            .Where(r => r.Code == roleName)
             .Select(r => (Guid?)r.Id)
             .FirstOrDefaultAsync(ct);
         if (roleId is null) return null;

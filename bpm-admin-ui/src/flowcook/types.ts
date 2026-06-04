@@ -12,6 +12,7 @@ export interface Principal {
 
 export interface Role {
   id: string
+  code: string
   name: string
   isSystem: boolean
   description: string | null

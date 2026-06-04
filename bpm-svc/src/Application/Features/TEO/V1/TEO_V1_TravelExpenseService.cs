@@ -37,7 +37,7 @@ public sealed class TEO_V1_TravelExpenseService(
 {
     public const string FlowCode = "TEO";
     public const int FlowVersion = 1;
-    public const string FinanceRoleName = "Finance";
+    public const string FinanceRoleName = "FINANCE";
 
     public sealed record SubmitInput(
         Guid SubmitterUserId,

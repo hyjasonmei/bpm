@@ -59,7 +59,7 @@ public sealed class AuthController(
             from pr in db.SharedPrincipalRoles.AsNoTracking()
             where pr.PrincipalId == user.Id
             join r in db.SharedRoles.AsNoTracking() on pr.RoleId equals r.Id
-            select r.Name).ToListAsync(ct);
+            select r.Code).ToListAsync(ct);
 
         var primaryDept = await (
             from ud in db.SharedUserDepts.AsNoTracking()

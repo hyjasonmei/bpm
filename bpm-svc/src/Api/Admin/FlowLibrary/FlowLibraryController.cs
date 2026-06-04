@@ -29,7 +29,7 @@ namespace Bpm.Api.Admin.FlowLibrary;
 /// </summary>
 [ApiController]
 [Route("api/admin/flow-library")]
-[Authorize(Roles = "admin")]
+[Authorize(Roles = "SYSTEM_ADMIN")]
 public sealed class FlowLibraryController(
     AppDbContext db,
     IBundleParser parser,

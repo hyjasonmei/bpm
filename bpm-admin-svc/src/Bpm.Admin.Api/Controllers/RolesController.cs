@@ -30,13 +30,16 @@ public class RolesController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<RoleDto>> Create([FromBody] CreateRoleRequest req, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(req.Code)) return BadRequest("Code is required.");
         if (string.IsNullOrWhiteSpace(req.Name)) return BadRequest("Name is required.");
-        if (await _db.Roles.AnyAsync(r => r.Name == req.Name, ct))
-            return Conflict("Role with this name already exists.");
+        var code = req.Code.Trim().ToUpperInvariant();
+        if (await _db.Roles.AnyAsync(r => r.Code == code, ct))
+            return Conflict("Role with this code already exists.");
 
         var role = new Role
         {
             Id = Guid.NewGuid(),
+            Code = code,
             Name = req.Name,
             Description = req.Description,
             IsSystem = req.IsSystem,
@@ -63,14 +66,9 @@ public class RolesController : ControllerBase
 
         var role = await _db.Roles.FirstOrDefaultAsync(r => r.Id == id, ct);
         if (role is null) return NotFound();
-        if (role.IsSystem) return Conflict("System roles cannot be renamed.");
 
-        if (!string.Equals(role.Name, req.Name, StringComparison.Ordinal)
-            && await _db.Roles.AnyAsync(r => r.Id != id && r.Name == req.Name, ct))
-        {
-            return Conflict("Role with this name already exists.");
-        }
-
+        // Name is now a display label (Code is the immutable identifier), so it
+        // need not be unique and system roles may be re-labelled.
         var before = ToDto(role);
         role.Name = req.Name;
         role.Description = req.Description;
@@ -118,5 +116,5 @@ public class RolesController : ControllerBase
         return NoContent();
     }
 
-    private static RoleDto ToDto(Role r) => new(r.Id, r.Name, r.IsSystem, r.Description);
+    private static RoleDto ToDto(Role r) => new(r.Id, r.Code, r.Name, r.IsSystem, r.Description);
 }

@@ -48,7 +48,7 @@ public sealed class PURCHASE_REQUEST_V1_PurchaseRequestService(
     /// <c>role:c3a098d8-d377-4f45-a1bb-0cc23386a7c1</c>; resolved
     /// against admin during planning to the literal role name below.
     /// </summary>
-    public const string FinanceRoleName = "Finance";
+    public const string FinanceRoleName = "FINANCE";
 
     public sealed record SubmitInput(
         Guid SubmitterUserId,

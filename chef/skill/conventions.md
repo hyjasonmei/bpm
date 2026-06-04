@@ -109,7 +109,7 @@ Five shapes, in priority order (use the highest that fits):
 
 1. `expr` — `submitter.manager`, `submitter.department.head` …
    resolved by chef-side queries against SharedIdentity tables.
-2. `principal` — `user:<uuid>`, `dept:<uuid>`, `role:<name>`.
+2. `principal` — `user:<uuid>`, `dept:<uuid>`, `role:<code>`.
 3. `conditional` — `{ condition: { field, op, value }, then, else }`.
 4. `collection` — `any` / `all` of N actors with optional `min_approvals`.
 5. `natural_language` — last-resort string. Read it, decide. If you
@@ -133,9 +133,9 @@ SharedX DbSets directly. Use the lead-shipped ports:
 | Primary dept of a user | `IOrgChartReader.GetPrimaryDepartmentIdAsync(userId)` | `Guid?` |
 | Dept head | `IOrgChartReader.GetDepartmentHeadIdAsync(deptId)` | `Guid?` |
 | Dept parent | `IOrgChartReader.GetDepartmentParentIdAsync(deptId)` | `Guid?` |
-| Role assignees by name | `IOrgChartReader.GetRoleAssigneesAsync(roleName, flowCode?)` | `(PrincipalId, RoleId)[]` |
+| Role assignees by code | `IOrgChartReader.GetRoleAssigneesAsync(roleName, flowCode?)` | `(PrincipalId, RoleId)[]` |
 | Group expansion | `IOrgChartReader.ExpandGroupAsync(groupId)` | `GroupExpansion` |
-| First active User in role by name | `IPrincipalDirectory.FindFirstUserInRoleAsync(roleName)` | `Guid?` |
+| First active User in role by code | `IPrincipalDirectory.FindFirstUserInRoleAsync(roleName)` | `Guid?` |
 | Display name / email lookup | `IPrincipalDirectory.GetByIdAsync(principalId)` / `GetManyAsync(ids)` | `PrincipalInfo?` / dict |
 
 For per-flow case data — your own table — go through your
@@ -154,7 +154,7 @@ Lead-maintained — chef imports, never reinvents.
 |---|---|---|
 | Unified inbox | `Bpm.Application.Inbox.ITypedInboxProvider` + `InboxRow` | Required per feature. Both Application and Persistence DI scans auto-register impls. |
 | Per-flow data access | chef-shipped `I<CODE>_V<N>_CaseStore` (Application) + EF impl (Persistence) — see SKILL §3.4 | Mandatory: Application can't reference Persistence, so the service must talk to its own table through this port |
-| Org-chart reads | `Bpm.Application.Org.IOrgChartReader` | manager / primary dept / dept head / dept parent / group expansion / role assignees by name |
+| Org-chart reads | `Bpm.Application.Org.IOrgChartReader` | manager / primary dept / dept head / dept parent / group expansion / role assignees by code |
 | Principal lookup | `Bpm.Application.Common.Directory.IPrincipalDirectory` | `GetByIdAsync`, `GetManyAsync`, `FindFirstUserInRoleAsync(roleName)` — display name / email / Kind / Active |
 | Notification send | `Bpm.Application.Notifications.INotifyDispatcher` + `NotifyMessage` | POC binds to `FileNotifyDispatcher` writing `var/notifications.txt`; production swaps the binding |
 | File upload (UI) | `@/components/ui/FilePicker` | Returns `{ id, fileName, contentType, sizeBytes }` |

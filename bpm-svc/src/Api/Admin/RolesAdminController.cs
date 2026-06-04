@@ -8,7 +8,7 @@ namespace Bpm.Api.Admin;
 
 [ApiController]
 [Route("api/admin")]
-[Authorize(Roles = "admin")]
+[Authorize(Roles = "SYSTEM_ADMIN")]
 public sealed class RolesAdminController(IRoleAdminService service) : ControllerBase
 {
     [HttpGet("roles")]

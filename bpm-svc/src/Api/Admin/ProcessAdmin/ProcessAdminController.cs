@@ -48,7 +48,7 @@ namespace Bpm.Api.Admin.ProcessAdmin;
 /// </summary>
 [ApiController]
 [Route("api/admin/process-admin")]
-[Authorize(Roles = "admin")]
+[Authorize(Roles = "SYSTEM_ADMIN")]
 public sealed class ProcessAdminController(
     AppDbContext db,
     IConfiguration configuration,

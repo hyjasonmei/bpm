@@ -11,7 +11,7 @@ public sealed class ImpersonationService(AppDbContext db, IImpersonationTokenMin
 {
     // Admin role name in admin-svc's seed (mirrors Bpm.Admin.Persistence.Seed.Seeder).
     // Renamed from "admin" → "SystemAdmin" by the unify-user-store change.
-    private const string AdminRoleName = "SystemAdmin";
+    private const string AdminRoleName = "SYSTEM_ADMIN";
 
     public async Task<StartImpersonationResult> StartAsync(
         Guid impersonatorUserId, Guid targetUserId, string reason, bool callerIsAlreadyImpersonating, CancellationToken ct = default)

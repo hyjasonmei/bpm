@@ -115,7 +115,7 @@ public sealed class LEAVE_V1_LeaveService(
         }
         else
         {
-            var hrUserId = await ResolveFirstUserInRoleAsync("HR", ct);
+            var hrUserId = await ResolveFirstUserInRoleAsync("HR_MANAGER", ct);
             if (hrUserId == null)
                 throw new ConflictException("no user assigned to role:HR; cannot route HR archive");
             c.HrUserId = hrUserId;
@@ -177,7 +177,7 @@ public sealed class LEAVE_V1_LeaveService(
             return c;
         }
 
-        var hrUserId = await ResolveFirstUserInRoleAsync("HR", ct);
+        var hrUserId = await ResolveFirstUserInRoleAsync("HR_MANAGER", ct);
         if (hrUserId == null)
             throw new ConflictException("no user assigned to role:HR; cannot route HR archive");
         c.HrUserId = hrUserId;

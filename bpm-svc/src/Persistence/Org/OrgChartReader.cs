@@ -111,15 +111,14 @@ public sealed class OrgChartReader(AppDbContext db) : IOrgChartReader
     }
 
     public async Task<IReadOnlyList<(Guid PrincipalId, Guid RoleId)>> GetRoleAssigneesAsync(
-        string roleName, string? flowCode = null, CancellationToken ct = default)
+        string roleCode, string? flowCode = null, CancellationToken ct = default)
     {
-        // After unify, admin's Admin_Roles is keyed by Name (no Code column,
-        // no Scope/FlowCode columns either). flowCode is currently ignored;
-        // chef-shipped flows reuse the same admin role names.
+        // Roles are keyed by the stable Code (SCREAMING_SNAKE); chef-shipped
+        // flows resolve role:<code>. flowCode scoping is currently unused.
         _ = flowCode;
         var q = from pr in db.SharedPrincipalRoles.AsNoTracking()
                 join r in db.SharedRoles.AsNoTracking() on pr.RoleId equals r.Id
-                where r.Name == roleName
+                where r.Code == roleCode
                 select new { pr.PrincipalId, pr.RoleId };
         var rows = await q.ToListAsync(ct);
         return rows.Select(x => (x.PrincipalId, x.RoleId)).ToList();

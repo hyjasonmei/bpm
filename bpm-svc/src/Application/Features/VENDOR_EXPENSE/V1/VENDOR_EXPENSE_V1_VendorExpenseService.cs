@@ -61,7 +61,7 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseService(
     /// default — a Procurement member must exist for the live flow to
     /// route past supervisor approval.
     /// </summary>
-    public const string ProcurementRoleName = "Procurement";
+    public const string ProcurementRoleName = "PROCUREMENT";
 
     private const string NoReasonGiven = "（未填寫原因）";
 
