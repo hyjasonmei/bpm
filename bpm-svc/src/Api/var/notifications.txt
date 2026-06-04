@@ -892,3 +892,105 @@ body: |
   
   請點此核准：/cases/ape/2a07d763-2d0c-4e21-ac59-a998fab01c9e
 
+---
+at: 2026-06-04T05:24:43.5931960Z
+source: APE_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 420acb69-543e-44b5-b6c4-15f0bee21eab
+  flowCode: APE
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】您的預支申請已送出
+body: |
+  您的預支現金申請已送出，等待主管核准中。
+  查看進度：/cases/ape/420acb69-543e-44b5-b6c4-15f0bee21eab
+
+---
+at: 2026-06-04T05:24:43.5962870Z
+source: APE_V1.notify_n_submit
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 420acb69-543e-44b5-b6c4-15f0bee21eab
+  flowCode: APE
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的預支申請
+body: |
+  申請人：Bob
+  摘要：預支現金 — TWD 9,000（Backend）
+  
+  請點此核准：/cases/ape/420acb69-543e-44b5-b6c4-15f0bee21eab
+
+---
+at: 2026-06-04T05:57:07.1220520Z
+source: APE_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 21de19c7-b77d-4e6c-b9b8-6a33c623a314
+  flowCode: APE
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】您的預支申請已送出
+body: |
+  您的預支現金申請已送出，等待主管核准中。
+  查看進度：/cases/ape/21de19c7-b77d-4e6c-b9b8-6a33c623a314
+
+---
+at: 2026-06-04T05:57:07.2073990Z
+source: APE_V1.notify_n_submit
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 21de19c7-b77d-4e6c-b9b8-6a33c623a314
+  flowCode: APE
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的預支申請
+body: |
+  申請人：Bob
+  摘要：預支現金 — TWD 3,000（Backend）
+  
+  請點此核准：/cases/ape/21de19c7-b77d-4e6c-b9b8-6a33c623a314
+
+---
+at: 2026-06-04T05:57:37.5282540Z
+source: APE_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: fef5c812-8ad1-403c-a68d-57de0513ed31
+  flowCode: APE
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】您的預支申請已送出
+body: |
+  您的預支現金申請已送出，等待主管核准中。
+  查看進度：/cases/ape/fef5c812-8ad1-403c-a68d-57de0513ed31
+
+---
+at: 2026-06-04T05:57:37.5323910Z
+source: APE_V1.notify_n_submit
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: fef5c812-8ad1-403c-a68d-57de0513ed31
+  flowCode: APE
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的預支申請
+body: |
+  申請人：Bob
+  摘要：預支現金 — TWD 1,000（Backend）
+  
+  請點此核准：/cases/ape/fef5c812-8ad1-403c-a68d-57de0513ed31
+

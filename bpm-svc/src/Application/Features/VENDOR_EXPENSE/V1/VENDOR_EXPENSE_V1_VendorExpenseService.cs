@@ -1,4 +1,5 @@
 using Bpm.Application.Common.Abstractions;
+using Bpm.Application.Common.Authorization;
 using Bpm.Application.Common.Directory;
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Notifications;
@@ -46,7 +47,8 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseService(
     IPrincipalDirectory directory,
     IClock clock,
     ILogger<VENDOR_EXPENSE_V1_VendorExpenseService> log,
-    INotifyDispatcher notify)
+    INotifyDispatcher notify,
+    IActorAuthorizer auth)
 {
     public const string FlowCode = "VENDOR_EXPENSE";
     public const int FlowVersion = 1;
@@ -191,8 +193,8 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != VENDOR_EXPENSE_V1_CaseStatus.PendingSupervisor)
             throw new ConflictException($"case is in status {c.Status}, expected PendingSupervisor");
-        if (c.SupervisorUserId != actorUserId)
-            throw new ForbiddenException("only the assigned supervisor may act on this case");
+        if (c.SupervisorUserId is not { } supervisor || !await auth.CanActAsync(supervisor, actorUserId, ct))
+            throw new ForbiddenException("only the assigned supervisor (or their active delegate) may act on this case");
 
         c.SupervisorApproved = approve;
         c.SupervisorComment = comment;
@@ -232,8 +234,8 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != VENDOR_EXPENSE_V1_CaseStatus.PendingProcurement)
             throw new ConflictException($"case is in status {c.Status}, expected PendingProcurement");
-        if (c.ProcurementUserId != actorUserId)
-            throw new ForbiddenException("only the assigned procurement approver may act on this case");
+        if (c.ProcurementUserId is not { } procurement || !await auth.CanActAsync(procurement, actorUserId, ct))
+            throw new ForbiddenException("only the assigned procurement approver (or their active delegate) may act on this case");
 
         c.ProcurementApproved = approve;
         c.ProcurementComment = comment;
@@ -275,8 +277,8 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != VENDOR_EXPENSE_V1_CaseStatus.PendingSign)
             throw new ConflictException($"case is in status {c.Status}, expected PendingSign");
-        if (c.SignUserId != actorUserId)
-            throw new ForbiddenException("only the assigned signer may act on this case");
+        if (c.SignUserId is not { } signer || !await auth.CanActAsync(signer, actorUserId, ct))
+            throw new ForbiddenException("only the assigned signer (or their active delegate) may act on this case");
 
         c.SignApproved = approve;
         c.SignComment = comment;

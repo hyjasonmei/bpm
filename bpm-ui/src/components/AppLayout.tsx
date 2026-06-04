@@ -4,6 +4,7 @@ import { Link, NavLink, useMatch } from 'react-router-dom'
 
 import { cn } from '@/lib/cn'
 import { AccountMenu } from '@/components/AccountMenu'
+import { DelegationButton } from '@/components/DelegationButton'
 import { ImpersonationBanner } from '@/components/ImpersonationBanner'
 import { SandboxBanner } from '@/components/SandboxBanner'
 import { NotificationsMenu } from '@/components/NotificationsMenu'
@@ -80,6 +81,7 @@ export function AppLayout({ persona, setPersona, authedFullName = null, authPend
             )}
             <NotificationsMenu />
             <HelpReportMenu />
+            <DelegationButton />
             <AccountMenu
               active={persona}
               onChange={setPersona}

@@ -3,12 +3,15 @@ using Bpm.Application.Delegation;
 namespace Bpm.Persistence.Delegation;
 
 /// <summary>
-/// V1 stub. Always returns <c>null</c> meaning "no active delegation".
+/// No-op delegation service ("never any delegation") — kept for tests / callers
+/// that want the inert behaviour. Production DI now binds the real
+/// <see cref="DelegationService"/>.
 /// </summary>
-// TODO(add-delegation): replace with a Delegations table lookup keyed on
-// (PrincipalUserId, ValidFrom..ValidTo, Status=Active).
 public sealed class StubDelegationService : IDelegationService
 {
     public Task<Guid?> GetActiveDelegateAsync(Guid principalUserId, DateTime nowUtc, CancellationToken ct = default)
         => Task.FromResult<Guid?>(null);
+
+    public Task<IReadOnlyList<Guid>> GetActiveDelegatorsAsync(Guid delegateUserId, DateTime nowUtc, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<Guid>>(Array.Empty<Guid>());
 }

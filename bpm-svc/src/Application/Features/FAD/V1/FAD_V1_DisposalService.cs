@@ -1,4 +1,5 @@
 using Bpm.Application.Common.Abstractions;
+using Bpm.Application.Common.Authorization;
 using Bpm.Application.Common.Directory;
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Notifications;
@@ -25,7 +26,8 @@ public sealed class FAD_V1_DisposalService(
     IPrincipalDirectory directory,
     IClock clock,
     ILogger<FAD_V1_DisposalService> log,
-    INotifyDispatcher notify)
+    INotifyDispatcher notify,
+    IActorAuthorizer auth)
 {
     public const string FlowCode = "FAD";
     public const int FlowVersion = 1;
@@ -131,8 +133,8 @@ public sealed class FAD_V1_DisposalService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != FAD_V1_CaseStatus.PendingManager)
             throw new ConflictException($"case is in status {c.Status}, expected PendingManager");
-        if (c.ManagerUserId != actorUserId)
-            throw new ForbiddenException("only the assigned judge may act on this case");
+        if (c.ManagerUserId is not { } mgr || !await auth.CanActAsync(mgr, actorUserId, ct))
+            throw new ForbiddenException("only the assigned judge (or their active delegate) may act on this case");
 
         c.ManagerApproved = approve; c.ManagerComment = comment; c.ManagerDecisionAt = clock.UtcNow; c.LastActivityAt = clock.UtcNow;
 
@@ -159,8 +161,8 @@ public sealed class FAD_V1_DisposalService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != FAD_V1_CaseStatus.PendingConfirm)
             throw new ConflictException($"case is in status {c.Status}, expected PendingConfirm");
-        if (c.CurrentAssigneeUserId != actorUserId)
-            throw new ForbiddenException("only the assigned confirmer may complete this case");
+        if (c.CurrentAssigneeUserId is not { } confirmer || !await auth.CanActAsync(confirmer, actorUserId, ct))
+            throw new ForbiddenException("only the assigned confirmer (or their active delegate) may complete this case");
         if (string.IsNullOrWhiteSpace(handlingResult))
             throw Invalid(nameof(handlingResult), "handling result is required");
 

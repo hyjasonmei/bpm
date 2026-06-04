@@ -1,4 +1,5 @@
 using Bpm.Application.Common.Abstractions;
+using Bpm.Application.Common.Authorization;
 using Bpm.Application.Common.Directory;
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Notifications;
@@ -31,7 +32,8 @@ public sealed class TRQ_V1_TravelRequestService(
     IPrincipalDirectory directory,
     IClock clock,
     ILogger<TRQ_V1_TravelRequestService> log,
-    INotifyDispatcher notify)
+    INotifyDispatcher notify,
+    IActorAuthorizer auth)
 {
     public const string FlowCode = "TRQ";
     public const int FlowVersion = 1;
@@ -175,8 +177,8 @@ public sealed class TRQ_V1_TravelRequestService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != TRQ_V1_CaseStatus.PendingManager)
             throw new ConflictException($"case is in status {c.Status}, expected PendingManager");
-        if (c.ManagerUserId != actorUserId)
-            throw new ForbiddenException("only the assigned manager may act on this case");
+        if (c.ManagerUserId is not { } mgr || !await auth.CanActAsync(mgr, actorUserId, ct))
+            throw new ForbiddenException("only the assigned manager (or their active delegate) may act on this case");
 
         c.ManagerApproved = approve;
         c.ManagerComment = comment;

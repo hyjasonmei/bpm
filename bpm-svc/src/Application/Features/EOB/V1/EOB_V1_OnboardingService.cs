@@ -1,4 +1,5 @@
 using Bpm.Application.Common.Abstractions;
+using Bpm.Application.Common.Authorization;
 using Bpm.Application.Common.Directory;
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Notifications;
@@ -25,7 +26,8 @@ public sealed class EOB_V1_OnboardingService(
     IPrincipalDirectory directory,
     IClock clock,
     ILogger<EOB_V1_OnboardingService> log,
-    INotifyDispatcher notify)
+    INotifyDispatcher notify,
+    IActorAuthorizer auth)
 {
     public const string FlowCode = "EOB";
     public const int FlowVersion = 1;
@@ -146,8 +148,8 @@ public sealed class EOB_V1_OnboardingService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != EOB_V1_CaseStatus.PendingManager)
             throw new ConflictException($"case is in status {c.Status}, expected PendingManager");
-        if (c.ManagerUserId != actorUserId)
-            throw new ForbiddenException("only the assigned manager may act on this case");
+        if (c.ManagerUserId is not { } mgr || !await auth.CanActAsync(mgr, actorUserId, ct))
+            throw new ForbiddenException("only the assigned manager (or their active delegate) may act on this case");
 
         c.ManagerApproved = approve; c.ManagerComment = comment; c.ManagerDecisionAt = clock.UtcNow; c.LastActivityAt = clock.UtcNow;
 
@@ -174,8 +176,8 @@ public sealed class EOB_V1_OnboardingService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != EOB_V1_CaseStatus.PendingSetup)
             throw new ConflictException($"case is in status {c.Status}, expected PendingSetup");
-        if (c.CurrentAssigneeUserId != actorUserId)
-            throw new ForbiddenException("only the assigned coordinator may complete setup");
+        if (c.CurrentAssigneeUserId is not { } assignee || !await auth.CanActAsync(assignee, actorUserId, ct))
+            throw new ForbiddenException("only the assigned coordinator (or their active delegate) may complete setup");
         if (tasks.Count < 1)
             throw Invalid(nameof(tasks), "at least one setup task is required");
 

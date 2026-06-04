@@ -1,4 +1,5 @@
 using Bpm.Application.Common.Abstractions;
+using Bpm.Application.Common.Authorization;
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Notifications;
 using Bpm.Persistence.SharedIdentity;
@@ -18,7 +19,8 @@ public sealed class LEAVE_V1_LeaveService(
     AppDbContext db,
     IClock clock,
     ILogger<LEAVE_V1_LeaveService> log,
-    INotifyDispatcher notify)
+    INotifyDispatcher notify,
+    IActorAuthorizer auth)
 {
     public const string FlowCode = "LEAVE";
     public const int FlowVersion = 1;
@@ -81,8 +83,8 @@ public sealed class LEAVE_V1_LeaveService(
 
         if (c.Status != LEAVE_V1_CaseStatus.PendingManager)
             throw new ConflictException($"case is in status {c.Status}, expected PendingManager");
-        if (c.ManagerUserId != actorUserId)
-            throw new ForbiddenException("only the assigned manager may act on this case");
+        if (c.ManagerUserId is not { } mgr || !await auth.CanActAsync(mgr, actorUserId, ct))
+            throw new ForbiddenException("only the assigned manager (or their active delegate) may act on this case");
 
         c.ManagerApproved = approve;
         c.ManagerComment = comment;
@@ -157,8 +159,8 @@ public sealed class LEAVE_V1_LeaveService(
 
         if (c.Status != LEAVE_V1_CaseStatus.PendingVp)
             throw new ConflictException($"case is in status {c.Status}, expected PendingVp");
-        if (c.VpUserId != actorUserId)
-            throw new ForbiddenException("only the assigned VP approver may act on this case");
+        if (c.VpUserId is not { } vp || !await auth.CanActAsync(vp, actorUserId, ct))
+            throw new ForbiddenException("only the assigned VP approver (or their active delegate) may act on this case");
 
         c.VpApproved = approve;
         c.VpComment = comment;
@@ -193,8 +195,8 @@ public sealed class LEAVE_V1_LeaveService(
 
         if (c.Status != LEAVE_V1_CaseStatus.PendingHr)
             throw new ConflictException($"case is in status {c.Status}, expected PendingHr");
-        if (c.HrUserId != actorUserId)
-            throw new ForbiddenException("only the assigned HR may archive this case");
+        if (c.HrUserId is not { } hr || !await auth.CanActAsync(hr, actorUserId, ct))
+            throw new ForbiddenException("only the assigned HR (or their active delegate) may archive this case");
         if (string.IsNullOrWhiteSpace(archiveNote))
             throw Invalid("archiveNote", "archive_note is required");
 

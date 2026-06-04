@@ -1,4 +1,5 @@
 using Bpm.Application.Common.Abstractions;
+using Bpm.Application.Common.Authorization;
 using Bpm.Application.Common.Directory;
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Notifications;
@@ -25,7 +26,8 @@ public sealed class ETM_V1_TerminationService(
     IPrincipalDirectory directory,
     IClock clock,
     ILogger<ETM_V1_TerminationService> log,
-    INotifyDispatcher notify)
+    INotifyDispatcher notify,
+    IActorAuthorizer auth)
 {
     public const string FlowCode = "ETM";
     public const int FlowVersion = 1;
@@ -135,8 +137,8 @@ public sealed class ETM_V1_TerminationService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != ETM_V1_CaseStatus.PendingManager)
             throw new ConflictException($"case is in status {c.Status}, expected PendingManager");
-        if (c.ManagerUserId != actorUserId)
-            throw new ForbiddenException("only the assigned manager may act on this case");
+        if (c.ManagerUserId is not { } mgr || !await auth.CanActAsync(mgr, actorUserId, ct))
+            throw new ForbiddenException("only the assigned manager (or their active delegate) may act on this case");
 
         c.ManagerApproved = approve; c.ManagerComment = comment; c.ManagerDecisionAt = clock.UtcNow; c.LastActivityAt = clock.UtcNow;
 
@@ -163,8 +165,8 @@ public sealed class ETM_V1_TerminationService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != ETM_V1_CaseStatus.PendingHandover)
             throw new ConflictException($"case is in status {c.Status}, expected PendingHandover");
-        if (c.CurrentAssigneeUserId != actorUserId)
-            throw new ForbiddenException("only the assigned coordinator may complete handover");
+        if (c.CurrentAssigneeUserId is not { } assignee || !await auth.CanActAsync(assignee, actorUserId, ct))
+            throw new ForbiddenException("only the assigned coordinator (or their active delegate) may complete handover");
         if (input.ReturnItems.Count < 1)
             throw Invalid(nameof(input.ReturnItems), "at least one handover item is required");
 

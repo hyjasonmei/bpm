@@ -168,6 +168,7 @@ Lead-maintained — chef imports, never reinvents.
 | API fetch (UI) | `@/lib/apiFetch` (+ `BPM_SVC_URL`, `getJwt`) | Wraps fetch with the JWT |
 | JWT decode | `@/lib/jwt` (`decodeJwt`) | Read `sub` to identify the current viewer in CaseDetail |
 | Auth (backend) | `BpmControllerBase.RequireUserId()` | JWT `sub` claim |
+| Decision authorization | `Bpm.Application.Common.Authorization.IActorAuthorizer.CanActAsync(requiredUserId, caller, ct)` | **Required for every approval/assignee step.** Gate decisions with `if (c.XUserId is not { } x \|\| !await auth.CanActAsync(x, actorUserId, ct)) throw new ForbiddenException(...)` — NOT a raw `if (c.XUserId != caller)`. `CanActAsync` returns true for the assignee **or their active delegate**, so delegation (代理人) is honored. Submitter-only gates (withdraw/resubmit/cancel) stay strict (`c.SubmitterUserId != caller`). On the UI side, gate decision buttons with `assignee === viewer \|\| useDelegatedFor().includes(assignee)` (hook `@/lib/useDelegatedFor`), never a bare `=== viewer`. |
 | Logging | `ILogger<T>` | Diagnostic only — real delivery goes through `INotifyDispatcher` |
 
 If you need a UI control or backend service not in this table, stop

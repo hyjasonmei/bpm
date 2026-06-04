@@ -1,4 +1,6 @@
 using Bpm.Api.Common;
+using Bpm.Application.Common.Abstractions;
+using Bpm.Application.Delegation;
 using Bpm.Application.Inbox;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,11 +21,15 @@ namespace Bpm.Api.Inbox;
 public sealed class InboxController : BpmControllerBase
 {
     private readonly IEnumerable<ITypedInboxProvider> _providers;
+    private readonly IDelegationService _delegation;
+    private readonly IClock _clock;
     private readonly ILogger<InboxController> _log;
 
-    public InboxController(IEnumerable<ITypedInboxProvider> providers, ILogger<InboxController> log)
+    public InboxController(IEnumerable<ITypedInboxProvider> providers, IDelegationService delegation, IClock clock, ILogger<InboxController> log)
     {
         _providers = providers;
+        _delegation = delegation;
+        _clock = clock;
         _log = log;
     }
 
@@ -31,9 +37,27 @@ public sealed class InboxController : BpmControllerBase
     public Task<IReadOnlyList<InboxRow>> Mine(CancellationToken ct)
         => CollectAsync(p => p.GetMineAsync(RequireUserId(), ct), ct);
 
+    /// <summary>
+    /// Pending tasks for the caller — PLUS the pending tasks of anyone who has
+    /// currently delegated to the caller, so a delegate sees (and can act on)
+    /// the delegator's queue while the delegation is active. Deduped by case id.
+    /// </summary>
     [HttpGet("pending")]
-    public Task<IReadOnlyList<InboxRow>> Pending(CancellationToken ct)
-        => CollectAsync(p => p.GetPendingAsync(RequireUserId(), ct), ct);
+    public async Task<IReadOnlyList<InboxRow>> Pending(CancellationToken ct)
+    {
+        var me = RequireUserId();
+        var actFor = await _delegation.GetActiveDelegatorsAsync(me, _clock.UtcNow, ct);
+
+        var seen = new HashSet<Guid>();
+        var merged = new List<InboxRow>();
+        foreach (var uid in new[] { me }.Concat(actFor))
+        {
+            var rows = await CollectAsync(p => p.GetPendingAsync(uid, ct), ct);
+            foreach (var r in rows)
+                if (seen.Add(r.CaseId)) merged.Add(r);
+        }
+        return merged.OrderByDescending(r => r.LastActivityAt).ToList();
+    }
 
     /// <summary>
     /// Sequential fan-out (shared scoped AppDbContext can't multiplex).

@@ -12,6 +12,7 @@ import { Stepper } from '@/components/Stepper'
 import { BpmnView } from '@/components/BpmnView'
 import { apiFetch, getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
+import { useDelegatedFor } from '@/lib/useDelegatedFor'
 import { FORMS } from '@/lib/workflow'
 import type { CaseDetailProps } from '@/features/registry'
 import TEO_V1_BpmnXml from './TEO_V1.bpmn.xml?raw'
@@ -49,7 +50,11 @@ export function TEO_V1_CaseDetail({ caseId }: CaseDetailProps) {
     const decoded = decodeJwt(tok); if (decoded?.sub) setViewerUserId(decoded.sub)
   }, [])
 
-  const isCurrentAssignee = !!data && !!viewerUserId && data.currentAssigneeUserId === viewerUserId
+  const delegatedFor = useDelegatedFor()
+  // The viewer may act on the case if they are the current assignee OR an active
+  // delegate of the current assignee (delegation-aware — see useDelegatedFor).
+  const isCurrentAssignee = !!data && !!viewerUserId && !!data.currentAssigneeUserId &&
+    (data.currentAssigneeUserId === viewerUserId || delegatedFor.includes(data.currentAssigneeUserId))
   const isSubmitter       = !!data && !!viewerUserId && data.submitterUserId === viewerUserId
   const trail = useMemo(() => (data ? deriveTrail(data.status) : null), [data])
 

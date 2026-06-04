@@ -1,4 +1,5 @@
 using Bpm.Application.Common.Abstractions;
+using Bpm.Application.Common.Authorization;
 using Bpm.Application.Common.Directory;
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Notifications;
@@ -36,7 +37,8 @@ public sealed class PURCHASE_REQUEST_V1_PurchaseRequestService(
     IPrincipalDirectory directory,
     IClock clock,
     ILogger<PURCHASE_REQUEST_V1_PurchaseRequestService> log,
-    INotifyDispatcher notify)
+    INotifyDispatcher notify,
+    IActorAuthorizer auth)
 {
     public const string FlowCode = "PURCHASE_REQUEST";
     public const int FlowVersion = 1;
@@ -167,8 +169,8 @@ public sealed class PURCHASE_REQUEST_V1_PurchaseRequestService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != PURCHASE_REQUEST_V1_CaseStatus.PendingDeptHead)
             throw new ConflictException($"case is in status {c.Status}, expected PendingDeptHead");
-        if (c.DeptHeadUserId != actorUserId)
-            throw new ForbiddenException("only the assigned department head may act on this case");
+        if (c.DeptHeadUserId is not { } deptHead || !await auth.CanActAsync(deptHead, actorUserId, ct))
+            throw new ForbiddenException("only the assigned department head (or their active delegate) may act on this case");
 
         c.DeptHeadApproved = approve;
         c.DeptHeadComment = comment;
@@ -216,8 +218,8 @@ public sealed class PURCHASE_REQUEST_V1_PurchaseRequestService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != PURCHASE_REQUEST_V1_CaseStatus.PendingFinance)
             throw new ConflictException($"case is in status {c.Status}, expected PendingFinance");
-        if (c.FinanceUserId != actorUserId)
-            throw new ForbiddenException("only the assigned finance approver may act on this case");
+        if (c.FinanceUserId is not { } finance || !await auth.CanActAsync(finance, actorUserId, ct))
+            throw new ForbiddenException("only the assigned finance approver (or their active delegate) may act on this case");
 
         c.FinanceApproved = approve;
         c.FinanceComment = comment;

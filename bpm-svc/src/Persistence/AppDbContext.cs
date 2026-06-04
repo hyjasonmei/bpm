@@ -64,6 +64,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SharedDeptParent> SharedDeptParents => Set<SharedDeptParent>();
     public DbSet<SharedDeptHead> SharedDeptHeads => Set<SharedDeptHead>();
     public DbSet<SharedGroupMember> SharedGroupMembers => Set<SharedGroupMember>();
+    /// <summary>Writable mirror onto Admin_Delegations — self-service delegation (see SharedDelegation).</summary>
+    public DbSet<SharedDelegation> SharedDelegations => Set<SharedDelegation>();
     /// <summary>Read-only flow-registry view onto Admin_Flows — see SharedFlow.</summary>
     public DbSet<SharedFlow> SharedFlows => Set<SharedFlow>();
     /// <summary>Read-only launcher-group view onto Admin_FlowGroups — see SharedFlowGroup.</summary>

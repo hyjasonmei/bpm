@@ -1,4 +1,5 @@
 using Bpm.Application.Common.Abstractions;
+using Bpm.Application.Common.Authorization;
 using Bpm.Application.Common.Directory;
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Notifications;
@@ -31,7 +32,8 @@ public sealed class TEO_V1_TravelExpenseService(
     IPrincipalDirectory directory,
     IClock clock,
     ILogger<TEO_V1_TravelExpenseService> log,
-    INotifyDispatcher notify)
+    INotifyDispatcher notify,
+    IActorAuthorizer auth)
 {
     public const string FlowCode = "TEO";
     public const int FlowVersion = 1;
@@ -130,8 +132,8 @@ public sealed class TEO_V1_TravelExpenseService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != TEO_V1_CaseStatus.PendingManager)
             throw new ConflictException($"case is in status {c.Status}, expected PendingManager");
-        if (c.ManagerUserId != actorUserId)
-            throw new ForbiddenException("only the assigned manager may act on this case");
+        if (c.ManagerUserId is not { } mgr || !await auth.CanActAsync(mgr, actorUserId, ct))
+            throw new ForbiddenException("only the assigned manager (or their active delegate) may act on this case");
 
         c.ManagerApproved = approve; c.ManagerComment = comment; c.ManagerDecisionAt = clock.UtcNow; c.LastActivityAt = clock.UtcNow;
 
@@ -166,8 +168,8 @@ public sealed class TEO_V1_TravelExpenseService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != TEO_V1_CaseStatus.PendingFinance)
             throw new ConflictException($"case is in status {c.Status}, expected PendingFinance");
-        if (c.FinanceUserId != actorUserId)
-            throw new ForbiddenException("only the assigned finance approver may act on this case");
+        if (c.FinanceUserId is not { } fin || !await auth.CanActAsync(fin, actorUserId, ct))
+            throw new ForbiddenException("only the assigned finance approver (or their active delegate) may act on this case");
 
         c.FinanceApproved = approve; c.FinanceComment = comment; c.FinanceDecisionAt = clock.UtcNow; c.LastActivityAt = clock.UtcNow;
 

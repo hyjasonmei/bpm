@@ -10,5 +10,10 @@ namespace Bpm.Application.Delegation;
 /// </summary>
 public interface IDelegationService
 {
+    /// <summary>The user the given principal has currently delegated TO (active + in-range), or null.</summary>
     Task<Guid?> GetActiveDelegateAsync(Guid principalUserId, DateTime nowUtc, CancellationToken ct = default);
+
+    /// <summary>The user ids that have currently delegated to <paramref name="delegateUserId"/>
+    /// (i.e. the people this user may act on behalf of right now).</summary>
+    Task<IReadOnlyList<Guid>> GetActiveDelegatorsAsync(Guid delegateUserId, DateTime nowUtc, CancellationToken ct = default);
 }

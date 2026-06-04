@@ -120,7 +120,10 @@ public static class DependencyInjection
         // Process runtime + collaborator stubs (Delegation / Notifications /
         // SpecLoader land here so the runtime can compose against real seams).
         services.AddScoped<ISpecLoader, FileSystemSpecLoader>();
-        services.AddScoped<IDelegationService, StubDelegationService>();
+        // Real delegation lookup over Admin_Delegations (replaces the no-op stub).
+        services.AddScoped<IDelegationService, Bpm.Persistence.Delegation.DelegationService>();
+        // Shared decision-authorization seam (本人 OR 有效代理人) used by chef flows.
+        services.AddScoped<Bpm.Application.Common.Authorization.IActorAuthorizer, Bpm.Application.Common.Authorization.ActorAuthorizer>();
         // PR-J6 §11.6: SandboxCapturingNotificationDispatcher writes to
         // SandboxCapturedMessages when sandbox is on, falls through to logging
         // when off. Replaces LoggingNotificationDispatcher as the production
