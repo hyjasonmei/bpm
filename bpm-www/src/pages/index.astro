@@ -1,6 +1,8 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro'
 import KitchenAct from '../components/KitchenAct.astro'
+import Showcase from '../components/Showcase.astro'
+import Screenshot from '../components/Screenshot.astro'
 ---
 <BaseLayout>
   <!-- Hero — TREND BPM dark navy band (echo bpm-ui top header), 2-col grid -->
@@ -99,8 +101,88 @@ import KitchenAct from '../components/KitchenAct.astro'
     </div>
   </section>
 
-  <!-- Why flowcook -->
+  <!-- Product showcase — real running screens -->
   <section class="bg-card py-20 sm:py-28">
+    <div class="container-narrow">
+      <div class="mb-16 max-w-3xl">
+        <p class="kicker">看看實際產品</p>
+        <h2 class="mt-3 text-4xl font-semibold leading-tight sm:text-5xl">
+          不是簡報，是真的在跑的系統。
+        </h2>
+        <p class="mt-5 text-lg leading-relaxed text-ink/85">
+          員工端的日常簽核、管理端的驗收與治理 —— 下面每一張都是真實畫面，不是 mockup。
+        </p>
+      </div>
+
+      <div class="space-y-24">
+        <Showcase
+          src="/screenshots/runtime-home.png"
+          alt="flowcook 員工端首頁 — 待辦收件匣、近期案件、快速開單"
+          label="flowcook · 員工端"
+          kicker="員工端 runtime"
+          title="員工的日常，一個入口搞定"
+          body="送單、追蹤、簽核全在同一個收件匣。十幾隻流程一鍵開單，待辦、進度、通知集中一處 —— 員工不必記得哪張表在哪個系統。"
+          bullets={[
+            '統一收件匣 — 跨流程的待辦集中，不漏簽',
+            '即時進度 — 卡在誰、第幾關，一目了然',
+            '中英雙語介面，員工零學習成本',
+          ]}
+        />
+        <Showcase
+          reverse
+          src="/screenshots/sandbox-console.png"
+          alt="flowcook admin Sandbox 主控台 — 攔信、時間快轉、persona 切換"
+          label="flowcook · admin"
+          kicker="無痛驗收"
+          title="上線前，先在 Sandbox 試吃"
+          body="攔信、假時鐘、persona 一鍵切換、一鍵清空重跑 —— 一個驗收員就能跑完整 UAT，完全不碰真實系統、不會誤寄信、不會誤扣款。"
+          bullets={[
+            '攔信 — outbound email 進假信箱，不會真的寄出',
+            '時間快轉 — 測 SLA 到期？秒跳 24 小時看結果',
+            'persona 切換 — 不用登入五個帳號跑全程',
+          ]}
+        />
+        <Showcase
+          src="/screenshots/doctor.png"
+          alt="flowcook admin Doctor — 卡關案件偵測與組織設定健檢"
+          label="flowcook · admin"
+          kicker="治理 × 健檢"
+          title="流程卡住、設定有洞，系統先幫你抓"
+          body="Doctor 主動掃描卡關案件與組織設定問題（離職的簽核人、沒有成員的角色…），並提供一鍵補救入口。IT 治理不必等出事才補。"
+          bullets={[
+            '卡關偵測 — 一鍵改派 / 強制結案',
+            '組織健檢 — 抓出沒人在的角色與斷掉的指派',
+            '每筆動作 append-only 留痕，改不了、刪不掉',
+          ]}
+        />
+      </div>
+
+      <!-- gallery strip -->
+      <div class="mt-24 grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <Screenshot
+          src="/screenshots/flow-form.png"
+          alt="flowcook 流程表單 — 上方流程步驟條 + 明細欄位"
+          label="flowcook · 員工端"
+          caption="表單體驗 — 步驟條 + BPMN"
+        />
+        <Screenshot
+          src="/screenshots/case-detail.png"
+          alt="flowcook 案件詳情 — 簽核時序軸與核准 / 退件"
+          label="flowcook · 員工端"
+          caption="簽核 — 時序軸 + 核准 / 退件"
+        />
+        <Screenshot
+          src="/screenshots/ai-kitchen.png"
+          alt="flowcook admin AI Kitchen — 已上線的流程清單"
+          label="flowcook · admin"
+          caption="AI Kitchen — 流程已上線"
+        />
+      </div>
+    </div>
+  </section>
+
+  <!-- Why flowcook -->
+  <section class="bg-page py-20 sm:py-28">
     <div class="container-narrow grid grid-cols-1 gap-12 md:grid-cols-3">
       <div>
         <p class="kicker">業界標準</p>

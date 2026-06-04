@@ -2,6 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro'
 import FeatureCard from '../components/FeatureCard.astro'
 import FeatureRow from '../components/FeatureRow.astro'
+import Screenshot from '../components/Screenshot.astro'
 ---
 <BaseLayout title="廚房工具 — flowcook">
   <section class="bg-header py-16 text-white sm:py-24">
@@ -35,6 +36,15 @@ import FeatureRow from '../components/FeatureRow.astro'
         <FeatureCard icon="📨" name="Email / Teams / Webhook" desc="通知走標準通道。Teams、Slack、自訂 webhook 都接得起來。" />
         <FeatureCard icon="🗃" name="Postgres / SQL Server" desc="storage 走標準關聯式 DB。POC 跑 SQLite，正式環境一行 connection string 切換。" />
       </div>
+
+      <div class="mt-12">
+        <Screenshot
+          src="/screenshots/ai-kitchen.png"
+          alt="flowcook admin AI Kitchen — cooked flows 清單，全部 published"
+          label="flowcook · admin"
+          caption="AI Kitchen — spec 煮成真實的流程，上線即用"
+        />
+      </div>
     </div>
   </section>
 
@@ -55,6 +65,15 @@ import FeatureRow from '../components/FeatureRow.astro'
         <FeatureRow icon="🔄" name="State Reset" desc="把所有測試資料一鍵清掉重來。下個驗收員拿乾淨環境繼續。" />
         <FeatureRow icon="🛑" name="Outbound Gate" desc="所有對外 API 呼叫進入 capture 模式 —— 不會真的打到 ERP、不會真的扣款。" />
       </div>
+
+      <div class="mt-12">
+        <Screenshot
+          src="/screenshots/sandbox-console.png"
+          alt="flowcook admin Sandbox 主控台 — 時間快轉、persona 切換、攔信信箱、逐流程開關"
+          label="flowcook · admin"
+          caption="一個畫面跑完整 UAT — 不碰真實系統"
+        />
+      </div>
     </div>
   </section>
 
@@ -72,6 +91,15 @@ import FeatureRow from '../components/FeatureRow.astro'
         <FeatureRow icon="📊" name="Process Admin Dashboard" desc="所有 in-flight 流程實時可查 —— 卡在誰、卡多久、誰超 SLA。" />
         <FeatureRow icon="🔍" name="Notification Audit" desc="每一則發出的 email、Teams、webhook 都留紀錄。誰收到、何時收到、收到什麼。" />
         <FeatureRow icon="🛡" name="Role-based Access" desc="每個流程、每個動作的權限都跟組織 role 綁。離職員工 role 撤掉，自動失去存取。" />
+      </div>
+
+      <div class="mt-12">
+        <Screenshot
+          src="/screenshots/doctor.png"
+          alt="flowcook admin Doctor — 卡關案件偵測與組織設定健檢"
+          label="flowcook · admin"
+          caption="Doctor — 卡關與設定問題主動偵測 + 一鍵補救"
+        />
       </div>
     </div>
   </section>
