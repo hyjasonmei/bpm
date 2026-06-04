@@ -13,19 +13,19 @@ import Screenshot from '../components/Screenshot.astro'
         <div class="max-w-xl">
           <span class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1 font-mono text-xs uppercase tracking-[0.18em] text-accent">
             <span aria-hidden="true">🍳</span>
-            AI 廚房 · BPM
+            AI 企業流程平台
           </span>
           <h1 class="mt-6 text-5xl font-semibold leading-[1.1] tracking-tight text-white sm:text-6xl">
-            你點流程，<br class="hidden sm:block" />
-            AI 上菜。
+            把公司的流程，<br class="hidden sm:block" />
+            變成能上線的系統。
           </h1>
           <p class="mt-6 text-lg leading-relaxed text-white/85 sm:text-xl">
-            將商業流程規格料理成代碼，<br class="hidden sm:block" />
-            就交給 <strong class="text-accent">Flowcook AI 廚房</strong>。
+            描述你的請假、請款、差旅流程，<br class="hidden sm:block" />
+            <strong class="text-accent">AI 廚房</strong>幫你設計、<strong class="text-accent">AI 主廚</strong>寫成真實程式，試吃驗收後上線。
           </p>
           <div class="mt-10 flex flex-wrap items-center gap-4">
-            <a href="#contact" class="btn-primary">預約一份試吃</a>
-            <a href="/how-it-works" class="btn-ghost border-white/30 bg-white/5 text-white hover:bg-white hover:text-ink">看一道菜怎麼做 →</a>
+            <a href="#contact" class="btn-primary">預約 demo</a>
+            <a href="/how-it-works" class="btn-ghost border-white/30 bg-white/5 text-white hover:bg-white hover:text-ink">看運作方式 →</a>
           </div>
         </div>
 
@@ -37,17 +37,17 @@ import Screenshot from '../components/Screenshot.astro'
               <span class="h-2.5 w-2.5 rounded-full bg-red-400"></span>
               <span class="h-2.5 w-2.5 rounded-full bg-yellow-400"></span>
               <span class="h-2.5 w-2.5 rounded-full bg-green-400"></span>
-              <span class="ml-3 font-mono text-[10px] text-inkMuted">flowcook · admin</span>
+              <span class="ml-3 font-mono text-[10px] text-inkMuted">flowcook · 後台</span>
             </div>
             <img
               src="/screenshots/wizard-hero.png"
-              alt="flowcook admin 介面 — AI Kitchen 11 step wizard 加上 BPMN canvas"
+              alt="flowcook 後台 — AI 廚房對話式設計流程，搭配 BPMN 流程圖"
               loading="eager"
               class="block w-full"
             />
           </div>
           <p class="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-white/55">
-            真實 admin 介面 — AI Kitchen 第 1 步
+            真實後台畫面 — AI 廚房 第 1 步
           </p>
         </div>
       </div>
@@ -58,7 +58,7 @@ import Screenshot from '../components/Screenshot.astro'
   <section class="bg-page py-20 sm:py-28">
     <div class="container-narrow">
       <div class="mb-14 max-w-3xl">
-        <p class="kicker">三道工序，一桌好菜</p>
+        <p class="kicker">三步驟，從想法到上線</p>
         <h2 class="mt-3 text-4xl font-semibold leading-tight sm:text-5xl">
           備料（規格），<br class="hidden sm:block" />
           烹調（開發），<br class="hidden sm:block" />
@@ -75,8 +75,8 @@ import Screenshot from '../components/Screenshot.astro'
           icon="🥬"
           english="Prep"
           zh="備料"
-          headline="AI Kitchen — 把流程描述清楚"
-          body="從 PDF、流程圖到老闆口述，AI 邊聊邊問細節。11 道工序覆蓋表單、決策、審核、通知、SLA、整合，最後產出一份精準到能下廚的 spec。"
+          headline="AI 廚房 —— 把流程描述清楚"
+          body="從 PDF、流程圖到老闆口述，AI 邊聊邊問細節。十一道工序覆蓋表單、決策、審核、通知、時限、整合，最後產出一份精準到能直接動工的規格。"
           note="沒人需要學 BPMN —— 你只需要會講流程怎麼跑。"
         />
         <KitchenAct
@@ -84,17 +84,17 @@ import Screenshot from '../components/Screenshot.astro'
           icon="🔥"
           english="Cook"
           zh="烹調"
-          headline="Chef 烹調 —— 寫真實的代碼"
-          body="spec 交給 AI chef，他寫真實的 React + .NET，不是低代碼罐頭。每一行可以在 GitHub diff 上 review，code 是你的，未來自己接手也順手。"
-          note="沒有 platform lock-in。用得開心也行，想換廚師也行。"
+          headline="AI 主廚 —— 寫真實的程式"
+          body="規格交給 AI 主廚，他寫真實的 React + .NET，不是低代碼罐頭。每一行都能在 GitHub 上逐行審查，程式是你的，未來自己接手也順手。"
+          note="沒有平台綁架。用得開心也行，想換團隊接手也行。"
         />
         <KitchenAct
           act="serve"
           icon="🍽"
           english="Serve"
           zh="上菜"
-          headline="Sandbox 試吃 → 正式上桌"
-          body="假信箱、假時鐘、persona 一鍵切換 —— 一個驗收員就能跑完整 UAT，完全不影響真實系統。試吃滿意，再 push 到正式環境。"
+          headline="試吃驗收 → 正式上線"
+          body="假信箱、假時鐘、身分一鍵切換 —— 一個驗收員就能跑完整驗收，完全不影響真實系統。試吃滿意，再推上正式環境。"
           note="上線那一刻，你心裡是踏實的。"
         />
       </div>
@@ -119,12 +119,12 @@ import Screenshot from '../components/Screenshot.astro'
           src="/screenshots/runtime-home.png"
           alt="flowcook 員工端首頁 — 待辦收件匣、近期案件、快速開單"
           label="flowcook · 員工端"
-          kicker="員工端 runtime"
+          kicker="員工端"
           title="員工的日常，一個入口搞定"
-          body="送單、追蹤、簽核全在同一個收件匣。十幾隻流程一鍵開單，待辦、進度、通知集中一處 —— 員工不必記得哪張表在哪個系統。"
+          body="送單、追蹤、簽核全在同一個收件匣。十幾條流程一鍵開單，待辦、進度、通知集中一處 —— 員工不必記得哪張表在哪個系統。"
           bullets={[
-            '統一收件匣 — 跨流程的待辦集中，不漏簽',
-            '即時進度 — 卡在誰、第幾關，一目了然',
+            '統一收件匣 —— 跨流程的待辦集中，不漏簽',
+            '即時進度 —— 卡在誰、第幾關，一目了然',
             '中英雙語介面，員工零學習成本',
           ]}
         />
@@ -132,27 +132,27 @@ import Screenshot from '../components/Screenshot.astro'
           reverse
           src="/screenshots/sandbox-console.png"
           alt="flowcook admin Sandbox 主控台 — 攔信、時間快轉、persona 切換"
-          label="flowcook · admin"
+          label="flowcook · 後台"
           kicker="無痛驗收"
           title="上線前，先在 Sandbox 試吃"
-          body="攔信、假時鐘、persona 一鍵切換、一鍵清空重跑 —— 一個驗收員就能跑完整 UAT，完全不碰真實系統、不會誤寄信、不會誤扣款。"
+          body="攔信、假時鐘、身分一鍵切換、一鍵清空重跑 —— 一個驗收員就能跑完整驗收，完全不碰真實系統、不會誤寄信、不會誤扣款。"
           bullets={[
-            '攔信 — outbound email 進假信箱，不會真的寄出',
-            '時間快轉 — 測 SLA 到期？秒跳 24 小時看結果',
-            'persona 切換 — 不用登入五個帳號跑全程',
+            '攔信 —— 對外信件進假信箱，不會真的寄出',
+            '時間快轉 —— 測時限到期？秒跳 24 小時看結果',
+            '身分切換 —— 不用登入五個帳號跑全程',
           ]}
         />
         <Showcase
           src="/screenshots/doctor.png"
           alt="flowcook admin Doctor — 卡關案件偵測與組織設定健檢"
-          label="flowcook · admin"
+          label="flowcook · 後台"
           kicker="治理 × 健檢"
           title="流程卡住、設定有洞，系統先幫你抓"
-          body="Doctor 主動掃描卡關案件與組織設定問題（離職的簽核人、沒有成員的角色…），並提供一鍵補救入口。IT 治理不必等出事才補。"
+          body="系統健檢主動掃描卡關案件與組織設定問題（離職的簽核人、沒有成員的角色…），並提供一鍵補救入口。IT 治理不必等出事才補。"
           bullets={[
-            '卡關偵測 — 一鍵改派 / 強制結案',
-            '組織健檢 — 抓出沒人在的角色與斷掉的指派',
-            '每筆動作 append-only 留痕，改不了、刪不掉',
+            '卡關偵測 —— 一鍵改派 / 強制結案',
+            '組織健檢 —— 抓出沒人在的角色與斷掉的指派',
+            '每筆動作逐筆留痕，改不了、刪不掉',
           ]}
         />
       </div>
@@ -173,9 +173,9 @@ import Screenshot from '../components/Screenshot.astro'
         />
         <Screenshot
           src="/screenshots/ai-kitchen.png"
-          alt="flowcook admin AI Kitchen — 已上線的流程清單"
-          label="flowcook · admin"
-          caption="AI Kitchen — 流程已上線"
+          alt="flowcook 後台 AI 廚房 — 已上線的流程清單"
+          label="flowcook · 後台"
+          caption="AI 廚房 — 流程已上線"
         />
       </div>
     </div>
@@ -189,22 +189,22 @@ import Screenshot from '../components/Screenshot.astro'
         <h3 class="mt-3 text-2xl font-semibold">不重新發明輪子</h3>
         <p class="mt-3 text-sm leading-relaxed text-ink/80">
           BPMN 2.0 描述流程、CEL 寫條件、OpenAPI 描述整合、Entra ID 對接組織 —— 全是業界開放標準。
-          沒有奇怪的私有 DSL 綁架你。
+          沒有奇怪的私有格式綁架你。
         </p>
       </div>
       <div>
         <p class="kicker">無痛驗收</p>
-        <h3 class="mt-3 text-2xl font-semibold">Sandbox 即試吃</h3>
+        <h3 class="mt-3 text-2xl font-semibold">試吃即驗收</h3>
         <p class="mt-3 text-sm leading-relaxed text-ink/80">
-          假信箱、假時鐘、persona 切換、state reset —— 驗收員一個人就跑完 UAT。
-          不必為了測 SLA 把時間調回上週。
+          假信箱、假時鐘、身分切換、一鍵重置 —— 驗收員一個人就跑完整套驗收。
+          不必為了測時限把時間調回上週。
         </p>
       </div>
       <div>
         <p class="kicker">合規即用</p>
         <h3 class="mt-3 text-2xl font-semibold">監控 × 稽核</h3>
         <p class="mt-3 text-sm leading-relaxed text-ink/80">
-          每一筆動作 append-only 留痕、流程狀態實時可查、外部通知整合監控。
+          每一筆動作逐筆留痕、流程狀態即時可查、對外通知整合監控。
           IT 治理跟法遵不用事後補。
         </p>
       </div>
@@ -217,8 +217,8 @@ import Screenshot from '../components/Screenshot.astro'
       <div class="max-w-2xl">
         <p class="font-mono text-xs uppercase tracking-[0.2em] text-accent">預約 demo</p>
         <h2 class="mt-3 text-4xl font-semibold leading-tight text-white sm:text-5xl">
-          下一頓飯，<br class="hidden sm:block" />
-          交給 AI 廚房。
+          把第一條流程，<br class="hidden sm:block" />
+          交給 flowcook。
         </h2>
         <p class="mt-4 text-base text-white/80">
           告訴我們你手上有哪些流程，我們示範一條完整的 demo —— 從備料到上菜，30 分鐘看完。
@@ -226,7 +226,7 @@ import Screenshot from '../components/Screenshot.astro'
         <div class="mt-8 flex flex-wrap items-center gap-4">
           <a href="mailto:hello@flowcook.tw" class="btn-primary">寫信約 demo</a>
           <a href="/use-cases" class="text-sm font-medium text-white/90 underline-offset-4 hover:underline">
-            或先看一下主廚推薦菜單 →
+            或先看應用場景 →
           </a>
         </div>
       </div>

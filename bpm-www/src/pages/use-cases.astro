@@ -2,7 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro'
 
 const cases = [
-  { code: 'LEAVE',  title: '請假申請',        zh: '員工 → 主管 → HR',                  blurb: '最常見的入門流程。含天數計算、假別規則、HR 餘額顯示。' },
+  { code: 'LEAVE',  title: '請假申請',        zh: '員工 → 主管 → 人資',                  blurb: '最常見的入門流程。含天數計算、假別規則、人資 餘額顯示。' },
   { code: 'GEE',    title: '員工費用申請',    zh: '員工 → 主管 → 會計',                blurb: '多筆發票、貨幣換算、附件、金額分流核准。' },
   { code: 'GEV',    title: '廠商費用申請',    zh: '採購 → 財務 → 會計',                blurb: '多筆發票含合約勾稽、稅金合計、付款條件。' },
   { code: 'APE',    title: '預支費用',        zh: '員工 → 主管 → 會計 → 員工結算',     blurb: '出差預支、後期費用結算回沖。' },
@@ -10,24 +10,21 @@ const cases = [
   { code: 'ITPR',   title: 'IT 採購',         zh: '需求 → IT 規格 → IT 報價 → 採購',  blurb: '多階段 IT 採購，每階段不同表單。' },
   { code: 'TRQ',    title: '差旅申請',        zh: '員工 → 主管 → 行政',                blurb: '行程安排、接送需求、住宿、票務。' },
   { code: 'TEO',    title: '對外往來',        zh: '員工 → 主管 → 財務',                blurb: '對外請款、金額分流二人會簽。' },
-  { code: 'EXTOB',  title: '對外贈禮',        zh: '員工 → 主管 → HR 紀錄',             blurb: '對外饋贈、合規紀錄。' },
-  { code: 'RESIGN', title: '離職申請',        zh: '員工 → 主管 → HR → 各部門',         blurb: '多部門會簽、交接清單、設備回收。' },
-  { code: 'DEPTX',  title: '異動申請',        zh: '員工 → 主管 → HR',                  blurb: '部門 / 職位 / 主管異動。' },
+  { code: 'EXTOB',  title: '對外贈禮',        zh: '員工 → 主管 → 人資 紀錄',             blurb: '對外饋贈、合規紀錄。' },
+  { code: 'RESIGN', title: '離職申請',        zh: '員工 → 主管 → 人資 → 各部門',         blurb: '多部門會簽、交接清單、設備回收。' },
+  { code: 'DEPTX',  title: '異動申請',        zh: '員工 → 主管 → 人資',                  blurb: '部門 / 職位 / 主管異動。' },
 ]
 ---
-<BaseLayout title="主廚推薦 — flowcook">
+<BaseLayout title="應用場景 — flowcook">
   <section class="bg-header py-16 text-white sm:py-24">
     <div class="container-narrow max-w-3xl">
       <p class="font-mono text-xs uppercase tracking-[0.2em] text-accent">Use cases</p>
       <h1 class="mt-3 text-5xl font-semibold leading-tight text-white sm:text-6xl">
-        主廚推薦菜單
+        應用場景
       </h1>
       <p class="mt-6 text-lg leading-relaxed text-white/85">
-        合作夥伴從前公司帶回 10+ 個真實流程 —— 從 HR 到財務、從 IT 到行政。
-        每一道菜，我們都實際走過、做過、上桌過。
-      </p>
-      <p class="mt-3 text-sm text-white/60 italic">
-        TODO: 每張卡之後接 Phase D demo 之後 chef 產出的真實 form 截圖。
+        合作夥伴從前公司帶回十幾個真實流程 —— 從人資到財務、從 IT 到行政。
+        每一條流程，我們都實際走過、做過、上線過。
       </p>
     </div>
   </section>

@@ -4,15 +4,15 @@ import FeatureCard from '../components/FeatureCard.astro'
 import FeatureRow from '../components/FeatureRow.astro'
 import Screenshot from '../components/Screenshot.astro'
 ---
-<BaseLayout title="廚房工具 — flowcook">
+<BaseLayout title="功能 — flowcook">
   <section class="bg-header py-16 text-white sm:py-24">
     <div class="container-narrow max-w-3xl">
       <p class="font-mono text-xs uppercase tracking-[0.2em] text-accent">Features</p>
       <h1 class="mt-3 text-5xl font-semibold leading-tight text-white sm:text-6xl">
-        廚房工具
+        功能
       </h1>
       <p class="mt-6 text-lg leading-relaxed text-white/85">
-        AI Kitchen 跟主廚推薦頁已經介紹了「為什麼用」。這頁補充「用什麼做的」 ——
+        AI 廚房 跟 應用場景頁已經介紹了「為什麼用」。這頁補充「用什麼做的」 ——
         三大主題：業界標準技術、無痛驗收、合規即用。
       </p>
     </div>
@@ -34,15 +34,15 @@ import Screenshot from '../components/Screenshot.astro'
         <FeatureCard icon="🔌" name="OpenAPI" desc="對外整合用 OpenAPI 描述，匯入 swagger.json 就會自動產生 client。" />
         <FeatureCard icon="🔐" name="Entra ID" desc="原生對接微軟 Entra ID（Azure AD）—— SSO 跟組織同步零客製。" />
         <FeatureCard icon="📨" name="Email / Teams / Webhook" desc="通知走標準通道。Teams、Slack、自訂 webhook 都接得起來。" />
-        <FeatureCard icon="🗃" name="Postgres / SQL Server" desc="storage 走標準關聯式 DB。POC 跑 SQLite，正式環境一行 connection string 切換。" />
+        <FeatureCard icon="🗃" name="Postgres / SQL Server" desc="資料儲存走標準關聯式資料庫。試作期跑 SQLite，正式環境改一行連線設定即可切換。" />
       </div>
 
       <div class="mt-12">
         <Screenshot
           src="/screenshots/ai-kitchen.png"
-          alt="flowcook admin AI Kitchen — cooked flows 清單，全部 published"
-          label="flowcook · admin"
-          caption="AI Kitchen — spec 煮成真實的流程，上線即用"
+          alt="flowcook 後台 AI 廚房 — 已上線的流程清單"
+          label="flowcook · 後台"
+          caption="AI 廚房 — 規格煮成真實的流程，上線即用"
         />
       </div>
     </div>
@@ -52,26 +52,26 @@ import Screenshot from '../components/Screenshot.astro'
   <section class="bg-card py-16 sm:py-20">
     <div class="container-narrow max-w-4xl">
       <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">無痛驗收</p>
-      <h2 class="mt-3 text-4xl font-semibold leading-tight">Sandbox 即試吃</h2>
+      <h2 class="mt-3 text-4xl font-semibold leading-tight">試吃即驗收</h2>
       <p class="mt-4 text-base leading-relaxed text-ink/85">
-        傳統 BPM 上線最痛的不是寫 code，是 UAT —— 真實信箱不能寄、真實時間不能調、真實員工不能借來測。
-        Sandbox 把這些痛點全部包掉。
+        傳統流程系統上線最痛的不是寫程式，是驗收 —— 真實信箱不能寄、真實時間不能調、真實員工不能借來測。
+        試吃環境把這些痛點全部包掉。
       </p>
 
       <div class="mt-10 space-y-4">
-        <FeatureRow icon="📬" name="Mail Capture" desc="所有 outbound email 進入 sandbox mailbox，不會真的寄出。驗收員一邊跑流程、一邊在 admin 介面看「假信箱」收到什麼。" />
-        <FeatureRow icon="⏰" name="Clock Freeze" desc="假時鐘可以前進、後退、跳到任意時間點。測 SLA 24 小時到期？秒跳 24 小時看會發生什麼。" />
-        <FeatureRow icon="👥" name="Persona Switch" desc="一鍵切換員工 / 主管 / HR / 財務 身份，不用登入 5 個帳號。" />
-        <FeatureRow icon="🔄" name="State Reset" desc="把所有測試資料一鍵清掉重來。下個驗收員拿乾淨環境繼續。" />
-        <FeatureRow icon="🛑" name="Outbound Gate" desc="所有對外 API 呼叫進入 capture 模式 —— 不會真的打到 ERP、不會真的扣款。" />
+        <FeatureRow icon="📬" name="攔信" desc="所有對外信件進入假信箱，不會真的寄出。驗收員一邊跑流程、一邊在後台看「假信箱」收到什麼。" />
+        <FeatureRow icon="⏰" name="時間快轉" desc="假時鐘可以前進、後退、跳到任意時間點。測時限 24 小時到期？秒跳 24 小時看會發生什麼。" />
+        <FeatureRow icon="👥" name="身分切換" desc="一鍵切換員工 / 主管 / 人資 / 財務 身分，不用登入五個帳號。" />
+        <FeatureRow icon="🔄" name="一鍵重置" desc="把所有測試資料一鍵清掉重來。下個驗收員拿乾淨環境繼續。" />
+        <FeatureRow icon="🛑" name="對外攔截" desc="所有對外 API 呼叫進入攔截模式 —— 不會真的打到 ERP、不會真的扣款。" />
       </div>
 
       <div class="mt-12">
         <Screenshot
           src="/screenshots/sandbox-console.png"
           alt="flowcook admin Sandbox 主控台 — 時間快轉、persona 切換、攔信信箱、逐流程開關"
-          label="flowcook · admin"
-          caption="一個畫面跑完整 UAT — 不碰真實系統"
+          label="flowcook · 後台"
+          caption="一個畫面跑完整驗收 — 不碰真實系統"
         />
       </div>
     </div>
@@ -87,18 +87,18 @@ import Screenshot from '../components/Screenshot.astro'
       </p>
 
       <div class="mt-10 space-y-4">
-        <FeatureRow icon="📜" name="Append-Only Audit Trail" desc="每一筆送出、核准、駁回、撤回，全部 append-only 留痕。資料庫層面禁止 UPDATE/DELETE —— 改不了、刪不掉。" />
-        <FeatureRow icon="📊" name="Process Admin Dashboard" desc="所有 in-flight 流程實時可查 —— 卡在誰、卡多久、誰超 SLA。" />
-        <FeatureRow icon="🔍" name="Notification Audit" desc="每一則發出的 email、Teams、webhook 都留紀錄。誰收到、何時收到、收到什麼。" />
-        <FeatureRow icon="🛡" name="Role-based Access" desc="每個流程、每個動作的權限都跟組織 role 綁。離職員工 role 撤掉，自動失去存取。" />
+        <FeatureRow icon="📜" name="不可竄改稽核軌跡" desc="每一筆送出、核准、駁回、撤回，全部逐筆留痕。資料庫層面禁止修改、刪除 —— 改不了、刪不掉。" />
+        <FeatureRow icon="📊" name="流程監控台" desc="所有進行中的流程即時可查 —— 卡在誰、卡多久、誰超時限。" />
+        <FeatureRow icon="🔍" name="通知稽核" desc="每一則發出的 email、Teams、webhook 都留紀錄。誰收到、何時收到、收到什麼。" />
+        <FeatureRow icon="🛡" name="角色權限控管" desc="每個流程、每個動作的權限都跟組織角色綁。離職員工角色撤掉，自動失去存取。" />
       </div>
 
       <div class="mt-12">
         <Screenshot
           src="/screenshots/doctor.png"
           alt="flowcook admin Doctor — 卡關案件偵測與組織設定健檢"
-          label="flowcook · admin"
-          caption="Doctor — 卡關與設定問題主動偵測 + 一鍵補救"
+          label="flowcook · 後台"
+          caption="系統健檢 — 卡關與設定問題主動偵測 + 一鍵補救"
         />
       </div>
     </div>
@@ -108,7 +108,7 @@ import Screenshot from '../components/Screenshot.astro'
     <div class="container-narrow max-w-2xl">
       <h2 class="text-3xl font-semibold text-white">想知道更多技術細節？</h2>
       <p class="mt-4 text-base text-white/80">
-        我們有完整的 architecture 文件、實作 spec、合規對應表。預約 demo 時告訴我們你的 IT / 合規同事在意什麼，準備對應材料給你看。
+        我們有完整的架構文件、實作規格、合規對應表。預約 demo 時告訴我們你的 IT / 合規同事在意什麼，準備對應材料給你看。
       </p>
       <a href="mailto:hello@flowcook.tw" class="btn-primary mt-6">寫信約 demo</a>
     </div>

@@ -12,7 +12,7 @@ interface ComparisonRow {
 const rows: ComparisonRow[] = [
   {
     dimension: '上線速度',
-    flowcook: 'AI 從 spec 寫 code，第一條流程 1-2 週',
+    flowcook: 'AI 從規格寫程式，第一條流程 1-2 週',
     lowcode:  '拖拉式建模，2-4 週（但每條都重做）',
     custom:   '顧問接案，4-8 週起跳',
     inhouse:  '看內部資源，常常排不到',
@@ -25,37 +25,37 @@ const rows: ComparisonRow[] = [
     inhouse:  '只能 IT 工程師寫',
   },
   {
-    dimension: 'Code Ownership',
-    flowcook: '✓ 真實 React + .NET，code 是你的',
+    dimension: '程式擁有權',
+    flowcook: '✓ 真實 React + .NET，程式是你的',
     lowcode:  '✗ 平台私有檔案，搬不走',
     custom:   '✓ 顧問交付，但通常難讀',
     inhouse:  '✓ 自己寫的，自己懂',
   },
   {
     dimension: '修改成本',
-    flowcook: '改 spec 跟 AI 對話、chef 重寫 → diff review',
+    flowcook: '改規格跟 AI 對話、AI 主廚重寫 → 逐行審查',
     lowcode:  '回平台改，但欄位調整可能要重做',
     custom:   '叫顧問來，按工時計費',
     inhouse:  '看工程師排不排得到',
   },
   {
     dimension: '合規 / 稽核',
-    flowcook: '✓ Audit append-only、流程監控、稽核內建',
+    flowcook: '✓ 稽核不可竄改、流程監控、稽核內建',
     lowcode:  '看平台版本，常要加購',
     custom:   '每個顧問做法不同',
     inhouse:  '看寫的工程師有沒有想到',
   },
   {
-    dimension: 'UAT / 驗收',
-    flowcook: '✓ Sandbox 假信箱假時鐘，1 人完成',
+    dimension: '驗收測試',
+    flowcook: '✓ 試吃環境假信箱假時鐘，一人完成',
     lowcode:  '看平台支援，常需自建測試環境',
-    custom:   '走 client 自有 UAT，慢且風險',
+    custom:   '走客戶自有驗收，慢且風險',
     inhouse:  '看怎麼寫的',
   },
   {
     dimension: '組織整合',
     flowcook: '✓ Entra ID 原生對接，零客製',
-    lowcode:  '看平台 SSO 模組',
+    lowcode:  '看平台單一登入模組',
     custom:   '案子裡做',
     inhouse:  '案子裡做',
   },
@@ -116,7 +116,7 @@ const rows: ComparisonRow[] = [
   <section class="bg-card py-16">
     <div class="container-narrow max-w-3xl">
       <h2 class="text-3xl font-semibold leading-tight">
-        我們的 sweet spot：<br />
+        我們的甜蜜點：<br />
         <span class="text-primary">中小企業 50-300 人</span>，<br />
         想要客製靈活度，但不想養 5 人 IT。
       </h2>

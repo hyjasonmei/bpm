@@ -1,11 +1,11 @@
 ---
 const navItems = [
-  { href: '/how-it-works',  label: '一道菜的旅程' },
-  { href: '/use-cases',     label: '主廚推薦' },
-  { href: '/features',      label: '廚房工具' },
+  { href: '/how-it-works',  label: '運作方式' },
+  { href: '/use-cases',     label: '應用場景' },
+  { href: '/features',      label: '功能' },
   { href: '/why-flowcook',  label: '為什麼選我們' },
-  { href: '/pricing',       label: '點餐方式' },
-  { href: '/about',         label: '廚房介紹' },
+  { href: '/pricing',       label: '方案與定價' },
+  { href: '/about',         label: '關於' },
 ]
 
 const currentPath = Astro.url.pathname
@@ -14,7 +14,7 @@ const currentPath = Astro.url.pathname
   <div class="container-wide flex h-16 items-center justify-between">
     <a href="/" class="flex items-baseline gap-2">
       <span class="text-xl font-semibold tracking-tight text-white">flowcook</span>
-      <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-white/55">AI 廚房</span>
+      <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-white/55">企業流程平台</span>
     </a>
 
     <nav class="hidden items-center gap-7 md:flex">
