@@ -117,7 +117,7 @@ public sealed class LEAVE_V1_LeaveService(
         {
             var hrUserId = await ResolveFirstUserInRoleAsync("HR_MANAGER", ct);
             if (hrUserId == null)
-                throw new ConflictException("no user assigned to role:HR; cannot route HR archive");
+                throw new ConflictException("no user assigned to role:HR_MANAGER; cannot route HR archive");
             c.HrUserId = hrUserId;
             c.CurrentAssigneeUserId = hrUserId;
             c.Status = LEAVE_V1_CaseStatus.PendingHr;
@@ -179,7 +179,7 @@ public sealed class LEAVE_V1_LeaveService(
 
         var hrUserId = await ResolveFirstUserInRoleAsync("HR_MANAGER", ct);
         if (hrUserId == null)
-            throw new ConflictException("no user assigned to role:HR; cannot route HR archive");
+            throw new ConflictException("no user assigned to role:HR_MANAGER; cannot route HR archive");
         c.HrUserId = hrUserId;
         c.CurrentAssigneeUserId = hrUserId;
         c.Status = LEAVE_V1_CaseStatus.PendingHr;
