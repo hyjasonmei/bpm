@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { UserCheck, Loader2, X, Check } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import {
-  getMyDelegation, setMyDelegation, clearMyDelegation, getDelegationUsers,
+  getMyDelegation, setMyDelegation, clearMyDelegation, searchDelegationUsers,
   type MyDelegation, type DelegationUser,
 } from '@/lib/api/delegation'
 
@@ -19,8 +19,11 @@ function todayStr(offsetDays = 0): string {
 export function DelegationButton() {
   const [open, setOpen] = useState(false)
   const [current, setCurrent] = useState<MyDelegation | null>(null)
-  const [users, setUsers] = useState<DelegationUser[]>([])
+  const [results, setResults] = useState<DelegationUser[]>([])
   const [delegate, setDelegate] = useState('')
+  const [delegateLabel, setDelegateLabel] = useState('')
+  const [query, setQuery] = useState('')
+  const [searching, setSearching] = useState(false)
   const [start, setStart] = useState(todayStr())
   const [end, setEnd] = useState(todayStr(7))
   const [busy, setBusy] = useState(false)
@@ -31,14 +34,34 @@ export function DelegationButton() {
   useEffect(() => {
     if (!open) return
     setLoading(true); setErr(null)
-    Promise.all([getMyDelegation(), getDelegationUsers()])
-      .then(([cur, us]) => {
-        setCurrent(cur); setUsers(us)
-        if (cur) { setDelegate(cur.delegateUserId); setStart(cur.startAt.slice(0, 10)); setEnd(cur.endAt.slice(0, 10)) }
+    getMyDelegation()
+      .then(cur => {
+        setCurrent(cur)
+        if (cur) {
+          setDelegate(cur.delegateUserId)
+          setDelegateLabel(cur.delegateName ?? cur.delegateUserId)
+          setStart(cur.startAt.slice(0, 10)); setEnd(cur.endAt.slice(0, 10))
+        }
       })
       .catch(e => setErr(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
   }, [open])
+
+  // Server-side typeahead — query the directory (debounced) instead of loading
+  // every user, so the picker scales to thousands of people.
+  useEffect(() => {
+    const s = query.trim()
+    if (s === '') { setResults([]); setSearching(false); return }
+    setSearching(true)
+    let cancelled = false
+    const t = setTimeout(() => {
+      searchDelegationUsers(s)
+        .then(r => { if (!cancelled) setResults(r) })
+        .catch(() => { if (!cancelled) setResults([]) })
+        .finally(() => { if (!cancelled) setSearching(false) })
+    }, 250)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [query])
 
   useEffect(() => {
     if (!open) return
@@ -103,14 +126,41 @@ export function DelegationButton() {
                 </div>
               )}
 
-              <label className="block text-xs text-ink-muted">
+              <div className="text-xs text-ink-muted">
                 代理人
-                <select value={delegate} onChange={e => { setDelegate(e.target.value); setErr(null) }}
-                  className="mt-1 w-full rounded-md border border-rule bg-card px-2.5 py-1.5 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="">選擇帳號…</option>
-                  {users.map(u => <option key={u.userId} value={u.userId}>{u.name}{u.email ? ` · ${u.email}` : ''}</option>)}
-                </select>
-              </label>
+                {delegate ? (
+                  <div className="mt-1 flex items-center justify-between gap-2 rounded-md border border-rule bg-slate-50 px-2.5 py-1.5 text-sm text-ink">
+                    <span className="truncate">{delegateLabel}</span>
+                    <button onClick={() => { setDelegate(''); setDelegateLabel(''); setQuery('') }}
+                      className="shrink-0 text-ink-faint hover:text-rose-600" title="更換"><X className="h-3.5 w-3.5" /></button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      value={query}
+                      onChange={e => { setQuery(e.target.value); setErr(null) }}
+                      placeholder="搜尋姓名或 email…"
+                      className="mt-1 w-full rounded-md border border-rule bg-card px-2.5 py-1.5 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    {query.trim() !== '' && (
+                      <div className="absolute z-10 mt-1 max-h-44 w-full overflow-auto rounded-md border border-rule bg-card shadow-lg">
+                        {searching ? (
+                          <div className="px-3 py-2 text-xs text-ink-faint"><Loader2 className="inline h-3 w-3 animate-spin" /> 搜尋中…</div>
+                        ) : results.length === 0 ? (
+                          <div className="px-3 py-2 text-xs text-ink-faint">找不到符合的人</div>
+                        ) : results.map(u => (
+                          <button key={u.userId} type="button"
+                            onClick={() => { setDelegate(u.userId); setDelegateLabel(`${u.name}${u.email ? ` · ${u.email}` : ''}`); setQuery('') }}
+                            className="flex w-full flex-col items-start px-3 py-1.5 text-left hover:bg-slate-50">
+                            <span className="text-sm text-ink">{u.name}</span>
+                            {u.email && <span className="text-[11px] text-ink-faint">{u.email}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <div className="flex gap-2">
                 <label className="flex-1 text-xs text-ink-muted">起<input type="date" value={start} onChange={e => setStart(e.target.value)}

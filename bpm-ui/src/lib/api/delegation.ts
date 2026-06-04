@@ -44,4 +44,8 @@ export async function clearMyDelegation(): Promise<void> {
 }
 
 export const getActingFor = () => apiFetch('/api/delegation/acting-for').then(r => jsonOrThrow<string[]>(r))
-export const getDelegationUsers = () => apiFetch('/api/delegation/users').then(r => jsonOrThrow<DelegationUser[]>(r))
+
+/** Server-side typeahead — pass the query so the client never fetches the full
+ *  directory (scales to thousands of users). Returns up to 20 matches. */
+export const searchDelegationUsers = (q: string) =>
+  apiFetch(`/api/delegation/users?q=${encodeURIComponent(q)}`).then(r => jsonOrThrow<DelegationUser[]>(r))

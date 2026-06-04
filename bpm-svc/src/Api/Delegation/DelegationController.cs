@@ -90,13 +90,29 @@ public sealed class DelegationController(AppDbContext db, IDelegationService del
     public async Task<IReadOnlyList<Guid>> ActingFor(CancellationToken ct)
         => await delegation.GetActiveDelegatorsAsync(RequireUserId(), clock.UtcNow, ct);
 
+    /// <summary>
+    /// Server-side typeahead for the delegate picker — scales to thousands of
+    /// users since the client never fetches the full directory. Filters by name
+    /// or email substring (LIKE; portable SQLite/Postgres), returns the top
+    /// <paramref name="limit"/> matches. (For very large directories swap the
+    /// LIKE for the ISearchService FTS path per the DB conventions.)
+    /// </summary>
     [HttpGet("users")]
-    public async Task<IReadOnlyList<DelegationUserDto>> Users(CancellationToken ct)
+    public async Task<IReadOnlyList<DelegationUserDto>> Users([FromQuery] string? q, [FromQuery] int limit = 20, CancellationToken ct = default)
     {
         var me = RequireUserId();
-        return await db.SharedPrincipals.AsNoTracking()
-            .Where(p => p.Type == SharedPrincipalType.User && p.Active && p.DeletedAt == null && p.Id != me)
-            .OrderBy(p => p.DisplayName).Take(300)
+        limit = Math.Clamp(limit, 1, 50);
+
+        var query = db.SharedPrincipals.AsNoTracking()
+            .Where(p => p.Type == SharedPrincipalType.User && p.Active && p.DeletedAt == null && p.Id != me);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var s = q.Trim();
+            query = query.Where(p =>
+                EF.Functions.Like(p.DisplayName, "%" + s + "%") ||
+                (p.Email != null && EF.Functions.Like(p.Email, "%" + s + "%")));
+        }
+        return await query.OrderBy(p => p.DisplayName).Take(limit)
             .Select(p => new DelegationUserDto(p.Id, p.DisplayName, p.Email)).ToListAsync(ct);
     }
 }
