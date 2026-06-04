@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Check, Loader2, RotateCcw, X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { ApiError } from '@/flowcook/api'
+import { useAuth } from '@/flowcook/auth/useAuth'
 import { factoryWipeRuntime, reregisterFlows, reseedIdentity } from '@/flowcook/api/reset'
 
 type StepState = 'idle' | 'running' | 'done' | 'error'
@@ -16,12 +17,16 @@ const INITIAL_STEPS: Step[] = [
 ]
 
 export function ResetTab() {
+  const { logout } = useAuth()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [phrase, setPhrase] = useState('')
   const [running, setRunning] = useState(false)
   const [steps, setSteps] = useState<Step[]>(INITIAL_STEPS)
   const [summary, setSummary] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const logoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (logoutTimer.current) clearTimeout(logoutTimer.current) }, [])
 
   function setStep(key: string, state: StepState, detail?: string) {
     setSteps((prev) => prev.map((s) => (s.key === key ? { ...s, state, detail } : s)))
@@ -46,7 +51,12 @@ export function ResetTab() {
       const flows = await reregisterFlows()
       setStep('flows', 'done', `${flows.registered.length} 流程已發布`)
 
-      setSummary('Demo 環境已重置回 seed 初始狀態。')
+      // Identity was rebuilt — every user (including the signed-in admin) has a
+      // fresh id and the session table was cleared, so the current cookie is
+      // now dead. Log out gracefully to the login page (demo creds prefilled)
+      // instead of leaving a zombie session that 401s on the next click.
+      setSummary('Demo 環境已重置回 seed 初始狀態。身分已重建，3 秒後回到登入頁…')
+      logoutTimer.current = setTimeout(() => { void logout() }, 3000)
     } catch (e) {
       const msg = e instanceof ApiError ? `HTTP ${e.status}: ${e.body}` : e instanceof Error ? e.message : '未知錯誤'
       setSteps((prev) => prev.map((s) => (s.state === 'running' ? { ...s, state: 'error', detail: msg } : s)))
