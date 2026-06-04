@@ -1,0 +1,5 @@
+[
+  "current_approver",
+  "expr:submitter.manager",
+  "self"
+]

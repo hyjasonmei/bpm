@@ -15,6 +15,8 @@ public class FlowConfiguration : IEntityTypeConfiguration<Flow>
         builder.Property(x => x.DisplayName).IsRequired().HasMaxLength(200);
         builder.Property(x => x.SpecJson).IsRequired();
         builder.Property(x => x.State).HasConversion<int>();
+        builder.Property(x => x.IconKey).HasMaxLength(64);
+        builder.Property(x => x.DisplayOrder).HasDefaultValue(0);
 
         builder.HasIndex(x => x.LineageId);
         builder.HasIndex(x => new { x.LineageId, x.Version }).IsUnique();

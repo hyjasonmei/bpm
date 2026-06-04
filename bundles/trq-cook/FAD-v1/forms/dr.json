@@ -1,0 +1,63 @@
+{
+  "id": "dr",
+  "fields": [
+    {
+      "id": "disposalReason",
+      "label": {
+        "zh-TW": "\u5831\u5EE2\u539F\u56E0 Disposal Reason"
+      },
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "value": "\u640D\u58DE\u5831\u5EE2 Damaged",
+          "label": "\u640D\u58DE\u5831\u5EE2 Damaged"
+        },
+        {
+          "value": "\u8001\u820A\u5831\u5EE2 Obsolete",
+          "label": "\u8001\u820A\u5831\u5EE2 Obsolete"
+        },
+        {
+          "value": "\u907A\u5931\u5831\u5EE2 Lost",
+          "label": "\u907A\u5931\u5831\u5EE2 Lost"
+        }
+      ]
+    },
+    {
+      "id": "assetId",
+      "label": {
+        "zh-TW": "\u8CC7\u7522\u7DE8\u865F Asset ID"
+      },
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "assetName",
+      "label": {
+        "zh-TW": "\u8CC7\u7522\u540D\u7A31 Asset Name"
+      },
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "description",
+      "label": {
+        "zh-TW": "\u8AAA\u660E Description"
+      },
+      "type": "textarea",
+      "required": false
+    },
+    {
+      "id": "photo",
+      "label": {
+        "zh-TW": "\u7167\u7247 Photo"
+      },
+      "type": "file",
+      "required": false
+    }
+  ],
+  "permissions": {
+    "submitter": "self",
+    "viewers": []
+  }
+}

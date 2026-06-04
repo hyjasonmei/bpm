@@ -1,0 +1,83 @@
+{
+  "bundleSchemaVersion": 1,
+  "flowCode": "PURCHASE_REQUEST",
+  "flowVersion": 1,
+  "exportedAt": "2026-06-01T06:53:35.6366802+00:00",
+  "sourceInstanceId": "flow:52ab41e6-82b2-4977-984b-6eaa88b10749",
+  "parent": null,
+  "files": [
+    {
+      "path": "spec.json",
+      "sha256": "F1F5408A7C000EBE6296524523212D8DCF37D7474187FAF79454DF6A6784C05D",
+      "sizeBytes": 6837,
+      "kind": "spec"
+    },
+    {
+      "path": "bpmn.xml",
+      "sha256": "683C578A895F93626EE66018E95F4EB1529C9F7C2367040306F8BFC27AAB1BFE",
+      "sizeBytes": 7657,
+      "kind": "bpmnXml"
+    },
+    {
+      "path": "spec.md",
+      "sha256": "450207451DDA9014577CA1BAB40ADEF513BB2BDCB8E3CD1B7AB1218E50E857A4",
+      "sizeBytes": 968,
+      "kind": "specMd"
+    },
+    {
+      "path": "README.md",
+      "sha256": "D57952587E08150486CEE887229C075D32FD886471CEEF110FDA52A1CEF54D57",
+      "sizeBytes": 372,
+      "kind": "readme"
+    },
+    {
+      "path": "walkthrough.md",
+      "sha256": "F4E3B03D7D97A542E064C46C0FE4D3F2E3B68D341C085A01996EC4A05AC72E78",
+      "sizeBytes": 724,
+      "kind": "walkthrough"
+    },
+    {
+      "path": "forms/task_fill.json",
+      "sha256": "624A1A79A4880861C220C0B7AAD50AAD9463F95DB8683CDEB668EDA602F208C0",
+      "sizeBytes": 283,
+      "kind": "form"
+    },
+    {
+      "path": "notifications/notify_qkje.json",
+      "sha256": "95A6961DF625659A3E9FA6BDA431C24206706B4E8E94FDEC92C9512AA4B0AD0B",
+      "sizeBytes": 578,
+      "kind": "notification"
+    },
+    {
+      "path": "notifications/notify_qs19.json",
+      "sha256": "E1E22EFD357F500E84A3B6D8D86320B78C0F86AE42D4AD45F052C5002851A887",
+      "sizeBytes": 575,
+      "kind": "notification"
+    },
+    {
+      "path": "sla.json",
+      "sha256": "09F4969F2CE9440AAE1048F18C8787FC6BAEE9B280D470856794DF4DA1C76010",
+      "sizeBytes": 21,
+      "kind": "sla"
+    },
+    {
+      "path": "actors.json",
+      "sha256": "9E1AFA37378188574C2E8A25C58B163C7F21AB0A4F483156FC3889FBABEC098C",
+      "sizeBytes": 67,
+      "kind": "actors"
+    },
+    {
+      "path": "sample-org.json",
+      "sha256": "7C96871EB9AE9818187D761FFE1AC6062D773D1FF0ED9E9F80A3D1217C7B2BF3",
+      "sizeBytes": 1563,
+      "kind": "sampleOrg"
+    },
+    {
+      "path": "test-cases/placeholder-happy.json",
+      "sha256": "7BD84C9F47280D34366A982A4232DAF3A37888213D994082A36D24B094768945",
+      "sizeBytes": 237,
+      "kind": "testCase"
+    }
+  ],
+  "flowId": "52ab41e6-82b2-4977-984b-6eaa88b10749"
+}

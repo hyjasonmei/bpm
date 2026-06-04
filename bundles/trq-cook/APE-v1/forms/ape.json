@@ -1,0 +1,85 @@
+{
+  "id": "ape",
+  "fields": [
+    {
+      "id": "expectReceiveDate",
+      "label": {
+        "zh-TW": "\u9810\u8A08\u9818\u6B3E\u65E5 Expect to Receive"
+      },
+      "type": "date",
+      "required": true
+    },
+    {
+      "id": "deductReturnDate",
+      "label": {
+        "zh-TW": "\u6C96\u9084\u65E5 Deduct/Return Date"
+      },
+      "type": "date",
+      "required": true
+    },
+    {
+      "id": "chargeDepartment",
+      "label": {
+        "zh-TW": "\u8CBB\u7528\u90E8\u9580 Charge Department"
+      },
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "rechargeOutside",
+      "label": {
+        "zh-TW": "\u8F49\u5AC1\u6D77\u5916 Recharge Outside"
+      },
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "Yes",
+          "label": "Yes"
+        },
+        {
+          "value": "No",
+          "label": "No"
+        }
+      ]
+    },
+    {
+      "id": "description",
+      "label": {
+        "zh-TW": "\u8AAA\u660E Description"
+      },
+      "type": "textarea",
+      "required": true
+    },
+    {
+      "id": "amount",
+      "label": {
+        "zh-TW": "\u91D1\u984D Amount"
+      },
+      "type": "number",
+      "required": true
+    },
+    {
+      "id": "currency",
+      "label": {
+        "zh-TW": "\u5E63\u5225 Currency"
+      },
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "value": "NTD",
+          "label": "NTD"
+        },
+        {
+          "value": "USD",
+          "label": "USD"
+        }
+      ]
+    }
+  ],
+  "permissions": {
+    "submitter": "self",
+    "viewers": []
+  }
+}

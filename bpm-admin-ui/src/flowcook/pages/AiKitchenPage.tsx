@@ -9,7 +9,6 @@ import {
   PackagePlus,
   RefreshCw,
   Save,
-  Sparkles,
   Trash2,
   Undo2,
   X,
@@ -44,6 +43,7 @@ import { FolderPlus, GitBranch, Tag } from 'lucide-react'
 import { parseChefWorkContext } from '@/flowcook/api/flows'
 import { CookPanel } from './aiKitchen/CookPanel'
 import { ServePanel } from './aiKitchen/ServePanel'
+import { LauncherPreviewPanel } from './aiKitchen/LauncherPreviewPanel'
 
 export function AiKitchenPage() {
   // Nested routes under /ai-kitchen:
@@ -447,34 +447,8 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
         )}
       </section>
 
-      <aside className="col-span-4 flex min-h-0 flex-col gap-4">
-        <div className="rounded-lg border border-rule bg-card p-5 shadow-sm">
-          <div className="mb-2 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-accent" />
-            <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
-              kitchen brief
-            </span>
-          </div>
-          <h3 className="text-sm font-semibold text-ink">How AI Kitchen works</h3>
-          <ol className="mt-3 space-y-2 text-xs text-ink-muted">
-            <li><span className="font-semibold text-ink">1. Source — </span>upload an image, BPMN, or start from a preset / blank.</li>
-            <li><span className="font-semibold text-ink">2. Iterate — </span>chat with the assistant or edit the canvas directly. Either side updates the same draft.</li>
-            <li><span className="font-semibold text-ink">3. Author — </span>flesh out forms, decisions, approvers, notifications, SLA.</li>
-            <li><span className="font-semibold text-ink">4. Verify — </span>run sandbox test cases.</li>
-            <li><span className="font-semibold text-ink">5. Ship — </span>Submit hands the draft to chef. Export a portable <code className="font-mono text-[11px]">.zip</code> bundle on Step 9 if you want a snapshot.</li>
-          </ol>
-        </div>
-
-        <div className="rounded-lg border border-dashed border-rule bg-bg/50 p-5">
-          <div className="mb-2 font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
-            phase status
-          </div>
-          <p className="text-xs leading-relaxed text-ink-muted">
-            Drafts now auto-save to admin-svc as you edit. Click a row to
-            resume an existing draft. Submit moves it into chef's queue
-            (state = submitted); chef-side handlers land in step 7.
-          </p>
-        </div>
+      <aside className="col-span-4 flex min-h-0 flex-col">
+        <LauncherPreviewPanel flows={flows} groups={groups} onChanged={refresh} />
       </aside>
 
       {creating && (

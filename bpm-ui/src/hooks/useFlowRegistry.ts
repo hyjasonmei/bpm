@@ -9,6 +9,10 @@ export interface FlowRegistryEntry {
   state: 'Draft' | 'Submitted' | 'Cooking' | 'OnHold' | 'Committed' | 'Approved' | 'Rejected' | 'Retired' | string
   displayName: string
   updatedAt: string
+  /** Per-flow curated lucide icon name for the launcher tile, null = default. */
+  iconKey: string | null
+  /** Per-flow launcher sort weight within its group (low → high; ties on flowCode). */
+  displayOrder: number
   // PR-G3: launcher group metadata, null when unassigned (or the
   // assigned group was soft-deleted on the admin side).
   groupCode: string | null

@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="PURCHASE_REQUEST_def"
+                  targetNamespace="https://bpm.acme.example">
+  <bpmn:process id="PURCHASE_REQUEST" isExecutable="true">
+    <bpmn:startEvent id="start_1" name="開始">
+      <bpmn:outgoing>e1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="task_fill" name="填寫採購申請">
+      <bpmn:incoming>e1</bpmn:incoming>
+      <bpmn:incoming>e5</bpmn:incoming>
+      <bpmn:incoming>e8</bpmn:incoming>
+      <bpmn:outgoing>e2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="approval_supervisor" name="主管審核">
+      <bpmn:incoming>e2</bpmn:incoming>
+      <bpmn:outgoing>e3</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="gateway_supervisor" name="主管審核結果">
+      <bpmn:incoming>e3</bpmn:incoming>
+      <bpmn:outgoing>e4</bpmn:outgoing>
+      <bpmn:outgoing>e5</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="approval_procurement" name="採購審定">
+      <bpmn:incoming>e4</bpmn:incoming>
+      <bpmn:outgoing>e6</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="gateway_procurement" name="採購審定結果">
+      <bpmn:incoming>e6</bpmn:incoming>
+      <bpmn:outgoing>e7</bpmn:outgoing>
+      <bpmn:outgoing>e8</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="approval_sign" name="簽核">
+      <bpmn:incoming>e7</bpmn:incoming>
+      <bpmn:outgoing>e9</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="end_1" name="結束">
+      <bpmn:incoming>e9</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="e1" sourceRef="start_1" targetRef="task_fill">
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="e2" sourceRef="task_fill" targetRef="approval_supervisor">
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="e3" sourceRef="approval_supervisor" targetRef="gateway_supervisor">
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="e4" sourceRef="gateway_supervisor" targetRef="approval_procurement" name="核准">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">approved</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="e5" sourceRef="gateway_supervisor" targetRef="task_fill" name="退回重填">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">rejected</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="e6" sourceRef="approval_procurement" targetRef="gateway_procurement">
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="e7" sourceRef="gateway_procurement" targetRef="approval_sign" name="核准">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">approved</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="e8" sourceRef="gateway_procurement" targetRef="task_fill" name="退回重填">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">rejected</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="e9" sourceRef="approval_sign" targetRef="end_1">
+    </bpmn:sequenceFlow>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="diagram_1">
+    <bpmndi:BPMNPlane id="plane_1" bpmnElement="PURCHASE_REQUEST">
+      <bpmndi:BPMNShape id="start_1_di" bpmnElement="start_1">
+        <dc:Bounds x="644" y="145" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="task_fill_di" bpmnElement="task_fill">
+        <dc:Bounds x="750" y="50" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="approval_supervisor_di" bpmnElement="approval_supervisor">
+        <dc:Bounds x="920" y="12" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="gateway_supervisor_di" bpmnElement="gateway_supervisor" isMarkerVisible="true">
+        <dc:Bounds x="12" y="136" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="12" y="136" width="92" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="approval_procurement_di" bpmnElement="approval_procurement">
+        <dc:Bounds x="284" y="134" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="gateway_procurement_di" bpmnElement="gateway_procurement" isMarkerVisible="true">
+        <dc:Bounds x="454" y="149" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="454" y="149" width="92" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="approval_sign_di" bpmnElement="approval_sign">
+        <dc:Bounds x="750" y="181" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_1_di" bpmnElement="end_1">
+        <dc:Bounds x="920" y="203" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="e1_di" bpmnElement="e1">
+        <di:waypoint x="680" y="163" />
+        <di:waypoint x="710" y="163" />
+        <di:waypoint x="710" y="110" />
+        <di:waypoint x="750" y="110" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e2_di" bpmnElement="e2">
+        <di:waypoint x="850" y="90" />
+        <di:waypoint x="880" y="90" />
+        <di:waypoint x="880" y="65" />
+        <di:waypoint x="920" y="65" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e3_di" bpmnElement="e3">
+        <di:waypoint x="920" y="39" />
+        <di:waypoint x="134" y="39" />
+        <di:waypoint x="134" y="149" />
+        <di:waypoint x="62" y="149" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e4_di" bpmnElement="e4">
+        <di:waypoint x="62" y="174" />
+        <di:waypoint x="284" y="174" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="174" y="183" width="40" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e5_di" bpmnElement="e5">
+        <di:waypoint x="62" y="161" />
+        <di:waypoint x="144" y="161" />
+        <di:waypoint x="144" y="70" />
+        <di:waypoint x="750" y="70" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="302" y="79" width="64" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e6_di" bpmnElement="e6">
+        <di:waypoint x="384" y="174" />
+        <di:waypoint x="454" y="174" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e7_di" bpmnElement="e7">
+        <di:waypoint x="504" y="182" />
+        <di:waypoint x="576" y="182" />
+        <di:waypoint x="576" y="221" />
+        <di:waypoint x="750" y="221" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="628" y="230" width="40" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e8_di" bpmnElement="e8">
+        <di:waypoint x="504" y="166" />
+        <di:waypoint x="576" y="166" />
+        <di:waypoint x="576" y="81" />
+        <di:waypoint x="710" y="81" />
+        <di:waypoint x="710" y="90" />
+        <di:waypoint x="750" y="90" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="616" y="90" width="64" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e9_di" bpmnElement="e9">
+        <di:waypoint x="850" y="221" />
+        <di:waypoint x="920" y="221" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

@@ -1,0 +1,28 @@
+{
+  "id": "notify_qs19",
+  "trigger": {
+    "kind": "event",
+    "event": "on_reject"
+  },
+  "channel": [
+    "email",
+    "in_app"
+  ],
+  "recipients": [
+    {
+      "type": "submitter"
+    }
+  ],
+  "template": {
+    "subject": {
+      "zh-TW": "\u3010\u88AB\u99C1\u56DE\u3011\u60A8\u7684\u7533\u8ACB\u9700\u4FEE\u6539"
+    },
+    "body": {
+      "zh-TW": "\u99C1\u56DE\u539F\u56E0\uFF1A{{rejectReason}}\n\u8ACB\u4FEE\u6B63\u5F8C\u91CD\u65B0\u9001\u4EF6\uFF1A{{caseUrl}}"
+    },
+    "variables": [
+      "rejectReason",
+      "caseUrl"
+    ]
+  }
+}

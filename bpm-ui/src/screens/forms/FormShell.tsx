@@ -39,7 +39,9 @@ export function FormShell({
   const [bpmnOpen, setBpmnOpen] = useState(false)
 
   return (
-    <div className="space-y-4">
+    // pb-24 leaves clearance for the viewport-fixed ActionFooter that
+    // create-mode forms render as their submit bar (portaled to <body>).
+    <div className="space-y-4 pb-24">
       {/* Stepper bar — sits below the global header's form sub-header */}
       <SectionCard className="!p-0">
         <div className="flex items-center justify-between border-b border-rule bg-slate-50 px-4 py-2">

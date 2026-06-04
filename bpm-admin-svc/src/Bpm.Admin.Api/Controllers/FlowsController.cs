@@ -53,6 +53,7 @@ public class FlowsController : ControllerBase
                 f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt,
                 f.GroupId,
                 f.GroupId == null ? null : _db.FlowGroups.Where(g => g.Id == f.GroupId).Select(g => g.Code).FirstOrDefault(),
+                f.IconKey, f.DisplayOrder,
                 f.ChefWorkContextJson))
             .ToListAsync(ct);
         return Ok(rows);
@@ -360,7 +361,32 @@ public class FlowsController : ControllerBase
         return new(
             f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.SpecJson, f.Notes,
             f.CreatedByUserId, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt,
-            f.GroupId, groupCode, f.ChefWorkContextJson);
+            f.GroupId, groupCode, f.IconKey, f.DisplayOrder, f.ChefWorkContextJson);
+    }
+
+    /// <summary>Set or clear (<c>{ "iconKey": null }</c>) the launcher
+    /// icon. Curated lucide name; display metadata only.</summary>
+    [HttpPost("{id:guid}/icon")]
+    public async Task<ActionResult<FlowDetailDto>> SetIcon(
+        Guid id,
+        [FromBody] SetFlowIconRequest req,
+        CancellationToken ct)
+    {
+        try
+        {
+            var flow = await _lifecycle.SetIconAsync(id, req.IconKey, CurrentUserId(), ct);
+            return Ok(ToDetail(flow));
+        }
+        catch (FlowLifecycleException ex) { return Conflict(ex.Message); }
+    }
+
+    /// <summary>Drag-to-reorder: body carries flow ids in display order;
+    /// each row's <c>DisplayOrder</c> is set to its index.</summary>
+    [HttpPost("reorder")]
+    public async Task<IActionResult> Reorder([FromBody] ReorderFlowsRequest req, CancellationToken ct)
+    {
+        await _lifecycle.ReorderAsync(req.FlowIds ?? Array.Empty<Guid>(), CurrentUserId(), ct);
+        return NoContent();
     }
 
     /// <summary>Set or clear the flow's launcher group. Empty body /

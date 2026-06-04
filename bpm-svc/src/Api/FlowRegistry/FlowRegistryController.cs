@@ -47,6 +47,7 @@ public sealed class FlowRegistryController : BpmControllerBase
             .Select(f => new
             {
                 f.FlowCode, f.Version, f.State, f.DisplayName, f.UpdatedAt, f.GroupId,
+                f.IconKey, f.DisplayOrder,
                 Group = f.GroupId == null
                     ? null
                     : _db.SharedFlowGroups
@@ -58,6 +59,7 @@ public sealed class FlowRegistryController : BpmControllerBase
 
         var result = rows.Select(r => new FlowRegistryEntry(
             r.FlowCode, r.Version, r.State.ToString(), r.DisplayName, r.UpdatedAt,
+            r.IconKey, r.DisplayOrder,
             r.Group?.Code,
             r.Group is null ? null : ParseDisplayName(r.Group.DisplayNameJson),
             r.Group?.Icon,
@@ -84,6 +86,8 @@ public sealed record FlowRegistryEntry(
     string State,
     string DisplayName,
     DateTime UpdatedAt,
+    string? IconKey,
+    int DisplayOrder,
     string? GroupCode,
     IReadOnlyDictionary<string, string>? GroupDisplayName,
     string? GroupIcon,

@@ -1,0 +1,27 @@
+{
+  "id": "ho",
+  "fields": [
+    {
+      "id": "outstandingPayment",
+      "label": {
+        "zh-TW": "\u6B20\u6B3E Outstanding Payment"
+      },
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "Yes",
+          "label": "Yes"
+        },
+        {
+          "value": "No",
+          "label": "No"
+        }
+      ]
+    }
+  ],
+  "permissions": {
+    "submitter": "self",
+    "viewers": []
+  }
+}

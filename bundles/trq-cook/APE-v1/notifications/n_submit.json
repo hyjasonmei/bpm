@@ -1,0 +1,25 @@
+{
+  "id": "n_submit",
+  "trigger": {
+    "kind": "event",
+    "event": "on_submit"
+  },
+  "channel": [
+    "email",
+    "in_app"
+  ],
+  "recipients": [
+    {
+      "type": "current_approver"
+    }
+  ],
+  "template": {
+    "subject": {
+      "zh-TW": "Cash in Advance \u9810\u652F\u73FE\u91D1 \u2014 \u5F85\u5BE9\u6838"
+    },
+    "body": {
+      "zh-TW": "\u60A8\u6709\u4E00\u7B46 Cash in Advance \u9810\u652F\u73FE\u91D1 \u5F85\u8655\u7406"
+    },
+    "variables": []
+  }
+}

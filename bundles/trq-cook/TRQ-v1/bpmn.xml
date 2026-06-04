@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="def_TRQ" targetNamespace="http://flowcook/TRQ">
+  <bpmn:process id="TRQ" isExecutable="true">
+    <bpmn:startEvent id="s" name="出差意象"/>
+    <bpmn:userTask id="req" name="申請單 Travel Request"/>
+    <bpmn:userTask id="ap" name="簽核流程 Approval"/>
+    <bpmn:endEvent id="e" name="結案"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="s" targetRef="req"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="req" targetRef="ap"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="ap" targetRef="e" name="Pass"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="ap" targetRef="req" name="Reject"/>
+  </bpmn:process>
+</bpmn:definitions>

@@ -1,0 +1,63 @@
+{
+  "id": "pr",
+  "fields": [
+    {
+      "id": "shippingLocation",
+      "label": {
+        "zh-TW": "\u6536\u8CA8\u5730\u9EDE Shipping Location"
+      },
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "chargeTo",
+      "label": {
+        "zh-TW": "\u8CBB\u7528\u6B78\u5C6C Charge To"
+      },
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "purpose",
+      "label": {
+        "zh-TW": "\u7528\u9014 Purpose"
+      },
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "value": "New",
+          "label": "New"
+        },
+        {
+          "value": "Replacement",
+          "label": "Replacement"
+        },
+        {
+          "value": "Project",
+          "label": "Project"
+        }
+      ]
+    },
+    {
+      "id": "expectedDate",
+      "label": {
+        "zh-TW": "\u671F\u671B\u65E5 Expected Date"
+      },
+      "type": "date",
+      "required": false
+    },
+    {
+      "id": "note",
+      "label": {
+        "zh-TW": "\u5099\u8A3B Note"
+      },
+      "type": "textarea",
+      "required": false
+    }
+  ],
+  "permissions": {
+    "submitter": "self",
+    "viewers": []
+  }
+}

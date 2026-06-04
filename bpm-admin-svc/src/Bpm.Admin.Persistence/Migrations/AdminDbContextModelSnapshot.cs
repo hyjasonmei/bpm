@@ -277,12 +277,21 @@ namespace Bpm.Admin.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("DisplayOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("FlowCode")
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("GroupId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IconKey")
+                        .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("LastChefHeartbeatAt")

@@ -1,0 +1,73 @@
+{
+  "id": "req",
+  "fields": [
+    {
+      "id": "employeeName",
+      "label": {
+        "zh-TW": "\u54E1\u5DE5\u59D3\u540D Employee Name"
+      },
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "employeeId",
+      "label": {
+        "zh-TW": "\u54E1\u5DE5\u7DE8\u865F Employee ID"
+      },
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "lastWorkingDate",
+      "label": {
+        "zh-TW": "\u6700\u5F8C\u5DE5\u4F5C\u65E5 Last Working Date"
+      },
+      "type": "date",
+      "required": true
+    },
+    {
+      "id": "reason",
+      "label": {
+        "zh-TW": "\u96E2\u8077\u539F\u56E0 Reason"
+      },
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "value": "Resignation",
+          "label": "Resignation"
+        },
+        {
+          "value": "Retirement",
+          "label": "Retirement"
+        },
+        {
+          "value": "Termination",
+          "label": "Termination"
+        }
+      ]
+    },
+    {
+      "id": "provideCertificate",
+      "label": {
+        "zh-TW": "\u63D0\u4F9B\u96E2\u8077\u8B49\u660E Provide Certificate"
+      },
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "Yes",
+          "label": "Yes"
+        },
+        {
+          "value": "No",
+          "label": "No"
+        }
+      ]
+    }
+  ],
+  "permissions": {
+    "submitter": "self",
+    "viewers": []
+  }
+}

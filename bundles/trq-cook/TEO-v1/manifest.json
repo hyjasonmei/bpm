@@ -1,0 +1,77 @@
+{
+  "bundleSchemaVersion": 1,
+  "flowCode": "TEO",
+  "flowVersion": 1,
+  "exportedAt": "2026-06-01T07:36:59.2975489+00:00",
+  "sourceInstanceId": "flow:ef9a09e1-b364-481a-a368-89940bc7fce9",
+  "parent": null,
+  "files": [
+    {
+      "path": "spec.json",
+      "sha256": "0BAEBF01A6687A3E3D77AEE84FA716F070A38B89C0897FE8A786329304D67D2F",
+      "sizeBytes": 4933,
+      "kind": "spec"
+    },
+    {
+      "path": "bpmn.xml",
+      "sha256": "E8A5441546595BC976AE9F4D5A0864D4185AD59F67D1C26607AC50E524B26D0A",
+      "sizeBytes": 876,
+      "kind": "bpmnXml"
+    },
+    {
+      "path": "spec.md",
+      "sha256": "214037DD6F52010949C35665741B11FBD8DC26F07252BD0988578F0753D286DF",
+      "sizeBytes": 548,
+      "kind": "specMd"
+    },
+    {
+      "path": "README.md",
+      "sha256": "D89040779A61A4A47D0424BFBB9FCEAA60FE3AC5A18ADA8E42E472928C6B8303",
+      "sizeBytes": 389,
+      "kind": "readme"
+    },
+    {
+      "path": "walkthrough.md",
+      "sha256": "2893BD915858B59AD06EF75E2BB43BD915DFD555F8403316555273F8930AF115",
+      "sizeBytes": 416,
+      "kind": "walkthrough"
+    },
+    {
+      "path": "forms/exp.json",
+      "sha256": "2DDA5CF35EAF4CFFAD8C59D2BE77DE536F6FDF9E3A9D704F8D0C7383AB73B933",
+      "sizeBytes": 314,
+      "kind": "form"
+    },
+    {
+      "path": "notifications/n_submit.json",
+      "sha256": "858AC453852CFF5753545C9114CD1581BB2CB3A64C639AFACFB945B580730B90",
+      "sizeBytes": 520,
+      "kind": "notification"
+    },
+    {
+      "path": "sla.json",
+      "sha256": "09F4969F2CE9440AAE1048F18C8787FC6BAEE9B280D470856794DF4DA1C76010",
+      "sizeBytes": 21,
+      "kind": "sla"
+    },
+    {
+      "path": "actors.json",
+      "sha256": "352DC37D813A5FCE52BCAE9673E50B1B4459015AC1CBD3411919784A34514ACD",
+      "sizeBytes": 66,
+      "kind": "actors"
+    },
+    {
+      "path": "sample-org.json",
+      "sha256": "7C96871EB9AE9818187D761FFE1AC6062D773D1FF0ED9E9F80A3D1217C7B2BF3",
+      "sizeBytes": 1563,
+      "kind": "sampleOrg"
+    },
+    {
+      "path": "test-cases/tc_happy.json",
+      "sha256": "A31D49700DCAF9FB799739A62669D6B0947B4269BA8BA016405DF9F611AD5628",
+      "sizeBytes": 192,
+      "kind": "testCase"
+    }
+  ],
+  "flowId": "ef9a09e1-b364-481a-a368-89940bc7fce9"
+}

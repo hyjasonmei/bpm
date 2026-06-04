@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="def_APE" targetNamespace="http://flowcook/APE">
+  <bpmn:process id="APE" isExecutable="true">
+    <bpmn:startEvent id="s" name="預支需求"/>
+    <bpmn:userTask id="ape" name="預支申請單 Advance Payment"/>
+    <bpmn:userTask id="ap" name="簽核流程 Approval"/>
+    <bpmn:endEvent id="e" name="預支現金 Cash in Advance"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="s" targetRef="ape"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="ape" targetRef="ap"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="ap" targetRef="e" name="Pass"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="ap" targetRef="ape" name="Reject"/>
+  </bpmn:process>
+</bpmn:definitions>

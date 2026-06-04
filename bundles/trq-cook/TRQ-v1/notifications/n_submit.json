@@ -1,0 +1,25 @@
+{
+  "id": "n_submit",
+  "trigger": {
+    "kind": "event",
+    "event": "on_submit"
+  },
+  "channel": [
+    "email",
+    "in_app"
+  ],
+  "recipients": [
+    {
+      "type": "current_approver"
+    }
+  ],
+  "template": {
+    "subject": {
+      "zh-TW": "Travel Request \u5DEE\u65C5\u7533\u8ACB \u2014 \u5F85\u5BE9\u6838"
+    },
+    "body": {
+      "zh-TW": "\u60A8\u6709\u4E00\u7B46 Travel Request \u5DEE\u65C5\u7533\u8ACB \u5F85\u8655\u7406"
+    },
+    "variables": []
+  }
+}

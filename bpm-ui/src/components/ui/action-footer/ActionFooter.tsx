@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Loader2 } from 'lucide-react'
 import { Button, type ButtonProps } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
@@ -52,10 +53,19 @@ export interface ActionFooterProps {
  * read as "below the content" rather than "fixed at the bottom" —
  * Jason called this out as a regression. Inner row stays centred via
  * `max-w-screen-2xl` to line up with the header.
+ *
+ * PR-X13: render through a portal to `document.body`. The host
+ * `AppLayout`'s `<main>` carries the `.fade-in` entrance animation,
+ * whose keyframes reference `transform` with `fill-mode: both`. An
+ * in-effect transform animation makes that ancestor a *containing
+ * block* for `position: fixed` descendants, so the bar was pinning to
+ * the bottom of `<main>`'s content (i.e. below the fold) rather than
+ * the viewport. Portaling to <body> escapes any such ancestor so
+ * `fixed` truly means viewport-fixed.
  */
 export function ActionFooter({ actions, hint, className }: ActionFooterProps) {
   if (actions.length === 0) return null
-  return (
+  return createPortal(
     <div
       className={cn(
         'fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-card/95 shadow-[0_-4px_12px_-8px_rgba(15,23,42,0.18)] backdrop-blur',
@@ -82,6 +92,7 @@ export function ActionFooter({ actions, hint, className }: ActionFooterProps) {
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

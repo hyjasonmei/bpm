@@ -420,7 +420,10 @@ or a shadcn `<AlertDialog>`. No backend impact.
 via the shared `<ActionFooter>` from `@/components/ui/action-footer`
 — not inline buttons. Maps each `TaskAction` → one `ActionFooterItem`.
 See `bpm-ui/src/features/LEAVE/V1/LEAVE_V1_CaseDetail.tsx` for the
-canonical pattern.
+canonical pattern. The submitter **`<...>Form.tsx`** (create mode) uses
+the same `<ActionFooter>` for its 取消 / 送出 bar (viewport-fixed, no
+trailing `SectionCard` button row); `FormShell` supplies the `pb-24`
+clearance. See conventions.md → "Create-form submit bar".
 
 **Migration of older specs**: spec.json without `actions[]` predates
 the schema; admin-ui's `migrateDraft` backfills `[submit]` for

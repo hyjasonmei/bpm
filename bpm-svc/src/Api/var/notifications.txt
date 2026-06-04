@@ -120,3 +120,571 @@ body: |
   
   請點此核准：/cases/purchase-request/f3082096-b999-4ece-bed8-da78540579ad
 
+---
+at: 2026-06-01T07:21:19.7824839Z
+source: VENDOR_EXPENSE_V1.notify_qkje
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 0ec1523a-2dcc-4d8d-87cc-3a0f22400764
+  flowCode: VENDOR_EXPENSE
+  flowVersion: 1
+  stage: PendingSupervisor
+  round: 1
+subject: 【已收到】您的申請已送出
+body: |
+  您的申請已送出，等待主管核准中。
+  查看進度：/cases/vendor_expense/0ec1523a-2dcc-4d8d-87cc-3a0f22400764
+
+---
+at: 2026-06-01T08:01:22.4902809Z
+source: TRQ_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: a1201ec3-ffbf-40e2-a2a3-f53e0eca71c7
+  flowCode: TRQ
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】您的差旅申請已送出
+body: |
+  您的差旅申請已送出，等待主管核准中。
+  查看進度：/cases/trq/a1201ec3-ffbf-40e2-a2a3-f53e0eca71c7
+
+---
+at: 2026-06-01T08:01:22.5269959Z
+source: TRQ_V1.notify_n_submit
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: a1201ec3-ffbf-40e2-a2a3-f53e0eca71c7
+  flowCode: TRQ
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的差旅申請
+body: |
+  申請人：Bob
+  摘要：差旅申請 — Taipei → Tokyo（2026-07-01）
+  
+  請點此核准：/cases/trq/a1201ec3-ffbf-40e2-a2a3-f53e0eca71c7
+
+---
+at: 2026-06-01T08:07:18.9480336Z
+source: TRQ_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: d059e959-4672-40a2-b2ea-340df2daf8af
+  flowCode: TRQ
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】您的差旅申請已送出
+body: |
+  您的差旅申請已送出，等待主管核准中。
+  查看進度：/cases/trq/d059e959-4672-40a2-b2ea-340df2daf8af
+
+---
+at: 2026-06-01T08:07:18.9493160Z
+source: TRQ_V1.notify_n_submit
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: d059e959-4672-40a2-b2ea-340df2daf8af
+  flowCode: TRQ
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的差旅申請
+body: |
+  申請人：Bob
+  摘要：差旅申請 — Taipei → Tokyo（2026-07-01）
+  
+  請點此核准：/cases/trq/d059e959-4672-40a2-b2ea-340df2daf8af
+
+---
+at: 2026-06-01T10:14:02.6829725Z
+source: APE_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 546acd3b-3585-45fc-8be9-0a1492e5cc8c
+  flowCode: APE
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】您的預支申請已送出
+body: |
+  您的預支現金申請已送出，等待主管核准中。
+  查看進度：/cases/ape/546acd3b-3585-45fc-8be9-0a1492e5cc8c
+
+---
+at: 2026-06-01T10:14:02.7212377Z
+source: APE_V1.notify_n_submit
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 546acd3b-3585-45fc-8be9-0a1492e5cc8c
+  flowCode: APE
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的預支申請
+body: |
+  申請人：Bob
+  摘要：預支現金 — NTD 50,000（Backend）
+  
+  請點此核准：/cases/ape/546acd3b-3585-45fc-8be9-0a1492e5cc8c
+
+---
+at: 2026-06-01T11:05:56.6272292Z
+source: TEO_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 72b4ad2b-c0ec-4935-8e0d-51e7e13a1fbd
+  flowCode: TEO
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】您的差旅費用核銷已送出
+body: |
+  您的差旅費用核銷已送出，等待主管核准中。
+  查看進度：/cases/teo/72b4ad2b-c0ec-4935-8e0d-51e7e13a1fbd
+
+---
+at: 2026-06-01T11:05:56.6718450Z
+source: TEO_V1.notify_n_submit
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 72b4ad2b-c0ec-4935-8e0d-51e7e13a1fbd
+  flowCode: TEO
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的差旅費用核銷
+body: |
+  申請人：Bob
+  摘要：差旅費用核銷 — 2 筆（TW-TRQ-23-000160）
+  
+  請點此核准：/cases/teo/72b4ad2b-c0ec-4935-8e0d-51e7e13a1fbd
+
+---
+at: 2026-06-01T11:06:00.3042378Z
+source: TEO_V1.notify_n_submit
+channels: email,in_app
+recipients: Grace <grace@acme.example>
+context:
+  caseId: 72b4ad2b-c0ec-4935-8e0d-51e7e13a1fbd
+  flowCode: TEO
+  flowVersion: 1
+  stage: PendingFinance
+  round: 1
+subject: 【待簽】Bob 的差旅費用核銷
+body: |
+  申請人：Bob
+  摘要：差旅費用核銷 — 2 筆（TW-TRQ-23-000160）
+  
+  請點此核准：/cases/teo/72b4ad2b-c0ec-4935-8e0d-51e7e13a1fbd
+
+---
+at: 2026-06-01T11:15:45.6046930Z
+source: FAP_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: c10a6834-26af-47cd-bcb8-4d12562ffe82
+  flowCode: FAP
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】您的資產採購申請已送出
+body: |
+  您的固定資產採購申請已送出，等待主管核准中。
+  查看進度：/cases/fap/c10a6834-26af-47cd-bcb8-4d12562ffe82
+
+---
+at: 2026-06-01T11:15:45.6444139Z
+source: FAP_V1.notify_assign
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: c10a6834-26af-47cd-bcb8-4d12562ffe82
+  flowCode: FAP
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的資產採購申請
+body: |
+  申請人：Bob
+  摘要：資產採購 — 1 項（New）
+  
+  請點此處理：/cases/fap/c10a6834-26af-47cd-bcb8-4d12562ffe82
+
+---
+at: 2026-06-01T11:15:48.5970691Z
+source: FAP_V1.notify_verify
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: c10a6834-26af-47cd-bcb8-4d12562ffe82
+  flowCode: FAP
+  flowVersion: 1
+  stage: PendingVerification
+  round: 1
+subject: 【待驗收】資產採購已核准，請驗收
+body: |
+  採購單已成立，貨品到位後請完成驗收。
+  摘要：資產採購 — 1 項（New）
+  
+  驗收：/cases/fap/c10a6834-26af-47cd-bcb8-4d12562ffe82
+
+---
+at: 2026-06-01T11:25:46.4792091Z
+source: FAD_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 1129e6ed-67b3-4d0c-9fbd-3d28b317bdbb
+  flowCode: FAD
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】您的資產處份申請已送出
+body: |
+  您的固定資產處份申請已送出，等待判別中。
+  查看進度：/cases/fad/1129e6ed-67b3-4d0c-9fbd-3d28b317bdbb
+
+---
+at: 2026-06-01T11:25:46.5184978Z
+source: FAD_V1.notify_assign
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 1129e6ed-67b3-4d0c-9fbd-3d28b317bdbb
+  flowCode: FAD
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待判別】Bob 的資產處份申請
+body: |
+  申請人：Bob
+  摘要：資產處份 — Old Laptop（老舊報廢 Obsolete）
+  
+  請點此處理：/cases/fad/1129e6ed-67b3-4d0c-9fbd-3d28b317bdbb
+
+---
+at: 2026-06-01T11:25:48.9908569Z
+source: FAD_V1.notify_confirm
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 1129e6ed-67b3-4d0c-9fbd-3d28b317bdbb
+  flowCode: FAD
+  flowVersion: 1
+  stage: PendingConfirm
+  round: 1
+subject: 【待領收確認】資產處份已核准
+body: |
+  資產處份已核准，請完成領收確認。
+  摘要：資產處份 — Old Laptop（老舊報廢 Obsolete）
+  
+  確認：/cases/fad/1129e6ed-67b3-4d0c-9fbd-3d28b317bdbb
+
+---
+at: 2026-06-01T11:34:55.8737175Z
+source: EOB_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 71ac5359-0259-4e37-b19b-56254c771455
+  flowCode: EOB
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】新進員工登入申請已送出
+body: |
+  新進員工登入申請已送出，等待主管核准中。
+  查看進度：/cases/eob/71ac5359-0259-4e37-b19b-56254c771455
+
+---
+at: 2026-06-01T11:34:55.9064333Z
+source: EOB_V1.notify_assign
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 71ac5359-0259-4e37-b19b-56254c771455
+  flowCode: EOB
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的新進員工登入申請
+body: |
+  申請人：Bob
+  摘要：新進員工 — Raven Wang（Cloud Platform Engineer）
+  
+  請點此處理：/cases/eob/71ac5359-0259-4e37-b19b-56254c771455
+
+---
+at: 2026-06-01T11:34:58.2621349Z
+source: EOB_V1.notify_setup
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 71ac5359-0259-4e37-b19b-56254c771455
+  flowCode: EOB
+  flowVersion: 1
+  stage: PendingSetup
+  round: 1
+subject: 【待設定】新進員工登入已核准，請完成基本設定
+body: |
+  已核准，請完成新人基本設定（門禁卡 / 帳號 / 資產 / 座位 / Mentor）。
+  摘要：新進員工 — Raven Wang（Cloud Platform Engineer）
+  
+  設定：/cases/eob/71ac5359-0259-4e37-b19b-56254c771455
+
+---
+at: 2026-06-01T11:44:01.1283518Z
+source: ETM_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 43a16aa3-2659-404a-9e05-43ac44d0cee1
+  flowCode: ETM
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】員工離職申請已送出
+body: |
+  員工離職申請已送出，等待主管核准中。
+  查看進度：/cases/etm/43a16aa3-2659-404a-9e05-43ac44d0cee1
+
+---
+at: 2026-06-01T11:44:01.1675194Z
+source: ETM_V1.notify_assign
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 43a16aa3-2659-404a-9e05-43ac44d0cee1
+  flowCode: ETM
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的員工離職申請
+body: |
+  申請人：Bob
+  摘要：員工離職 — Raven Wang（Resignation）
+  
+  請點此處理：/cases/etm/43a16aa3-2659-404a-9e05-43ac44d0cee1
+
+---
+at: 2026-06-01T11:44:03.7990101Z
+source: ETM_V1.notify_handover
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 43a16aa3-2659-404a-9e05-43ac44d0cee1
+  flowCode: ETM
+  flowVersion: 1
+  stage: PendingHandover
+  round: 1
+subject: 【待交接】離職已核准，請完成交接
+body: |
+  已核准，請完成交接（物品返還 / 帳號處理 / 欠款）。
+  摘要：員工離職 — Raven Wang（Resignation）
+  
+  交接：/cases/etm/43a16aa3-2659-404a-9e05-43ac44d0cee1
+
+---
+at: 2026-06-01T12:20:49.9005158Z
+source: TEO_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 368662f7-7a7f-42ec-b95b-69e0f55f1b3e
+  flowCode: TEO
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】您的差旅費用核銷已送出
+body: |
+  您的差旅費用核銷已送出，等待主管核准中。
+  查看進度：/cases/teo/368662f7-7a7f-42ec-b95b-69e0f55f1b3e
+
+---
+at: 2026-06-01T12:20:49.9065696Z
+source: TEO_V1.notify_n_submit
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 368662f7-7a7f-42ec-b95b-69e0f55f1b3e
+  flowCode: TEO
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的差旅費用核銷
+body: |
+  申請人：Bob
+  摘要：差旅費用核銷 — 2 筆（TW-TRQ-23-000160）
+  
+  請點此核准：/cases/teo/368662f7-7a7f-42ec-b95b-69e0f55f1b3e
+
+---
+at: 2026-06-01T12:23:41.3377809Z
+source: TEO_V1.notify_n_submit
+channels: email,in_app
+recipients: Grace <grace@acme.example>
+context:
+  caseId: 368662f7-7a7f-42ec-b95b-69e0f55f1b3e
+  flowCode: TEO
+  flowVersion: 1
+  stage: PendingFinance
+  round: 1
+subject: 【待簽】Bob 的差旅費用核銷
+body: |
+  申請人：Bob
+  摘要：差旅費用核銷 — 2 筆（TW-TRQ-23-000160）
+  
+  請點此核准：/cases/teo/368662f7-7a7f-42ec-b95b-69e0f55f1b3e
+
+---
+at: 2026-06-01T12:35:04.7569254Z
+source: VENDOR_EXPENSE_V1.notify_qkje
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 5b5a96a4-7198-4685-9482-07912a29b783
+  flowCode: VENDOR_EXPENSE
+  flowVersion: 1
+  stage: PendingSupervisor
+  round: 1
+subject: 【已收到】您的申請已送出
+body: |
+  您的申請已送出，等待主管核准中。
+  查看進度：/cases/vendor_expense/5b5a96a4-7198-4685-9482-07912a29b783
+
+---
+at: 2026-06-03T00:22:58.0090692Z
+source: APE_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 4b60026b-ed73-4b80-9a28-b5120d130b72
+  flowCode: APE
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】您的預支申請已送出
+body: |
+  您的預支現金申請已送出，等待主管核准中。
+  查看進度：/cases/ape/4b60026b-ed73-4b80-9a28-b5120d130b72
+
+---
+at: 2026-06-03T00:22:58.0409239Z
+source: APE_V1.notify_n_submit
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 4b60026b-ed73-4b80-9a28-b5120d130b72
+  flowCode: APE
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的預支申請
+body: |
+  申請人：Bob
+  摘要：預支現金 — USD 234（234）
+  
+  請點此核准：/cases/ape/4b60026b-ed73-4b80-9a28-b5120d130b72
+
+---
+at: 2026-06-03T00:24:32.8710304Z
+source: APE_V1.notify_n_submit
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 4b60026b-ed73-4b80-9a28-b5120d130b72
+  flowCode: APE
+  flowVersion: 1
+  stage: ResubmitRequired
+  round: 1
+subject: 【待簽】Bob 的預支申請
+body: |
+  申請人：Bob
+  摘要：預支現金 — USD 234（234）
+  
+  請點此核准：/cases/ape/4b60026b-ed73-4b80-9a28-b5120d130b72
+
+---
+at: 2026-06-03T01:02:32.9375078Z
+source: APE_V1.notify_n_submit
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 4b60026b-ed73-4b80-9a28-b5120d130b72
+  flowCode: APE
+  flowVersion: 1
+  stage: PendingManager
+  round: 2
+subject: 【待簽】Bob 的預支申請
+body: |
+  申請人：Bob
+  摘要：預支現金 — USD 234（234）
+  
+  請點此核准：/cases/ape/4b60026b-ed73-4b80-9a28-b5120d130b72
+
+---
+at: 2026-06-03T01:18:52.7301404Z
+source: EOB_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: f75faaec-5f7a-4d3d-8d78-f25e30c07416
+  flowCode: EOB
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】新進員工登入申請已送出
+body: |
+  新進員工登入申請已送出，等待主管核准中。
+  查看進度：/cases/eob/f75faaec-5f7a-4d3d-8d78-f25e30c07416
+
+---
+at: 2026-06-03T01:18:52.7344109Z
+source: EOB_V1.notify_assign
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: f75faaec-5f7a-4d3d-8d78-f25e30c07416
+  flowCode: EOB
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的新進員工登入申請
+body: |
+  申請人：Bob
+  摘要：新進員工 — ad sadasd（asdasd）
+  
+  請點此處理：/cases/eob/f75faaec-5f7a-4d3d-8d78-f25e30c07416
+
+---
+at: 2026-06-03T01:19:11.1965572Z
+source: EOB_V1.notify_setup
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: f75faaec-5f7a-4d3d-8d78-f25e30c07416
+  flowCode: EOB
+  flowVersion: 1
+  stage: PendingSetup
+  round: 1
+subject: 【待設定】新進員工登入已核准，請完成基本設定
+body: |
+  已核准，請完成新人基本設定（門禁卡 / 帳號 / 資產 / 座位 / Mentor）。
+  摘要：新進員工 — ad sadasd（asdasd）
+  
+  設定：/cases/eob/f75faaec-5f7a-4d3d-8d78-f25e30c07416
+

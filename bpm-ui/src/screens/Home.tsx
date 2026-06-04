@@ -1,13 +1,6 @@
 import {
   Plus, FileText, Laptop, DollarSign, Building2,
   Check, AlertCircle, Inbox, Pencil, Calendar,
-  ChefHat,
-  Users as UsersIcon, ShoppingCart as ShoppingCartIcon,
-  Wrench as WrenchIcon, Plane as PlaneIcon,
-  Briefcase as BriefcaseIcon, HeartPulse as HeartPulseIcon,
-  Coffee as CoffeeIcon, Wallet as WalletIcon,
-  Settings as SettingsIcon, Folder as FolderIcon,
-  Sparkles as SparklesIcon,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 
@@ -22,6 +15,7 @@ import { FORMS, type FormCode } from '@/lib/workflow'
 import { formRegistry } from '@/features/registry'
 import { useInboxMine, useInboxPending, type InboxRow } from '@/hooks/useUnifiedInbox'
 import { useFlowRegistry, latestPerCode } from '@/hooks/useFlowRegistry'
+import { resolveLauncherIcon } from '@/lib/launcherIcons'
 import { routes } from '@/router'
 
 const ICON_FOR_ACTIVITY = {
@@ -341,7 +335,7 @@ function QuickActionsPanel() {
   const { entries: registry } = useFlowRegistry()
   const latest = latestPerCode(registry)
   const filterByState = registry !== null
-  type Action = { code: FormCode; label: string; groupKey: string; groupLabel: string; groupIcon: string | null; groupSort: number }
+  type Action = { code: FormCode; label: string; iconKey: string | null; order: number; groupKey: string; groupLabel: string; groupIcon: string | null; groupSort: number }
   const actions: Action[] = [...formRegistry.values()]
     .filter(m => {
       if (!filterByState) return true
@@ -355,6 +349,8 @@ function QuickActionsPanel() {
       return {
         code: m.code,
         label: FORMS[m.code]?.zhLabel ?? m.code,
+        iconKey: entry?.iconKey ?? null,
+        order: entry?.displayOrder ?? 0,
         groupKey,
         groupLabel,
         groupIcon: entry?.groupIcon ?? null,
@@ -376,21 +372,24 @@ function QuickActionsPanel() {
           {sections.map(s => (
             <div key={s.key}>
               <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-faint">
-                <GroupIcon name={s.icon} />
+                <GroupGlyph name={s.icon} />
                 {s.label}
                 <span className="ml-1 font-mono text-[10px] text-ink-faint">{s.items.length}</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {s.items.map(a => (
-                  <Link
-                    key={a.code}
-                    to={routes.formCreate(a.code)}
-                    className="flex items-center gap-2 rounded-md border border-rule bg-white px-2.5 py-2 text-left text-xs font-medium text-ink-muted transition-colors hover:bg-slate-50 hover:text-ink"
-                  >
-                    <ChefHat className="h-4 w-4 shrink-0 text-primary" />
-                    <span className="truncate">{a.label}</span>
-                  </Link>
-                ))}
+                {s.items.map(a => {
+                  const Glyph = resolveLauncherIcon(a.iconKey)
+                  return (
+                    <Link
+                      key={a.code}
+                      to={routes.formCreate(a.code)}
+                      className="flex items-center gap-2 rounded-md border border-rule bg-white px-2.5 py-2 text-left text-xs font-medium text-ink-muted transition-colors hover:bg-slate-50 hover:text-ink"
+                    >
+                      <Glyph className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="truncate">{a.label}</span>
+                    </Link>
+                  )
+                })}
               </div>
             </div>
           ))}
@@ -410,51 +409,36 @@ interface GroupedSection {
   label: string
   icon: string | null
   sort: number
-  items: { code: FormCode; label: string }[]
+  items: { code: FormCode; label: string; iconKey: string | null; order: number }[]
 }
 
-function groupAndSort(actions: Array<{ code: FormCode; label: string; groupKey: string; groupLabel: string; groupIcon: string | null; groupSort: number }>): GroupedSection[] {
+function groupAndSort(actions: Array<{ code: FormCode; label: string; iconKey: string | null; order: number; groupKey: string; groupLabel: string; groupIcon: string | null; groupSort: number }>): GroupedSection[] {
   const map = new Map<string, GroupedSection>()
   for (const a of actions) {
+    const item = { code: a.code, label: a.label, iconKey: a.iconKey, order: a.order }
     const existing = map.get(a.groupKey)
     if (existing) {
-      existing.items.push({ code: a.code, label: a.label })
+      existing.items.push(item)
     } else {
       map.set(a.groupKey, {
         key: a.groupKey,
         label: a.groupLabel,
         icon: a.groupIcon,
         sort: a.groupSort,
-        items: [{ code: a.code, label: a.label }],
+        items: [item],
       })
     }
   }
-  for (const s of map.values()) s.items.sort((x, y) => x.label.localeCompare(y.label))
+  // Within a group: admin-curated DisplayOrder first, code as the tie-break.
+  for (const s of map.values()) s.items.sort((x, y) => (x.order - y.order) || x.code.localeCompare(y.code))
   return [...map.values()].sort((x, y) => x.sort - y.sort || x.label.localeCompare(y.label))
 }
 
-/**
- * Resolve a stored lucide icon name to a component. Admin's Site
- * Setting Groups picker is restricted to a known set, but we still
- * fall back gracefully so a typo or future name doesn't break the
- * launcher.
- */
-function GroupIcon({ name }: { name: string | null }) {
-  switch (name) {
-    case 'Users':        return <UsersIcon className="h-3 w-3 text-ink-muted" />
-    case 'ShoppingCart': return <ShoppingCartIcon className="h-3 w-3 text-ink-muted" />
-    case 'Wrench':       return <WrenchIcon className="h-3 w-3 text-ink-muted" />
-    case 'Plane':        return <PlaneIcon className="h-3 w-3 text-ink-muted" />
-    case 'FileText':     return <FileText className="h-3 w-3 text-ink-muted" />
-    case 'Briefcase':    return <BriefcaseIcon className="h-3 w-3 text-ink-muted" />
-    case 'HeartPulse':   return <HeartPulseIcon className="h-3 w-3 text-ink-muted" />
-    case 'Coffee':       return <CoffeeIcon className="h-3 w-3 text-ink-muted" />
-    case 'Wallet':       return <WalletIcon className="h-3 w-3 text-ink-muted" />
-    case 'Settings':     return <SettingsIcon className="h-3 w-3 text-ink-muted" />
-    case 'Sparkles':     return <SparklesIcon className="h-3 w-3 text-ink-muted" />
-    case 'Folder':
-    default:             return <FolderIcon className="h-3 w-3 text-ink-muted" />
-  }
+/** Group-header glyph — resolves a stored lucide icon name (shared
+ *  catalog) with a graceful Folder fallback. */
+function GroupGlyph({ name }: { name: string | null }) {
+  const Icon = resolveLauncherIcon(name)
+  return <Icon className="h-3 w-3 text-ink-muted" />
 }
 
 function ActivityFeedPanel({ rows, loading }: { rows: InboxRow[]; loading: boolean }) {

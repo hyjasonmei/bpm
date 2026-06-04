@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="def_TEO" targetNamespace="http://flowcook/TEO">
+  <bpmn:process id="TEO" isExecutable="true">
+    <bpmn:startEvent id="s" name="出差事件發生"/>
+    <bpmn:userTask id="exp" name="費用單 Travel Expense"/>
+    <bpmn:userTask id="ap" name="簽核流程 Approval"/>
+    <bpmn:userTask id="fin" name="財務審定 Finance Review"/>
+    <bpmn:endEvent id="e" name="入帳"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="s" targetRef="exp"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="exp" targetRef="ap"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="ap" targetRef="fin" name="Pass"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="ap" targetRef="exp" name="Reject"/>
+    <bpmn:sequenceFlow id="f5" sourceRef="fin" targetRef="e"/>
+  </bpmn:process>
+</bpmn:definitions>

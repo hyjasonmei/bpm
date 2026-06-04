@@ -76,15 +76,16 @@ function FeatureCaseDetailRoute() {
   const { flowCode, caseId } = useParams()
   const { code: persona } = useActivePersona()
   if (!flowCode || !caseId) return <Navigate to="/" replace />
-  // Registry codes are UPPER_SNAKE (e.g. PURCHASE_REQUEST). A flow's inbox
-  // DetailUrl segment is the code lower-cased, but chef has shipped both
-  // `purchase_request` and (incorrectly) `purchase-request`. Normalise the
-  // separator so a kebab-case slug still resolves — otherwise multi-word
-  // flows 404 into "還沒提供 case detail view" even though the manifest exists.
-  const manifest = lookupForm(flowCode.replace(/-/g, '_').toUpperCase() as FormCode)
+  // The URL slug is the lowercased flow code; normalize back to the canonical
+  // FormCode. Some chef-cooked flows emit a hyphenated slug in their detailUrl /
+  // post-submit redirect (e.g. `purchase-request`) even though the FormCode uses
+  // an underscore (`PURCHASE_REQUEST`), so map `-` → `_` as well as uppercasing.
+  // FormCodes never contain a hyphen, so this is a safe normalization.
+  const normalizedCode = flowCode.toUpperCase().replace(/-/g, '_')
+  const manifest = lookupForm(normalizedCode as FormCode)
   if (!manifest?.detailComponent) {
     return <div className="mx-auto max-w-md p-8 text-sm text-ink-muted">
-      {flowCode.toUpperCase()} 還沒提供 case detail view（chef ship `detailComponent` in manifest）.
+      {normalizedCode} 還沒提供 case detail view（chef ship `detailComponent` in manifest）.
     </div>
   }
   const Detail = manifest.detailComponent
