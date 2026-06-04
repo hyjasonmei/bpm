@@ -27,6 +27,15 @@ export function isImpersonating(): boolean {
   return decodeJwt(jwt)?.impersonated_by != null
 }
 
+// The privileged token behind a persona switch: the stored pre-token if we
+// swapped one in, else the current token. Lets the persona switcher authorize
+// against the REAL identity even while acting as a non-admin persona — so the
+// operator can keep switching (and return) instead of getting locked out.
+export function realIdentityToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return window.localStorage.getItem(PRE_KEY) ?? getJwt()
+}
+
 export function impersonationExpiry(): Date | null {
   const jwt = getJwt()
   if (!jwt) return null

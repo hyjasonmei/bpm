@@ -41,3 +41,11 @@ export function jwtRoles(d: DecodedJwt | null): string[] {
 export function isAdmin(d: DecodedJwt | null): boolean {
   return jwtRoles(d).includes('admin')
 }
+
+// Whether this identity may act-as another user in sandbox. Gated on the
+// purpose-built `Persona_Switch` seed role (and the SystemAdmin super-role) —
+// the seeded admin "admin" persona has these, not the literal `admin` role.
+export function isPersonaSwitcher(d: DecodedJwt | null): boolean {
+  const r = jwtRoles(d)
+  return r.includes('Persona_Switch') || r.includes('SystemAdmin') || r.includes('admin')
+}

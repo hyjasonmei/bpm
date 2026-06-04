@@ -12,11 +12,10 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   getSandboxStatus, setSandboxStatus,
   getSandboxClock, advanceSandboxClock, resetSandboxClock,
-  listSandboxPersonas, mintPersonaToken,
   listCaptured, getCaptured,
   listFlowSandbox, setFlowCapture,
   resetAll, resetFlow,
-  type SandboxStatus, type SandboxClock, type SandboxPersona,
+  type SandboxStatus, type SandboxClock,
   type FlowSandboxState, type CapturedSummary, type CapturedDetail,
 } from '@/flowcook/api/sandbox'
 
@@ -27,7 +26,6 @@ export function SandboxPage() {
   const [status, setStatus] = useState<SandboxStatus | null>(null)
   const [clock, setClock] = useState<SandboxClock | null>(null)
   const [flows, setFlows] = useState<FlowSandboxState[]>([])
-  const [personas, setPersonas] = useState<SandboxPersona[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -41,7 +39,6 @@ export function SandboxPage() {
     setLoading(true); setErr(null)
     try {
       await loadCore()
-      setPersonas(await listSandboxPersonas())
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'load failed')
     } finally {
@@ -105,7 +102,7 @@ export function SandboxPage() {
       )}
 
       <ClockCard clock={clock} on={on} busy={busy} run={run} />
-      <PersonaCard personas={personas} on={on} setErr={setErr} />
+      <PersonaNoteCard />
       <MailboxCard flows={flows} />
       <FlowsCard flows={flows} on={on} busy={busy} run={run} />
     </div>
@@ -165,43 +162,20 @@ function ClockCard({ clock, on, busy, run }: {
 
 // ---------------- Persona ----------------
 
-function PersonaCard({ personas, on, setErr }: {
-  personas: SandboxPersona[]; on: boolean
-  setErr: (s: string | null) => void
-}) {
-  const [opening, setOpening] = useState<string | null>(null)
-  async function openAs(p: SandboxPersona) {
-    setOpening(p.id); setErr(null)
-    try {
-      const res = await mintPersonaToken(p.id)
-      window.open(`${BPM_UI_URL}/?sandboxToken=${encodeURIComponent(res.token)}`, '_blank', 'noopener')
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'persona failed')
-    } finally {
-      setOpening(null)
-    }
-  }
+function PersonaNoteCard() {
   return (
     <SectionCard>
-      <SectionTitle right={<span className="text-xs text-ink-faint">{personas.length} 人</span>}>
+      <SectionTitle>
         <span className="inline-flex items-center gap-2"><UserCog className="h-4 w-4" /> Persona 切換</span>
       </SectionTitle>
-      <div className="p-4">
-        {!on && <p className="mb-2 text-xs text-amber-700">需先開全域 sandbox 才能產生 persona session。</p>}
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {personas.map(p => (
-            <div key={p.id} className="flex items-center justify-between gap-2 rounded-md border border-rule bg-card px-3 py-2">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-ink">{p.fullName}</div>
-                <div className="truncate text-xs text-ink-faint">{p.email}</div>
-              </div>
-              <Button variant="outline" size="xs" disabled={!on || opening === p.id} onClick={() => openAs(p)}>
-                {opening === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><ExternalLink className="h-3.5 w-3.5" /> 開 BPM</>}
-              </Button>
-            </div>
-          ))}
-          {personas.length === 0 && <p className="text-sm text-ink-faint">沒有可用人員。</p>}
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <p className="text-sm text-ink-muted">
+          Persona 切換已移到 <span className="font-medium text-ink">BPM（員工端）</span>右上角 —
+          管理者在 sandbox 開啟時，直接輸入帳號即可以任一身分操作。
+        </p>
+        <a href={BPM_UI_URL} target="_blank" rel="noopener noreferrer">
+          <Button variant="outline" size="sm"><ExternalLink className="h-3.5 w-3.5" /> 開啟 BPM</Button>
+        </a>
       </div>
     </SectionCard>
   )

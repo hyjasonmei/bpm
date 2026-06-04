@@ -93,7 +93,7 @@ public sealed class SandboxController(
     /// stamps <c>SandboxActualActor</c> on every row the persona writes.
     /// </summary>
     [HttpPost("persona")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "Persona_Switch,SystemAdmin,admin")]
     public async Task<IActionResult> SwitchPersona([FromBody] SwitchPersonaRequest req, CancellationToken ct)
     {
         // Sandbox-on gate first — the persona switch is intentionally a

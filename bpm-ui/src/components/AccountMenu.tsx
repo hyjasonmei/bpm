@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  ChevronDown, Check, Loader2, AlertCircle, ExternalLink, Eye, FlaskConical, LogOut, Mail, ShieldCheck,
+  ChevronDown, Check, Loader2, AlertCircle, ExternalLink, Eye, FlaskConical, LogOut, Mail, ShieldCheck, Undo2,
 } from 'lucide-react'
 
 import { cn } from '@/lib/cn'
 import { PERSONAS, type PersonaCode, type Persona } from '@/lib/role'
-import { decodeJwt, isAdmin, isSandboxActor } from '@/lib/jwt'
-import { clearJwt, getJwt, setJwt } from '@/lib/apiFetch'
-import { isImpersonating } from '@/lib/impersonationToken'
+import { decodeJwt, isAdmin, isSandboxActor, isPersonaSwitcher } from '@/lib/jwt'
+import { clearJwt, getJwt } from '@/lib/apiFetch'
+import { isImpersonating, enterImpersonation, exitImpersonationLocal, realIdentityToken } from '@/lib/impersonationToken'
 import { ImpersonationModal } from '@/components/ImpersonationModal'
 import { getSandboxStatus, listSandboxPersonas, switchSandboxPersona } from '@/lib/api/sandbox'
 import type { SandboxPersonaDto } from '@/types/sandbox'
@@ -39,6 +39,7 @@ export function AccountMenu({
   const [sandboxPersonas, setSandboxPersonas] = useState<SandboxPersonaDto[]>([])
   const [sandboxBusy, setSandboxBusy] = useState(false)
   const [sandboxError, setSandboxError] = useState<string | null>(null)
+  const [accountInput, setAccountInput] = useState('')
   const [devModeAvailable, setDevModeAvailable] = useState<boolean | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -105,6 +106,14 @@ export function AccountMenu({
   const isSandboxPersona = isSandboxActor(decoded)
   const sandboxPersonaName = isSandboxPersona ? (decoded?.full_name ?? decoded?.email ?? null) : null
 
+  // Authorize the persona switcher against the REAL identity (the stored
+  // pre-token when already acting as a persona), so an admin who switched into
+  // a non-admin persona can keep switching and return instead of being locked out.
+  const realToken = realIdentityToken()
+  const realCanSwitch = isPersonaSwitcher(realToken ? decodeJwt(realToken) : null)
+  const canSwitchPersona = sandboxOn && realCanSwitch
+  const canReturn = isSandboxPersona && realToken != null && realToken !== jwt
+
   const displayName = authedFullName ?? decoded?.full_name ?? decoded?.email ?? current.user.name.split(' (')[0]
   const initials = computeInitials(displayName)
   const email = decoded?.email ?? null
@@ -118,12 +127,32 @@ export function AccountMenu({
       ? [rolesClaim]
       : []
 
-  async function handleSandboxPersonaSelect(p: SandboxPersonaDto) {
+  // Type an account (email or name) → resolve against the personas list →
+  // switch. No dropdown list; the list is fetched only for resolution.
+  function resolvePersona(input: string): SandboxPersonaDto | null {
+    const q = input.trim().toLowerCase()
+    if (!q) return null
+    return (
+      sandboxPersonas.find(p => p.email.toLowerCase() === q || p.fullName.toLowerCase() === q) ??
+      sandboxPersonas.find(p => p.email.toLowerCase().startsWith(q + '@')) ??
+      sandboxPersonas.find(p => p.email.toLowerCase().startsWith(q)) ??
+      null
+    )
+  }
+
+  async function switchToPersona(userId: string) {
     setSandboxBusy(true)
     setSandboxError(null)
     try {
-      const res = await switchSandboxPersona(p.id)
-      setJwt(res.token)
+      // If already acting as a persona, restore the real admin token first so
+      // the mint authenticates as the privileged user (never persona-on-persona).
+      if (isSandboxActor(decoded)) {
+        if (!exitImpersonationLocal()) {
+          throw new Error('此分頁沒有可用的真實管理者身分（可能是用 persona 連結開的）')
+        }
+      }
+      const res = await switchSandboxPersona(userId)
+      enterImpersonation(res.token) // stores real token in pre-key, swaps in persona token
       setOpen(false)
       window.location.reload()
     } catch (e) {
@@ -131,6 +160,19 @@ export function AccountMenu({
     } finally {
       setSandboxBusy(false)
     }
+  }
+
+  function handleAccountSwitch() {
+    const match = resolvePersona(accountInput)
+    if (!match) {
+      setSandboxError(`找不到帳號「${accountInput.trim()}」`)
+      return
+    }
+    void switchToPersona(match.id)
+  }
+
+  function returnToReal() {
+    if (exitImpersonationLocal()) window.location.reload()
   }
 
   function handleLogout() {
@@ -236,38 +278,44 @@ export function AccountMenu({
             </>
           )}
 
-          {/* ── Sandbox personas (only when sandbox on) ─────── */}
-          {sandboxOn && sandboxPersonas.length > 0 && (
+          {/* ── Sandbox: act-as any account by typing (admin + sandbox on) ─ */}
+          {canSwitchPersona && (
             <div className="border-t border-rule">
-              <div className="bg-amber-50/60 px-4 py-2 text-[10.5px] font-semibold uppercase tracking-wider text-amber-900">
-                Sandbox personas — act-as via /api/sandbox/persona
+              <div className="flex items-center gap-1.5 bg-amber-50/60 px-4 py-2 text-[10.5px] font-semibold uppercase tracking-wider text-amber-900">
+                <FlaskConical className="h-3 w-3" /> Sandbox — 以任一帳號操作
               </div>
-              <div className="max-h-60 overflow-y-auto p-1">
-                {sandboxPersonas.map(p => (
-                  <button
-                    key={p.id}
+              <div className="space-y-2 p-3">
+                <div className="flex gap-2">
+                  <input
+                    value={accountInput}
+                    onChange={e => { setAccountInput(e.target.value); setSandboxError(null) }}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAccountSwitch() }}
+                    placeholder="輸入帳號 email（例 bob@acme.example）"
                     disabled={sandboxBusy}
-                    onClick={() => handleSandboxPersonaSelect(p)}
-                    className="flex w-full items-start gap-3 rounded-md px-3 py-2 text-left hover:bg-amber-50/40 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex-1 rounded-md border border-rule px-2.5 py-1.5 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+                  />
+                  <button
+                    onClick={handleAccountSwitch}
+                    disabled={sandboxBusy || !accountInput.trim()}
+                    className="inline-flex items-center gap-1 rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-40"
                   >
-                    <FlaskConical className="mt-0.5 h-4 w-4 text-amber-700 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-semibold text-ink truncate">{p.fullName}</span>
-                        <span className="text-[10.5px] text-amber-700 font-medium">(sandbox)</span>
-                      </div>
-                      <p className="text-[11px] leading-snug text-ink-muted truncate">{p.email}</p>
-                      {p.departmentName && <p className="text-[10.5px] leading-snug text-ink-faint truncate">{p.departmentName}</p>}
-                    </div>
+                    {sandboxBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : '切換'}
                   </button>
-                ))}
-              </div>
-              {sandboxError && (
-                <div className="border-t border-rule bg-rose-50 px-4 py-2 text-[11px] text-rose-700">
-                  Sandbox switch failed: {sandboxError}
                 </div>
-              )}
+                <p className="text-[10.5px] text-ink-faint">以該帳號身分操作；所有動作仍記在你的管理者 id 下。</p>
+                {sandboxError && <p className="text-[11px] text-rose-700">{sandboxError}</p>}
+              </div>
             </div>
+          )}
+
+          {canReturn && (
+            <button
+              onClick={returnToReal}
+              className="flex w-full items-center gap-2 border-t border-rule bg-slate-50/60 px-4 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-100"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+              返回真實身分
+            </button>
           )}
 
           {/* ── Admin tools (admin only) ─────────────────────── */}
