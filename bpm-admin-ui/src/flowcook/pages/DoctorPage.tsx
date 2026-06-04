@@ -245,24 +245,33 @@ function ReassignPicker({ forUserId, label, onPick, onCancel }: {
   onPick: (toUserId: string) => Promise<void>
   onCancel: () => void
 }) {
-  const [users, setUsers] = useState<DoctorCandidate[]>([])
   const [suggested, setSuggested] = useState<DoctorCandidate | null>(null)
-  const [sel, setSel] = useState('')
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<DoctorCandidate[]>([])
+  const [searching, setSearching] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [loading, setLoading] = useState(true)
 
+  // Suggested target once (no directory pull).
   useEffect(() => {
     let cancelled = false
-    void (async () => {
-      try {
-        const c = await getCandidates(forUserId ?? undefined)
-        if (cancelled) return
-        setUsers(c.users); setSuggested(c.suggested)
-        if (c.suggested) setSel(c.suggested.userId)
-      } finally { if (!cancelled) setLoading(false) }
-    })()
+    void getCandidates(forUserId ?? undefined).then(c => { if (!cancelled) setSuggested(c.suggested) }).catch(() => undefined)
     return () => { cancelled = true }
   }, [forUserId])
+
+  // Server-side typeahead — scales past a flat directory dropdown.
+  useEffect(() => {
+    const s = query.trim()
+    if (s === '') { setResults([]); setSearching(false); return }
+    setSearching(true)
+    let cancelled = false
+    const t = setTimeout(() => {
+      getCandidates(forUserId ?? undefined, s)
+        .then(c => { if (!cancelled) setResults(c.users) })
+        .catch(() => { if (!cancelled) setResults([]) })
+        .finally(() => { if (!cancelled) setSearching(false) })
+    }, 250)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [query, forUserId])
 
   async function go(id: string) {
     if (!id) return
@@ -271,27 +280,36 @@ function ReassignPicker({ forUserId, label, onPick, onCancel }: {
   }
 
   return (
-    <div className="mt-2 rounded-md border border-rule bg-slate-50/60 p-3">
-      {label && <p className="mb-2 text-xs text-ink-muted">{label}</p>}
-      {loading ? (
-        <p className="text-xs text-ink-faint">載入人選…</p>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          {suggested && (
-            <Button variant="primary" size="xs" disabled={busy} onClick={() => void go(suggested.userId)}>
-              建議：{suggested.name}{suggested.hint && `（${suggested.hint}）`}
-            </Button>
-          )}
-          <Select value={sel} onChange={e => setSel(e.target.value)} className="h-8 w-48 text-xs">
-            <option value="">選擇改派對象…</option>
-            {users.map(u => <option key={u.userId} value={u.userId}>{u.name}{u.email ? ` · ${u.email}` : ''}</option>)}
-          </Select>
-          <Button variant="outline" size="xs" disabled={busy || !sel} onClick={() => void go(sel)}>
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : '確認改派'}
+    <div className="mt-2 space-y-2 rounded-md border border-rule bg-slate-50/60 p-3">
+      {label && <p className="text-xs text-ink-muted">{label}</p>}
+      <div className="flex flex-wrap items-center gap-2">
+        {suggested && (
+          <Button variant="primary" size="xs" disabled={busy} onClick={() => void go(suggested.userId)}>
+            建議：{suggested.name}{suggested.hint && `（${suggested.hint}）`}
           </Button>
-          <Button variant="ghost" size="xs" disabled={busy} onClick={onCancel}>取消</Button>
-        </div>
-      )}
+        )}
+        <Button variant="ghost" size="xs" disabled={busy} onClick={onCancel}>取消</Button>
+      </div>
+      <div className="relative">
+        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜尋姓名或 email…"
+          disabled={busy}
+          className="w-full rounded-md border border-rule bg-card px-2.5 py-1.5 text-xs text-ink placeholder:text-ink-faint focus:outline-none focus:ring-1 focus:ring-primary" />
+        {query.trim() !== '' && (
+          <div className="absolute z-10 mt-1 max-h-44 w-full overflow-auto rounded-md border border-rule bg-card shadow-lg">
+            {searching ? (
+              <div className="px-3 py-2 text-xs text-ink-faint"><Loader2 className="inline h-3 w-3 animate-spin" /> 搜尋中…</div>
+            ) : results.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-ink-faint">找不到符合的人</div>
+            ) : results.map(u => (
+              <button key={u.userId} disabled={busy} onClick={() => void go(u.userId)}
+                className="flex w-full flex-col items-start px-3 py-1.5 text-left hover:bg-slate-50 disabled:opacity-50">
+                <span className="text-xs text-ink">{u.name}</span>
+                {u.email && <span className="text-[10px] text-ink-faint">{u.email}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

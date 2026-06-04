@@ -242,23 +242,43 @@ public sealed class DoctorService(
 
     // ---- candidates ----
 
-    public async Task<DoctorCandidates> GetCandidatesAsync(Guid? forUserId, CancellationToken ct = default)
+    public async Task<DoctorCandidates> GetCandidatesAsync(Guid? forUserId, string? q, CancellationToken ct = default)
     {
-        var users = await db.SharedPrincipals.AsNoTracking()
-            .Where(p => p.Type == SharedPrincipalType.User && p.Active && p.DeletedAt == null)
-            .OrderBy(p => p.DisplayName).Take(300)
-            .Select(p => new DoctorCandidate(p.Id, p.DisplayName, p.Email, null))
-            .ToListAsync(ct);
-
-        DoctorCandidate? suggested = null;
-        if (forUserId is { } f)
+        // Server-side typeahead: only return users matching the query (top 20) so
+        // the picker never pulls the whole directory. Empty query → no list (the
+        // suggested target still comes back for the one-click default).
+        var users = new List<DoctorCandidate>();
+        if (!string.IsNullOrWhiteSpace(q))
         {
-            var activeIds = users.Select(u => u.UserId).ToHashSet();
-            bool isActive(Guid? id) => id is { } g && activeIds.Contains(g);
-            var (sid, sname, svia) = await SuggestTargetAsync(f, isActive, ct);
-            if (sid is { } s) suggested = new DoctorCandidate(s, sname ?? s.ToString(), null, svia);
+            var s = q.Trim();
+            users = await db.SharedPrincipals.AsNoTracking()
+                .Where(p => p.Type == SharedPrincipalType.User && p.Active && p.DeletedAt == null
+                    && (EF.Functions.Like(p.DisplayName, "%" + s + "%") || (p.Email != null && EF.Functions.Like(p.Email, "%" + s + "%"))))
+                .OrderBy(p => p.DisplayName).Take(20)
+                .Select(p => new DoctorCandidate(p.Id, p.DisplayName, p.Email, null))
+                .ToListAsync(ct);
         }
+
+        var suggested = forUserId is { } f ? await SuggestActiveAsync(f, ct) : null;
         return new DoctorCandidates(suggested, users);
+    }
+
+    private async Task<DoctorCandidate?> SuggestActiveAsync(Guid forUserId, CancellationToken ct)
+    {
+        async Task<bool> Active(Guid? id) => id is { } g
+            && await db.SharedPrincipals.AsNoTracking().AnyAsync(p => p.Id == g && p.Active && p.DeletedAt == null, ct);
+
+        var mgr = await org.GetManagerIdAsync(forUserId, ct);
+        if (await Active(mgr)) return new DoctorCandidate(mgr!.Value, await NameAsync(mgr.Value, ct) ?? mgr.Value.ToString(), null, "主管");
+
+        var dept = await org.GetPrimaryDepartmentIdAsync(forUserId, ct);
+        if (dept is { } d)
+        {
+            var head = await org.GetDepartmentHeadIdAsync(d, ct);
+            if (head != forUserId && await Active(head))
+                return new DoctorCandidate(head!.Value, await NameAsync(head.Value, ct) ?? head.Value.ToString(), null, "部門主管");
+        }
+        return null;
     }
 
     // ---- remediation ----

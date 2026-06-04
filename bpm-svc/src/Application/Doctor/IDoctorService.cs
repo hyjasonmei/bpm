@@ -13,7 +13,7 @@ public interface IDoctorService
 
     /// <summary>Active users for the reassign picker; if <paramref name="forUserId"/>
     /// is given, the first entry is the suggested target (their manager → dept head).</summary>
-    Task<DoctorCandidates> GetCandidatesAsync(Guid? forUserId, CancellationToken ct = default);
+    Task<DoctorCandidates> GetCandidatesAsync(Guid? forUserId, string? q, CancellationToken ct = default);
 
     Task<DoctorActionResult> ReassignAsync(string flowCode, Guid caseId, Guid toUserId, Guid? operatorUserId, string? reason, CancellationToken ct = default);
     Task<DoctorActionResult> BatchReassignAsync(Guid fromUserId, Guid toUserId, Guid? operatorUserId, string? reason, CancellationToken ct = default);

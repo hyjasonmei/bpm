@@ -144,15 +144,24 @@ public sealed class SandboxController(
     /// without a 403 noise.
     /// </summary>
     [HttpGet("personas")]
-    public async Task<IReadOnlyList<SandboxPersonaDto>> ListPersonas(CancellationToken ct)
+    public async Task<IReadOnlyList<SandboxPersonaDto>> ListPersonas([FromQuery] string? q, CancellationToken ct = default)
     {
         var clock = await clockService.GetAsync(ct);
         if (!clock.SandboxOn) return Array.Empty<SandboxPersonaDto>();
 
-        var users = await db.SharedPrincipals.AsNoTracking()
-            .Where(p => p.Type == SharedPrincipalType.User && p.Active && p.DeletedAt == null)
+        // Server-side typeahead (name/email) so the persona switcher scales past
+        // a directory of thousands — the client never fetches the full list.
+        var baseQuery = db.SharedPrincipals.AsNoTracking()
+            .Where(p => p.Type == SharedPrincipalType.User && p.Active && p.DeletedAt == null);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var s = q.Trim();
+            baseQuery = baseQuery.Where(p =>
+                EF.Functions.Like(p.DisplayName, "%" + s + "%") || (p.Email != null && EF.Functions.Like(p.Email, "%" + s + "%")));
+        }
+        var users = await baseQuery
             .OrderBy(u => u.DisplayName)
-            .Take(200)
+            .Take(20)
             .ToListAsync(ct);
 
         var rows = new List<SandboxPersonaDto>(users.Count);

@@ -21,8 +21,8 @@ public sealed class DoctorController(IDoctorService doctor) : ControllerBase
         => doctor.ScanAsync(stalledDays, ct);
 
     [HttpGet("candidates")]
-    public Task<DoctorCandidates> Candidates([FromQuery] Guid? userId, CancellationToken ct = default)
-        => doctor.GetCandidatesAsync(userId, ct);
+    public Task<DoctorCandidates> Candidates([FromQuery] Guid? userId, [FromQuery] string? q, CancellationToken ct = default)
+        => doctor.GetCandidatesAsync(userId, q, ct);
 
     [HttpPost("reassign")]
     public Task<DoctorActionResult> Reassign([FromBody] ReassignRequest req, CancellationToken ct)

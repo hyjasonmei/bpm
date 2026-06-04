@@ -24,27 +24,27 @@ export function ImpersonationModal({ open, onClose }: Props) {
   const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!open) {
-      setQuery(''); setTarget(null); setReason(''); setErr(null); setUsers([]); setUsersError(null)
-      return
-    }
-    let cancelled = false
-    setLoadingUsers(true)
-    setUsersError(null)
-    listAdminUsers({ pageSize: 200 })
-      .then(res => { if (!cancelled) setUsers(res.items.filter(u => u.isActive)) })
-      .catch(e => { if (!cancelled) setUsersError(e instanceof Error ? e.message : String(e)) })
-      .finally(() => { if (!cancelled) setLoadingUsers(false) })
-    return () => { cancelled = true }
+    if (!open) { setQuery(''); setTarget(null); setReason(''); setErr(null); setUsers([]); setUsersError(null) }
   }, [open])
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return users.slice(0, 12)
-    return users
-      .filter(u => u.fullName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
-      .slice(0, 12)
-  }, [users, query])
+  // Server-side typeahead (the directory may be thousands of users) — debounce
+  // and ask /api/admin/users for matches instead of pulling the whole list.
+  useEffect(() => {
+    if (!open) return
+    const q = query.trim()
+    if (q === '') { setUsers([]); setLoadingUsers(false); return }
+    let cancelled = false
+    setLoadingUsers(true); setUsersError(null)
+    const t = setTimeout(() => {
+      listAdminUsers({ q, pageSize: 20 })
+        .then(res => { if (!cancelled) setUsers(res.items.filter(u => u.isActive)) })
+        .catch(e => { if (!cancelled) setUsersError(e instanceof Error ? e.message : String(e)) })
+        .finally(() => { if (!cancelled) setLoadingUsers(false) })
+    }, 250)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [open, query])
+
+  const filtered = useMemo(() => users.slice(0, 12), [users])
 
   async function submit() {
     if (!target) { setErr('Pick a target user first.'); return }

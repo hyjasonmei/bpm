@@ -65,8 +65,13 @@ export interface DoctorActionResult {
 export const scanDoctor = (stalledDays = 14) =>
   api<DoctorReport>(`${base}/scan?stalledDays=${stalledDays}`)
 
-export const getCandidates = (userId?: string) =>
-  api<DoctorCandidates>(`${base}/candidates${userId ? `?userId=${userId}` : ''}`)
+export const getCandidates = (userId?: string, q?: string) => {
+  const p = new URLSearchParams()
+  if (userId) p.set('userId', userId)
+  if (q) p.set('q', q)
+  const qs = p.toString()
+  return api<DoctorCandidates>(`${base}/candidates${qs ? `?${qs}` : ''}`)
+}
 
 export const reassignCase = (flowCode: string, caseId: string, toUserId: string, reason?: string) =>
   api<DoctorActionResult>(`${base}/reassign`, { method: 'POST', json: { flowCode, caseId, toUserId, reason } })

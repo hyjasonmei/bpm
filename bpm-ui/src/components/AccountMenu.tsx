@@ -36,7 +36,6 @@ export function AccountMenu({
   const [open, setOpen] = useState(false)
   const [impersonateOpen, setImpersonateOpen] = useState(false)
   const [sandboxOn, setSandboxOn] = useState(false)
-  const [sandboxPersonas, setSandboxPersonas] = useState<SandboxPersonaDto[]>([])
   const [sandboxBusy, setSandboxBusy] = useState(false)
   const [sandboxError, setSandboxError] = useState<string | null>(null)
   const [accountInput, setAccountInput] = useState('')
@@ -71,12 +70,7 @@ export function AccountMenu({
         const status = await getSandboxStatus()
         if (cancelled) return
         setSandboxOn(status.enabled)
-        if (status.enabled) {
-          const list = await listSandboxPersonas()
-          if (!cancelled) setSandboxPersonas(list)
-        } else {
-          setSandboxPersonas([])
-        }
+        // Personas are resolved on-demand via server-side search (no preload).
       } catch { /* best effort */ }
     }
     void tick()
@@ -127,19 +121,6 @@ export function AccountMenu({
       ? [rolesClaim]
       : []
 
-  // Type an account (email or name) → resolve against the personas list →
-  // switch. No dropdown list; the list is fetched only for resolution.
-  function resolvePersona(input: string): SandboxPersonaDto | null {
-    const q = input.trim().toLowerCase()
-    if (!q) return null
-    return (
-      sandboxPersonas.find(p => p.email.toLowerCase() === q || p.fullName.toLowerCase() === q) ??
-      sandboxPersonas.find(p => p.email.toLowerCase().startsWith(q + '@')) ??
-      sandboxPersonas.find(p => p.email.toLowerCase().startsWith(q)) ??
-      null
-    )
-  }
-
   async function switchToPersona(userId: string) {
     setSandboxBusy(true)
     setSandboxError(null)
@@ -162,12 +143,21 @@ export function AccountMenu({
     }
   }
 
-  function handleAccountSwitch() {
-    const match = resolvePersona(accountInput)
-    if (!match) {
-      setSandboxError(`找不到帳號「${accountInput.trim()}」`)
-      return
-    }
+  // Resolve the typed account via server-side search (no preloaded directory),
+  // then switch to the best match.
+  async function handleAccountSwitch() {
+    const qstr = accountInput.trim()
+    if (!qstr) return
+    setSandboxError(null)
+    let list: SandboxPersonaDto[]
+    try { list = await listSandboxPersonas(qstr) }
+    catch { setSandboxError('搜尋失敗'); return }
+    const ql = qstr.toLowerCase()
+    const match =
+      list.find(p => p.email.toLowerCase() === ql || p.fullName.toLowerCase() === ql) ??
+      list.find(p => p.email.toLowerCase().startsWith(ql)) ??
+      list[0]
+    if (!match) { setSandboxError(`找不到帳號「${qstr}」`); return }
     void switchToPersona(match.id)
   }
 

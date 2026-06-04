@@ -38,8 +38,10 @@ export async function getSandboxUnreadCount(): Promise<UnreadCountDto> {
   return jsonOrThrow<UnreadCountDto>(res)
 }
 
-export async function listSandboxPersonas(): Promise<SandboxPersonaDto[]> {
-  const res = await apiFetch('/api/sandbox/personas')
+// Server-side typeahead — pass the query so the client never pulls the full
+// directory (scales to thousands of users). Empty q returns nothing.
+export async function listSandboxPersonas(q = ''): Promise<SandboxPersonaDto[]> {
+  const res = await apiFetch(`/api/sandbox/personas${q ? `?q=${encodeURIComponent(q)}` : ''}`)
   return jsonOrThrow<SandboxPersonaDto[]>(res)
 }
 
