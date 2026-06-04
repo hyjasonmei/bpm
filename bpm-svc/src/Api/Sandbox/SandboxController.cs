@@ -199,6 +199,7 @@ public sealed class SandboxController(
             channel: channelEnum,
             recipientUserIdHint: recipientUserId,
             processInstanceId: processInstanceId,
+            flowCode: null,
             unreadOnly: unread,
             limit: limit,
             ct);

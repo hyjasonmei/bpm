@@ -21,6 +21,16 @@ public sealed class SandboxCapturedMessage : AuditableEntity
     public Guid? ProcessInstanceId { get; set; }
     public Guid? TaskId { get; set; }
 
+    /// <summary>
+    /// Model-B attribution: the chef flow this notification belongs to (from
+    /// <c>NotifyMessage.Context["flowCode"]</c>). Null for legacy Model-A
+    /// captures. Lets the Mailbox filter per flow.
+    /// </summary>
+    public string? FlowCode { get; set; }
+
+    /// <summary>Model-B case id (from <c>NotifyMessage.Context["caseId"]</c>).</summary>
+    public Guid? CaseId { get; set; }
+
     public SandboxChannel Channel { get; set; }
 
     /// <summary>JSON array of strings: emails / phones / "*" for webhook.</summary>

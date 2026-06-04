@@ -13,7 +13,6 @@ import {
 } from 'lucide-react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/cn'
-import { PagePlaceholder } from '@/flowcook/app/PagePlaceholder'
 import { usePageHeader } from '@/flowcook/app/pageHeader'
 import { UserMenu } from '@/flowcook/app/UserMenu'
 import { UserRolePage } from '@/flowcook/pages/UserRolePage'
@@ -21,6 +20,7 @@ import { AiKitchenPage } from '@/flowcook/pages/AiKitchenPage'
 import { SiteSettingPage } from '@/flowcook/pages/SiteSettingPage'
 import { ReportsPage } from '@/flowcook/pages/ReportsPage'
 import { AuditPage } from '@/flowcook/pages/AuditPage'
+import { SandboxPage } from '@/flowcook/pages/SandboxPage'
 
 export type FlowcookPage = 'ai-kitchen' | 'user-role' | 'sandbox' | 'audit' | 'reports' | 'site-setting'
 
@@ -181,13 +181,7 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
             <Route path="/" element={<Navigate to="/ai-kitchen" replace />} />
             <Route path="/ai-kitchen/*" element={<AiKitchenPage />} />
             <Route path="/user-role/*" element={<UserRolePage />} />
-            <Route path="/sandbox" element={
-              <PagePlaceholder
-                title="Sandbox"
-                kicker="step 4-6"
-                description="Three quiet controls — scope, mail intercept, clock freeze — that flip bpm runtime into safe-tasting mode. Wires up once Step 4 (bpm refactor) and Step 6 (syncer) land."
-              />
-            } />
+            <Route path="/sandbox" element={<SandboxPage />} />
             <Route path="/audit" element={<AuditPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/site-setting/*" element={<SiteSettingPage />} />

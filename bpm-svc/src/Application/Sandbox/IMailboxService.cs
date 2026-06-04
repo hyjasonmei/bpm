@@ -11,12 +11,13 @@ namespace Bpm.Application.Sandbox;
 /// </summary>
 public interface IMailboxService
 {
-    /// <summary>List with channel / recipient / instance / unread filters.</summary>
+    /// <summary>List with channel / recipient / instance / flow / unread filters.</summary>
     Task<IReadOnlyList<CapturedMessageSummaryDto>> ListAsync(
         Guid currentUserId,
         SandboxChannel? channel,
         Guid? recipientUserIdHint,
         Guid? processInstanceId,
+        string? flowCode,
         bool unreadOnly,
         int limit,
         CancellationToken ct = default);

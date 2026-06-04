@@ -113,6 +113,7 @@ public static class DependencyInjection
         services.AddScoped<IOutboundGate, OutboundGate>();
         services.AddScoped<IResetService, ResetService>();
         services.AddScoped<IMailboxService, MailboxService>();
+        services.AddScoped<IFlowSandboxConfigService, FlowSandboxConfigService>();
         services.AddScoped<IRoleAdminService, RoleAdminService>();
 
         // Process runtime + collaborator stubs (Delegation / Notifications /
@@ -131,11 +132,17 @@ public static class DependencyInjection
         // INotifyDispatcher (FileNotifyDispatcher) with a composite of the
         // two concretes. Construct with explicit instances so the composite
         // never resolves itself via IEnumerable<INotifyDispatcher>.
+        // SandboxCaptureNotifyDispatcher is the third sink: when a flow's
+        // sandbox capture is effective it records the outbound "email" into
+        // SandboxCapturedMessages for the admin Mailbox. Additive — the bell
+        // (InApp) and dev log (File) still run.
         services.AddScoped<FileNotifyDispatcher>();
         services.AddScoped<InAppNotifyDispatcher>();
+        services.AddScoped<SandboxCaptureNotifyDispatcher>();
         services.AddScoped<INotifyDispatcher>(sp => new CompositeNotifyDispatcher(
             sp.GetRequiredService<FileNotifyDispatcher>(),
-            sp.GetRequiredService<InAppNotifyDispatcher>()));
+            sp.GetRequiredService<InAppNotifyDispatcher>(),
+            sp.GetRequiredService<SandboxCaptureNotifyDispatcher>()));
 
         services.AddScoped<IProcessRuntime, ProcessRuntime>();
         services.AddScoped<IProcessQueryService, ProcessQueryService>();

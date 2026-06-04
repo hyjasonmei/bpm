@@ -17,6 +17,7 @@ public sealed class SandboxCapturedMessageConfiguration : IEntityTypeConfigurati
         b.Property(x => x.IntendedRecipientsJson).IsRequired();
         b.Property(x => x.ReadByUserIdsJson).IsRequired();
 
+        b.Property(x => x.FlowCode).HasMaxLength(64);
         b.Property(x => x.Subject).HasMaxLength(500);
         b.Property(x => x.Url).HasMaxLength(2048);
         b.Property(x => x.EventType).HasMaxLength(200);
@@ -34,6 +35,10 @@ public sealed class SandboxCapturedMessageConfiguration : IEntityTypeConfigurati
         // Per-instance drill-down: "what did this instance send out?"
         b.HasIndex(x => new { x.ProcessInstanceId, x.CapturedAt })
             .IsDescending(false, true);
+
+        // Model-B per-flow mailbox filter: "what did flow X send out?"
+        b.HasIndex(x => new { x.TenantCode, x.FlowCode, x.CapturedAt })
+            .IsDescending(false, false, true);
 
         // Webhook tab event-type filter.
         b.HasIndex(x => new { x.EventType, x.CapturedAt })

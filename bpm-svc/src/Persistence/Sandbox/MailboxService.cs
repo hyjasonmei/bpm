@@ -26,6 +26,7 @@ public sealed class MailboxService(
         SandboxChannel? channel,
         Guid? recipientUserIdHint,
         Guid? processInstanceId,
+        string? flowCode,
         bool unreadOnly,
         int limit,
         CancellationToken ct = default)
@@ -40,6 +41,8 @@ public sealed class MailboxService(
             q = q.Where(m => m.Channel == channel.Value);
         if (processInstanceId.HasValue)
             q = q.Where(m => m.ProcessInstanceId == processInstanceId.Value);
+        if (!string.IsNullOrWhiteSpace(flowCode))
+            q = q.Where(m => m.FlowCode == flowCode);
         if (recipientUserIdHint.HasValue)
         {
             // Substring match against the JSON array text column. Looks for
@@ -62,6 +65,8 @@ public sealed class MailboxService(
                 m.Id,
                 m.ProcessInstanceId,
                 m.TaskId,
+                m.FlowCode,
+                m.CaseId,
                 m.Channel,
                 m.Subject,
                 m.EventType,
@@ -72,7 +77,7 @@ public sealed class MailboxService(
 
         var currentToken = currentUserId.ToString();
         return rows.Select(r => new CapturedMessageSummaryDto(
-            r.Id, r.ProcessInstanceId, r.TaskId, r.Channel, r.Subject, r.EventType,
+            r.Id, r.ProcessInstanceId, r.TaskId, r.FlowCode, r.CaseId, r.Channel, r.Subject, r.EventType,
             r.CapturedAt,
             ReadByMe: ContainsUserId(r.ReadByUserIdsJson, currentToken))).ToList();
     }
@@ -92,7 +97,7 @@ public sealed class MailboxService(
 
         var readByMe = ContainsUserId(m.ReadByUserIdsJson, currentUserId.ToString());
         return new CapturedMessageDetailDto(
-            m.Id, m.ProcessInstanceId, m.TaskId, m.Channel,
+            m.Id, m.ProcessInstanceId, m.TaskId, m.FlowCode, m.CaseId, m.Channel,
             recipients, m.Subject, m.BodyHtml, m.BodyText,
             m.Url, m.HeadersJson, m.PayloadJson, m.EventType, m.Body,
             m.CapturedAt, readByMe,

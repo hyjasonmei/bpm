@@ -489,6 +489,14 @@ await notify.DispatchAsync(new NotifyMessage(
 ), ct);
 ```
 
+> **`Context` is load-bearing — always include `caseId` + `flowCode`.**
+> They are not just tracing keys. Two lead-owned sinks read them: the header
+> bell (`InAppNotifyDispatcher`) builds its deep link from them, and the
+> sandbox mail-capture (`SandboxCaptureNotifyDispatcher`) attributes each
+> captured notification to its flow/case by them so the admin Sandbox mailbox
+> can filter per flow. Omit them and the bell link breaks **and** the
+> notification can't be found per-flow during UAT. `flowVersion` is optional.
+
 Tests: pass a fake `INotifyDispatcher` in unit tests (NoOp is fine);
 use the real `FileNotifyDispatcher` with a temp file path in integration
 / E2E tests to assert delivery — see `LEAVE_V1_NotifyDispatchE2ETests`

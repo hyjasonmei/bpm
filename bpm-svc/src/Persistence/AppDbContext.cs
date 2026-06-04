@@ -32,6 +32,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<TenantSettings> TenantSettings => Set<TenantSettings>();
     public DbSet<SandboxCapturedMessage> SandboxCapturedMessages => Set<SandboxCapturedMessage>();
+    public DbSet<FlowSandboxConfig> FlowSandboxConfigs => Set<FlowSandboxConfig>();
 
     public DbSet<RoleAssignmentChange> RoleAssignmentChanges => Set<RoleAssignmentChange>();
 
