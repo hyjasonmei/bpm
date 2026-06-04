@@ -20,6 +20,7 @@ import { UserRolePage } from '@/flowcook/pages/UserRolePage'
 import { AiKitchenPage } from '@/flowcook/pages/AiKitchenPage'
 import { SiteSettingPage } from '@/flowcook/pages/SiteSettingPage'
 import { ReportsPage } from '@/flowcook/pages/ReportsPage'
+import { AuditPage } from '@/flowcook/pages/AuditPage'
 
 export type FlowcookPage = 'ai-kitchen' | 'user-role' | 'sandbox' | 'audit' | 'reports' | 'site-setting'
 
@@ -187,13 +188,7 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
                 description="Three quiet controls — scope, mail intercept, clock freeze — that flip bpm runtime into safe-tasting mode. Wires up once Step 4 (bpm refactor) and Step 6 (syncer) land."
               />
             } />
-            <Route path="/audit" element={
-              <PagePlaceholder
-                title="Audit"
-                kicker="step 6"
-                description="Read-only event ledger. Every action across admin, bpm, chef, syncer lands here as an append-only event. The viewer opens with Step 6 once syncer carries bpm events back."
-              />
-            } />
+            <Route path="/audit" element={<AuditPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/site-setting/*" element={<SiteSettingPage />} />
             <Route path="*" element={<Navigate to="/ai-kitchen" replace />} />
