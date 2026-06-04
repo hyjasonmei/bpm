@@ -42,9 +42,19 @@ function useInboxEndpoint(path: '/api/inbox/mine' | '/api/inbox/pending'): State
       if (cancelled) return
     })()
     const id = window.setInterval(load, 30_000)
+    // The inbox is identity-scoped. Switching persona re-mints the JWT to a
+    // different user without remounting this hook, so without an explicit
+    // signal we'd keep showing the previous identity's rows until the next
+    // poll tick (up to 30s). Refetch immediately when the identity changes
+    // or an impersonation swap-back fires.
+    const onIdentityChanged = () => { void load() }
+    window.addEventListener('bpm:identity-changed', onIdentityChanged)
+    window.addEventListener('bpm:impersonation-ended', onIdentityChanged)
     return () => {
       cancelled = true
       window.clearInterval(id)
+      window.removeEventListener('bpm:identity-changed', onIdentityChanged)
+      window.removeEventListener('bpm:impersonation-ended', onIdentityChanged)
     }
   }, [load])
 

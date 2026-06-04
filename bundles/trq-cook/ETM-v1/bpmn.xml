@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="def_ETM" targetNamespace="http://flowcook/ETM">
+  <bpmn:process id="ETM" isExecutable="true">
+    <bpmn:startEvent id="s" name="離職意願發生"/>
+    <bpmn:userTask id="req" name="申請單 Employee Request"/>
+    <bpmn:userTask id="ap" name="簽核流程 Approval"/>
+    <bpmn:userTask id="ho" name="交接 / 基本設定 Handover"/>
+    <bpmn:endEvent id="e" name="結案"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="s" targetRef="req"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="req" targetRef="ap"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="ap" targetRef="ho" name="Pass"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="ap" targetRef="req" name="Reject"/>
+    <bpmn:sequenceFlow id="f5" sourceRef="ho" targetRef="e"/>
+  </bpmn:process>
+</bpmn:definitions>

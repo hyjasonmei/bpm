@@ -3,6 +3,7 @@ import { LogIn, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Field } from '@/components/ui/form'
 import { login } from '@/lib/api/auth'
+import { rememberPersonaForRoles } from '@/lib/role'
 
 // Demo credentials match admin-svc's seeded Bob (employee persona,
 // reports to Alice the Backend dept head). Pre-filling matches the
@@ -25,7 +26,11 @@ export function Login({ onLoggedIn }: { onLoggedIn?: () => void }) {
     setBusy(true)
     setErr(null)
     try {
-      await login(email.trim(), password)
+      const res = await login(email.trim(), password)
+      // Sync the saved persona to the identity we just authenticated as, so
+      // a stale persona from a previous user/session doesn't leak into this
+      // login's view (the token itself carries no roles to derive from).
+      rememberPersonaForRoles(res.user.roles)
       if (onLoggedIn) onLoggedIn()
       else window.location.reload()
     } catch (e) {

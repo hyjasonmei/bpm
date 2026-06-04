@@ -27,6 +27,18 @@ public class SharedFlow
     public Guid? GroupId { get; set; }
 
     /// <summary>
+    /// Mirror of <c>Admin_Flows.IconKey</c> — curated lucide icon name for
+    /// the bpm launcher tile. Null falls back to a default icon client-side.
+    /// </summary>
+    public string? IconKey { get; set; }
+
+    /// <summary>
+    /// Mirror of <c>Admin_Flows.DisplayOrder</c> — launcher sort weight
+    /// within the flow's group (low → high; ties break on FlowCode).
+    /// </summary>
+    public int DisplayOrder { get; set; }
+
+    /// <summary>
     /// Mirror of <c>Admin_Flows.ArchivedAt</c>. Set by admin's Feature
     /// Tables tab when the per-flow EF tables are renamed away
     /// (<c>__arch_&lt;hash&gt;</c>). bpm-svc reads this to hide the flow

@@ -1,0 +1,113 @@
+{
+  "id": "req",
+  "fields": [
+    {
+      "id": "firstName",
+      "label": {
+        "zh-TW": "\u540D First Name"
+      },
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "lastName",
+      "label": {
+        "zh-TW": "\u59D3 Last Name"
+      },
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "businessTitle",
+      "label": {
+        "zh-TW": "\u8077\u7A31 Business Title"
+      },
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "employeeLocation",
+      "label": {
+        "zh-TW": "\u5DE5\u4F5C\u5730\u9EDE Location"
+      },
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "value": "APAC",
+          "label": "APAC"
+        },
+        {
+          "value": "EMEA",
+          "label": "EMEA"
+        },
+        {
+          "value": "AMERICAS",
+          "label": "AMERICAS"
+        }
+      ]
+    },
+    {
+      "id": "onboardDate",
+      "label": {
+        "zh-TW": "\u5230\u8077\u65E5 Onboard Date"
+      },
+      "type": "date",
+      "required": true
+    },
+    {
+      "id": "requireMailbox",
+      "label": {
+        "zh-TW": "\u9700\u4FE1\u7BB1 Require Mailbox"
+      },
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "Yes",
+          "label": "Yes"
+        },
+        {
+          "value": "No",
+          "label": "No"
+        }
+      ]
+    },
+    {
+      "id": "costCenter",
+      "label": {
+        "zh-TW": "\u6210\u672C\u4E2D\u5FC3 Cost Center"
+      },
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "contractNumber",
+      "label": {
+        "zh-TW": "\u5408\u7D04\u7DE8\u865F Contract No."
+      },
+      "type": "text",
+      "required": false
+    },
+    {
+      "id": "contractEffectiveDate",
+      "label": {
+        "zh-TW": "\u5408\u7D04\u751F\u6548\u65E5 Effective"
+      },
+      "type": "date",
+      "required": false
+    },
+    {
+      "id": "contractExpirationDate",
+      "label": {
+        "zh-TW": "\u5408\u7D04\u5230\u671F\u65E5 Expiration"
+      },
+      "type": "date",
+      "required": false
+    }
+  ],
+  "permissions": {
+    "submitter": "self",
+    "viewers": []
+  }
+}

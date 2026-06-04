@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
-import { CalendarIcon, Loader2 } from 'lucide-react'
+import { CalendarIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { Button } from '@/components/ui/button'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { Field, InfoBanner, Input, Select, Textarea } from '@/components/ui/form'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { FilePicker, type FilePickerValue } from '@/components/ui/FilePicker'
+import { ActionFooter } from '@/components/ui/action-footer/ActionFooter'
 import { FormShell } from '@/screens/forms/FormShell'
 import type { FormComponentProps } from '@/features/registry'
 import type { PersonaCode } from '@/lib/role'
@@ -149,20 +149,13 @@ export function LEAVE_V1_LeaveForm({ persona, mode = 'create', onSubmitted }: Fo
         </div>
       </SectionCard>
 
-      <SectionCard>
-        <div className="flex items-center justify-between gap-3 px-5 py-3">
-          <div className="text-sm text-ink-muted">
-            {error ? <span className="text-danger">{error}</span> : <span>送出後將通知您的主管。</span>}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => navigate('/')} disabled={pending}>取消</Button>
-            <Button variant="primary" onClick={attemptSubmit} disabled={pending}>
-              {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              送出申請
-            </Button>
-          </div>
-        </div>
-      </SectionCard>
+      <ActionFooter
+        hint={error ? <span className="text-danger">{error}</span> : <span>送出後將通知您的主管。</span>}
+        actions={[
+          { id: 'cancel', label: '取消', variant: 'ghost', disabled: pending, onClick: () => navigate('/') },
+          { id: 'submit', label: '送出申請', variant: 'primary', pending, onClick: attemptSubmit },
+        ]}
+      />
 
       <ConfirmDialog
         open={confirmOpen}

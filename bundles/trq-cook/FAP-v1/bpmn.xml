@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="def_FAP" targetNamespace="http://flowcook/FAP">
+  <bpmn:process id="FAP" isExecutable="true">
+    <bpmn:startEvent id="s" name="資產外購"/>
+    <bpmn:userTask id="pr" name="請購單 Purchase Request"/>
+    <bpmn:userTask id="ap" name="簽核流程 Approval"/>
+    <bpmn:serviceTask id="po" name="採購單 Issue PO"/>
+    <bpmn:userTask id="vf" name="驗收 Verification"/>
+    <bpmn:endEvent id="e" name="入資產清冊 Book List"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="s" targetRef="pr"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="pr" targetRef="ap"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="ap" targetRef="po" name="Pass"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="ap" targetRef="pr" name="Reject"/>
+    <bpmn:sequenceFlow id="f5" sourceRef="po" targetRef="vf"/>
+    <bpmn:sequenceFlow id="f6" sourceRef="vf" targetRef="e"/>
+  </bpmn:process>
+</bpmn:definitions>

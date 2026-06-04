@@ -14,6 +14,8 @@ public record FlowSummaryDto(
     DateTime? LastChefHeartbeatAt,
     Guid? GroupId,
     string? GroupCode,
+    string? IconKey,
+    int DisplayOrder,
     string? ChefWorkContextJson);
 
 public record FlowDetailDto(
@@ -31,9 +33,20 @@ public record FlowDetailDto(
     DateTime? LastChefHeartbeatAt,
     Guid? GroupId,
     string? GroupCode,
+    string? IconKey,
+    int DisplayOrder,
     string? ChefWorkContextJson);
 
 public record CreateFlowRequest(string FlowCode, string DisplayName, string? SpecJson);
+
+/// <summary>Set or clear (<c>IconKey == null</c>) the launcher icon.</summary>
+public record SetFlowIconRequest(string? IconKey);
+
+/// <summary>
+/// Reorder launcher tiles: <c>FlowIds</c> in the desired display order.
+/// The service writes each row's <c>DisplayOrder</c> to its index.
+/// </summary>
+public record ReorderFlowsRequest(IReadOnlyList<Guid> FlowIds);
 
 public record UpdateFlowSpecRequest(string SpecJson, string? FlowCode, string? DisplayName);
 

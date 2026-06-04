@@ -1,0 +1,35 @@
+{
+  "id": "vf",
+  "fields": [
+    {
+      "id": "received",
+      "label": {
+        "zh-TW": "\u9A57\u6536\u7D50\u679C Received"
+      },
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "value": "Received",
+          "label": "Received"
+        },
+        {
+          "value": "Rejected",
+          "label": "Rejected"
+        }
+      ]
+    },
+    {
+      "id": "remark",
+      "label": {
+        "zh-TW": "\u5099\u8A3B Remark"
+      },
+      "type": "textarea",
+      "required": false
+    }
+  ],
+  "permissions": {
+    "submitter": "self",
+    "viewers": []
+  }
+}

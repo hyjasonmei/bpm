@@ -25,6 +25,10 @@ export interface FlowSummary {
   groupId: string | null
   /** Denormalised group code so the list row can chip without a second fetch. */
   groupCode: string | null
+  /** Curated lucide icon name for the bpm launcher tile, or null (default icon). */
+  iconKey: string | null
+  /** Launcher sort weight within the flow's group (low → high; ties on flowCode). */
+  displayOrder: number
   /** Free-form JSON about chef's workspace (PR-W1). Today shape:
    *  { branch, notes?, setAt }. Null when no chef session has set it. */
   chefWorkContextJson: string | null
@@ -109,4 +113,15 @@ export function unretireFlow(id: string): Promise<FlowDetail> {
 
 export function deleteFlow(id: string): Promise<void> {
   return api<void>(`/api/flows/${id}`, { method: 'DELETE' })
+}
+
+/** Set (or clear, with `iconKey: null`) the launcher icon. Curated lucide name. */
+export function setFlowIcon(id: string, iconKey: string | null): Promise<FlowDetail> {
+  return api<FlowDetail>(`/api/flows/${id}/icon`, { method: 'POST', json: { iconKey } })
+}
+
+/** Persist launcher order: `flowIds` in the desired order; each row's
+ *  displayOrder is set server-side to its index in this list. */
+export function reorderFlows(flowIds: string[]): Promise<void> {
+  return api<void>('/api/flows/reorder', { method: 'POST', json: { flowIds } })
 }

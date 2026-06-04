@@ -267,6 +267,52 @@ public class FlowLifecycleService : IFlowLifecycleService
         return row;
     }
 
+    public async Task<Flow> SetIconAsync(Guid flowId, string? iconKey, Guid? actorUserId, CancellationToken ct = default)
+    {
+        var row = await Load(flowId, ct);
+        var before = new { row.IconKey };
+        row.IconKey = string.IsNullOrWhiteSpace(iconKey) ? null : iconKey.Trim();
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(
+            actionType: "flow_icon_set",
+            targetType: "flow",
+            targetId: row.Id.ToString(),
+            actorUserId: actorUserId,
+            actorPrincipalId: null,
+            before: before,
+            after: new { row.IconKey },
+            ct: ct);
+
+        return row;
+    }
+
+    public async Task ReorderAsync(IReadOnlyList<Guid> orderedFlowIds, Guid? actorUserId, CancellationToken ct = default)
+    {
+        if (orderedFlowIds.Count == 0) return;
+
+        var rows = await _db.Flows
+            .Where(f => orderedFlowIds.Contains(f.Id))
+            .ToListAsync(ct);
+
+        var byId = rows.ToDictionary(f => f.Id);
+        for (var i = 0; i < orderedFlowIds.Count; i++)
+        {
+            if (byId.TryGetValue(orderedFlowIds[i], out var row))
+                row.DisplayOrder = i;
+        }
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(
+            actionType: "flow_reordered",
+            targetType: "flow",
+            targetId: string.Join(",", rows.Select(r => r.Id)),
+            actorUserId: actorUserId,
+            actorPrincipalId: null,
+            after: new { OrderedFlowIds = orderedFlowIds },
+            ct: ct);
+    }
+
     private async Task<Flow> ChefTransitionAsync(
         Guid flowId,
         FlowState target,
@@ -322,6 +368,11 @@ public class FlowLifecycleService : IFlowLifecycleService
             SpecJson = source.SpecJson,
             Notes = null,
             CreatedByUserId = actorUserId,
+            // Carry forward launcher display metadata so a re-cook keeps
+            // its group / icon / order instead of resetting to defaults.
+            GroupId = source.GroupId,
+            IconKey = source.IconKey,
+            DisplayOrder = source.DisplayOrder,
         };
         _db.Flows.Add(clone);
         await _db.SaveChangesAsync(ct);

@@ -162,7 +162,7 @@ Lead-maintained — chef imports, never reinvents.
 | Buttons | `@/components/ui/button` | `variant=primary\|outline\|ghost\|destructive`, `size=xs\|sm\|md` |
 | Form inputs | `@/components/ui/form` | `<Input>`, `<Textarea>`, `<Select>`, `<Field>`, `<InfoBanner>` |
 | Section cards | `@/components/ui/card` | `<SectionCard>`, `<SectionTitle>` |
-| Action footer | `@/components/ui/action-footer/ActionFooter` | Sticky bottom bar — required for case-detail decision buttons (no inline buttons) |
+| Action footer | `@/components/ui/action-footer/ActionFooter` | Viewport-fixed bottom bar — required for **both** case-detail decision buttons **and** create-form submit/cancel bars (no inline button rows). Portals to `<body>`; `FormShell` already supplies the `pb-24` clearance so the bar never covers content |
 | Confirm dialog | `@/components/ui/ConfirmDialog` | Used by every form submit |
 | Read-only field | `@/components/ui/readonly` | |
 | API fetch (UI) | `@/lib/apiFetch` (+ `BPM_SVC_URL`, `getJwt`) | Wraps fetch with the JWT |
@@ -387,6 +387,34 @@ Variants map from `TaskAction.kind`: `submit`/`approve`/`complete` →
 `primary`, `reject`/`cancel`/`revoke` → `destructive`,
 `save_draft`/`custom` → default. Hide actions whose `guard` evaluates
 to false (or disable via `disabled` + `title`).
+
+### Create-form submit bar → `<ActionFooter>`
+
+The submitter form (`<CODE>_V<N>_<Purpose>Form.tsx`, create mode) uses
+the **same** `<ActionFooter>` for its 取消 / 送出 bar — **not** a
+trailing `<SectionCard>` button row. The footer is viewport-fixed
+(portals to `<body>`), so it stays pinned at the bottom on both short
+and long forms. `FormShell` already carries `pb-24`, so don't add your
+own bottom spacer. Put the error / status hint in `hint`, and force the
+submit-button spinner via the item's `pending` flag (no inline
+`<Loader2>`):
+
+```tsx
+import { ActionFooter } from '@/components/ui/action-footer/ActionFooter'
+
+// …inside the FormShell children, after the last field SectionCard:
+<ActionFooter
+  hint={error ? <span className="text-danger">{error}</span> : <span>送出後將通知您的主管。</span>}
+  actions={[
+    { id: 'cancel', label: '取消', variant: 'ghost', disabled: pending, onClick: () => navigate('/') },
+    { id: 'submit', label: isResubmit ? '重新送出' : '送出申請', variant: 'primary', pending, disabled: !valid, onClick: attemptSubmit },
+  ]}
+/>
+```
+
+The `ConfirmDialog` (when `confirm=true`) stays a sibling — the footer's
+`onClick` only opens it. See `APE_V1_AdvancePaymentForm.tsx` for the
+canonical create-form shape.
 
 ### Retired-flow banner
 

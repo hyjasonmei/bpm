@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { CalendarIcon, Loader2 } from 'lucide-react'
+import { CalendarIcon } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import { Button } from '@/components/ui/button'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { Field, InfoBanner, Input, Select } from '@/components/ui/form'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { ActionFooter } from '@/components/ui/action-footer/ActionFooter'
 import { FormShell } from '@/screens/forms/FormShell'
 import type { FormComponentProps } from '@/features/registry'
 import type { PersonaCode } from '@/lib/role'
@@ -144,20 +144,13 @@ export function EOB_V1_OnboardingForm({ persona, mode = 'create', onSubmitted }:
         )}
       </SectionCard>
 
-      <SectionCard>
-        <div className="flex items-center justify-between gap-3 px-5 py-3">
-          <div className="text-sm text-ink-muted">
-            {error ? <span className="text-danger">{error}</span> : <span>送出後將通知您的主管。基本設定將於核准後進行。</span>}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => navigate('/')} disabled={pending}>取消</Button>
-            <Button variant="primary" onClick={attemptSubmit} disabled={pending || !valid}>
-              {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {isResubmit ? '重新送出' : '送出申請'}
-            </Button>
-          </div>
-        </div>
-      </SectionCard>
+      <ActionFooter
+        hint={error ? <span className="text-danger">{error}</span> : <span>送出後將通知您的主管。基本設定將於核准後進行。</span>}
+        actions={[
+          { id: 'cancel', label: '取消', variant: 'ghost', disabled: pending, onClick: () => navigate('/') },
+          { id: 'submit', label: isResubmit ? '重新送出' : '送出申請', variant: 'primary', pending, disabled: !valid, onClick: attemptSubmit },
+        ]}
+      />
 
       <ConfirmDialog
         open={confirmOpen}

@@ -1,0 +1,17 @@
+{
+  "id": "exp",
+  "fields": [
+    {
+      "id": "travelRequestNo",
+      "label": {
+        "zh-TW": "\u95DC\u806F\u5DEE\u65C5\u7533\u8ACB\u55AE Travel Request No."
+      },
+      "type": "text",
+      "required": true
+    }
+  ],
+  "permissions": {
+    "submitter": "self",
+    "viewers": []
+  }
+}

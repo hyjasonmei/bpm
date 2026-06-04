@@ -1,0 +1,35 @@
+{
+  "id": "cf",
+  "fields": [
+    {
+      "id": "handlingResult",
+      "label": {
+        "zh-TW": "\u8655\u7F6E\u7D50\u679C Handling"
+      },
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "value": "\u96F6\u4EF6\u8F49\u5099\u54C1 To spare parts",
+          "label": "\u96F6\u4EF6\u8F49\u5099\u54C1 To spare parts"
+        },
+        {
+          "value": "\u5931\u6548 Scrap",
+          "label": "\u5931\u6548 Scrap"
+        }
+      ]
+    },
+    {
+      "id": "remark",
+      "label": {
+        "zh-TW": "\u5099\u8A3B Remark"
+      },
+      "type": "textarea",
+      "required": false
+    }
+  ],
+  "permissions": {
+    "submitter": "self",
+    "viewers": []
+  }
+}

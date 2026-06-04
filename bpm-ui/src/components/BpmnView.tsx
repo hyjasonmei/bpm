@@ -62,13 +62,13 @@ export function BpmnView({
         if (bpmnXml) {
           await viewer.importXML(bpmnXml)
           const canvas = viewer.get<BpmnCanvas>('canvas')
-          fitAndCenter(canvas)
+          sizeAndFit(canvas, containerRef.current)
           for (const id of completedNodes ?? []) canvas.addMarker(id, 'bpm-completed')
           if (currentNode) canvas.addMarker(currentNode, 'bpm-active')
         } else {
           await viewer.importXML(buildBpmnXml(steps, ownerByStep))
           const canvas = viewer.get<BpmnCanvas>('canvas')
-          fitAndCenter(canvas)
+          sizeAndFit(canvas, containerRef.current)
           steps.forEach((step, i) => {
             if (i < activeStep) canvas.addMarker(nodeId(step.id), 'bpm-completed')
             if (i === activeStep) canvas.addMarker(nodeId(step.id), 'bpm-active')
@@ -87,7 +87,7 @@ export function BpmnView({
   }, [open, steps, activeStep, ownerByStep, bpmnXml, completedNodes, currentNode])
 
   return (
-    <Modal open={open} onClose={onClose} ariaLabelledBy={titleId} panelClassName="max-w-[95vw]">
+    <Modal open={open} onClose={onClose} ariaLabelledBy={titleId} panelClassName="w-fit max-w-[95vw]">
       <div className="flex items-center justify-between border-b border-rule px-5 py-3">
         <div>
           <h3 id={titleId} className="text-sm font-bold text-ink">BPMN diagram — {formLabel}</h3>
@@ -98,7 +98,7 @@ export function BpmnView({
         </button>
       </div>
 
-      <div ref={containerRef} className="h-[70vh] w-[80vw] bg-white" />
+      <div ref={containerRef} className="h-[60vh] w-[70vw] bg-white" />
     </Modal>
   )
 }
@@ -116,6 +116,30 @@ interface BpmnCanvas {
   zoom: (value: string | number, center?: string | { x: number; y: number }) => void
   addMarker: (id: string, marker: string) => void
   viewbox: (box?: { x: number; y: number; width: number; height: number }) => BpmnViewbox
+}
+
+/**
+ * Shrink the canvas (and therefore the `w-fit` modal panel) to the diagram's
+ * natural size instead of a fixed `70vw × 60vh`. Small flows used to leave a
+ * large blank gutter on the right; now the modal hugs the diagram, capped at
+ * a fraction of the viewport for big ones. */
+function sizeAndFit(canvas: BpmnCanvas, container: HTMLElement | null): void {
+  if (!container) return
+  const inner = canvas.viewbox().inner // diagram-unit bounds of all elements
+  const PAD = 96 // breathing room around the diagram, in px
+  const MIN_W = 520
+  const MIN_H = 360
+  const MAX_SCALE = 1.5 // allow small diagrams to grow so the modal isn't tiny
+  const maxW = Math.round(window.innerWidth * 0.9)
+  const maxH = Math.round(window.innerHeight * 0.8)
+  // Grow small diagrams toward the viewport (capped at MAX_SCALE), shrink large
+  // ones to fit. Either way the diagram fills the modal — no blank gutter.
+  const scale = Math.min(MAX_SCALE, (maxW - PAD) / inner.width, (maxH - PAD) / inner.height)
+  const w = Math.min(maxW, Math.max(MIN_W, Math.round(inner.width * scale + PAD)))
+  const h = Math.min(maxH, Math.max(MIN_H, Math.round(inner.height * scale + PAD)))
+  container.style.width = `${w}px`
+  container.style.height = `${h}px`
+  fitAndCenter(canvas)
 }
 
 /** bpmn-js's `fit-viewport` scales to fit but biases the diagram toward the

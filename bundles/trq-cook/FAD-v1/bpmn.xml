@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="def_FAD" targetNamespace="http://flowcook/FAD">
+  <bpmn:process id="FAD" isExecutable="true">
+    <bpmn:startEvent id="s" name="報廢事件"/>
+    <bpmn:userTask id="dr" name="處份申請單 Disposal Request"/>
+    <bpmn:userTask id="ap" name="固定資產判別 IT"/>
+    <bpmn:userTask id="cf" name="領收確認 Confirmed"/>
+    <bpmn:endEvent id="e" name="處份 Disposal"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="s" targetRef="dr"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="dr" targetRef="ap"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="ap" targetRef="cf" name="Pass"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="ap" targetRef="dr" name="Reject"/>
+    <bpmn:sequenceFlow id="f5" sourceRef="cf" targetRef="e"/>
+  </bpmn:process>
+</bpmn:definitions>

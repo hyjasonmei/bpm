@@ -99,6 +99,22 @@ export function personaFromRoles(roles: string[]): PersonaCode {
 
 const STORAGE_KEY = 'bpm_active_role'
 
+/**
+ * Persist the persona that matches the just-authenticated identity.
+ *
+ * The dev/auth-login JWT carries identity only (no roles claim), so on the
+ * next load `useActivePersona` can't derive a persona from the token and
+ * would otherwise fall back to whatever `bpm_active_role` was left at by a
+ * *previous* user/session (e.g. logging in as employee-Bob after a prior
+ * switch to manager-Alice would still read "manager"). Call this on a fresh
+ * login with the roles from the login response so the saved persona always
+ * reflects the identity actually logged in.
+ */
+export function rememberPersonaForRoles(roles: string[]): void {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(STORAGE_KEY, personaFromRoles(roles))
+}
+
 export interface DevLoginUser {
   id: string
   fullName: string
@@ -165,6 +181,12 @@ export function useActivePersona() {
       setAuthedUser(user)
       localStorage.setItem(STORAGE_KEY, next)
       setCodeState(next)
+      // Switching persona re-mints the JWT to a *different* identity without
+      // a page reload. Anything that fetched identity-scoped data (the
+      // unified inbox in particular) is now stale — it won't re-run its
+      // effect just because we re-rendered. Broadcast so those listeners
+      // refetch immediately instead of waiting for their next poll tick.
+      window.dispatchEvent(new CustomEvent('bpm:identity-changed'))
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)

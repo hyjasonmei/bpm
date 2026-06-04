@@ -59,6 +59,22 @@ public class Flow : ISoftDeletable
     public Guid? GroupId { get; set; }
 
     /// <summary>
+    /// Curated lucide icon name for the bpm employee launcher tile (e.g.
+    /// "Plane", "Wallet"). Null falls back to a default icon client-side.
+    /// Constrained to the admin-ui ICON_CATALOG set; stored as a flat
+    /// string so the schema stays DB-portable. Display metadata only —
+    /// no runtime behaviour hangs off it.
+    /// </summary>
+    public string? IconKey { get; set; }
+
+    /// <summary>
+    /// Sort weight for the bpm launcher within the flow's group (low →
+    /// high; ties break on FlowCode). Admin reorders via drag on the AI
+    /// Kitchen flow-catalog panel. Defaults to 0 for un-ordered flows.
+    /// </summary>
+    public int DisplayOrder { get; set; }
+
+    /// <summary>
     /// Set when admin archives this flow's chef-cooked tables. Orthogonal
     /// to <see cref="State"/> and <see cref="DeletedAt"/>: admin can
     /// archive any state. Archived rows are hidden from the bpm-ui

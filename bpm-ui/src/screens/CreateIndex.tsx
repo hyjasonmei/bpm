@@ -1,17 +1,62 @@
-import { ChefHat } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { formRegistry } from '@/features/registry'
-import { FORMS } from '@/lib/workflow'
+import { FORMS, type FormCode } from '@/lib/workflow'
+import { resolveLauncherIcon } from '@/lib/launcherIcons'
+import { useFlowRegistry, latestPerCode } from '@/hooks/useFlowRegistry'
 import { routes } from '@/router'
 
+interface CreateAction {
+  code: FormCode
+  label: string
+  iconKey: string | null
+}
+
+interface CreateSection {
+  key: string
+  label: string
+  groupIcon: string | null
+  groupSort: number
+  items: CreateAction[]
+}
+
+const OTHER_KEY = '__other__'
+
 export function CreateIndex() {
-  // Registry-driven (matches Home Quick Actions). Each chef-shipped
-  // manifest under features/<CODE>/V<N>/ surfaces as one option here.
-  const actions = [...formRegistry.values()]
-    .map(m => ({ code: m.code, label: FORMS[m.code]?.zhLabel ?? m.code }))
-    .sort((a, b) => a.code.localeCompare(b.code))
+  // Catalog-driven: the customer Create page mirrors the admin AI Kitchen
+  // launcher-preview panel. Group / icon / order / approved-only all come
+  // from admin's Flow data over /api/flow-registry; the compile-time
+  // formRegistry stays the gate for *which* forms actually have a React
+  // component to render (a flow can be Approved in admin before its chef
+  // form ships). While the registry is still loading we fall back to
+  // showing every registered manifest so the page never flashes empty.
+  const { entries: registry } = useFlowRegistry()
+  const latest = latestPerCode(registry)
+  const gateByState = registry !== null
+
+  const actions: Array<CreateAction & { groupKey: string; groupLabel: string; groupIcon: string | null; groupSort: number; order: number }> =
+    [...formRegistry.values()]
+      .filter(m => {
+        if (!gateByState) return true
+        return latest.get(m.code)?.state === 'Approved'
+      })
+      .map(m => {
+        const entry = latest.get(m.code)
+        return {
+          code: m.code,
+          label: FORMS[m.code]?.zhLabel ?? m.code,
+          iconKey: entry?.iconKey ?? null,
+          groupKey: entry?.groupCode ?? OTHER_KEY,
+          groupLabel: entry?.groupDisplayName?.['zh-TW'] ?? entry?.groupCode ?? '其他',
+          groupIcon: entry?.groupIcon ?? null,
+          groupSort: entry?.groupSortOrder ?? Number.MAX_SAFE_INTEGER,
+          order: entry?.displayOrder ?? 0,
+        }
+      })
+
+  const sections = buildSections(actions)
+  const total = sections.reduce((n, s) => n + s.items.length, 0)
 
   return (
     <div className="mx-auto max-w-screen-lg space-y-6 p-6">
@@ -22,28 +67,74 @@ export function CreateIndex() {
 
       <SectionCard>
         <SectionTitle>Available flows</SectionTitle>
-        {actions.length === 0 ? (
+        {total === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-ink-faint">
             目前沒有可用的流程 — 請聯絡管理員建置新流程。
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-px bg-slate-100 md:grid-cols-3">
-            {actions.map(a => (
-              <Link
-                key={a.code}
-                to={routes.formCreate(a.code)}
-                className="flex flex-col items-start gap-1 bg-white px-4 py-3 text-left transition-colors hover:bg-blue-50"
-              >
-                <span className="font-mono text-[10.5px] uppercase tracking-wider text-ink-faint">{a.code}</span>
-                <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
-                  <ChefHat className="h-3.5 w-3.5 text-primary" />
-                  {a.label}
-                </span>
-              </Link>
-            ))}
+          <div className="space-y-5 p-4">
+            {sections.map(s => {
+              const GroupGlyph = resolveLauncherIcon(s.groupIcon)
+              return (
+                <div key={s.key}>
+                  <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-faint">
+                    <GroupGlyph className="h-3.5 w-3.5" />
+                    {s.label}
+                    <span className="ml-1 font-mono text-[10px] text-ink-faint">{s.items.length}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                    {s.items.map(a => {
+                      const Glyph = resolveLauncherIcon(a.iconKey)
+                      return (
+                        <Link
+                          key={a.code}
+                          to={routes.formCreate(a.code)}
+                          className="flex flex-col items-start gap-1 rounded-md border border-rule bg-white px-4 py-3 text-left transition-colors hover:border-primary/40 hover:bg-blue-50"
+                        >
+                          <span className="font-mono text-[10.5px] uppercase tracking-wider text-ink-faint">{a.code}</span>
+                          <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                            <Glyph className="h-3.5 w-3.5 text-primary" />
+                            {a.label}
+                          </span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </SectionCard>
     </div>
   )
+}
+
+/** Group by groupKey, sort sections by groupSort, items by displayOrder
+ *  then code; the unassigned '__other__' bucket sinks to the bottom. */
+function buildSections(
+  actions: Array<CreateAction & { groupKey: string; groupLabel: string; groupIcon: string | null; groupSort: number; order: number }>,
+): CreateSection[] {
+  const map = new Map<string, CreateSection & { _orders: Map<string, number> }>()
+  for (const a of actions) {
+    let section = map.get(a.groupKey)
+    if (!section) {
+      section = {
+        key: a.groupKey,
+        label: a.groupLabel,
+        groupIcon: a.groupIcon,
+        groupSort: a.groupKey === OTHER_KEY ? Number.MAX_SAFE_INTEGER : a.groupSort,
+        items: [],
+        _orders: new Map(),
+      }
+      map.set(a.groupKey, section)
+    }
+    section.items.push({ code: a.code, label: a.label, iconKey: a.iconKey })
+    section._orders.set(a.code, a.order)
+  }
+  for (const s of map.values()) {
+    s.items.sort((x, y) =>
+      (s._orders.get(x.code)! - s._orders.get(y.code)!) || x.code.localeCompare(y.code))
+  }
+  return [...map.values()].sort((x, y) => x.groupSort - y.groupSort || x.label.localeCompare(y.label))
 }

@@ -1,0 +1,9 @@
+{
+  "id": "tc_happy",
+  "name": "Happy path",
+  "inputs": {},
+  "expectedTrace": [],
+  "expectedFinalStatus": "Completed",
+  "expectedNotifications": null,
+  "expectedWebhooks": null
+}

@@ -65,6 +65,20 @@ public interface IFlowLifecycleService
     Task<Flow> AssignGroupAsync(Guid flowId, Guid? groupId, Guid? actorUserId, CancellationToken ct = default);
 
     /// <summary>
+    /// Set (or clear, with <c>iconKey == null</c>) the launcher icon on a
+    /// flow. Display metadata for the bpm employee Create page; admin AI
+    /// Kitchen flow-catalog panel. Never chef-driven.
+    /// </summary>
+    Task<Flow> SetIconAsync(Guid flowId, string? iconKey, Guid? actorUserId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Write each flow's <c>DisplayOrder</c> to its position in
+    /// <paramref name="orderedFlowIds"/>. Used by the drag-to-reorder
+    /// flow-catalog panel. Ids not found are skipped silently.
+    /// </summary>
+    Task ReorderAsync(IReadOnlyList<Guid> orderedFlowIds, Guid? actorUserId, CancellationToken ct = default);
+
+    /// <summary>
     /// Record chef's current worktree / branch context. Called by the
     /// chef MCP tool <c>chef_set_worktree</c>; admin UI surfaces it
     /// so the operator can find chef's in-flight code or relaunch the

@@ -1,0 +1,19 @@
+{
+  "id": "task_fill",
+  "fields": [
+    {
+      "id": "vendor",
+      "label": {
+        "zh-TW": "\u5EE0\u5546"
+      },
+      "type": "text",
+      "required": false
+    }
+  ],
+  "permissions": {
+    "submitter": "self",
+    "viewers": [
+      "self"
+    ]
+  }
+}

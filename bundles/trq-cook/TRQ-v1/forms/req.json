@@ -1,0 +1,123 @@
+{
+  "id": "req",
+  "fields": [
+    {
+      "id": "travelType",
+      "label": {
+        "zh-TW": "\u5DEE\u65C5\u985E\u578B Travel Type"
+      },
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "value": "Round Trip",
+          "label": "Round Trip"
+        },
+        {
+          "value": "One Way",
+          "label": "One Way"
+        }
+      ]
+    },
+    {
+      "id": "departureCity",
+      "label": {
+        "zh-TW": "\u51FA\u767C\u5730 Departure City"
+      },
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "destinationCity",
+      "label": {
+        "zh-TW": "\u76EE\u7684\u5730 Destination City"
+      },
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "departDate",
+      "label": {
+        "zh-TW": "\u51FA\u767C\u65E5 Depart Date"
+      },
+      "type": "date",
+      "required": true
+    },
+    {
+      "id": "returnDate",
+      "label": {
+        "zh-TW": "\u56DE\u7A0B\u65E5 Return Date"
+      },
+      "type": "date",
+      "required": false
+    },
+    {
+      "id": "chargeTo",
+      "label": {
+        "zh-TW": "\u8CBB\u7528\u6B78\u5C6C Charge To"
+      },
+      "type": "text",
+      "required": true
+    },
+    {
+      "id": "travelPurpose",
+      "label": {
+        "zh-TW": "\u51FA\u5DEE\u76EE\u7684 Travel Purpose"
+      },
+      "type": "textarea",
+      "required": true
+    },
+    {
+      "id": "passportName",
+      "label": {
+        "zh-TW": "\u8B77\u7167\u59D3\u540D Passport Name"
+      },
+      "type": "text",
+      "required": false
+    },
+    {
+      "id": "seatPreference",
+      "label": {
+        "zh-TW": "\u5EA7\u4F4D\u504F\u597D Seat Preference"
+      },
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "Window",
+          "label": "Window"
+        },
+        {
+          "value": "Aisle",
+          "label": "Aisle"
+        },
+        {
+          "value": "No preference",
+          "label": "No preference"
+        }
+      ]
+    },
+    {
+      "id": "pickupRequired",
+      "label": {
+        "zh-TW": "\u9700\u63A5\u9001 Pickup Required"
+      },
+      "type": "select",
+      "required": false,
+      "options": [
+        {
+          "value": "Yes",
+          "label": "Yes"
+        },
+        {
+          "value": "No",
+          "label": "No"
+        }
+      ]
+    }
+  ],
+  "permissions": {
+    "submitter": "self",
+    "viewers": []
+  }
+}
