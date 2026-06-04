@@ -1,5 +1,6 @@
 using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Authorization;
+using Bpm.Application.Common.Directory;
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Notifications;
 using Bpm.Persistence.SharedIdentity;
@@ -20,7 +21,8 @@ public sealed class LEAVE_V1_LeaveService(
     IClock clock,
     ILogger<LEAVE_V1_LeaveService> log,
     INotifyDispatcher notify,
-    IActorAuthorizer auth)
+    IActorAuthorizer auth,
+    IPrincipalDirectory directory)
 {
     public const string FlowCode = "LEAVE";
     public const int FlowVersion = 1;
@@ -266,23 +268,11 @@ public sealed class LEAVE_V1_LeaveService(
         return headId;
     }
 
-    public async Task<Guid?> ResolveFirstUserInRoleAsync(string roleName, CancellationToken ct)
-    {
-        var roleId = await db.SharedRoles.AsNoTracking()
-            .Where(r => r.Name == roleName)
-            .Select(r => (Guid?)r.Id)
-            .FirstOrDefaultAsync(ct);
-        if (roleId == null) return null;
-
-        // Direct assignment first; fall back to any principal that resolves to a user.
-        var userId = await (
-            from pr in db.SharedPrincipalRoles.AsNoTracking()
-            join p in db.SharedPrincipals.AsNoTracking() on pr.PrincipalId equals p.Id
-            where pr.RoleId == roleId && p.Type == SharedPrincipalType.User && p.Active && p.DeletedAt == null
-            orderby p.DisplayName
-            select (Guid?)p.Id).FirstOrDefaultAsync(ct);
-        return userId;
-    }
+    // Resolves the first active user holding role:<roleCode>, honouring
+    // Dept / Group inheritance. Delegates to the shared directory so this
+    // flow matches how every other flow resolves role assignees.
+    public Task<Guid?> ResolveFirstUserInRoleAsync(string roleCode, CancellationToken ct)
+        => directory.FindFirstUserInRoleAsync(roleCode, ct);
 
     /// <summary>
     /// VP-stage approver. Spec uses <c>submitter.department.head</c>

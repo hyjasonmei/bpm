@@ -22,10 +22,9 @@ public interface IOrgChartReader
 
     /// All Principal ids assigned to the named role (optionally scoped to
     /// a flow). Each principal may itself be a User/Group/Department.
-    /// After unify-user-store, role lookup is by `Admin_Roles.Name` (not
-    /// `Code` — admin's role table never had a Code column).
+    /// Role lookup is by the stable `Admin_Roles.Code` (SCREAMING_SNAKE).
     Task<IReadOnlyList<(Guid PrincipalId, Guid RoleId)>> GetRoleAssigneesAsync(
-        string roleName, string? flowCode = null, CancellationToken ct = default);
+        string roleCode, string? flowCode = null, CancellationToken ct = default);
 }
 
 public sealed record GroupExpansion(IReadOnlySet<Guid> UserIds, IReadOnlyList<Guid>? CyclePath = null)

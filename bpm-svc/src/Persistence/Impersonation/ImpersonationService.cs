@@ -31,7 +31,7 @@ public sealed class ImpersonationService(AppDbContext db, IImpersonationTokenMin
         var callerIsAdmin = await (
             from pr in db.SharedPrincipalRoles.AsNoTracking()
             join r in db.SharedRoles.AsNoTracking() on pr.RoleId equals r.Id
-            where pr.PrincipalId == impersonatorUserId && r.Name == AdminRoleName
+            where pr.PrincipalId == impersonatorUserId && r.Code == AdminRoleName
             select pr).AnyAsync(ct);
         if (!callerIsAdmin)
             throw new ForbiddenException("only admins can start impersonation");
@@ -111,7 +111,7 @@ public sealed class ImpersonationService(AppDbContext db, IImpersonationTokenMin
         var callerIsAdmin = await (
             from pr in db.SharedPrincipalRoles.AsNoTracking()
             join r in db.SharedRoles.AsNoTracking() on pr.RoleId equals r.Id
-            where pr.PrincipalId == byUserId && r.Name == AdminRoleName
+            where pr.PrincipalId == byUserId && r.Code == AdminRoleName
             select pr).AnyAsync(ct);
         if (!callerIsAdmin) throw new ForbiddenException("only admins can revoke impersonation sessions");
 

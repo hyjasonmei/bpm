@@ -49,7 +49,7 @@ public sealed class RoleAdminService(AppDbContext db) : IRoleAdminService
             var name = roleName.Trim();
             query = query.Where(u => db.SharedPrincipalRoles.Any(pr =>
                 pr.PrincipalId == u.Id
-                && db.SharedRoles.Any(r => r.Id == pr.RoleId && r.Name == name)));
+                && db.SharedRoles.Any(r => r.Id == pr.RoleId && r.Code == name)));
         }
 
         var total = await query.CountAsync(ct);
@@ -108,7 +108,7 @@ public sealed class RoleAdminService(AppDbContext db) : IRoleAdminService
 
     public async Task<AssignmentDto> AssignRoleAsync(Guid actorUserId, Guid targetUserId, AssignRoleRequest req, CancellationToken ct = default)
     {
-        var role = await db.SharedRoles.FirstOrDefaultAsync(r => r.Name == req.RoleName, ct)
+        var role = await db.SharedRoles.FirstOrDefaultAsync(r => r.Code == req.RoleName, ct)
             ?? throw new NotFoundException("Role", req.RoleName);
         var target = await db.SharedPrincipals
             .FirstOrDefaultAsync(p => p.Id == targetUserId && p.Type == SharedPrincipalType.User, ct)
@@ -153,7 +153,7 @@ public sealed class RoleAdminService(AppDbContext db) : IRoleAdminService
             ?? throw new NotFoundException("RoleAssignment", assignmentId);
         var role = await db.SharedRoles.FirstAsync(r => r.Id == pr.RoleId, ct);
 
-        if (role.Name == AdminRoleName)
+        if (role.Code == AdminRoleName)
         {
             if (actorUserId == targetUserId)
                 throw new ForbiddenException("cannot revoke your own admin role");
@@ -161,7 +161,7 @@ public sealed class RoleAdminService(AppDbContext db) : IRoleAdminService
             var totalAdminUsers = await (
                 from a in db.SharedPrincipalRoles.AsNoTracking()
                 join r in db.SharedRoles.AsNoTracking() on a.RoleId equals r.Id
-                where r.Name == AdminRoleName
+                where r.Code == AdminRoleName
                 select a.PrincipalId
             ).Distinct().CountAsync(ct);
             if (totalAdminUsers <= 1)
