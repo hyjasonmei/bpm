@@ -17,17 +17,23 @@ import type {
   VENDOR_EXPENSE_V1_InvoiceDto,
 } from './VENDOR_EXPENSE_V1_types'
 
+/** Common settlement currencies offered in the invoice header. Free-text on
+ *  the backend, so an unknown hydrated value is preserved as an extra option. */
+const CURRENCIES = ['TWD', 'USD', 'EUR', 'JPY', 'CNY', 'GBP']
+
+/** Display-only money formatter (the backend stores amount as a free string). */
+const fmtMoney = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 })
+
 /**
  * VENDOR_EXPENSE V1 — submitter form (task_fill). Posts to
  * <c>POST /api/vendor-expense/v1</c> on first submit; when entered with
  * <c>?resubmit=&lt;caseId&gt;</c> on the URL, pre-fills from the existing
  * case and POSTs to <c>/{caseId}/resubmit</c>.
  *
- * Layout follows the spec's task_fill: a top-level Vendor field + the
- * rep_iyru invoice repeater (invoice date / no / charge-to / project /
- * category / currency / amount / description). Every field is optional
- * (the repeater only sets minCount: 1) and the submit comment is
- * optional per the action's promptComment: "optional".
+ * Layout follows the GEV vendor-invoice reference: each invoice is a card
+ * with a dark header band (index + currency), a field grid, and a per-amount
+ * formatted echo; a grouped grand-total card sums amounts by currency. All
+ * fields stay optional (the repeater only sets minCount: 1).
  *
  * Approval / Resubmit decision UI lives on
  * <see cref="VENDOR_EXPENSE_V1_CaseDetail" />.
@@ -96,6 +102,18 @@ export function VENDOR_EXPENSE_V1_VendorExpenseForm({
   // Spec sets only minCount: 1 on the repeater — submit requires at least
   // one invoice row, no other fields are mandatory.
   const valid = invoices.length >= 1
+
+  // Grand total grouped by currency (display only) — amounts are free strings
+  // and currencies can differ across invoices, so never sum across currencies.
+  const totalsByCcy = invoices.reduce<Record<string, number>>((acc, inv) => {
+    const amt = parseFloat((inv.amount ?? '').toString())
+    if (!Number.isNaN(amt) && amt !== 0) {
+      const c = (inv.currency ?? '').trim() || '—'
+      acc[c] = (acc[c] ?? 0) + amt
+    }
+    return acc
+  }, {})
+  const totalEntries = Object.entries(totalsByCcy)
 
   function attemptSubmit() {
     if (invoices.length < 1) { setError('請至少填寫一筆 invoice。'); return }
@@ -166,7 +184,7 @@ export function VENDOR_EXPENSE_V1_VendorExpenseForm({
       </SectionCard>
 
       <SectionCard>
-        <SectionTitle>新多筆群組 / Invoices</SectionTitle>
+        <SectionTitle>發票明細 / Invoices</SectionTitle>
 
         <div className="border-b border-rule px-5 py-3">
           <InfoBanner>
@@ -182,7 +200,7 @@ export function VENDOR_EXPENSE_V1_VendorExpenseForm({
         {loading ? (
           <div className="px-5 py-10 text-center text-sm text-ink-muted">載入中…</div>
         ) : (
-          <div className="space-y-3 px-5 py-4">
+          <div className="space-y-4 px-5 py-4">
             {invoices.map((inv, i) => (
               <InvoiceCard
                 key={i}
@@ -199,6 +217,17 @@ export function VENDOR_EXPENSE_V1_VendorExpenseForm({
                 <Plus className="h-3.5 w-3.5" /> 新增 invoice
               </Button>
             </div>
+
+            {totalEntries.length > 0 && (
+              <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 rounded-md border border-rule bg-slate-50 px-4 py-3">
+                <span className="text-sm font-semibold text-ink">合計 / Total</span>
+                {totalEntries.map(([ccy, sum]) => (
+                  <span key={ccy} className="font-mono text-base font-bold text-ink">
+                    {ccy === '—' ? '' : `${ccy} `}{fmtMoney(sum)}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </SectionCard>
@@ -255,18 +284,39 @@ function InvoiceCard({
   onChange: (patch: Partial<VENDOR_EXPENSE_V1_InvoiceDto>) => void
   onRemove: () => void
 }) {
+  const amt = parseFloat((value.amount ?? '').toString())
+  const ccyOptions = Array.from(new Set([...(value.currency ? [value.currency] : []), ...CURRENCIES]))
   return (
-    <div className="rounded-md border border-rule bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-semibold text-ink">#{index + 1}</p>
-        {canRemove && (
-          <Button variant="ghost" size="xs" onClick={onRemove} disabled={disabled}>
-            <Trash2 className="h-3.5 w-3.5" /> 移除
-          </Button>
-        )}
+    <div className="overflow-hidden rounded-md border border-rule">
+      {/* Dark invoice header band (mirrors the GEV vendor-invoice reference). */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-slate-700 px-4 py-2 text-sm text-white">
+        <span className="min-w-[84px] font-semibold">Invoice #{index + 1}</span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-slate-300">Currency</span>
+          <select
+            value={value.currency ?? ''}
+            onChange={e => onChange({ currency: e.target.value })}
+            disabled={disabled}
+            className="h-7 w-24 rounded border border-slate-500 bg-slate-600 px-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-60"
+          >
+            <option value="">—</option>
+            {ccyOptions.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          {canRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              disabled={disabled}
+              className="ml-1 flex items-center gap-1 rounded px-1.5 py-1 text-xs text-slate-300 hover:bg-slate-600 hover:text-white disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> 移除
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-3">
+      {/* Field grid */}
+      <div className="grid grid-cols-12 gap-3 bg-card p-4">
         <Field label="Invoice Date" className="col-span-6">
           <div className="relative">
             <Input
@@ -308,21 +358,26 @@ function InvoiceCard({
             disabled={disabled}
           />
         </Field>
-        <Field label="Currency" className="col-span-3">
-          <Input
-            value={value.currency ?? ''}
-            onChange={e => onChange({ currency: e.target.value })}
-            disabled={disabled}
-            placeholder="USD"
-          />
-        </Field>
-        <Field label="Amount" className="col-span-3">
-          <Input
-            value={value.amount ?? ''}
-            onChange={e => onChange({ amount: e.target.value })}
-            disabled={disabled}
-            placeholder="0.00"
-          />
+        <Field label="Amount" className="col-span-6">
+          <div className="flex gap-1.5">
+            <span className="flex h-8 items-center whitespace-nowrap rounded-md border border-rule bg-slate-50 px-2.5 text-sm text-ink-muted">
+              {value.currency || '—'}
+            </span>
+            <Input
+              type="number"
+              min={0}
+              className="text-right font-mono"
+              value={value.amount ?? ''}
+              onChange={e => onChange({ amount: e.target.value })}
+              disabled={disabled}
+              placeholder="0.00"
+            />
+          </div>
+          {!Number.isNaN(amt) && amt > 0 && (
+            <div className="mt-1 text-right font-mono text-xs text-ink-faint">
+              {value.currency ? `${value.currency} ` : ''}{fmtMoney(amt)}
+            </div>
+          )}
         </Field>
 
         <Field label="Description" className="col-span-12">
