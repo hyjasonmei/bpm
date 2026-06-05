@@ -12,7 +12,7 @@ import Screenshot from '../components/Screenshot.astro'
         功能
       </h1>
       <p class="mt-6 text-lg leading-relaxed text-white/85">
-        AI 廚房 跟 應用場景頁已經介紹了「為什麼用」。這頁補充「用什麼做的」 ——
+        AI 廚房 跟 應用場景頁已經介紹了「為什麼用」。這頁補充「用什麼做的」 —
         三大主題：業界標準技術、無痛驗收、合規即用。
       </p>
     </div>
@@ -25,16 +25,16 @@ import Screenshot from '../components/Screenshot.astro'
       <h2 class="mt-3 text-4xl font-semibold leading-tight">不重新發明輪子</h2>
       <p class="mt-4 text-base leading-relaxed text-ink/85">
         平台廠商最愛賣的私有 DSL、私有規則引擎，flowcook 都不做。
-        我們用業界開放標準把所有東西串起來 —— 你今天能查到的文件、明天找到的工程師，都認得這些東西。
+        我們用業界開放標準把所有東西串起來 — 你今天能查到的文件、明天找到的工程師，都認得這些東西。
       </p>
 
       <div class="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FeatureCard icon="📐" name="BPMN 2.0" desc="流程結構用業界標準 BPMN 2.0 描述。任何 BPMN 編輯器都能打開來看。" />
         <FeatureCard icon="🧮" name="CEL" desc="條件、決策、衍生欄位都用 Google 開放的 Common Expression Language。可審、可測、可在多個語言間共享。" />
         <FeatureCard icon="🔌" name="OpenAPI" desc="對外整合用 OpenAPI 描述，匯入 swagger.json 就會自動產生 client。" />
-        <FeatureCard icon="🔐" name="Entra ID" desc="原生對接微軟 Entra ID（Azure AD）—— SSO 跟組織同步零客製。" />
+        <FeatureCard icon="🔐" name="Entra ID" desc="原生對接微軟 Entra ID（Azure AD）— SSO 跟組織同步零客製。" />
         <FeatureCard icon="📨" name="Email / Teams / Webhook" desc="通知走標準通道。Teams、Slack、自訂 webhook 都接得起來。" />
-        <FeatureCard icon="🗃" name="Postgres / SQL Server" desc="資料儲存走標準關聯式資料庫。試作期跑 SQLite，正式環境改一行連線設定即可切換。" />
+        <FeatureCard icon="🗃" name="標準關聯式資料庫" desc="資料儲存走業界標準關聯式資料庫，未來要換正式環境改一行連線設定即可。" />
       </div>
 
       <div class="mt-12">
@@ -54,7 +54,7 @@ import Screenshot from '../components/Screenshot.astro'
       <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">無痛驗收</p>
       <h2 class="mt-3 text-4xl font-semibold leading-tight">試吃即驗收</h2>
       <p class="mt-4 text-base leading-relaxed text-ink/85">
-        傳統流程系統上線，最卡的關通常在驗收 —— 真實信箱不能寄、真實時間不能調、真實員工不能借來測。
+        傳統流程系統上線，最卡的關通常在驗收 — 真實信箱不能寄、真實時間不能調、真實員工不能借來測。
         試吃環境把這些痛點全部包掉。
       </p>
 
@@ -63,7 +63,7 @@ import Screenshot from '../components/Screenshot.astro'
         <FeatureRow icon="⏰" name="時間快轉" desc="假時鐘可以前進、後退、跳到任意時間點。測時限 24 小時到期？秒跳 24 小時看會發生什麼。" />
         <FeatureRow icon="👥" name="身分切換" desc="一鍵切換員工 / 主管 / 人資 / 財務 身分，不用登入五個帳號。" />
         <FeatureRow icon="🔄" name="一鍵重置" desc="把所有測試資料一鍵清掉重來。下個驗收員拿乾淨環境繼續。" />
-        <FeatureRow icon="🛑" name="對外攔截" desc="所有對外 API 呼叫進入攔截模式 —— 不會真的打到 ERP、不會真的扣款。" />
+        <FeatureRow icon="🛑" name="對外攔截" desc="所有對外 API 呼叫進入攔截模式 — 不會真的打到 ERP、不會真的扣款。" />
       </div>
 
       <div class="mt-12">
@@ -83,12 +83,12 @@ import Screenshot from '../components/Screenshot.astro'
       <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">合規即用</p>
       <h2 class="mt-3 text-4xl font-semibold leading-tight">監控 × 稽核</h2>
       <p class="mt-4 text-base leading-relaxed text-ink/85">
-        合規從第一天就內建，不用上線後才回頭補 —— flowcook 把稽核留痕、流程監控、對外整合的軌跡都做進系統裡。
+        合規從第一天就內建，不用上線後才回頭補 — flowcook 把稽核留痕、流程監控、對外整合的軌跡都做進系統裡。
       </p>
 
       <div class="mt-10 space-y-4">
-        <FeatureRow icon="📜" name="不可竄改稽核軌跡" desc="每一筆送出、核准、駁回、撤回，全部逐筆留痕。資料庫層面禁止修改、刪除 —— 改不了、刪不掉。" />
-        <FeatureRow icon="📊" name="流程監控台" desc="所有進行中的流程即時可查 —— 卡在誰、卡多久、誰超時限。" />
+        <FeatureRow icon="📜" name="不可竄改稽核軌跡" desc="每一筆送出、核准、駁回、撤回，全部逐筆留痕。資料庫層面禁止修改、刪除 — 改不了、刪不掉。" />
+        <FeatureRow icon="📊" name="流程監控台" desc="所有進行中的流程即時可查 — 卡在誰、卡多久、誰超時限。" />
         <FeatureRow icon="🔍" name="通知稽核" desc="每一則發出的 email、Teams、webhook 都留紀錄。誰收到、何時收到、收到什麼。" />
         <FeatureRow icon="🛡" name="角色權限控管" desc="每個流程、每個動作的權限都跟組織角色綁。離職員工角色撤掉，自動失去存取。" />
       </div>
@@ -110,7 +110,7 @@ import Screenshot from '../components/Screenshot.astro'
       <p class="mt-4 text-base text-white/80">
         我們有完整的架構文件、實作規格、合規對應表。預約 demo 時告訴我們你的 IT / 合規同事在意什麼，準備對應材料給你看。
       </p>
-      <a href="mailto:hello@flowcook.tw" class="btn-primary mt-6">寫信約 demo</a>
+      <a href="/#contact" class="btn-primary mt-6">預約 demo</a>
     </div>
   </section>
 </BaseLayout>

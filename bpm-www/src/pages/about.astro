@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro'
+import FeatureCard from '../components/FeatureCard.astro'
 ---
 <BaseLayout title="關於 — flowcook">
   <section class="bg-header py-16 text-white sm:py-24">
@@ -7,8 +8,73 @@ import BaseLayout from '../layouts/BaseLayout.astro'
       <p class="font-mono text-xs uppercase tracking-[0.2em] text-accent">About</p>
       <h1 class="mt-3 text-5xl font-semibold leading-tight text-white sm:text-6xl">關於 flowcook</h1>
       <p class="mt-6 text-lg leading-relaxed text-white/85">
-        我們從前公司帶回十幾個真實流程當原料 ——
-        想做一個中小企業真的用得起來的流程平台。
+        由一群經驗豐富的工程師打造，針對企業常見的流程場景設計 —
+        想做一個企業真的用得起來的流程平台。
+      </p>
+      <p class="mt-8 text-base leading-relaxed text-white/70">
+        flowcook 由 <span class="text-accent">諮優系資訊科技有限公司</span>（Tsuyoshi Tech）開發與發行。
+      </p>
+    </div>
+  </section>
+
+  <!-- Publisher intro -->
+  <section class="bg-page py-16 sm:py-20">
+    <div class="container-narrow max-w-3xl">
+      <p class="kicker">發行商</p>
+      <h2 class="mt-3 text-3xl font-semibold leading-tight">諮優系資訊科技有限公司 · Tsuyoshi Tech</h2>
+      <p class="mt-5 text-base leading-relaxed text-ink/85">
+        諮優系是 <strong>Microsoft Partner</strong>，以 Microsoft Solution 為核心，提供全方位整合性的資訊科技解決方案。我們以
+        Microsoft Dynamics 365 Business Central 為服務核心，串起從報價到收款（quote-to-cash）的完整流程，
+        並透過彈性的軟體專案開發模式為客戶量身打造方案、提供數位轉型建議，協助企業以資訊科技優化營運、降低成本，創造雙贏結果。
+      </p>
+      <p class="mt-4 text-base leading-relaxed text-ink/85">
+        作為 MSP（Managed Service Provider），我們整合 Microsoft、AWS、Google 與 Claude 等 AI 與商業應用方案，
+        加速企業流程智能化、推動數位轉型，協助企業邁向客戶成功。flowcook 正是這套能力中、專注於企業流程（BPM）的產品。
+      </p>
+      <p class="mt-6 text-base text-ink/75">
+        聯絡我們：<a href="mailto:wilson_you@tsuyoshitech.com" class="text-primary underline-offset-4 hover:underline">wilson_you@tsuyoshitech.com</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- 經營理念 -->
+  <section class="bg-card py-16 sm:py-20">
+    <div class="container-narrow max-w-4xl">
+      <p class="kicker">經營理念</p>
+      <h2 class="mt-3 text-3xl font-semibold leading-tight">客戶、溝通、變革、創新</h2>
+      <div class="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FeatureCard icon="🤝" name="客戶 Customer" desc="了解客戶真正的需求，在快速變化的產業中持續為客戶創造價值。" />
+        <FeatureCard icon="💬" name="溝通 Communication" desc="強調尊重與協調，同心協力解決問題，讓員工與企業一同成長。" />
+        <FeatureCard icon="🔄" name="變革 Change" desc="改變是成長的動力 — 保持彈性、隨時驗證新想法，快速轉換策略提出解法。" />
+        <FeatureCard icon="💡" name="創新 Innovation" desc="鼓勵創新且不畏失敗，不斷突破技術極限，為客戶創造新的價值。" />
+      </div>
+    </div>
+  </section>
+
+  <!-- 主要服務 -->
+  <section class="bg-page py-16 sm:py-20">
+    <div class="container-narrow max-w-4xl">
+      <p class="kicker">主要服務</p>
+      <h2 class="mt-3 text-3xl font-semibold leading-tight">端到端的資訊科技服務</h2>
+      <div class="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FeatureCard icon="📊" name="Dynamics 365 Business Central" desc="ERP 顧問服務，支援 on-premise 與 cloud 部署。" />
+        <FeatureCard icon="⚙️" name="Hyper-Automation" desc="商業流程自動化 — Power Automate、RPA。" />
+        <FeatureCard icon="📇" name="Dynamics 365 CRM" desc="客戶關係管理顧問服務。" />
+        <FeatureCard icon="📝" name="BPM" desc="企業流程平台 — Vendor、Employee Payment、Travel Request 等流程。" />
+        <FeatureCard icon="🛒" name="E-commerce 電商" desc="網站專案管理、UX 設計與系統分析。" />
+        <FeatureCard icon="☁️" name="Hybrid Cloud 雲服務" desc="混合雲建置與維運 — AWS、Azure。" />
+        <FeatureCard icon="🔐" name="IT Operation & Security" desc="IT 維運與資訊安全。" />
+      </div>
+    </div>
+  </section>
+
+  <!-- 服務據點 -->
+  <section class="bg-card py-16 sm:py-20">
+    <div class="container-narrow max-w-3xl">
+      <p class="kicker">服務據點</p>
+      <h2 class="mt-3 text-3xl font-semibold leading-tight">服務遍及全球</h2>
+      <p class="mt-5 text-base leading-relaxed text-ink/85">
+        中港台、新馬地區、印度、中東、紐澳地區、日韓、北美、德國、愛爾蘭。
       </p>
     </div>
   </section>

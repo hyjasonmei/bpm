@@ -24,7 +24,7 @@ import Screenshot from '../components/Screenshot.astro'
             <strong class="text-accent">AI 廚房</strong>幫你設計、<strong class="text-accent">AI 主廚</strong>寫成真實程式，試吃驗收後上線。
           </p>
           <div class="mt-10 flex flex-wrap items-center gap-4">
-            <a href="#contact" class="btn-primary">預約 demo</a>
+            <a href="/#contact" class="btn-primary">預約 demo</a>
             <a href="/how-it-works" class="btn-ghost border-white/30 bg-white/5 text-white hover:bg-white hover:text-ink">看運作方式 →</a>
           </div>
         </div>
@@ -44,6 +44,8 @@ import Screenshot from '../components/Screenshot.astro'
               alt="flowcook 後台 — AI 廚房對話式設計流程，搭配 BPMN 流程圖"
               loading="eager"
               class="block w-full"
+              data-zoom
+              data-zoom-caption="真實後台畫面 — AI 廚房 第 1 步"
             />
           </div>
           <p class="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-white/55">
@@ -75,18 +77,18 @@ import Screenshot from '../components/Screenshot.astro'
           icon="🥬"
           english="Prep"
           zh="備料"
-          headline="AI 廚房 —— 把流程描述清楚"
-          body="從 PDF、流程圖到老闆口述，AI 邊聊邊問細節。十一道工序覆蓋表單、決策、審核、通知、時限、整合，最後產出一份精準到能直接動工的規格。"
-          note="沒人需要學 BPMN —— 你只需要會講流程怎麼跑。"
+          headline="AI 廚房 — 把流程描述清楚"
+          body="從 PDF、流程圖到老闆口述，AI 邊聊邊問細節。友善的設計工具帶你把表單、決策、審核、通知、時限、整合一一補齊，最後產出一份精準到能直接動工的規格。"
+          note="你只需要會講流程怎麼跑。"
         />
         <KitchenAct
           act="cook"
           icon="🔥"
           english="Cook"
           zh="烹調"
-          headline="AI 主廚 —— 寫真實的程式"
-          body="規格交給 AI 主廚，他寫真實的 React + .NET，不是低代碼罐頭。每一行都能在 GitHub 上逐行審查，程式是你的，未來自己接手也順手。"
-          note="沒有平台綁架。用得開心也行，想換團隊接手也行。"
+          headline="AI 主廚 — 寫真實的程式"
+          body="規格交給 AI 主廚，他用業界標準的最新技術寫出真實程式碼，不是低代碼罐頭。每一行都能在 GitHub 上逐行審查，程式是你的，未來自己接手也順手。"
+          note="沒有平台綁架，想換團隊接手也行。"
         />
         <KitchenAct
           act="serve"
@@ -94,8 +96,8 @@ import Screenshot from '../components/Screenshot.astro'
           english="Serve"
           zh="上菜"
           headline="試吃驗收 → 正式上線"
-          body="假信箱、假時鐘、身分一鍵切換 —— 一個驗收員就能跑完整驗收，完全不影響真實系統。試吃滿意，再推上正式環境。"
-          note="上線那一刻，你心裡是踏實的。"
+          body="假信箱、假時鐘、身分一鍵切換 — 一個驗收員就能跑完整驗收，完全不影響真實系統。試吃滿意，再推上正式環境。"
+          note="該踩的雷，試吃時就踩完了。"
         />
       </div>
     </div>
@@ -110,7 +112,7 @@ import Screenshot from '../components/Screenshot.astro'
           這就是實際在跑的系統。
         </h2>
         <p class="mt-5 text-lg leading-relaxed text-ink/85">
-          員工端的日常簽核、管理端的驗收與治理 —— 下面每一張都是直接從系統截下來的實機畫面。
+          員工端的日常簽核、管理端的驗收與治理 — 下面每一張都是直接從系統截下來的實機畫面。
         </p>
       </div>
 
@@ -121,10 +123,10 @@ import Screenshot from '../components/Screenshot.astro'
           label="flowcook · 員工端"
           kicker="員工端"
           title="員工的日常，一個入口搞定"
-          body="送單、追蹤、簽核全在同一個收件匣。十幾條流程一鍵開單，待辦、進度、通知集中一處 —— 員工不必記得哪張表在哪個系統。"
+          body="送單、追蹤、簽核全在同一個收件匣。十幾條流程一鍵開單，待辦、進度、通知集中一處 — 員工不必記得哪張表在哪個系統。"
           bullets={[
-            '統一收件匣 —— 跨流程的待辦集中，不漏簽',
-            '即時進度 —— 卡在誰、第幾關，一目了然',
+            '統一收件匣 — 跨流程的待辦集中，不漏簽',
+            '即時進度 — 卡在誰、第幾關，一目了然',
             '中英雙語介面，員工零學習成本',
           ]}
         />
@@ -135,11 +137,11 @@ import Screenshot from '../components/Screenshot.astro'
           label="flowcook · 後台"
           kicker="無痛驗收"
           title="上線前，先在 Sandbox 試吃"
-          body="攔信、假時鐘、身分一鍵切換、一鍵清空重跑 —— 一個驗收員就能跑完整驗收，完全不碰真實系統、不會誤寄信、不會誤扣款。"
+          body="攔信、假時鐘、身分一鍵切換、一鍵清空重跑 — 一個驗收員就能跑完整驗收，完全不碰真實系統、不會誤寄信、不會誤扣款。"
           bullets={[
-            '攔信 —— 對外信件進假信箱，不會真的寄出',
-            '時間快轉 —— 測時限到期？秒跳 24 小時看結果',
-            '身分切換 —— 不用登入五個帳號跑全程',
+            '攔信 — 對外信件進假信箱，不會真的寄出',
+            '時間快轉 — 測時限到期？秒跳 24 小時看結果',
+            '身分切換 — 不用登入五個帳號跑全程',
           ]}
         />
         <Showcase
@@ -150,8 +152,8 @@ import Screenshot from '../components/Screenshot.astro'
           title="流程卡住、設定有洞，系統先幫你抓"
           body="系統健檢主動掃描卡關案件與組織設定問題（離職的簽核人、沒有成員的角色…），並提供一鍵補救入口。IT 治理不必等出事才補。"
           bullets={[
-            '卡關偵測 —— 一鍵改派 / 強制結案',
-            '組織健檢 —— 抓出沒人在的角色與斷掉的指派',
+            '卡關偵測 — 一鍵改派 / 強制結案',
+            '組織健檢 — 抓出沒人在的角色與斷掉的指派',
             '每筆動作逐筆留痕，改不了、刪不掉',
           ]}
         />
@@ -188,7 +190,7 @@ import Screenshot from '../components/Screenshot.astro'
         <p class="kicker">業界標準</p>
         <h3 class="mt-3 text-2xl font-semibold">不重新發明輪子</h3>
         <p class="mt-3 text-sm leading-relaxed text-ink/80">
-          BPMN 2.0 描述流程、CEL 寫條件、OpenAPI 描述整合、Entra ID 對接組織 —— 全是業界開放標準。
+          BPMN 2.0 描述流程、CEL 寫條件、OpenAPI 描述整合、Entra ID 對接組織 — 全是業界開放標準。
           沒有奇怪的私有格式綁架你。
         </p>
       </div>
@@ -196,7 +198,7 @@ import Screenshot from '../components/Screenshot.astro'
         <p class="kicker">無痛驗收</p>
         <h3 class="mt-3 text-2xl font-semibold">試吃即驗收</h3>
         <p class="mt-3 text-sm leading-relaxed text-ink/80">
-          假信箱、假時鐘、身分切換、一鍵重置 —— 驗收員一個人就跑完整套驗收。
+          假信箱、假時鐘、身分切換、一鍵重置 — 驗收員一個人就跑完整套驗收。
           不必為了測時限把時間調回上週。
         </p>
       </div>
@@ -221,10 +223,10 @@ import Screenshot from '../components/Screenshot.astro'
           交給 flowcook。
         </h2>
         <p class="mt-4 text-base text-white/80">
-          告訴我們你手上有哪些流程，我們示範一條完整的 demo —— 從備料到上菜，30 分鐘看完。
+          告訴我們你手上有哪些流程，我們示範一條完整的 demo — 從備料到上菜，30 分鐘看完。
         </p>
         <div class="mt-8 flex flex-wrap items-center gap-4">
-          <a href="mailto:hello@flowcook.tw" class="btn-primary">寫信約 demo</a>
+          <a href="mailto:wilson_you@tsuyoshitech.com" class="btn-primary">寫信約 demo</a>
           <a href="/use-cases" class="text-sm font-medium text-white/90 underline-offset-4 hover:underline">
             或先看應用場景 →
           </a>
