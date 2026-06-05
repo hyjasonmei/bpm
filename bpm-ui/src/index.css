@@ -75,6 +75,11 @@ button:disabled,
 @import "bpmn-js/dist/assets/bpmn-js.css";
 @import "bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css";
 
+/* Suppress bpmn.io's "powered by" attribution lightbox. Clicking the logo
+   opened a full-canvas overlay ("Web-based tooling for BPMN…") that couldn't
+   be dismissed inside our Radix dialog. The small logo itself stays visible. */
+.bjs-powered-by-lightbox { display: none !important; }
+
 /* bpmn-js label legibility: stroke white outline behind glyphs so labels
    stay readable when an edge happens to route through them. */
 .djs-label tspan {

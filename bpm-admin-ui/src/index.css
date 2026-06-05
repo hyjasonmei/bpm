@@ -71,3 +71,8 @@ body {
   text-transform: uppercase;
   color: var(--color-ink-muted);
 }
+
+/* Suppress bpmn.io's "powered by" attribution lightbox. Clicking the logo
+   opened a full-canvas overlay ("Web-based tooling for BPMN…") that couldn't
+   be dismissed. The small logo itself stays visible (attribution kept). */
+.bjs-powered-by-lightbox { display: none !important; }
