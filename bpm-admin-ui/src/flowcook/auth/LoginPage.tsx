@@ -40,7 +40,7 @@ export function LoginPage() {
             a flowcook brief
           </div>
           <h2 className="text-4xl font-bold leading-[1.1] text-white">
-            Design workflows. Cook them with AI. Ship without surprises.
+            Design workflows. Cook them with AI. Ship with confidence.
           </h2>
           <p className="mt-6 max-w-sm text-sm leading-relaxed text-white/70">
             flowcook turns operations into specs: clients prep in AI&nbsp;Kitchen,
@@ -52,7 +52,7 @@ export function LoginPage() {
         <div className="relative z-10 flex items-baseline gap-3 font-mono text-[10px] tracking-[0.14em] uppercase text-white/45">
           <span>est. 2026</span>
           <span className="h-px flex-1 bg-white/15"></span>
-          <span>admin · v0</span>
+          <span>admin · 1.0.0</span>
         </div>
       </aside>
 

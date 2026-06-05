@@ -6,7 +6,6 @@ import { Attendance } from '@/screens/Attendance'
 import { CaseDetail } from '@/screens/CaseDetail'
 import { CreateIndex } from '@/screens/CreateIndex'
 import { Home } from '@/screens/Home'
-import { SandboxMailbox } from '@/screens/SandboxMailbox'
 import { Search } from '@/screens/Search'
 import { NotCookedYet } from '@/screens/forms/NotCookedYet'
 import { lookupForm } from '@/features/registry'
@@ -33,7 +32,6 @@ export const router = createBrowserRouter([
       { path: 'create', element: <CreateIndex /> },
       { path: 'search', element: <Search /> },
       { path: 'attendance', element: <Attendance /> },
-      { path: 'sandbox/mailbox', element: <SandboxMailbox /> },
       { path: 'cases/:flowCode/:caseId', element: <FeatureCaseDetailRoute /> },
       { path: 'cases/:instanceId', element: <CaseDetailRoute /> },
       { path: 'apply/:code', element: <FormRoute mode="create" /> },
@@ -163,7 +161,6 @@ export const routes = {
   create: () => '/create',
   search: () => '/search',
   attendance: () => '/attendance',
-  sandboxMailbox: () => '/sandbox/mailbox',
   caseDetail: (instanceId: string) => `/cases/${instanceId}`,
   formCreate: (code: FormCode) => `/apply/${code}`,
   formTask: (taskId: string) => `/tasks/${taskId}`,

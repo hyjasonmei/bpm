@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { X } from 'lucide-react'
+import { X, ZoomIn, ZoomOut, Maximize } from 'lucide-react'
 
 import type { Step } from '@/lib/workflow'
 import type { PersonaCode } from '@/lib/role'
@@ -43,6 +43,16 @@ export function BpmnView({
   const containerRef = useRef<HTMLDivElement | null>(null)
   const viewerRef = useRef<{ destroy: () => void; importXML: (xml: string) => Promise<unknown>; get<T>(name: string): T } | null>(null)
   const titleId = 'bpmn-view-title'
+
+  function zoomBy(factor: number) {
+    const canvas = viewerRef.current?.get<BpmnCanvas>('canvas')
+    if (!canvas) return
+    canvas.zoom(canvas.viewbox().scale * factor)
+  }
+  function zoomFit() {
+    const canvas = viewerRef.current?.get<BpmnCanvas>('canvas')
+    if (canvas) fitAndCenter(canvas)
+  }
 
   useEffect(() => {
     if (!open) return
@@ -98,7 +108,20 @@ export function BpmnView({
         </button>
       </div>
 
-      <div ref={containerRef} className="h-[60vh] w-[70vw] bg-white" />
+      <div className="relative">
+        <div ref={containerRef} className="h-[60vh] w-[70vw] bg-white" />
+        <div className="absolute bottom-3 right-3 z-10 flex flex-col overflow-hidden rounded-md border border-rule bg-white shadow-sm">
+          <button type="button" onClick={() => zoomBy(1.2)} aria-label="放大" className="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800">
+            <ZoomIn className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={() => zoomBy(0.8)} aria-label="縮小" className="border-t border-rule p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800">
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={zoomFit} aria-label="符合畫面" className="border-t border-rule p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800">
+            <Maximize className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
     </Modal>
   )
 }

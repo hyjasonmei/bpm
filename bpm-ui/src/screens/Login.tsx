@@ -54,6 +54,7 @@ export function Login({ onLoggedIn }: { onLoggedIn?: () => void }) {
           )}
           <h1 className="text-xl font-semibold text-ink">{branding.systemName ?? 'flowcook BPM'}</h1>
           <p className="text-xs text-ink-muted mt-1">員工流程平台</p>
+          <p className="font-mono text-[10px] tracking-wider text-ink-muted mt-2">1.0.0</p>
         </div>
 
         <form onSubmit={submit} className="space-y-4 rounded-xl border border-rule bg-card p-6 shadow-sm">

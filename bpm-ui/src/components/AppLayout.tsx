@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Plus, Search, Home as HomeIcon, ChevronDown, Clock, FlaskConical } from 'lucide-react'
+import { Plus, Search, Home as HomeIcon, ChevronDown, Clock } from 'lucide-react'
 import { Link, NavLink, useMatch } from 'react-router-dom'
 
 import { cn } from '@/lib/cn'
@@ -11,7 +11,6 @@ import { NotificationsMenu } from '@/components/NotificationsMenu'
 import { HelpReportMenu } from '@/components/HelpReportMenu'
 import type { PersonaCode } from '@/lib/role'
 import { FORMS, type FormCode } from '@/lib/workflow'
-import { getSandboxStatus } from '@/lib/api/sandbox'
 import { useBranding } from '@/lib/branding'
 
 interface AppLayoutProps {
@@ -24,23 +23,6 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ persona, setPersona, authedFullName = null, authPending = false, authError = null, children }: AppLayoutProps) {
-  const [sandboxOn, setSandboxOn] = React.useState(false)
-
-  // PR-J5 §10.5: Sandbox Mailbox link only visible when sandbox is on. Poll
-  // every 30s so a toggle in admin-ui surfaces here without a hard reload.
-  React.useEffect(() => {
-    let cancelled = false
-    async function tick() {
-      try {
-        const s = await getSandboxStatus()
-        if (!cancelled) setSandboxOn(s.enabled)
-      } catch { /* swallow */ }
-    }
-    void tick()
-    const handle = window.setInterval(tick, 30_000)
-    return () => { cancelled = true; window.clearInterval(handle) }
-  }, [])
-
   // Form sub-header is shown when the URL matches /apply/:code or /tasks/:taskId.
   // For /tasks/:taskId we don't know the FormCode synchronously — the sub-header
   // just shows when on an apply path; task pages skip it (the task panel shows
@@ -64,6 +46,7 @@ export function AppLayout({ persona, setPersona, authedFullName = null, authPend
               <div className="flex h-7 w-7 items-center justify-center rounded bg-red-500 text-[10.5px] font-bold tracking-wider text-white">BPM</div>
             )}
             <span className="text-sm font-bold tracking-wide">{branding.systemName ?? 'BPM System'}</span>
+            <span className="ml-1 font-mono text-[10px] tracking-wider text-ink-muted">1.0.0</span>
           </Link>
 
           {/* Nav */}
@@ -76,9 +59,6 @@ export function AppLayout({ persona, setPersona, authedFullName = null, authPend
 
           {/* Right side */}
           <div className="ml-auto flex items-center gap-1">
-            {sandboxOn && (
-              <NavBtnLink to="/sandbox/mailbox" icon={<FlaskConical className="h-4 w-4" />}>Sandbox</NavBtnLink>
-            )}
             <NotificationsMenu />
             <HelpReportMenu />
             <DelegationButton />

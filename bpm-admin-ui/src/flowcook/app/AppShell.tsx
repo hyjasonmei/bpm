@@ -109,7 +109,7 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
                   flowcook · admin
                 </div>
                 <div className="mt-1 font-mono text-[10px] tracking-[0.14em] uppercase text-white/45">
-                  v0
+                  1.0.0
                 </div>
               </div>
             </div>

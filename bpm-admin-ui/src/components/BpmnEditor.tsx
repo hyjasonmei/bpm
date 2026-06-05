@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ZoomIn, ZoomOut, Maximize } from 'lucide-react'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import 'bpmn-js/dist/assets/diagram-js.css'
 import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css'
@@ -253,6 +254,16 @@ export function BpmnEditor({ draft, onChange, height = 420, onSelect, selectedId
     onChange(next)
   }
 
+  function zoomBy(factor: number) {
+    const canvas = modelerRef.current?.get<BpmnCanvasCtl>('canvas')
+    if (!canvas) return
+    canvas.zoom(canvas.viewbox().scale * factor)
+  }
+  function zoomFit() {
+    const canvas = modelerRef.current?.get<BpmnCanvasCtl>('canvas')
+    try { canvas?.zoom('fit-viewport', 'auto') } catch { /* ignore */ }
+  }
+
   if (draft.flow.nodes.length === 0) {
     return (
       <div className="rounded border border-dashed border-rule p-10 text-center text-sm text-ink-faint" style={{ height }}>
@@ -273,6 +284,22 @@ export function BpmnEditor({ draft, onChange, height = 420, onSelect, selectedId
         className="w-full rounded border border-rule bg-card"
         style={{ height }}
       />
+      <div className="absolute bottom-2 right-2 z-10 flex flex-col overflow-hidden rounded-md border border-rule bg-card shadow-sm">
+        <button type="button" onClick={() => zoomBy(1.2)} aria-label="放大" className="p-1.5 text-ink-muted hover:bg-slate-100 hover:text-ink">
+          <ZoomIn className="h-4 w-4" />
+        </button>
+        <button type="button" onClick={() => zoomBy(0.8)} aria-label="縮小" className="border-t border-rule p-1.5 text-ink-muted hover:bg-slate-100 hover:text-ink">
+          <ZoomOut className="h-4 w-4" />
+        </button>
+        <button type="button" onClick={zoomFit} aria-label="符合畫面" className="border-t border-rule p-1.5 text-ink-muted hover:bg-slate-100 hover:text-ink">
+          <Maximize className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   )
+}
+
+interface BpmnCanvasCtl {
+  zoom: (value: number | string, center?: 'auto' | { x: number; y: number }) => void
+  viewbox: () => { scale: number }
 }
