@@ -109,4 +109,13 @@ public class Flow : ISoftDeletable
 
     /// <summary>When <see cref="BundleBlob"/> was last refreshed.</summary>
     public DateTime? BundleBuiltAt { get; set; }
+
+    /// <summary>
+    /// Canonical BPMN XML for this flow version. Populated for flows
+    /// registered from shipped chef code (which carry a bundle bpmn.xml but
+    /// no AI-Kitchen <see cref="SpecJson"/>), so the admin SOURCE step can
+    /// show a read-only diagram even when the wizard draft is empty. Null
+    /// for wizard-designed flows whose BPMN is derived from the spec.
+    /// </summary>
+    public string? BpmnXml { get; set; }
 }

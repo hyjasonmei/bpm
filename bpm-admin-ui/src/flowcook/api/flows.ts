@@ -39,6 +39,9 @@ export interface FlowDetail extends FlowSummary {
   specJson: string
   notes: string | null
   createdByUserId: string | null
+  /** Canonical BPMN XML for flows registered from shipped code (no spec).
+   *  Lets the SOURCE step show a read-only diagram when specJson is empty. */
+  bpmnXml: string | null
 }
 
 /** Parse the chef work-context JSON helper; tolerant of nulls / garbage. */

@@ -14,6 +14,7 @@ import {
 import { parseBpmnXml } from '@/lib/bpmnXmlParse'
 import { api, ApiError } from '@/flowcook/api'
 import { BpmnEditor } from '@/components/BpmnEditor'
+import { BpmnXmlView } from '@/components/BpmnXmlView'
 
 const TEMPLATES = [
   { code: 'LEAVE',    name: '請假',     preset: LEAVE_PRESET },
@@ -29,7 +30,7 @@ interface ExtractedSkeleton {
 
 type SourceTab = 'source' | 'preview'
 
-export function StepSource({ draft, setDraft }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void }) {
+export function StepSource({ draft, setDraft, bpmnXml }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void; bpmnXml?: string | null }) {
   const [scratchText, setScratchText] = useState('')
   const [busyKind, setBusyKind] = useState<null | 'image' | 'description'>(null)
   const [error, setError] = useState<string | null>(null)
@@ -41,7 +42,7 @@ export function StepSource({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
   // import, etc.). Track the previous length so subsequent edits
   // inside preview don't bounce the user back.
   const [activeTab, setActiveTab] = useState<SourceTab>(
-    () => (draft.flow.nodes.length > 0 ? 'preview' : 'source'),
+    () => (draft.flow.nodes.length > 0 || bpmnXml ? 'preview' : 'source'),
   )
   const prevNodeCount = useRef(draft.flow.nodes.length)
   useEffect(() => {
@@ -158,13 +159,13 @@ export function StepSource({ draft, setDraft }: { draft: DraftSpec; setDraft: (d
           onClick={() => setActiveTab('preview')}
           icon={<Workflow className="h-4 w-4" />}
           label="BPMN 預覽"
-          badge={hasFlow ? `${draft.flow.nodes.length}n · ${draft.flow.edges.length}e` : undefined}
-          disabled={!hasFlow}
+          badge={hasFlow ? `${draft.flow.nodes.length}n · ${draft.flow.edges.length}e` : (bpmnXml ? '唯讀' : undefined)}
+          disabled={!hasFlow && !bpmnXml}
         />
       </div>
 
       {activeTab === 'preview' ? (
-        <PreviewPanel draft={draft} setDraft={setDraft} hasFlow={hasFlow} />
+        <PreviewPanel draft={draft} setDraft={setDraft} hasFlow={hasFlow} bpmnXml={bpmnXml} />
       ) : (
         <SourcePanel
           draft={draft}
@@ -353,8 +354,21 @@ function SourcePanel({
 }
 
 function PreviewPanel({
-  draft, setDraft, hasFlow,
-}: { draft: DraftSpec; setDraft: (d: DraftSpec) => void; hasFlow: boolean }) {
+  draft, setDraft, hasFlow, bpmnXml,
+}: { draft: DraftSpec; setDraft: (d: DraftSpec) => void; hasFlow: boolean; bpmnXml?: string | null }) {
+  // No editable draft, but the flow was registered from shipped code that
+  // carries a bundle bpmn.xml — show it read-only so admin can still see the
+  // diagram (the spec wizard was never run for these flows).
+  if (!hasFlow && bpmnXml) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          此流程由程式碼註冊（無 AI Kitchen spec）。下方為 bundle 內的 BPMN，唯讀檢視。
+        </div>
+        <BpmnXmlView xml={bpmnXml} height={460} />
+      </div>
+    )
+  }
   if (!hasFlow) {
     return (
       <div className="rounded border border-dashed border-rule bg-bg/50 p-10 text-center text-sm text-ink-muted">

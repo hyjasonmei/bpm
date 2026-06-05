@@ -345,7 +345,7 @@ public class FlowsController : ControllerBase
         return new(
             f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.SpecJson, f.Notes,
             f.CreatedByUserId, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt,
-            f.GroupId, groupCode, f.IconKey, f.DisplayOrder, f.ChefWorkContextJson);
+            f.GroupId, groupCode, f.IconKey, f.DisplayOrder, f.ChefWorkContextJson, f.BpmnXml);
     }
 
     /// <summary>Set or clear (<c>{ "iconKey": null }</c>) the launcher

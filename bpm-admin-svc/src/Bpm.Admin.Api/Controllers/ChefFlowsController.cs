@@ -43,7 +43,7 @@ public sealed class ChefFlowsController : ControllerBase
         return Ok(new FlowDetailDto(
             f.Id, f.LineageId, f.Version, f.State, f.FlowCode, f.DisplayName, f.SpecJson, f.Notes,
             f.CreatedByUserId, f.CreatedAt, f.UpdatedAt, f.LastChefHeartbeatAt,
-            f.GroupId, null, f.IconKey, f.DisplayOrder, f.ChefWorkContextJson));
+            f.GroupId, null, f.IconKey, f.DisplayOrder, f.ChefWorkContextJson, f.BpmnXml));
     }
 
     [HttpGet("{flowId:guid}/messages")]
@@ -119,7 +119,7 @@ public sealed class ChefFlowsController : ControllerBase
                 updated.Id, updated.LineageId, updated.Version, updated.State,
                 updated.FlowCode, updated.DisplayName, updated.SpecJson, updated.Notes,
                 updated.CreatedByUserId, updated.CreatedAt, updated.UpdatedAt, updated.LastChefHeartbeatAt,
-                updated.GroupId, null, updated.IconKey, updated.DisplayOrder, updated.ChefWorkContextJson));
+                updated.GroupId, null, updated.IconKey, updated.DisplayOrder, updated.ChefWorkContextJson, updated.BpmnXml));
         }
         catch (FlowLifecycleException ex) { return Conflict(ex.Message); }
     }

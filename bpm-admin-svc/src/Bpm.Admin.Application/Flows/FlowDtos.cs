@@ -35,7 +35,8 @@ public record FlowDetailDto(
     string? GroupCode,
     string? IconKey,
     int DisplayOrder,
-    string? ChefWorkContextJson);
+    string? ChefWorkContextJson,
+    string? BpmnXml);
 
 public record CreateFlowRequest(string FlowCode, string DisplayName, string? SpecJson);
 

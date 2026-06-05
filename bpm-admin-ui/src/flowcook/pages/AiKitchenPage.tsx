@@ -946,6 +946,7 @@ function WizardView({
           <Onboarding
             initialDraft={initialDraft}
             onDraftChange={handleDraftChange}
+            bpmnXml={flow.bpmnXml}
             hideTopBar
           />
         )}

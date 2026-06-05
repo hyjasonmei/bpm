@@ -52,6 +52,10 @@ interface OnboardingProps {
   /** Hide the legacy "Saved bundles / Export DraftSpec / Reset" strip; the
    *  host renders its own controls (Submit / Cancel / Delete). */
   hideTopBar?: boolean
+  /** Canonical BPMN XML for flows registered from shipped code (no spec).
+   *  Threaded to the SOURCE step so it can render a read-only diagram even
+   *  when the draft has no nodes. */
+  bpmnXml?: string | null
 }
 
 const SESSION_DRAFT_KEY = 'bpm_draft_bundle'
@@ -94,6 +98,7 @@ export function Onboarding({
   initialDraft,
   onDraftChange,
   hideTopBar,
+  bpmnXml,
 }: OnboardingProps = {}) {
   const controlled = onDraftChange !== undefined
   const [draft, setDraft] = useState<DraftSpec>(() => initialDraft ?? loadDraft())
@@ -288,7 +293,7 @@ export function Onboarding({
         step={step}
         draft={draft}
         setDraft={setDraft}
-        canvas={renderCanvas(step.id, draft, setDraft, onNavigate)}
+        canvas={renderCanvas(step.id, draft, setDraft, onNavigate, bpmnXml)}
       />
 
       {/* Footer — back / next; sticky so it stays in view as the canvas
@@ -321,9 +326,9 @@ export function Onboarding({
   )
 }
 
-function renderCanvas(stepId: string, draft: DraftSpec, setDraft: (d: DraftSpec) => void, _onNavigate?: (s: AdminScreen) => void) {
+function renderCanvas(stepId: string, draft: DraftSpec, setDraft: (d: DraftSpec) => void, _onNavigate?: (s: AdminScreen) => void, bpmnXml?: string | null) {
   switch (stepId) {
-    case 'source':         return <StepSource draft={draft} setDraft={setDraft} />
+    case 'source':         return <StepSource draft={draft} setDraft={setDraft} bpmnXml={bpmnXml} />
     case 'trigger_access': return <StepTriggerAccess draft={draft} setDraft={setDraft} />
     case 'variables':      return <StepVariables draft={draft} setDraft={setDraft} />
     case 'forms':          return <StepForms draft={draft} setDraft={setDraft} />
