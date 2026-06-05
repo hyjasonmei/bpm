@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
-import { CalendarIcon, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useState, type ComponentType } from 'react'
+import { CalendarIcon, Copy, Plus, Trash2 } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/cn'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { Field, InfoBanner, Input, Textarea } from '@/components/ui/form'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -81,6 +81,10 @@ export function VENDOR_EXPENSE_V1_VendorExpenseForm({
 
   function removeInvoice(i: number) {
     setInvoices(prev => prev.length <= 1 ? prev : prev.filter((_, idx) => idx !== i))
+  }
+
+  function cloneInvoice(i: number) {
+    setInvoices(prev => [...prev.slice(0, i + 1), { ...prev[i] }, ...prev.slice(i + 1)])
   }
 
   function patchInvoice(i: number, patch: Partial<VENDOR_EXPENSE_V1_InvoiceDto>) {
@@ -209,14 +213,11 @@ export function VENDOR_EXPENSE_V1_VendorExpenseForm({
                 disabled={pending}
                 canRemove={invoices.length > 1}
                 onChange={patch => patchInvoice(i, patch)}
+                onAdd={addInvoice}
+                onClone={() => cloneInvoice(i)}
                 onRemove={() => removeInvoice(i)}
               />
             ))}
-            <div className="flex justify-end">
-              <Button variant="outline" size="sm" onClick={addInvoice} disabled={pending}>
-                <Plus className="h-3.5 w-3.5" /> 新增 invoice
-              </Button>
-            </div>
 
             {totalEntries.length > 0 && (
               <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 rounded-md border border-rule bg-slate-50 px-4 py-3">
@@ -275,13 +276,15 @@ export function VENDOR_EXPENSE_V1_VendorExpenseForm({
 }
 
 function InvoiceCard({
-  index, value, disabled, canRemove, onChange, onRemove,
+  index, value, disabled, canRemove, onChange, onAdd, onClone, onRemove,
 }: {
   index: number
   value: VENDOR_EXPENSE_V1_InvoiceDto
   disabled: boolean
   canRemove: boolean
   onChange: (patch: Partial<VENDOR_EXPENSE_V1_InvoiceDto>) => void
+  onAdd: () => void
+  onClone: () => void
   onRemove: () => void
 }) {
   const amt = parseFloat((value.amount ?? '').toString())
@@ -302,21 +305,12 @@ function InvoiceCard({
             <option value="">—</option>
             {ccyOptions.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-          {canRemove && (
-            <button
-              type="button"
-              onClick={onRemove}
-              disabled={disabled}
-              className="ml-1 flex items-center gap-1 rounded px-1.5 py-1 text-xs text-slate-300 hover:bg-slate-600 hover:text-white disabled:opacity-50"
-            >
-              <Trash2 className="h-3.5 w-3.5" /> 移除
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Field grid */}
-      <div className="grid grid-cols-12 gap-3 bg-card p-4">
+      {/* Field grid + GEV-style row-action gutter (Add / Clone / Delete) */}
+      <div className="flex">
+        <div className="grid min-w-0 flex-1 grid-cols-12 gap-3 bg-card p-4">
         <Field label="Invoice Date" className="col-span-6">
           <div className="relative">
             <Input
@@ -388,7 +382,45 @@ function InvoiceCard({
             disabled={disabled}
           />
         </Field>
+        </div>
+
+        {!disabled && (
+          <div className="flex flex-col items-center gap-1.5 border-l border-rule bg-slate-50/60 p-2">
+            <SmallAct Icon={Plus} label="Add" tone="blue" onClick={onAdd} />
+            <SmallAct Icon={Copy} label="Clone" tone="slate" onClick={onClone} />
+            <SmallAct Icon={Trash2} label="Delete" tone="red" onClick={onRemove} disabled={!canRemove} />
+          </div>
+        )}
       </div>
     </div>
+  )
+}
+
+function SmallAct({ Icon, label, tone, onClick, disabled }: {
+  Icon: ComponentType<{ className?: string }>
+  label: string
+  tone: 'blue' | 'slate' | 'red'
+  onClick: () => void
+  disabled?: boolean
+}) {
+  const cls = {
+    blue:  'border-blue-200 text-blue-600 hover:bg-blue-50',
+    slate: 'border-rule text-ink-muted hover:bg-slate-50',
+    red:   'border-red-100 text-red-400 hover:bg-red-50',
+  }[tone]
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'flex w-12 flex-col items-center gap-0.5 rounded-md border bg-white py-1.5 transition-colors',
+        'disabled:pointer-events-none disabled:opacity-30',
+        cls,
+      )}
+    >
+      <Icon className="h-4 w-4" />
+      <span className="text-[9px] font-medium">{label}</span>
+    </button>
   )
 }

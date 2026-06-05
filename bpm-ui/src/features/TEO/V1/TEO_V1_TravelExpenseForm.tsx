@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
-import { CalendarIcon, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useState, type ComponentType } from 'react'
+import { CalendarIcon, Copy, Plus, Trash2 } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/cn'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { Field, InfoBanner, Input, Textarea } from '@/components/ui/form'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -55,6 +55,7 @@ export function TEO_V1_TravelExpenseForm({ persona, mode = 'create', onSubmitted
 
   const addItem = () => setItems(prev => [...prev, emptyItem()])
   const removeItem = (i: number) => setItems(prev => prev.length <= 1 ? prev : prev.filter((_, idx) => idx !== i))
+  const cloneItem = (i: number) => setItems(prev => [...prev.slice(0, i + 1), { ...prev[i] }, ...prev.slice(i + 1)])
   const patchItem = (i: number, patch: Partial<TEO_V1_ExpenseItemDto>) =>
     setItems(prev => prev.map((it, idx) => idx === i ? { ...it, ...patch } : it))
 
@@ -127,13 +128,8 @@ export function TEO_V1_TravelExpenseForm({ persona, mode = 'create', onSubmitted
           <div className="space-y-4 px-5 py-4">
             {items.map((it, i) => (
               <ItemCard key={i} index={i} value={it} disabled={pending} canRemove={items.length > 1}
-                        onChange={p => patchItem(i, p)} onRemove={() => removeItem(i)} />
+                        onChange={p => patchItem(i, p)} onAdd={addItem} onClone={() => cloneItem(i)} onRemove={() => removeItem(i)} />
             ))}
-            <div className="flex justify-end">
-              <Button variant="outline" size="sm" onClick={addItem} disabled={pending}>
-                <Plus className="h-3.5 w-3.5" /> 新增明細
-              </Button>
-            </div>
 
             {totalLcy > 0 && (
               <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 rounded-md border border-rule bg-slate-50 px-4 py-3">
@@ -167,12 +163,14 @@ export function TEO_V1_TravelExpenseForm({ persona, mode = 'create', onSubmitted
   )
 }
 
-function ItemCard({ index, value, disabled, canRemove, onChange, onRemove }: {
+function ItemCard({ index, value, disabled, canRemove, onChange, onAdd, onClone, onRemove }: {
   index: number
   value: TEO_V1_ExpenseItemDto
   disabled: boolean
   canRemove: boolean
   onChange: (patch: Partial<TEO_V1_ExpenseItemDto>) => void
+  onAdd: () => void
+  onClone: () => void
   onRemove: () => void
 }) {
   // Keep the hydrated category as a selectable option even if it is not one of
@@ -198,21 +196,12 @@ function ItemCard({ index, value, disabled, canRemove, onChange, onRemove }: {
           >
             {catOptions.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
-          {canRemove && (
-            <button
-              type="button"
-              onClick={onRemove}
-              disabled={disabled}
-              className="ml-1 flex items-center gap-1 rounded px-1.5 py-1 text-xs text-slate-300 hover:bg-slate-600 hover:text-white disabled:opacity-50"
-            >
-              <Trash2 className="h-3.5 w-3.5" /> 移除
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Field grid */}
-      <div className="grid grid-cols-12 gap-3 bg-card p-4">
+      {/* Field grid + GEV-style row-action gutter (Add / Clone / Delete) */}
+      <div className="flex">
+        <div className="grid min-w-0 flex-1 grid-cols-12 gap-3 bg-card p-4">
         <Field label="日期 / Date" required className="col-span-6">
           <div className="relative">
             <Input type="date" value={value.date} onChange={e => onChange({ date: e.target.value })} disabled={disabled} />
@@ -265,7 +254,45 @@ function ItemCard({ index, value, disabled, canRemove, onChange, onRemove }: {
         <Field label="說明 / Description" className="col-span-12">
           <Textarea rows={2} value={value.description ?? ''} onChange={e => onChange({ description: e.target.value })} disabled={disabled} />
         </Field>
+        </div>
+
+        {!disabled && (
+          <div className="flex flex-col items-center gap-1.5 border-l border-rule bg-slate-50/60 p-2">
+            <SmallAct Icon={Plus} label="Add" tone="blue" onClick={onAdd} />
+            <SmallAct Icon={Copy} label="Clone" tone="slate" onClick={onClone} />
+            <SmallAct Icon={Trash2} label="Delete" tone="red" onClick={onRemove} disabled={!canRemove} />
+          </div>
+        )}
       </div>
     </div>
+  )
+}
+
+function SmallAct({ Icon, label, tone, onClick, disabled }: {
+  Icon: ComponentType<{ className?: string }>
+  label: string
+  tone: 'blue' | 'slate' | 'red'
+  onClick: () => void
+  disabled?: boolean
+}) {
+  const cls = {
+    blue:  'border-blue-200 text-blue-600 hover:bg-blue-50',
+    slate: 'border-rule text-ink-muted hover:bg-slate-50',
+    red:   'border-red-100 text-red-400 hover:bg-red-50',
+  }[tone]
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'flex w-12 flex-col items-center gap-0.5 rounded-md border bg-white py-1.5 transition-colors',
+        'disabled:pointer-events-none disabled:opacity-30',
+        cls,
+      )}
+    >
+      <Icon className="h-4 w-4" />
+      <span className="text-[9px] font-medium">{label}</span>
+    </button>
   )
 }
