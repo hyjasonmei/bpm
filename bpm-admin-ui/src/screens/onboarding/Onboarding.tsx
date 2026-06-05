@@ -56,6 +56,10 @@ interface OnboardingProps {
    *  Threaded to the SOURCE step so it can render a read-only diagram even
    *  when the draft has no nodes. */
   bpmnXml?: string | null
+  /** When true the wizard is a read-only view (flow already past Draft, so
+   *  edits don't persist). Suppresses the validator gate on Next and the
+   *  red "blocked" banner — you're browsing a live flow, not designing it. */
+  readOnly?: boolean
 }
 
 const SESSION_DRAFT_KEY = 'bpm_draft_bundle'
@@ -99,6 +103,7 @@ export function Onboarding({
   onDraftChange,
   hideTopBar,
   bpmnXml,
+  readOnly,
 }: OnboardingProps = {}) {
   const controlled = onDraftChange !== undefined
   const [draft, setDraft] = useState<DraftSpec>(() => initialDraft ?? loadDraft())
@@ -307,14 +312,14 @@ export function Onboarding({
           <ChevronLeft className="h-4 w-4" /> Back
         </button>
 
-        <ValidationDisplay errors={validation.errors} valid={validation.valid} />
+        <ValidationDisplay errors={validation.errors} valid={validation.valid} readOnly={readOnly} />
 
         <button
           onClick={goNext}
-          disabled={!validation.valid || stepIdx === ONBOARDING_STEPS.length - 1}
+          disabled={(!readOnly && !validation.valid) || stepIdx === ONBOARDING_STEPS.length - 1}
           className={cn(
             'flex items-center gap-1 rounded px-4 py-1.5 text-sm font-semibold transition-colors',
-            validation.valid && stepIdx < ONBOARDING_STEPS.length - 1
+            (readOnly || validation.valid) && stepIdx < ONBOARDING_STEPS.length - 1
               ? 'bg-primary text-white hover:bg-blue-700'
               : 'bg-slate-200 text-slate-400 cursor-not-allowed',
           )}
@@ -343,7 +348,8 @@ function renderCanvas(stepId: string, draft: DraftSpec, setDraft: (d: DraftSpec)
   }
 }
 
-function ValidationDisplay({ errors, valid }: { errors: string[]; valid: boolean }) {
+function ValidationDisplay({ errors, valid, readOnly }: { errors: string[]; valid: boolean; readOnly?: boolean }) {
+  if (readOnly) return <span className="text-xs text-ink-muted font-medium">唯讀檢視 — 已發佈流程，僅供瀏覽</span>
   if (valid) return <span className="text-xs text-good font-medium">✓ Validator pass — 可以下一步</span>
   return (
     <div className="flex flex-col items-end text-[11px] text-danger max-w-md">

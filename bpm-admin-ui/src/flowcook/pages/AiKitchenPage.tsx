@@ -947,6 +947,7 @@ function WizardView({
             initialDraft={initialDraft}
             onDraftChange={handleDraftChange}
             bpmnXml={flow.bpmnXml}
+            readOnly={flow.state !== 'Draft'}
             hideTopBar
           />
         )}
