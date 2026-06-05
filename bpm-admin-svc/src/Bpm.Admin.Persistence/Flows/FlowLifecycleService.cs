@@ -75,6 +75,10 @@ public class FlowLifecycleService : IFlowLifecycleService
                 FlowCode = code,
                 DisplayName = string.IsNullOrWhiteSpace(f.DisplayName) ? code : f.DisplayName.Trim(),
                 SpecJson = "{}",
+                // Code-registered flows have no AI-Kitchen spec; pull the
+                // canonical BPMN from the shipped bundle so the admin SOURCE
+                // step can show a read-only diagram (survives reset/reseed).
+                BpmnXml = TryReadBundleBpmn(code),
                 CreatedByUserId = actorUserId,
             };
             _db.Flows.Add(row);
@@ -93,6 +97,38 @@ public class FlowLifecycleService : IFlowLifecycleService
         }
 
         return new RegisterShippedResult(registered, skipped);
+    }
+
+    /// <summary>
+    /// Best-effort read of a shipped flow's canonical BPMN from the repo's
+    /// bpm-ui feature folder (<c>bpm-ui/src/features/&lt;CODE&gt;/V1/&lt;CODE&gt;_V1.bpmn.xml</c>).
+    /// Dev/POC convenience so register-shipped (and Reset, which re-registers)
+    /// persists the diagram into <see cref="Flow.BpmnXml"/> without an
+    /// AI-Kitchen spec. Returns null when the file isn't reachable (e.g. a
+    /// deployed admin-svc without the source tree) — the preview just stays
+    /// empty. Proper long-term path: chef cook persists the bundle bpmn.
+    /// </summary>
+    private static string? TryReadBundleBpmn(string flowCode)
+    {
+        try
+        {
+            var dir = AppContext.BaseDirectory;
+            for (var i = 0; i < 10 && dir is not null; i++)
+            {
+                var featuresDir = System.IO.Path.Combine(dir, "bpm-ui", "src", "features");
+                if (System.IO.Directory.Exists(featuresDir))
+                {
+                    var path = System.IO.Path.Combine(featuresDir, flowCode, "V1", $"{flowCode}_V1.bpmn.xml");
+                    return System.IO.File.Exists(path) ? System.IO.File.ReadAllText(path) : null;
+                }
+                dir = System.IO.Directory.GetParent(dir)?.FullName;
+            }
+        }
+        catch
+        {
+            // Best-effort only — a missing/unreadable file leaves BpmnXml null.
+        }
+        return null;
     }
 
     public async Task<Flow> UpdateSpecAsync(Guid flowId, string specJson, string? flowCode, string? displayName, Guid? actorUserId, CancellationToken ct = default)
