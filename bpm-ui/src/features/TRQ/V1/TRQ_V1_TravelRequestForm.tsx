@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CalendarIcon } from 'lucide-react'
+import { ArrowRight, CalendarIcon, MapPin, Plane } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { SectionCard, SectionTitle } from '@/components/ui/card'
@@ -147,45 +147,73 @@ export function TRQ_V1_TravelRequestForm({ persona, mode = 'create', onSubmitted
         {loading ? (
           <div className="px-5 py-10 text-center text-sm text-ink-muted">載入中…</div>
         ) : (
-          <div className="grid grid-cols-12 gap-3 px-5 py-4">
-            <Field label="差旅類型 / Travel Type" required className="col-span-6">
-              <Select value={form.travelType} onChange={e => patch({ travelType: e.target.value })} disabled={pending}>
-                {TRAVEL_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-              </Select>
-            </Field>
-            <Field label="費用歸屬 / Charge To" required className="col-span-6">
-              <Input value={form.chargeTo} onChange={e => patch({ chargeTo: e.target.value })} disabled={pending} placeholder="e.g. HQ-IT" />
-            </Field>
-
-            <Field label="出發地 / Departure City" required className="col-span-6">
-              <Input value={form.departureCity} onChange={e => patch({ departureCity: e.target.value })} disabled={pending} placeholder="Taipei" />
-            </Field>
-            <Field label="目的地 / Destination City" required className="col-span-6">
-              <Input value={form.destinationCity} onChange={e => patch({ destinationCity: e.target.value })} disabled={pending} placeholder="Tokyo" />
-            </Field>
-
-            <Field label="出發日 / Depart Date" required className="col-span-6">
-              <div className="relative">
-                <Input type="date" value={form.departDate} onChange={e => patch({ departDate: e.target.value })} disabled={pending} />
-                <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
+          <div className="space-y-4 px-5 py-4">
+            {/* Trip card — dark route band + field grid (mirrors the exemplar). */}
+            <div className="overflow-hidden rounded-md border border-rule">
+              {/* Dark route header band: Departure → Destination at a glance. */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-slate-700 px-4 py-2 text-sm text-white">
+                <Plane className="h-4 w-4 shrink-0 text-slate-300" />
+                <span className="font-semibold">{form.departureCity.trim() || '出發地'}</span>
+                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                <span className="font-semibold">{form.destinationCity.trim() || '目的地'}</span>
+                <span className="ml-auto text-xs text-slate-300">{form.travelType}</span>
               </div>
-            </Field>
-            <Field label="回程日 / Return Date" className="col-span-6">
-              <div className="relative">
-                <Input type="date" value={form.returnDate ?? ''} onChange={e => patch({ returnDate: e.target.value })} disabled={pending} />
-                <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
-              </div>
-            </Field>
 
-            <Field label="出差目的 / Travel Purpose" required className="col-span-12">
-              <Textarea
-                rows={3}
-                value={form.travelPurpose}
-                onChange={e => patch({ travelPurpose: e.target.value })}
-                disabled={pending}
-                placeholder="e.g. Client kickoff for the Acme integration project."
-              />
-            </Field>
+              <div className="grid grid-cols-12 gap-3 bg-card p-4">
+                <Field label="出發地 / Departure City" required className="col-span-6">
+                  <div className="flex gap-1.5">
+                    <span className="flex h-8 items-center whitespace-nowrap rounded-md border border-rule bg-slate-50 px-2.5 text-ink-faint">
+                      <MapPin className="h-3.5 w-3.5" />
+                    </span>
+                    <Input value={form.departureCity} onChange={e => patch({ departureCity: e.target.value })} disabled={pending} placeholder="Taipei" />
+                  </div>
+                </Field>
+                <Field label="目的地 / Destination City" required className="col-span-6">
+                  <div className="flex gap-1.5">
+                    <span className="flex h-8 items-center whitespace-nowrap rounded-md border border-rule bg-slate-50 px-2.5 text-ink-faint">
+                      <MapPin className="h-3.5 w-3.5" />
+                    </span>
+                    <Input value={form.destinationCity} onChange={e => patch({ destinationCity: e.target.value })} disabled={pending} placeholder="Tokyo" />
+                  </div>
+                </Field>
+
+                {/* Date range — depart → return as a single grouped row. */}
+                <div className="col-span-12 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
+                  <Field label="出發日 / Depart Date" required>
+                    <div className="relative">
+                      <Input type="date" value={form.departDate} onChange={e => patch({ departDate: e.target.value })} disabled={pending} />
+                      <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
+                    </div>
+                  </Field>
+                  <ArrowRight className="mb-2 h-4 w-4 shrink-0 text-ink-faint" />
+                  <Field label="回程日 / Return Date" hint="單程可留空">
+                    <div className="relative">
+                      <Input type="date" value={form.returnDate ?? ''} onChange={e => patch({ returnDate: e.target.value })} disabled={pending} />
+                      <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
+                    </div>
+                  </Field>
+                </div>
+
+                <Field label="差旅類型 / Travel Type" required className="col-span-6">
+                  <Select value={form.travelType} onChange={e => patch({ travelType: e.target.value })} disabled={pending}>
+                    {TRAVEL_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </Select>
+                </Field>
+                <Field label="費用歸屬 / Charge To" required className="col-span-6">
+                  <Input value={form.chargeTo} onChange={e => patch({ chargeTo: e.target.value })} disabled={pending} placeholder="e.g. HQ-IT" />
+                </Field>
+
+                <Field label="出差目的 / Travel Purpose" required className="col-span-12">
+                  <Textarea
+                    rows={3}
+                    value={form.travelPurpose}
+                    onChange={e => patch({ travelPurpose: e.target.value })}
+                    disabled={pending}
+                    placeholder="e.g. Client kickoff for the Acme integration project."
+                  />
+                </Field>
+              </div>
+            </div>
           </div>
         )}
       </SectionCard>

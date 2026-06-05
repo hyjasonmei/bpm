@@ -61,6 +61,10 @@ export function FAD_V1_DisposalForm({ persona, mode = 'create', onSubmitted }: F
 
   const valid = !!disposalReason && !!assetId.trim() && !!assetName.trim()
 
+  // Keep a hydrated (resubmit) reason that is not in the canonical list as a
+  // selectable option, so the value is never silently dropped from the Select.
+  const reasonOptions = Array.from(new Set([...REASON_OPTIONS, ...(disposalReason ? [disposalReason] : [])]))
+
   function attemptSubmit() {
     if (!valid) { setError('請填寫報廢原因 / 資產編號 / 資產名稱。'); return }
     setError(null); setConfirmOpen(true)
@@ -92,34 +96,51 @@ export function FAD_V1_DisposalForm({ persona, mode = 'create', onSubmitted }: F
         <SectionTitle>處份申請 / Disposal Request</SectionTitle>
         <div className="border-b border-rule px-5 py-3">
           <InfoBanner>
-            填寫報廢原因與資產資訊；可附照片。
-            {isResubmit && <span className="mt-1 block text-amber-900">此案件先前被退回，請修正後重新送出。</span>}
+            填寫報廢原因與資產資訊；可附照片佐證資產現況。
+            {isResubmit && <span className="mt-1 block text-amber-900">此案件先前被退回，請依照簽核意見修正後重新送出（這將進入新的審核回合）。</span>}
           </InfoBanner>
         </div>
         {loading ? (
           <div className="px-5 py-10 text-center text-sm text-ink-muted">載入中…</div>
         ) : (
-          <div className="grid grid-cols-12 gap-3 px-5 py-4">
-            <Field label="報廢原因 / Disposal Reason" required className="col-span-6">
-              <Select value={disposalReason} onChange={e => setDisposalReason(e.target.value)} disabled={pending}>
-                {REASON_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-              </Select>
-            </Field>
-            <Field label="資產編號 / Asset ID" required className="col-span-6">
-              <Input value={assetId} onChange={e => setAssetId(e.target.value)} disabled={pending} placeholder="ASSET-001" />
-            </Field>
-            <Field label="資產名稱 / Asset Name" required className="col-span-6">
-              <Input value={assetName} onChange={e => setAssetName(e.target.value)} disabled={pending} placeholder="Old Laptop" />
-            </Field>
-            <Field label="照片 / Photo" className="col-span-6">
-              <FilePicker value={photo} onChange={setPhoto} disabled={pending} accept=".pdf,.png,.jpg,.jpeg" placeholder="PDF / 圖檔" />
-            </Field>
-            <Field label="說明 / Description" className="col-span-12">
-              <Textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} disabled={pending} />
-            </Field>
+          <div className="px-5 py-4">
+            {/* Asset card — dark header band (mirrors the exemplar's InvoiceCard). */}
+            <div className="overflow-hidden rounded-md border border-rule">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-slate-700 px-4 py-2 text-sm text-white">
+                <span className="min-w-[84px] font-semibold">處份資產 / Asset</span>
+                <span className="ml-auto text-xs text-slate-300">單筆資產處份</span>
+              </div>
+              <div className="grid grid-cols-12 gap-3 bg-card p-4">
+                <Field label="報廢原因 / Disposal Reason" required className="col-span-12 sm:col-span-4">
+                  <Select value={disposalReason} onChange={e => setDisposalReason(e.target.value)} disabled={pending}>
+                    {reasonOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                  </Select>
+                </Field>
+                <Field label="資產編號 / Asset ID" required className="col-span-12 sm:col-span-4">
+                  <Input value={assetId} onChange={e => setAssetId(e.target.value)} disabled={pending} placeholder="ASSET-001" className="font-mono" />
+                </Field>
+                <Field label="資產名稱 / Asset Name" required className="col-span-12 sm:col-span-4">
+                  <Input value={assetName} onChange={e => setAssetName(e.target.value)} disabled={pending} placeholder="Old Laptop" />
+                </Field>
+                <Field label="說明 / Description" hint="補充資產狀態 / 報廢背景（選填）" className="col-span-12">
+                  <Textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} disabled={pending} placeholder="e.g. 螢幕破裂無法開機，已無維修價值。" />
+                </Field>
+              </div>
+            </div>
           </div>
         )}
       </SectionCard>
+
+      {!loading && (
+        <SectionCard>
+          <SectionTitle>佐證附件 / Attachment</SectionTitle>
+          <div className="px-5 py-4">
+            <Field label="照片 / Photo" hint="可附資產現況照片或處份單據（PDF / 圖檔，選填）">
+              <FilePicker value={photo} onChange={setPhoto} disabled={pending} accept=".pdf,.png,.jpg,.jpeg" placeholder="PDF / 圖檔" />
+            </Field>
+          </div>
+        </SectionCard>
+      )}
 
       <ActionFooter
         hint={error ? <span className="text-danger">{error}</span> : <span>送出後將通知您的主管判別。</span>}

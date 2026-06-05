@@ -117,15 +117,15 @@ export function EOB_V1_OnboardingForm({ persona, mode = 'create', onSubmitted }:
           <div className="px-5 py-10 text-center text-sm text-ink-muted">載入中…</div>
         ) : (
           <div className="grid grid-cols-12 gap-3 px-5 py-4">
-            <Field label="名 / First Name" required className="col-span-6"><Input value={f.firstName} onChange={e => patch({ firstName: e.target.value })} disabled={pending} /></Field>
-            <Field label="姓 / Last Name" required className="col-span-6"><Input value={f.lastName} onChange={e => patch({ lastName: e.target.value })} disabled={pending} /></Field>
-            <Field label="職稱 / Business Title" required className="col-span-6"><Input value={f.businessTitle} onChange={e => patch({ businessTitle: e.target.value })} disabled={pending} placeholder="Cloud Platform Engineer" /></Field>
-            <Field label="工作地點 / Location" required className="col-span-3">
+            <Field label="名 / First Name" required className="col-span-6"><Input value={f.firstName} onChange={e => patch({ firstName: e.target.value })} disabled={pending} placeholder="Raven" /></Field>
+            <Field label="姓 / Last Name" required className="col-span-6"><Input value={f.lastName} onChange={e => patch({ lastName: e.target.value })} disabled={pending} placeholder="Wang" /></Field>
+            <Field label="職稱 / Business Title" required className="col-span-12"><Input value={f.businessTitle} onChange={e => patch({ businessTitle: e.target.value })} disabled={pending} placeholder="Cloud Platform Engineer" /></Field>
+            <Field label="工作地點 / Location" required className="col-span-6">
               <Select value={f.employeeLocation} onChange={e => patch({ employeeLocation: e.target.value })} disabled={pending}>
                 {LOCATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </Select>
             </Field>
-            <Field label="需信箱 / Require Mailbox" className="col-span-3">
+            <Field label="需信箱 / Require Mailbox" hint="是否為新人開立公司信箱" className="col-span-6">
               <Select value={f.requireMailbox} onChange={e => patch({ requireMailbox: e.target.value })} disabled={pending}>
                 {YESNO_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </Select>
@@ -137,12 +137,33 @@ export function EOB_V1_OnboardingForm({ persona, mode = 'create', onSubmitted }:
               </div>
             </Field>
             <Field label="成本中心 / Cost Center" required className="col-span-6"><Input value={f.costCenter} onChange={e => patch({ costCenter: e.target.value })} disabled={pending} placeholder="TWT.1746G" /></Field>
-            <Field label="合約編號 / Contract No." className="col-span-4"><Input value={f.contractNumber} onChange={e => patch({ contractNumber: e.target.value })} disabled={pending} /></Field>
-            <Field label="合約生效日 / Effective" className="col-span-4"><Input type="date" value={f.contractEffectiveDate} onChange={e => patch({ contractEffectiveDate: e.target.value })} disabled={pending} /></Field>
-            <Field label="合約到期日 / Expiration" className="col-span-4"><Input type="date" value={f.contractExpirationDate} onChange={e => patch({ contractExpirationDate: e.target.value })} disabled={pending} /></Field>
           </div>
         )}
       </SectionCard>
+
+      {!loading && (
+        <SectionCard>
+          <SectionTitle>合約資訊 / Contract</SectionTitle>
+          <div className="border-b border-rule px-5 py-3">
+            <InfoBanner>合約欄位為選填，適用於約聘 / 外包人員；正職員工可留空。</InfoBanner>
+          </div>
+          <div className="grid grid-cols-12 gap-3 px-5 py-4">
+            <Field label="合約編號 / Contract No." className="col-span-4"><Input value={f.contractNumber} onChange={e => patch({ contractNumber: e.target.value })} disabled={pending} /></Field>
+            <Field label="合約生效日 / Effective" className="col-span-4">
+              <div className="relative">
+                <Input type="date" value={f.contractEffectiveDate} onChange={e => patch({ contractEffectiveDate: e.target.value })} disabled={pending} />
+                <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
+              </div>
+            </Field>
+            <Field label="合約到期日 / Expiration" className="col-span-4">
+              <div className="relative">
+                <Input type="date" value={f.contractExpirationDate} onChange={e => patch({ contractExpirationDate: e.target.value })} disabled={pending} />
+                <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
+              </div>
+            </Field>
+          </div>
+        </SectionCard>
+      )}
 
       <ActionFooter
         hint={error ? <span className="text-danger">{error}</span> : <span>送出後將通知您的主管。基本設定將於核准後進行。</span>}

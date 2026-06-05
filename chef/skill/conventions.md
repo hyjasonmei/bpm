@@ -209,6 +209,16 @@ from `<Input>` / `<Select>` will work but look amateur next to the
 references; visiting the matching `Reference_*.tsx` first is what
 gets the cook past "functional" into "presentable".
 
+> **Canonical model-B exemplar (copy this, not the refs' wiring):**
+> `bpm-ui/src/features/VENDOR_EXPENSE/V1/VENDOR_EXPENSE_V1_VendorExpenseForm.tsx`.
+> It applies the reference *layout* (sectioned cards, dark invoice
+> header band, currency-prefixed amount, grouped grand-total) with
+> correct **model-B** wiring — `FormShell` + `apiFetch` + `ActionFooter`
+> + `ConfirmDialog`, no `useFormRuntime`. For invoice / repeater / money
+> forms, crib its structure directly; use the `Reference_*.tsx` set only
+> for visual ideas. The whole `features/<CODE>/V1/*Form.tsx` set was
+> brought up to this bar — any of them is a live model-B example.
+
 ### Shape → reference lookup
 
 | Spec shape | Closest reference | What to crib |
@@ -234,9 +244,14 @@ report which one you used.
 - `FieldLabel required` / `FieldLabel tip="..."` (from
   `@/components/ui/form`) for every field — the asterisk + tooltip
   hint are part of the visual language.
-- Repeater header bar (`flex flex-wrap items-center gap-x-6 gap-y-2
-  border-b border-rule bg-slate-50 px-4 py-2.5`) with the row index
-  on the left and 2-3 "summary" inputs inline.
+- Repeater header bar — two flavours, both fine:
+  - **Dark band (preferred for invoice/money rows, per the exemplar):**
+    `flex flex-wrap items-center gap-x-3 gap-y-2 bg-slate-700 px-4 py-2
+    text-white` with `Invoice #N` on the left and the per-row key
+    control (currency `<select>` styled `bg-slate-600`) + remove button
+    pushed right (`ml-auto`).
+  - **Light band:** `… border-b border-rule bg-slate-50 px-4 py-2.5`
+    with the row index left and 2-3 "summary" inputs inline.
 - Right-side row-action gutter (`flex flex-col items-center gap-1.5
   border-l border-rule bg-slate-50/60 p-2`) with `Plus`, `Copy`,
   `Trash2` lucide icons stacked vertically.
@@ -256,10 +271,13 @@ Strip every one of these out — chef writes pure model B:
 - `import { useFormRuntime, FlowToast, type FormRuntimeProps } from
   '@/hooks/useFormRuntime'` — model A spec-driven runtime hook;
   delete entirely.
-- `<FormShell code="…" activeStep={…} setActiveStep={…} persona={…}
-  mode={runtime.mode}>` — model A wizard chrome with persona switch
-  + step nav; chef-cooked forms render bare (the bpm-ui router
-  wraps them with its own layout).
+- The model-A `<FormShell>` *variant* only — `setActiveStep={…}` +
+  `mode={runtime.mode}`. **Keep `<FormShell>` itself.** Model B renders
+  it as `<FormShell code="<CODE>" activeStep={0} persona={persona as
+  PersonaCode} mode="create">` (no `setActiveStep`, literal `mode`).
+  It draws the step rail, requestor summary, View-BPMN and
+  copy-from-existing chrome that make a form look finished — dropping it
+  is what leaves a cook looking "plain". See the exemplar.
 - `import { useFlowSubmit } from '@/hooks/useFlowSubmit'` /
   `useFlowTask` — model A submit + task plumbing; chef does its
   own `<form onSubmit>` calling `apiFetch` against
@@ -279,8 +297,10 @@ Strip every one of these out — chef writes pure model B:
 1. Open the matching `Reference_*.tsx` side-by-side with the spec.
 2. Copy the JSX structure verbatim into your
    `<CODE>_V<N>_<Purpose>Form.tsx`.
-3. Delete every `FormShell` / `useFormRuntime` / `FlowToast` /
-   `ActionBar` reference. The diff should remove ~30-60 lines.
+3. Delete the model-A runtime plumbing — `useFormRuntime` / `FlowToast`
+   / `ActionBar` / `instance` / `submission`. **Keep `<FormShell>`** but
+   switch it to the model-B signature (drop `setActiveStep`, use a
+   literal `mode`). The diff should remove ~30-60 lines.
 4. Replace mock catalogs with `field.options` from the spec.
 5. Replace the model A submit (`useFlowSubmit`) with a plain `<form
    onSubmit>` calling your controller's POST endpoint via

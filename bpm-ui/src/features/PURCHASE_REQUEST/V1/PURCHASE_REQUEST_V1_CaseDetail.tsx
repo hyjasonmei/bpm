@@ -210,11 +210,33 @@ export function PURCHASE_REQUEST_V1_CaseDetail({ caseId }: CaseDetailProps) {
           </SectionCard>
 
           <SectionCard>
-            <SectionTitle>Invoices · {data.invoices.length}</SectionTitle>
-            <div className="space-y-3 px-5 py-4">
+            <SectionTitle>採購明細 / Invoices · {data.invoices.length}</SectionTitle>
+            <div className="space-y-4 px-5 py-4">
               {data.invoices.map((inv, i) => (
                 <InvoiceReadCard key={i} index={i} value={inv} />
               ))}
+              {(() => {
+                const totals = data.invoices.reduce<Record<string, number>>((acc, inv) => {
+                  const amt = parseFloat((inv.amount ?? '').toString())
+                  if (!Number.isNaN(amt) && amt !== 0) {
+                    const c = (inv.currency ?? '').trim() || '—'
+                    acc[c] = (acc[c] ?? 0) + amt
+                  }
+                  return acc
+                }, {})
+                const entries = Object.entries(totals)
+                if (entries.length === 0) return null
+                return (
+                  <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 rounded-md border border-rule bg-slate-50 px-4 py-3">
+                    <span className="text-sm font-semibold text-ink">合計 / Total</span>
+                    {entries.map(([ccy, sum]) => (
+                      <span key={ccy} className="font-mono text-base font-bold text-ink">
+                        {ccy === '—' ? '' : `${ccy} `}{sum.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                      </span>
+                    ))}
+                  </div>
+                )
+              })()}
             </div>
           </SectionCard>
 
@@ -300,18 +322,23 @@ export function PURCHASE_REQUEST_V1_CaseDetail({ caseId }: CaseDetailProps) {
 }
 
 function InvoiceReadCard({ index, value }: { index: number; value: PURCHASE_REQUEST_V1_InvoiceDto }) {
+  const amt = parseFloat((value.amount ?? '').toString())
+  const amountDisplay = !Number.isNaN(amt)
+    ? `${value.currency ? `${value.currency} ` : ''}${amt.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+    : value.amount
   return (
-    <div className="rounded-md border border-rule bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-semibold text-ink">#{index + 1} · {value.invoiceNo || '—'}</p>
-        <p className="font-mono text-xs text-ink-faint">{value.invoiceDate}</p>
+    <div className="overflow-hidden rounded-md border border-rule">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-slate-700 px-4 py-2 text-sm text-white">
+        <span className="font-semibold">Invoice #{index + 1}</span>
+        {value.invoiceNo && <span className="text-slate-300">· {value.invoiceNo}</span>}
+        <span className="ml-auto font-mono text-xs text-slate-300">{value.invoiceDate || '—'}</span>
       </div>
-      <div className="grid grid-cols-12 gap-3 text-sm">
+      <div className="grid grid-cols-12 gap-3 bg-card p-4 text-sm">
         <ReadField label="Charge To" value={value.chargeTo} className="col-span-6" />
         <ReadField label="Project" value={value.project} className="col-span-6" />
         <ReadField label="Category" value={value.category} className="col-span-6" />
         <ReadField label="Currency" value={value.currency} className="col-span-3" />
-        <ReadField label="Amount" value={value.amount} className="col-span-3" />
+        <ReadField label="Amount" value={amountDisplay} className="col-span-3" mono />
         <ReadField label="Description" value={value.description} className="col-span-12" />
         <div className="col-span-6">
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Attachment</p>
@@ -333,11 +360,11 @@ function InvoiceReadCard({ index, value }: { index: number; value: PURCHASE_REQU
   )
 }
 
-function ReadField({ label, value, className }: { label: string; value: string | null; className?: string }) {
+function ReadField({ label, value, className, mono }: { label: string; value: string | null; className?: string; mono?: boolean }) {
   return (
     <div className={className}>
       <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">{label}</p>
-      <p className="mt-1 text-ink">{value || <span className="text-ink-faint">—</span>}</p>
+      <p className={`mt-1 text-ink${mono ? ' font-mono' : ''}`}>{value || <span className="font-sans text-ink-faint">—</span>}</p>
     </div>
   )
 }

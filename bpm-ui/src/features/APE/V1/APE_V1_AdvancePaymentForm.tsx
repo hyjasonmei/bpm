@@ -13,6 +13,9 @@ import { apiFetch } from '@/lib/apiFetch'
 import { CURRENCY_OPTIONS, YESNO_OPTIONS, emptyPayload } from './APE_V1_shared'
 import type { APE_V1_CaseResponse, APE_V1_SubmitPayload } from './APE_V1_types'
 
+/** Display-only money formatter (amount is stored as a number on submit). */
+const fmtMoney = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 })
+
 /**
  * APE V1 — submitter form (userTask `ape`). Posts to
  * <c>POST /api/ape/v1</c>; with <c>?resubmit=&lt;caseId&gt;</c> pre-fills
@@ -75,6 +78,9 @@ export function APE_V1_AdvancePaymentForm({ persona, mode = 'create', onSubmitte
   }
 
   const amountNum = Number(form.amount)
+  // Keep the hydrated currency as an option even if it's outside the known
+  // enum (the backend stores it as a free string).
+  const ccyOptions = Array.from(new Set([...(form.currency ? [form.currency] : []), ...CURRENCY_OPTIONS]))
   const valid =
     !!form.expectReceiveDate &&
     !!form.deductReturnDate &&
@@ -160,18 +166,37 @@ export function APE_V1_AdvancePaymentForm({ persona, mode = 'create', onSubmitte
               </Select>
             </Field>
 
-            <Field label="金額 / Amount" required className="col-span-3">
-              <Input type="number" min="0" step="0.01" value={form.amount} onChange={e => patch({ amount: e.target.value })} disabled={pending} placeholder="0" />
-            </Field>
             <Field label="幣別 / Currency" required className="col-span-3">
               <Select value={form.currency} onChange={e => patch({ currency: e.target.value })} disabled={pending}>
-                {CURRENCY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                {ccyOptions.map(o => <option key={o} value={o}>{o}</option>)}
               </Select>
+            </Field>
+            <Field label="金額 / Amount" required className="col-span-9">
+              <div className="flex gap-1.5">
+                <span className="flex h-8 items-center whitespace-nowrap rounded-md border border-rule bg-slate-50 px-2.5 text-sm text-ink-muted">
+                  {form.currency || '—'}
+                </span>
+                <Input type="number" min="0" step="0.01" className="text-right font-mono" value={form.amount} onChange={e => patch({ amount: e.target.value })} disabled={pending} placeholder="0.00" />
+              </div>
+              {Number.isFinite(amountNum) && amountNum > 0 && (
+                <div className="mt-1 text-right font-mono text-xs text-ink-faint">
+                  {form.currency ? `${form.currency} ` : ''}{fmtMoney(amountNum)}
+                </div>
+              )}
             </Field>
 
             <Field label="說明 / Description" required className="col-span-12">
               <Textarea rows={3} value={form.description} onChange={e => patch({ description: e.target.value })} disabled={pending} placeholder="預支用途說明" />
             </Field>
+
+            {Number.isFinite(amountNum) && amountNum > 0 && (
+              <div className="col-span-12 flex flex-wrap items-center justify-end gap-x-6 gap-y-1 rounded-md border border-rule bg-slate-50 px-4 py-3">
+                <span className="text-sm font-semibold text-ink">合計 / Total</span>
+                <span className="font-mono text-base font-bold text-ink">
+                  {form.currency ? `${form.currency} ` : ''}{fmtMoney(amountNum)}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </SectionCard>

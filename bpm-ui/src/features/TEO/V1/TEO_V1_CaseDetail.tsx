@@ -183,6 +183,20 @@ export function TEO_V1_CaseDetail({ caseId }: CaseDetailProps) {
             <SectionTitle>差旅費用明細 · {data.expenseItems.length}</SectionTitle>
             <div className="space-y-3 px-5 py-4">
               {data.expenseItems.map((it, i) => <ItemReadCard key={i} index={i} value={it} />)}
+              {(() => {
+                const totalLcy = data.expenseItems.reduce((acc, it) => {
+                  const n = parseFloat((it.amountLcy ?? '').toString())
+                  return Number.isNaN(n) ? acc : acc + n
+                }, 0)
+                return totalLcy > 0 ? (
+                  <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 rounded-md border border-rule bg-slate-50 px-4 py-3">
+                    <span className="text-sm font-semibold text-ink">本幣合計 / Total (LCY)</span>
+                    <span className="font-mono text-base font-bold text-danger">
+                      NTD {totalLcy.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                ) : null
+              })()}
             </div>
           </SectionCard>
 
@@ -239,8 +253,8 @@ function ItemReadCard({ index, value }: { index: number; value: TEO_V1_ExpenseIt
       </div>
       <div className="grid grid-cols-12 gap-3 text-sm">
         <ReadField label="國家" value={value.country} className="col-span-6" />
-        <ReadField label="金額" value={value.amount} className="col-span-3" />
-        <ReadField label="本幣金額" value={value.amountLcy} className="col-span-3" />
+        <ReadMoney label="金額 (原幣)" value={value.amount} className="col-span-3" />
+        <ReadMoney label="本幣金額" prefix="NTD" value={value.amountLcy} className="col-span-3" />
         <ReadField label="說明" value={value.description} className="col-span-12" />
       </div>
     </div>
@@ -252,6 +266,23 @@ function ReadField({ label, value, className }: { label: string; value: string |
     <div className={className}>
       <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">{label}</p>
       <p className="mt-1 text-ink">{value || <span className="text-ink-faint">—</span>}</p>
+    </div>
+  )
+}
+
+function ReadMoney({ label, value, prefix, className }: {
+  label: string; value: string | null | undefined; prefix?: string; className?: string
+}) {
+  const n = parseFloat((value ?? '').toString())
+  const formatted = Number.isNaN(n)
+    ? null
+    : `${prefix ? `${prefix} ` : ''}${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+  return (
+    <div className={className}>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">{label}</p>
+      <p className="mt-1 text-right font-mono text-ink">
+        {formatted ?? <span className="text-ink-faint">—</span>}
+      </p>
     </div>
   )
 }

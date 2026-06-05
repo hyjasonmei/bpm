@@ -18,6 +18,13 @@ import type {
   PURCHASE_REQUEST_V1_InvoiceDto,
 } from './PURCHASE_REQUEST_V1_types'
 
+/** Common settlement currencies offered in the invoice header band. Free-text
+ *  on the backend, so an unknown hydrated value is preserved as an extra option. */
+const CURRENCIES = ['TWD', 'USD', 'EUR', 'JPY', 'CNY', 'GBP']
+
+/** Display-only money formatter (the backend stores amount as a free string). */
+const fmtMoney = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 })
+
 /**
  * PURCHASE_REQUEST V1 — submitter form (task_apply). Posts to
  * <c>POST /api/purchase-request/v1</c> on first submit; when entered
@@ -95,6 +102,18 @@ export function PURCHASE_REQUEST_V1_PurchaseRequestForm({
     return true
   })()
 
+  // Grand total grouped by currency (display only) — amounts are free strings
+  // and currencies can differ across rows, so never sum across currencies.
+  const totalsByCcy = invoices.reduce<Record<string, number>>((acc, inv) => {
+    const amt = parseFloat((inv.amount ?? '').toString())
+    if (!Number.isNaN(amt) && amt !== 0) {
+      const c = (inv.currency ?? '').trim() || '—'
+      acc[c] = (acc[c] ?? 0) + amt
+    }
+    return acc
+  }, {})
+  const totalEntries = Object.entries(totalsByCcy)
+
   function attemptSubmit() {
     if (!submitterComment.trim()) { setError('請填寫送出原因。'); return }
     if (invoices.length === 0) { setError('請至少填寫一筆 invoice。'); return }
@@ -139,11 +158,11 @@ export function PURCHASE_REQUEST_V1_PurchaseRequestForm({
   return (
     <FormShell code="PURCHASE_REQUEST" activeStep={0} persona={persona as PersonaCode} mode="create">
       <SectionCard>
-        <SectionTitle>Invoices</SectionTitle>
+        <SectionTitle>採購明細 / Invoices</SectionTitle>
 
         <div className="border-b border-rule px-5 py-3">
           <InfoBanner>
-            提示文字：請逐筆填寫採購 invoice；每筆至少需要 invoice date。
+            請逐筆填寫採購 invoice；每筆至少需要 invoice date。
             {isResubmit && (
               <span className="mt-1 block text-amber-900">
                 此案件先前被退回，請依照簽核意見修正後重新送出（這將進入新的審核回合）。
@@ -155,7 +174,7 @@ export function PURCHASE_REQUEST_V1_PurchaseRequestForm({
         {loading ? (
           <div className="px-5 py-10 text-center text-sm text-ink-muted">載入中…</div>
         ) : (
-          <div className="space-y-3 px-5 py-4">
+          <div className="space-y-4 px-5 py-4">
             {invoices.map((inv, i) => (
               <InvoiceCard
                 key={i}
@@ -172,6 +191,17 @@ export function PURCHASE_REQUEST_V1_PurchaseRequestForm({
                 <Plus className="h-3.5 w-3.5" /> 新增 invoice
               </Button>
             </div>
+
+            {totalEntries.length > 0 && (
+              <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 rounded-md border border-rule bg-slate-50 px-4 py-3">
+                <span className="text-sm font-semibold text-ink">合計 / Total</span>
+                {totalEntries.map(([ccy, sum]) => (
+                  <span key={ccy} className="font-mono text-base font-bold text-ink">
+                    {ccy === '—' ? '' : `${ccy} `}{fmtMoney(sum)}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </SectionCard>
@@ -232,18 +262,39 @@ function InvoiceCard({
   const attachment: FilePickerValue | null = value.attachmentFileId
     ? { id: value.attachmentFileId, fileName: '已上傳檔案', contentType: '', sizeBytes: 0 }
     : null
+  const amt = parseFloat((value.amount ?? '').toString())
+  const ccyOptions = Array.from(new Set([...(value.currency ? [value.currency] : []), ...CURRENCIES]))
   return (
-    <div className="rounded-md border border-rule bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-semibold text-ink">#{index + 1}</p>
-        {canRemove && (
-          <Button variant="ghost" size="xs" onClick={onRemove} disabled={disabled}>
-            <Trash2 className="h-3.5 w-3.5" /> 移除
-          </Button>
-        )}
+    <div className="overflow-hidden rounded-md border border-rule">
+      {/* Dark invoice header band (mirrors the GEV vendor-invoice reference). */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-slate-700 px-4 py-2 text-sm text-white">
+        <span className="min-w-[84px] font-semibold">Invoice #{index + 1}</span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-slate-300">Currency</span>
+          <select
+            value={value.currency ?? ''}
+            onChange={e => onChange({ currency: e.target.value })}
+            disabled={disabled}
+            className="h-7 w-24 rounded border border-slate-500 bg-slate-600 px-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-60"
+          >
+            <option value="">—</option>
+            {ccyOptions.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          {canRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              disabled={disabled}
+              className="ml-1 flex items-center gap-1 rounded px-1.5 py-1 text-xs text-slate-300 hover:bg-slate-600 hover:text-white disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> 移除
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-3">
+      {/* Field grid */}
+      <div className="grid grid-cols-12 gap-3 bg-card p-4">
         <Field label="Invoice No" className="col-span-6">
           <Input
             value={value.invoiceNo ?? ''}
@@ -285,21 +336,26 @@ function InvoiceCard({
             disabled={disabled}
           />
         </Field>
-        <Field label="Currency" className="col-span-3">
-          <Input
-            value={value.currency ?? ''}
-            onChange={e => onChange({ currency: e.target.value })}
-            disabled={disabled}
-            placeholder="USD"
-          />
-        </Field>
-        <Field label="Amount" className="col-span-3">
-          <Input
-            value={value.amount ?? ''}
-            onChange={e => onChange({ amount: e.target.value })}
-            disabled={disabled}
-            placeholder="0.00"
-          />
+        <Field label="Amount" className="col-span-6">
+          <div className="flex gap-1.5">
+            <span className="flex h-8 items-center whitespace-nowrap rounded-md border border-rule bg-slate-50 px-2.5 text-sm text-ink-muted">
+              {value.currency || '—'}
+            </span>
+            <Input
+              type="number"
+              min={0}
+              className="text-right font-mono"
+              value={value.amount ?? ''}
+              onChange={e => onChange({ amount: e.target.value })}
+              disabled={disabled}
+              placeholder="0.00"
+            />
+          </div>
+          {!Number.isNaN(amt) && amt > 0 && (
+            <div className="mt-1 text-right font-mono text-xs text-ink-faint">
+              {value.currency ? `${value.currency} ` : ''}{fmtMoney(amt)}
+            </div>
+          )}
         </Field>
 
         <Field label="Description" className="col-span-12">

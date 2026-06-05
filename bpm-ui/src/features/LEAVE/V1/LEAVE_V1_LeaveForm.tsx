@@ -14,6 +14,16 @@ import { apiFetch } from '@/lib/apiFetch'
 import { businessDaysBetween, certRequired, LEAVE_TYPES } from './LEAVE_V1_shared'
 import type { LEAVE_V1_CaseResponse } from './LEAVE_V1_types'
 
+/** Bilingual display labels for the spec-aligned leave types. The <option>
+ *  value stays the raw backend string (from LEAVE_TYPES) so the payload shape
+ *  is unchanged — only the visible label gets an English gloss. */
+const LEAVE_TYPE_LABELS: Record<string, string> = {
+  特休: '特休 / Annual',
+  病假: '病假 / Sick',
+  事假: '事假 / Personal',
+  公假: '公假 / Official',
+}
+
 /**
  * LEAVE V1 — submitter form (task_apply). Posts to /api/leave/v1.
  *
@@ -93,51 +103,65 @@ export function LEAVE_V1_LeaveForm({ persona, mode = 'create', onSubmitted }: Fo
   return (
     <FormShell code="LEAVE" activeStep={0} persona={persona as PersonaCode} mode="create">
       <SectionCard>
-        <SectionTitle>主要欄位 / Leave Detail</SectionTitle>
-        <div className="grid grid-cols-3 gap-4 p-5">
-          <Field label="假別 / Leave Type" required>
+        <SectionTitle>請假資訊 / Leave Detail</SectionTitle>
+
+        <div className="grid grid-cols-12 gap-4 px-5 py-4">
+          <Field label="假別 / Leave Type" required className="col-span-12 sm:col-span-4">
             <Select value={leaveType} onChange={e => setLeaveType(e.target.value)} disabled={pending}>
-              {LEAVE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              {LEAVE_TYPES.map(t => <option key={t} value={t}>{LEAVE_TYPE_LABELS[t] ?? t}</option>)}
             </Select>
           </Field>
-          <Field label="起 / Start date" required>
+
+          {/* Start / end form a tidy date-range pair. */}
+          <Field label="起 / Start date" required className="col-span-6 sm:col-span-4">
             <div className="relative">
               <Input type="date" value={start} onChange={e => setStart(e.target.value)} disabled={pending} />
               <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
             </div>
           </Field>
-          <Field label="迄 / End date" required>
+          <Field label="迄 / End date" required className="col-span-6 sm:col-span-4">
             <div className="relative">
               <Input type="date" value={end} onChange={e => setEnd(e.target.value)} disabled={pending} />
               <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
             </div>
           </Field>
-          <Field label="天數 / Days" hint="自動計算（不含週末）">
-            <div className="flex h-8 items-center rounded-md border border-rule bg-slate-50 px-3 text-sm font-mono">
-              {!validRange ? <span className="text-danger">起訖反向</span>
-                : days === 0 ? <span className="text-ink-faint">—</span>
-                : <span className="text-ink"><span className="font-bold tabular">{days}</span> {days === 1 ? 'day' : 'days'}</span>}
-            </div>
-          </Field>
+        </div>
+
+        {/* Computed days echo — read-only summary, mirrors the exemplar's total band. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t border-rule bg-slate-50 px-5 py-3">
+          <span className="text-sm font-medium text-ink-muted">請假天數 / Days <span className="text-ink-faint">（自動計算，不含週末）</span></span>
+          <span className="font-mono text-base">
+            {!validRange ? <span className="font-semibold text-danger">起訖反向 / Invalid range</span>
+              : days === 0 ? <span className="text-ink-faint">—</span>
+              : <span className="text-ink"><span className="font-bold tabular">{days}</span> {days === 1 ? 'day' : 'days'}</span>}
+          </span>
         </div>
 
         <div className="border-t border-rule px-5 py-3">
           <InfoBanner>
-            提示：超過 7 天會自動加簽 VP / 部門主管；病假 / 公假需附上證明文件。
+            提示：請假超過 7 天會自動加簽 VP / 部門主管；
+            <span className="font-medium">病假 / 公假</span> 需附上證明文件。
           </InfoBanner>
         </div>
+      </SectionCard>
 
-        <div className="grid grid-cols-2 gap-4 border-t border-rule px-5 py-4">
-          <Field label="事由 / Reason" required hint="中英文皆可">
+      <SectionCard>
+        <SectionTitle>事由與證明 / Reason & Documents</SectionTitle>
+        <div className="grid grid-cols-12 gap-4 px-5 py-4">
+          <Field label="事由 / Reason" required hint="中英文皆可" className="col-span-12 md:col-span-7">
             <Textarea
-              rows={3}
+              rows={4}
               value={reason}
               onChange={e => setReason(e.target.value)}
               placeholder="e.g. 家庭旅遊 / Family trip"
               disabled={pending}
             />
           </Field>
-          <Field label={`證明文件 / Supporting Documents${requiresCert ? ' *' : ' (選填)'}`} hint={requiresCert ? `${leaveType}必填` : '視假別而定'}>
+          <Field
+            label={`證明文件 / Supporting Documents${requiresCert ? ' *' : ' (選填)'}`}
+            hint={requiresCert ? `${leaveType}必填，請上傳 PDF / JPG / PNG` : '視假別而定（病假 / 公假需附）'}
+            className="col-span-12 md:col-span-5"
+          >
             <FilePicker
               value={cert}
               onChange={setCert}

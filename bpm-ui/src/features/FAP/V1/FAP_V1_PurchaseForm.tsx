@@ -108,31 +108,17 @@ export function FAP_V1_PurchaseForm({ persona, mode = 'create', onSubmitted }: F
         {loading ? (
           <div className="px-5 py-10 text-center text-sm text-ink-muted">載入中…</div>
         ) : (
-          <div className="space-y-3 px-5 py-4">
+          <div className="space-y-4 px-5 py-4">
             {items.map((it, i) => (
-              <div key={i} className="rounded-md border border-rule bg-card p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-semibold text-ink">#{i + 1}</p>
-                  {items.length > 1 && (
-                    <Button variant="ghost" size="xs" onClick={() => removeItem(i)} disabled={pending}>
-                      <Trash2 className="h-3.5 w-3.5" /> 移除
-                    </Button>
-                  )}
-                </div>
-                <div className="grid grid-cols-12 gap-3">
-                  <Field label="類別 / Category" className="col-span-3">
-                    <Select value={it.category ?? ''} onChange={e => patchItem(i, { category: e.target.value })} disabled={pending}>
-                      {CATEGORY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                    </Select>
-                  </Field>
-                  <Field label="品項 / 規格 Item / Spec" required className="col-span-6">
-                    <Input value={it.itemSpec ?? ''} onChange={e => patchItem(i, { itemSpec: e.target.value })} disabled={pending} placeholder="e.g. Lenovo ThinkPad X250" />
-                  </Field>
-                  <Field label="數量 / Qty" required className="col-span-3">
-                    <Input type="number" min="1" value={String(it.qty)} onChange={e => patchItem(i, { qty: Number(e.target.value) })} disabled={pending} />
-                  </Field>
-                </div>
-              </div>
+              <PurchaseItemCard
+                key={i}
+                index={i}
+                value={it}
+                disabled={pending}
+                canRemove={items.length > 1}
+                onChange={patch => patchItem(i, patch)}
+                onRemove={() => removeItem(i)}
+              />
             ))}
             <div className="flex justify-end">
               <Button variant="outline" size="sm" onClick={addItem} disabled={pending}><Plus className="h-3.5 w-3.5" /> 新增明細</Button>
@@ -186,5 +172,71 @@ export function FAP_V1_PurchaseForm({ persona, mode = 'create', onSubmitted }: F
         onConfirm={doSubmit}
       />
     </FormShell>
+  )
+}
+
+/** Single purchase-item row — dark header band (index + category + remove)
+ *  over a 12-col field grid, mirroring the VENDOR_EXPENSE invoice exemplar. */
+function PurchaseItemCard({
+  index, value, disabled, canRemove, onChange, onRemove,
+}: {
+  index: number
+  value: FAP_V1_PurchaseItemDto
+  disabled: boolean
+  canRemove: boolean
+  onChange: (patch: Partial<FAP_V1_PurchaseItemDto>) => void
+  onRemove: () => void
+}) {
+  const catOptions = Array.from(new Set([...(value.category ? [value.category] : []), ...CATEGORY_OPTIONS]))
+  return (
+    <div className="overflow-hidden rounded-md border border-rule">
+      {/* Dark item header band (mirrors the VENDOR_EXPENSE invoice reference). */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-slate-700 px-4 py-2 text-sm text-white">
+        <span className="min-w-[64px] font-semibold">#{index + 1}</span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-slate-300">Category</span>
+          <select
+            value={value.category ?? ''}
+            onChange={e => onChange({ category: e.target.value })}
+            disabled={disabled}
+            className="h-7 w-32 rounded border border-slate-500 bg-slate-600 px-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-60"
+          >
+            {catOptions.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          {canRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              disabled={disabled}
+              className="ml-1 flex items-center gap-1 rounded px-1.5 py-1 text-xs text-slate-300 hover:bg-slate-600 hover:text-white disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> 移除
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Field grid */}
+      <div className="grid grid-cols-12 gap-3 bg-card p-4">
+        <Field label="品項 / 規格 Item / Spec" required className="col-span-9">
+          <Input
+            value={value.itemSpec ?? ''}
+            onChange={e => onChange({ itemSpec: e.target.value })}
+            disabled={disabled}
+            placeholder="e.g. Lenovo ThinkPad X250"
+          />
+        </Field>
+        <Field label="數量 / Qty" required className="col-span-3">
+          <Input
+            type="number"
+            min="1"
+            className="text-right font-mono"
+            value={String(value.qty)}
+            onChange={e => onChange({ qty: Number(e.target.value) })}
+            disabled={disabled}
+          />
+        </Field>
+      </div>
+    </div>
   )
 }
