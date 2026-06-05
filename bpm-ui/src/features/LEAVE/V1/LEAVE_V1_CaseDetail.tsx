@@ -10,6 +10,7 @@ import { ActionFooter, type ActionFooterItem } from '@/components/ui/action-foot
 import { FlowStateBanner } from '@/components/ui/flow-state-banner/FlowStateBanner'
 import { Stepper } from '@/components/Stepper'
 import { BpmnView } from '@/components/BpmnView'
+import { AuthedFileLink } from '@/components/ui/FilePicker'
 import { apiFetch, getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
 import { useDelegatedFor } from '@/lib/useDelegatedFor'
@@ -353,13 +354,9 @@ function Row({ label, value, fullWidth }: { label: string; value: React.ReactNod
 }
 
 function FileLink({ id }: { id: string }) {
-  // The Files controller serves blobs at /api/files/{id} — open in a new tab.
-  return (
-    <a className="text-primary hover:underline" target="_blank" rel="noreferrer"
-       href={`${import.meta.env.VITE_BPM_SVC_URL ?? 'http://localhost:5290'}/api/files/${id}`}>
-      下載證明
-    </a>
-  )
+  // GET /api/files/{id} is auth'd — fetch with the JWT and open the blob,
+  // otherwise a plain new-tab link 401s.
+  return <AuthedFileLink id={id} className="text-primary hover:underline">下載證明</AuthedFileLink>
 }
 
 type TimelineState = 'idle' | 'current' | 'done' | 'rejected'

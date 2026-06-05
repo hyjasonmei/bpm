@@ -184,6 +184,51 @@ function authHeaders(): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+/**
+ * Read-only attachment link for case-detail views. `GET /api/files/{id}` is
+ * `[Authorize]`'d, so a plain `<a href target="_blank">` opens a new tab with
+ * no Authorization header → 401 ("can't open / not found"). Instead we fetch
+ * the blob WITH the bearer token, then open it in a new tab (falling back to a
+ * download anchor if the popup is blocked). Use this anywhere a previously
+ * uploaded file needs to be opened.
+ */
+export function AuthedFileLink({
+  id, className, children,
+}: { id: string; className?: string; children: React.ReactNode }) {
+  const [busy, setBusy] = React.useState(false)
+  const [failed, setFailed] = React.useState(false)
+
+  async function open() {
+    setBusy(true)
+    setFailed(false)
+    try {
+      const res = await fetch(fileDownloadUrl(id), { headers: authHeaders() })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const url = URL.createObjectURL(await res.blob())
+      const win = window.open(url, '_blank', 'noopener')
+      if (!win) {
+        const a = document.createElement('a')
+        a.href = url
+        a.download = ''
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch {
+      setFailed(true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <button type="button" onClick={open} disabled={busy} className={className}>
+      {busy ? '開啟中…' : failed ? '開啟失敗，再試一次' : children}
+    </button>
+  )
+}
+
 function prettyBytes(n: number): string {
   if (n < 1024) return `${n} B`
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`

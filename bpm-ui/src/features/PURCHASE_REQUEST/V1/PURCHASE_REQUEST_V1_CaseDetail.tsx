@@ -10,7 +10,8 @@ import { ActionFooter, type ActionFooterItem } from '@/components/ui/action-foot
 import { FlowStateBanner } from '@/components/ui/flow-state-banner/FlowStateBanner'
 import { Stepper } from '@/components/Stepper'
 import { BpmnView } from '@/components/BpmnView'
-import { apiFetch, BPM_SVC_URL, getJwt } from '@/lib/apiFetch'
+import { AuthedFileLink } from '@/components/ui/FilePicker'
+import { apiFetch, getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
 import { useDelegatedFor } from '@/lib/useDelegatedFor'
 import { FORMS } from '@/lib/workflow'
@@ -344,14 +345,12 @@ function InvoiceReadCard({ index, value }: { index: number; value: PURCHASE_REQU
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Attachment</p>
           {value.attachmentFileId
             ? (
-                <a
+                <AuthedFileLink
+                  id={value.attachmentFileId}
                   className="inline-flex items-center gap-1 text-primary hover:underline"
-                  target="_blank"
-                  rel="noreferrer"
-                  href={`${BPM_SVC_URL}/api/files/${value.attachmentFileId}`}
                 >
                   下載 <ExternalLink className="h-3.5 w-3.5" />
-                </a>
+                </AuthedFileLink>
               )
             : <span className="text-ink-faint">—</span>}
         </div>

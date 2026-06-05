@@ -10,7 +10,8 @@ import { ActionFooter, type ActionFooterItem } from '@/components/ui/action-foot
 import { FlowStateBanner } from '@/components/ui/flow-state-banner/FlowStateBanner'
 import { Stepper } from '@/components/Stepper'
 import { BpmnView } from '@/components/BpmnView'
-import { apiFetch, BPM_SVC_URL, getJwt } from '@/lib/apiFetch'
+import { AuthedFileLink } from '@/components/ui/FilePicker'
+import { apiFetch, getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
 import { useDelegatedFor } from '@/lib/useDelegatedFor'
 import { FORMS } from '@/lib/workflow'
@@ -170,7 +171,7 @@ export function FAD_V1_CaseDetail({ caseId }: CaseDetailProps) {
               <div className="col-span-6">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">照片</p>
                 {data.photoFileId
-                  ? <a className="mt-1 inline-flex items-center gap-1 text-primary hover:underline" target="_blank" rel="noreferrer" href={`${BPM_SVC_URL}/api/files/${data.photoFileId}`}>下載 <ExternalLink className="h-3.5 w-3.5" /></a>
+                  ? <AuthedFileLink id={data.photoFileId} className="mt-1 inline-flex items-center gap-1 text-primary hover:underline">下載 <ExternalLink className="h-3.5 w-3.5" /></AuthedFileLink>
                   : <p className="mt-1 text-ink-faint">—</p>}
               </div>
             </div>

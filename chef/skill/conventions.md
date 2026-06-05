@@ -182,7 +182,7 @@ no entry needed. Anything more complex:
 
 | Spec construct | Render / handle pattern |
 |---|---|
-| `field.type === 'file'` | UI: `<FilePicker value={…} onChange={…} accept="…" />`. Backend: store `value.id` as `Guid?` on the entity. Read bytes via `IFileStorageService.OpenReadAsync(id)`. |
+| `field.type === 'file'` | UI: `<FilePicker value={…} onChange={…} accept="…" />`. Backend: store `value.id` as `Guid?` on the entity. Read bytes via `IFileStorageService.OpenReadAsync(id)`. **Case-detail read-back: render the stored id with `<AuthedFileLink id={…}>下載</AuthedFileLink>` (from `@/components/ui/FilePicker`) — NOT a plain `<a href="…/api/files/{id}" target="_blank">`. `GET /api/files/{id}` is `[Authorize]`; a bare link opens a new tab with no JWT → 401 ("找不到"). `AuthedFileLink` fetches the blob with the bearer token then opens it.** |
 | `field.type === 'daterange'` | Render as two `<Input type="date" />`. Persist as two `DateOnly` columns (`StartDate`, `EndDate`). |
 | `field.type === 'derived'` | Compute in TypeScript (`useMemo`) AND in C# (server-side, on submit). Don't trust the client value; recompute on the server before persisting. LEAVE V1's `days` field is the canonical example: `businessDaysBetween(start, end)` in both languages. |
 | `field.conditional` (CEL) | Render the field's input conditionally on form state. Recheck on submit; reject the request when a required-conditional field is missing. |
