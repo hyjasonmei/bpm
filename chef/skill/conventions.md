@@ -411,8 +411,29 @@ a "pending <approver>" status → that approver's step; a send-back
 (`ResubmitRequired`) → the first approval step; the terminal success
 status (`Completed`) → the last step; reject/cancel terminals → the
 approval step where they stopped. APE V1 is the canonical reference.
-`FORMS.<CODE>.steps` may have fewer entries than the state machine has
-statuses — map each status to the closest conceptual step.
+
+**⚠️ Steps MUST mirror YOUR cooked state machine 1:1 — never the reference
+form's.** This is the #1 stepper bug: when you crib a `Reference_*.tsx` /
+another flow's `FORMS.<CODE>` entry, you inherit ITS stages (e.g.
+`CONFIRM & PRINT`, `FIN REVIEW`, `NOTIFY ADM`, `IT JUDGE`) — but if your state
+machine doesn't actually transition through them, the stepper lights those
+stages green on completion even though they never ran (a lie to the user).
+Define `steps` (and the parallel `ownerByStep`) as exactly: `apply` + one entry
+per **real** transition your service performs (each `Pending*` gate, plus any
+**automatic** milestone the service writes — e.g. FAP's auto-generated PO
+number, which IS a real step) + `close`. Then `activeStepFor` maps every status
+to its OWN step, with no skipped/phantom indices. If a stage label names an
+actor/role, it must be the actor your service actually resolves (FAD's first
+gate resolves the submitter's **manager**, so it's "MANAGER / 主管判別", not
+"IT JUDGE"). Mismatch = bug; the stepper is a contract, not decoration.
+
+**Status badge (`<StatusBadge kind=…>`) must name the real stage.** The
+`StatusKind`s in `components/ui/badge.tsx` carry hardcoded EN/ZH labels. Map
+each `Pending*` status to the kind whose label matches that stage — do NOT
+borrow `fin_review` / `it_spec_review` for a stage that isn't finance / IT-spec
+review (that was the 2nd-bug: a setup/handover/verification stage showing
+"FIN Review"). If no existing kind fits your stage, add one to `badge.tsx`
+(this is a lead edit — flag it) rather than reusing a wrong-labelled kind.
 
 ### Action buttons → `<ActionFooter>`
 
