@@ -994,3 +994,71 @@ body: |
   
   請點此核准：/cases/ape/fef5c812-8ad1-403c-a68d-57de0513ed31
 
+---
+at: 2026-06-06T01:22:19.1432390Z
+source: LEAVE_V2.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: c7f54c1c-d256-440f-aeea-7de16b83976a
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 3 天 特休
+body: |
+  申請人: Bob
+  假別: 特休
+  期間: 2026-07-20 - 2026-07-22
+  事由: v2 端到端測試 — 特休家庭旅遊
+  
+  請點此核准: /cases/leave/c7f54c1c-d256-440f-aeea-7de16b83976a
+
+---
+at: 2026-06-06T06:49:36.1876120Z
+source: WFH_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 0909cbdc-5a2b-4ff5-8d59-362da369d53b
+  flowCode: WFH
+  flowVersion: 1
+  stage: PendingManager
+subject: 【已收到】您的在家工作申請已送出
+body: |
+  您的在家工作申請已送出，等待主管核准中。
+  查看進度：/cases/wfh/0909cbdc-5a2b-4ff5-8d59-362da369d53b
+
+---
+at: 2026-06-06T06:49:36.2920590Z
+source: WFH_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 0909cbdc-5a2b-4ff5-8d59-362da369d53b
+  flowCode: WFH
+  flowVersion: 1
+  stage: PendingManager
+subject: 【待簽】Bob 的在家工作申請
+body: |
+  申請人：Bob
+  摘要：在家工作 — 2026/07/06 ~ 2026/07/10
+  
+  請點此核准：/cases/wfh/0909cbdc-5a2b-4ff5-8d59-362da369d53b
+
+---
+at: 2026-06-06T06:51:23.1882320Z
+source: WFH_V1.notify_decision
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 0909cbdc-5a2b-4ff5-8d59-362da369d53b
+  flowCode: WFH
+  flowVersion: 1
+  stage: Completed
+subject: 【已核准】您的在家工作申請
+body: |
+  您的在家工作申請已核准。
+  主管意見：同意，請保持線上聯繫。
+  
+  查看詳情：/cases/wfh/0909cbdc-5a2b-4ff5-8d59-362da369d53b
+

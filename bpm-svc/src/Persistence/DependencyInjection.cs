@@ -18,11 +18,6 @@ using Bpm.Application.Impersonation;
 using Bpm.Application.Inbox;
 using Bpm.Application.Notifications;
 using Bpm.Application.Org;
-using Bpm.Application.Process.Admin;
-using Bpm.Application.Process.Reporting;
-using Bpm.Application.Process.Runtime;
-using Bpm.Application.Process.Runtime.Queries;
-using Bpm.Application.Process.Simulator;
 using Bpm.Application.Sandbox;
 using Bpm.Application.Spec;
 using Bpm.Application.Spec.Bundle;
@@ -46,10 +41,6 @@ using Bpm.Persistence.Impersonation;
 using Bpm.Persistence.Interceptors;
 using Bpm.Persistence.Notifications;
 using Bpm.Persistence.Org;
-using Bpm.Persistence.Process;
-using Bpm.Persistence.Process.Admin;
-using Bpm.Persistence.Process.Reporting;
-using Bpm.Persistence.Process.Simulator;
 using Bpm.Persistence.Sandbox;
 using Bpm.Application.Auth;
 using Bpm.Persistence.Spec;
@@ -117,19 +108,10 @@ public static class DependencyInjection
         services.AddScoped<Bpm.Application.Doctor.IDoctorService, Bpm.Persistence.Doctor.DoctorService>();
         services.AddScoped<IRoleAdminService, RoleAdminService>();
 
-        // Process runtime + collaborator stubs (Delegation / Notifications /
-        // SpecLoader land here so the runtime can compose against real seams).
-        services.AddScoped<ISpecLoader, FileSystemSpecLoader>();
         // Real delegation lookup over Admin_Delegations (replaces the no-op stub).
         services.AddScoped<IDelegationService, Bpm.Persistence.Delegation.DelegationService>();
         // Shared decision-authorization seam (本人 OR 有效代理人) used by chef flows.
         services.AddScoped<Bpm.Application.Common.Authorization.IActorAuthorizer, Bpm.Application.Common.Authorization.ActorAuthorizer>();
-        // PR-J6 §11.6: SandboxCapturingNotificationDispatcher writes to
-        // SandboxCapturedMessages when sandbox is on, falls through to logging
-        // when off. Replaces LoggingNotificationDispatcher as the production
-        // wiring; the logging class is kept around for tests / other callers
-        // that want the no-side-effects stub.
-        services.AddScoped<INotificationDispatcher, SandboxCapturingNotificationDispatcher>();
 
         // Model-B notify fan-out: keep the dev file log AND persist in-app
         // rows for the header bell. Override the Application-layer
@@ -148,29 +130,10 @@ public static class DependencyInjection
             sp.GetRequiredService<InAppNotifyDispatcher>(),
             sp.GetRequiredService<SandboxCaptureNotifyDispatcher>()));
 
-        services.AddScoped<IProcessRuntime, ProcessRuntime>();
-        services.AddScoped<IProcessQueryService, ProcessQueryService>();
-
-        // PR-K4: Process Admin intervention surface — sits beside the runtime
-        // and reuses the same DbContext so admin overrides land in the same
-        // EF unit-of-work as the regular runtime mutations they trigger.
-        services.AddScoped<IProcessAdminInterventionService, ProcessAdminInterventionService>();
-
-        // PR-K3: Process Simulator — drives the live runtime against a chosen
-        // flow code with delete-on-finally cleanup so simulation leaves no
-        // rows behind in any of the runtime tables.
-        services.AddScoped<IProcessSimulator, ProcessSimulator>();
-
-        // PR-K5: Reporting service. The cached wrapper sits in front of the
-        // raw aggregator with a 5-min TTL, keyed by tenant + spec + period.
-        // Memory cache is process-local — fine for the in-process runtime
-        // we ship today; once the API runs as multiple instances the cache
-        // becomes per-replica and stale-by-TTL is the (acceptable) outcome.
-        services.AddMemoryCache();
-        services.AddScoped<ProcessReportingService>();
-        services.AddScoped<IProcessReportingService>(sp => new CachedProcessReportingService(
-            (IProcessReportingService)sp.GetRequiredService<ProcessReportingService>(),
-            sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>()));
+        // Model-A process runtime (IProcessRuntime / IProcessQueryService /
+        // ProcessAdminIntervention / ProcessSimulator / ProcessReporting) was
+        // removed — admin Reports now runs on the model-B per-flow case tables
+        // via Api/Reports/ReportsController (no analytics service needed).
 
         // Real password login (unify-user-store): verifies hashes against
         // Admin_UserCredentials with the same ASP.NET Identity PasswordHasher
