@@ -314,7 +314,7 @@ export function CoPilotCanvas({
   }
 
   return (
-    <div className="grid grid-cols-[380px_1fr] gap-3 h-[calc(100vh-220px)] min-h-[480px] max-h-[820px]">
+    <div className="grid grid-cols-[380px_1fr] gap-3 min-h-0 flex-1">
       {/* Left — Chat */}
       <div className="flex min-h-0 flex-col rounded-md border border-rule bg-card">
         <div className="border-b border-rule bg-slate-50 px-3 py-2">

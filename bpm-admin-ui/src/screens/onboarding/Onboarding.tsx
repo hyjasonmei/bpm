@@ -225,7 +225,7 @@ export function Onboarding({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       {!hideTopBar && (
         /* Top bar: title + reset (legacy entry only — controlled host hides this) */
         <div className="flex items-center justify-between">
@@ -301,9 +301,11 @@ export function Onboarding({
         canvas={renderCanvas(step.id, draft, setDraft, onNavigate, bpmnXml)}
       />
 
-      {/* Footer — back / next; sticky so it stays in view as the canvas
-          scrolls long content (FORMS / NOTIFY / SLA editors can grow). */}
-      <div className="sticky bottom-0 z-10 -mx-1 mt-1 flex items-center justify-between rounded-md border border-rule bg-card/95 px-3 py-2 shadow-[0_-4px_12px_-8px_rgba(15,23,42,0.18)] backdrop-blur">
+      {/* Footer — back / next. A normal flex item pinned below the
+          flex-1 canvas (the Onboarding root is a bounded h-full column),
+          so it never overlays the canvas's own interactive content. Each
+          canvas panel scrolls internally for long content. */}
+      <div className="mt-1 flex shrink-0 items-center justify-between rounded-md border border-rule bg-card px-3 py-2 shadow-[0_-4px_12px_-8px_rgba(15,23,42,0.18)]">
         <button
           onClick={goBack}
           disabled={stepIdx === 0}
