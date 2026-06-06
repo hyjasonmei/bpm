@@ -65,7 +65,7 @@ public sealed class LEAVE_V1_NotifyDispatchE2ETests : IDisposable
             Options.Create(new NotifyDispatcherOptions { FilePath = _notifyPath }),
             NullLogger<FileNotifyDispatcher>.Instance);
         var svc = new LEAVE_V1_LeaveService(
-            db, new StubClock(), NullLogger<LEAVE_V1_LeaveService>.Instance, dispatcher);
+            db, new StubClock(), NullLogger<LEAVE_V1_LeaveService>.Instance, dispatcher, new TestActorAuthorizer(), new Bpm.Persistence.Common.Directory.PrincipalDirectory(db));
 
         var c = await svc.SubmitAsync(new(
             SubmitterUserId: Bob,
@@ -104,7 +104,7 @@ public sealed class LEAVE_V1_NotifyDispatchE2ETests : IDisposable
             Options.Create(new NotifyDispatcherOptions { FilePath = _notifyPath }),
             NullLogger<FileNotifyDispatcher>.Instance);
         var svc = new LEAVE_V1_LeaveService(
-            db, new StubClock(), NullLogger<LEAVE_V1_LeaveService>.Instance, dispatcher);
+            db, new StubClock(), NullLogger<LEAVE_V1_LeaveService>.Instance, dispatcher, new TestActorAuthorizer(), new Bpm.Persistence.Common.Directory.PrincipalDirectory(db));
 
         await svc.SubmitAsync(new(Bob, "特休",
             new DateOnly(2026, 5, 11), new DateOnly(2026, 5, 13),
@@ -141,7 +141,7 @@ CREATE TABLE Admin_Principals (
     DeletedAt TEXT NULL
 );
 CREATE TABLE Admin_Roles (
-    Id TEXT NOT NULL PRIMARY KEY,
+    Id TEXT NOT NULL PRIMARY KEY, Code TEXT NOT NULL DEFAULT '',
     Name TEXT NOT NULL,
     IsSystem INTEGER NOT NULL,
     Description TEXT NULL
@@ -181,8 +181,8 @@ CREATE TABLE Admin_DeptHeads (
             new SharedPrincipal { Id = Vera,  Type = SharedPrincipalType.User, DisplayName = "Vera",  Email = "vera@acme.example",  Active = true, CreatedAt = now, UpdatedAt = now },
             new SharedPrincipal { Id = Henry, Type = SharedPrincipalType.User, DisplayName = "Henry", Email = "henry@acme.example", Active = true, CreatedAt = now, UpdatedAt = now });
         db.SharedRoles.AddRange(
-            new SharedRole { Id = RoleHr, Name = "HR", IsSystem = false },
-            new SharedRole { Id = RoleVp, Name = "VP", IsSystem = false });
+            new SharedRole { Id = RoleHr, Code = "HR_MANAGER", Name = "HR", IsSystem = false },
+            new SharedRole { Id = RoleVp, Code = "VP", Name = "VP", IsSystem = false });
         db.SharedPrincipalRoles.AddRange(
             new SharedPrincipalRole { PrincipalId = Henry, RoleId = RoleHr, InheritToMembers = false, AssignedAt = now },
             new SharedPrincipalRole { PrincipalId = Vera,  RoleId = RoleVp, InheritToMembers = false, AssignedAt = now });

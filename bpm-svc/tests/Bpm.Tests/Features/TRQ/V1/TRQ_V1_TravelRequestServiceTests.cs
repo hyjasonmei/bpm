@@ -303,7 +303,7 @@ public sealed class TRQ_V1_TravelRequestServiceTests : IDisposable
         return new TRQ_V1_TravelRequestService(
             store, org, directory, new StubClock(),
             NullLogger<TRQ_V1_TravelRequestService>.Instance,
-            notify ?? new NullNotifyDispatcher());
+            notify ?? new NullNotifyDispatcher(), new TestActorAuthorizer());
     }
 
     private static TRQ_V1_TravelRequestService.SubmitInput NewSubmitInput()
@@ -339,7 +339,7 @@ CREATE TABLE Admin_Principals (
     DeletedAt TEXT NULL
 );
 CREATE TABLE Admin_Roles (
-    Id TEXT NOT NULL PRIMARY KEY,
+    Id TEXT NOT NULL PRIMARY KEY, Code TEXT NOT NULL DEFAULT '',
     Name TEXT NOT NULL,
     IsSystem INTEGER NOT NULL,
     Description TEXT NULL

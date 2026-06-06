@@ -175,7 +175,7 @@ public sealed class ETM_V1_TerminationServiceTests : IDisposable
 
     private static ETM_V1_TerminationService NewService(AppDbContext db, INotifyDispatcher? notify = null)
         => new(new ETM_V1_CaseStore(db), new OrgChartReader(db), new PrincipalDirectory(db),
-               new StubClock(), NullLogger<ETM_V1_TerminationService>.Instance, notify ?? new NullNotifyDispatcher());
+               new StubClock(), NullLogger<ETM_V1_TerminationService>.Instance, notify ?? new NullNotifyDispatcher(), new TestActorAuthorizer());
 
     private static ETM_V1_TerminationService.SubmitInput NewInput()
         => new(Emily, "Raven Wang", "EMP-001", new DateOnly(2026, 7, 31), "Resignation", "Yes");
@@ -189,7 +189,7 @@ public sealed class ETM_V1_TerminationServiceTests : IDisposable
     {
         db.Database.ExecuteSqlRaw(@"
 CREATE TABLE Admin_Principals (Id TEXT NOT NULL PRIMARY KEY, Type INTEGER NOT NULL, DisplayName TEXT NOT NULL, Email TEXT NULL, Active INTEGER NOT NULL, CreatedAt TEXT NOT NULL, UpdatedAt TEXT NOT NULL, DeletedAt TEXT NULL);
-CREATE TABLE Admin_Roles (Id TEXT NOT NULL PRIMARY KEY, Name TEXT NOT NULL, IsSystem INTEGER NOT NULL, Description TEXT NULL);
+CREATE TABLE Admin_Roles (Id TEXT NOT NULL PRIMARY KEY, Code TEXT NOT NULL DEFAULT '', Name TEXT NOT NULL, IsSystem INTEGER NOT NULL, Description TEXT NULL);
 CREATE TABLE Admin_PrincipalRoles (PrincipalId TEXT NOT NULL, RoleId TEXT NOT NULL, InheritToMembers INTEGER NOT NULL, AssignedAt TEXT NOT NULL, AssignedByUserId TEXT NULL, PRIMARY KEY (PrincipalId, RoleId));
 CREATE TABLE Admin_UserManagers (UserId TEXT NOT NULL PRIMARY KEY, ManagerUserId TEXT NOT NULL, AssignedAt TEXT NOT NULL);
 CREATE TABLE Admin_UserDepts (UserId TEXT NOT NULL, DeptId TEXT NOT NULL, IsPrimary INTEGER NOT NULL, PRIMARY KEY (UserId, DeptId));

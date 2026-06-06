@@ -378,7 +378,7 @@ public sealed class PURCHASE_REQUEST_V1_PurchaseRequestServiceTests : IDisposabl
         return new PURCHASE_REQUEST_V1_PurchaseRequestService(
             store, org, directory, new StubClock(),
             NullLogger<PURCHASE_REQUEST_V1_PurchaseRequestService>.Instance,
-            notify ?? new NullNotifyDispatcher());
+            notify ?? new NullNotifyDispatcher(), new TestActorAuthorizer());
     }
 
     private static PURCHASE_REQUEST_V1_Invoice OneInvoice()
@@ -418,7 +418,7 @@ CREATE TABLE Admin_Principals (
     DeletedAt TEXT NULL
 );
 CREATE TABLE Admin_Roles (
-    Id TEXT NOT NULL PRIMARY KEY,
+    Id TEXT NOT NULL PRIMARY KEY, Code TEXT NOT NULL DEFAULT '',
     Name TEXT NOT NULL,
     IsSystem INTEGER NOT NULL,
     Description TEXT NULL
@@ -457,7 +457,7 @@ CREATE TABLE Admin_DeptHeads (
             new SharedPrincipal { Id = Mike,  Type = SharedPrincipalType.User, DisplayName = "Mike Manager",   Email = "manager@acme.tld",  Active = true, CreatedAt = now, UpdatedAt = now },
             new SharedPrincipal { Id = Frank, Type = SharedPrincipalType.User, DisplayName = "Frank Finance",  Email = "finance@acme.tld",  Active = true, CreatedAt = now, UpdatedAt = now });
 
-        db.SharedRoles.Add(new SharedRole { Id = FinanceRole, Name = "Finance", IsSystem = false });
+        db.SharedRoles.Add(new SharedRole { Id = FinanceRole, Code = "FINANCE", Name = "Finance", IsSystem = false });
 
         db.SharedPrincipalRoles.Add(new SharedPrincipalRole
         {

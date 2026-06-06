@@ -421,7 +421,7 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseServiceTests : IDisposable
         return new VENDOR_EXPENSE_V1_VendorExpenseService(
             store, org, directory, new StubClock(),
             NullLogger<VENDOR_EXPENSE_V1_VendorExpenseService>.Instance,
-            notify ?? new NullNotifyDispatcher());
+            notify ?? new NullNotifyDispatcher(), new TestActorAuthorizer());
     }
 
     private static VENDOR_EXPENSE_V1_Invoice OneInvoice()
@@ -461,7 +461,7 @@ CREATE TABLE Admin_Principals (
     DeletedAt TEXT NULL
 );
 CREATE TABLE Admin_Roles (
-    Id TEXT NOT NULL PRIMARY KEY,
+    Id TEXT NOT NULL PRIMARY KEY, Code TEXT NOT NULL DEFAULT '',
     Name TEXT NOT NULL,
     IsSystem INTEGER NOT NULL,
     Description TEXT NULL
@@ -500,7 +500,7 @@ CREATE TABLE Admin_DeptHeads (
             new SharedPrincipal { Id = Mike,  Type = SharedPrincipalType.User, DisplayName = "Mike Manager",     Email = "manager@acme.tld",     Active = true, CreatedAt = now, UpdatedAt = now },
             new SharedPrincipal { Id = Pam,   Type = SharedPrincipalType.User, DisplayName = "Pam Procurement",  Email = "procurement@acme.tld", Active = true, CreatedAt = now, UpdatedAt = now });
 
-        db.SharedRoles.Add(new SharedRole { Id = ProcurementRole, Name = "Procurement", IsSystem = false });
+        db.SharedRoles.Add(new SharedRole { Id = ProcurementRole, Code = "PROCUREMENT", Name = "Procurement", IsSystem = false });
 
         db.SharedPrincipalRoles.Add(new SharedPrincipalRole
         {

@@ -170,7 +170,7 @@ public sealed class FAP_V1_PurchaseServiceTests : IDisposable
 
     private static FAP_V1_PurchaseService NewService(AppDbContext db, INotifyDispatcher? notify = null)
         => new(new FAP_V1_CaseStore(db), new OrgChartReader(db), new PrincipalDirectory(db),
-               new StubClock(), NullLogger<FAP_V1_PurchaseService>.Instance, notify ?? new NullNotifyDispatcher());
+               new StubClock(), NullLogger<FAP_V1_PurchaseService>.Instance, notify ?? new NullNotifyDispatcher(), new TestActorAuthorizer());
 
     private static FAP_V1_PurchaseService.SubmitInput NewInput()
         => new(Emily, new[] { new FAP_V1_PurchaseItem("Hardware", "Lenovo ThinkPad X250", 1) },
@@ -185,7 +185,7 @@ public sealed class FAP_V1_PurchaseServiceTests : IDisposable
     {
         db.Database.ExecuteSqlRaw(@"
 CREATE TABLE Admin_Principals (Id TEXT NOT NULL PRIMARY KEY, Type INTEGER NOT NULL, DisplayName TEXT NOT NULL, Email TEXT NULL, Active INTEGER NOT NULL, CreatedAt TEXT NOT NULL, UpdatedAt TEXT NOT NULL, DeletedAt TEXT NULL);
-CREATE TABLE Admin_Roles (Id TEXT NOT NULL PRIMARY KEY, Name TEXT NOT NULL, IsSystem INTEGER NOT NULL, Description TEXT NULL);
+CREATE TABLE Admin_Roles (Id TEXT NOT NULL PRIMARY KEY, Code TEXT NOT NULL DEFAULT '', Name TEXT NOT NULL, IsSystem INTEGER NOT NULL, Description TEXT NULL);
 CREATE TABLE Admin_PrincipalRoles (PrincipalId TEXT NOT NULL, RoleId TEXT NOT NULL, InheritToMembers INTEGER NOT NULL, AssignedAt TEXT NOT NULL, AssignedByUserId TEXT NULL, PRIMARY KEY (PrincipalId, RoleId));
 CREATE TABLE Admin_UserManagers (UserId TEXT NOT NULL PRIMARY KEY, ManagerUserId TEXT NOT NULL, AssignedAt TEXT NOT NULL);
 CREATE TABLE Admin_UserDepts (UserId TEXT NOT NULL, DeptId TEXT NOT NULL, IsPrimary INTEGER NOT NULL, PRIMARY KEY (UserId, DeptId));
