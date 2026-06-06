@@ -181,7 +181,7 @@ export function FAD_V1_CaseDetail({ caseId }: CaseDetailProps) {
             <SectionTitle>簽核時序 / Approval Timeline</SectionTitle>
             <ol className="divide-y divide-slate-100">
               <TimelineRow label="處份申請 / Submit" actor={data.submitterDisplayName ?? '—'} state="done" at={data.submittedAt} />
-              <TimelineRow label="固定資產判別 / IT" actor={data.managerDecision?.displayName ?? '—'}
+              <TimelineRow label="固定資產判別 / Manager" actor={data.managerDecision?.displayName ?? '—'}
                 state={data.managerDecision?.approved === true ? 'done' : data.managerDecision?.approved === false ? 'rejected' : data.status === 'PendingManager' ? 'current' : 'idle'}
                 at={data.managerDecision?.decidedAt} comment={data.managerDecision?.comment} />
               <TimelineRow label="領收確認 / Confirmed" actor={data.confirmation?.displayName ?? '—'}
@@ -280,7 +280,7 @@ function TimelineRow({ label, actor, state, at, comment }: {
 function statusKind(s: FAD_V1_Status): StatusKind {
   switch (s) {
     case 'PendingManager':   return 'pending'
-    case 'PendingConfirm':   return 'fin_review'
+    case 'PendingConfirm':   return 'confirm'
     case 'ResubmitRequired': return 'returned'
     case 'Completed':        return 'closed'
     case 'Cancelled':        return 'cancelled'

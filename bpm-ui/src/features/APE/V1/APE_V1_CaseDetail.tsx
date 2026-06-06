@@ -305,12 +305,12 @@ function statusKind(s: APE_V1_Status): StatusKind {
 }
 
 /** Map the case status → index into FORMS.APE.steps for the header stepper
- *  (apply 0 · approve 1 · confirm 2 · fin_review 3 · close 4). */
+ *  (apply 0 · approve 1 · close 2). */
 function activeStepFor(status: APE_V1_Status): number {
   switch (status) {
     case 'PendingManager':   return 1
     case 'ResubmitRequired': return 1
-    case 'Completed':        return 4
+    case 'Completed':        return 2
     case 'Cancelled':        return 1
   }
 }

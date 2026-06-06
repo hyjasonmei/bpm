@@ -309,7 +309,7 @@ function TimelineRow({ label, actor, state, at, comment }: {
 function statusKind(s: ETM_V1_Status): StatusKind {
   switch (s) {
     case 'PendingManager':   return 'pending'
-    case 'PendingHandover':  return 'fin_review'
+    case 'PendingHandover':  return 'handover'
     case 'ResubmitRequired': return 'returned'
     case 'Completed':        return 'closed'
     case 'Cancelled':        return 'cancelled'

@@ -372,8 +372,8 @@ const PATH_FOR_STATUS: Partial<Record<VENDOR_EXPENSE_V1_Status, DecisionPath>> =
 function statusKind(s: VENDOR_EXPENSE_V1_Status): StatusKind {
   switch (s) {
     case 'PendingSupervisor':  return 'pending'
-    case 'PendingProcurement': return 'fin_review'
-    case 'PendingSign':        return 'it_spec_review'
+    case 'PendingProcurement': return 'procurement'
+    case 'PendingSign':        return 'sign'
     case 'ResubmitRequired':   return 'returned'
     case 'Completed':          return 'closed'
     case 'Cancelled':          return 'cancelled'

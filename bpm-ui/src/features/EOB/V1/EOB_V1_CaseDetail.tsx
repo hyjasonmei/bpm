@@ -298,7 +298,7 @@ function TimelineRow({ label, actor, state, at, comment }: {
 function statusKind(s: EOB_V1_Status): StatusKind {
   switch (s) {
     case 'PendingManager':   return 'pending'
-    case 'PendingSetup':     return 'fin_review'
+    case 'PendingSetup':     return 'setup'
     case 'ResubmitRequired': return 'returned'
     case 'Completed':        return 'closed'
     case 'Cancelled':        return 'cancelled'

@@ -398,7 +398,7 @@ function statusKind(s: LEAVE_V1_Status): StatusKind {
     case 'Cancelled':       return 'cancelled'
     case 'PendingManager':  return 'pending'
     case 'PendingVp':       return 'pending'
-    case 'PendingHr':       return 'fin_review'
+    case 'PendingHr':       return 'hr_record'
   }
 }
 

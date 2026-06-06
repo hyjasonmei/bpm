@@ -293,7 +293,7 @@ function TimelineRow({ label, actor, state, at, comment }: {
 function statusKind(s: FAP_V1_Status): StatusKind {
   switch (s) {
     case 'PendingManager':      return 'pending'
-    case 'PendingVerification': return 'fin_review'
+    case 'PendingVerification': return 'verification'
     case 'ResubmitRequired':    return 'returned'
     case 'Completed':           return 'closed'
     case 'Cancelled':           return 'cancelled'

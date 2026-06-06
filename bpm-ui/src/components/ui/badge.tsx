@@ -2,6 +2,9 @@ import { cn } from '@/lib/cn'
 
 export type StatusKind =
   | 'draft' | 'pending' | 'approved' | 'fin_review' | 'it_spec_review' | 'returned' | 'closed' | 'rejected' | 'cancelled'
+  // Per-stage kinds so a flow's mid-chain "pending" state shows its real stage
+  // name (not a borrowed FIN Review / IT Spec Review label).
+  | 'setup' | 'handover' | 'confirm' | 'verification' | 'procurement' | 'sign' | 'hr_record'
 
 const STATUS = {
   draft:           { bg: 'bg-slate-100',  fg: 'text-slate-600',  border: 'border-slate-200', en: 'Draft',          zh: '草稿' },
@@ -13,6 +16,13 @@ const STATUS = {
   closed:          { bg: 'bg-green-50',   fg: 'text-green-700',  border: 'border-green-200', en: 'Closed',         zh: '結案' },
   rejected:        { bg: 'bg-red-50',     fg: 'text-red-700',    border: 'border-red-200',   en: 'Rejected',       zh: '拒絕' },
   cancelled:       { bg: 'bg-slate-100',  fg: 'text-slate-500',  border: 'border-slate-300', en: 'Cancelled',      zh: '已撤回' },
+  setup:           { bg: 'bg-violet-50',  fg: 'text-violet-700', border: 'border-violet-200',en: 'Setup',          zh: '基本設定' },
+  handover:        { bg: 'bg-violet-50',  fg: 'text-violet-700', border: 'border-violet-200',en: 'Handover',       zh: '交接' },
+  confirm:         { bg: 'bg-violet-50',  fg: 'text-violet-700', border: 'border-violet-200',en: 'Confirm',        zh: '領收確認' },
+  verification:    { bg: 'bg-violet-50',  fg: 'text-violet-700', border: 'border-violet-200',en: 'Verification',   zh: '驗收' },
+  procurement:     { bg: 'bg-violet-50',  fg: 'text-violet-700', border: 'border-violet-200',en: 'Procurement',    zh: '採購審定' },
+  sign:            { bg: 'bg-cyan-50',    fg: 'text-cyan-700',   border: 'border-cyan-200',  en: 'Sign',           zh: '簽核' },
+  hr_record:       { bg: 'bg-violet-50',  fg: 'text-violet-700', border: 'border-violet-200',en: 'HR Record',      zh: '人資登錄' },
 } as const
 
 export function StatusBadge({ kind, className, withZh = false }: { kind: StatusKind; className?: string; withZh?: boolean }) {

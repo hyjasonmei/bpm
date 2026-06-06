@@ -323,12 +323,12 @@ function statusKind(s: TRQ_V1_Status): StatusKind {
 }
 
 /** Map the case status → index into FORMS.TRQ.steps for the header stepper
- *  (apply 0 · approve 1 · notify 2 · close 3). */
+ *  (apply 0 · approve 1 · close 2). */
 function activeStepFor(status: TRQ_V1_Status): number {
   switch (status) {
     case 'PendingManager':   return 1
     case 'ResubmitRequired': return 1
-    case 'Completed':        return 3
+    case 'Completed':        return 2
     case 'Cancelled':        return 1
   }
 }

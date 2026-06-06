@@ -329,13 +329,13 @@ function statusKind(s: TEO_V1_Status): StatusKind {
 }
 
 /** Map the case status → index into FORMS.TEO.steps for the header stepper
- *  (apply 0 · approve 1 · confirm 2 · fin_review 3 · close 4). */
+ *  (apply 0 · approve 1 · fin_review 2 · close 3). */
 function activeStepFor(status: TEO_V1_Status): number {
   switch (status) {
     case 'PendingManager':   return 1
-    case 'PendingFinance':   return 3
+    case 'PendingFinance':   return 2
     case 'ResubmitRequired': return 1
-    case 'Completed':        return 4
+    case 'Completed':        return 3
     case 'Cancelled':        return 1
   }
 }

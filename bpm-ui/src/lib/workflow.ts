@@ -85,14 +85,15 @@ export const FORMS: Record<FormCode, FormDef> = {
     code: 'APE',
     label: 'Advance Payment (APE)',
     zhLabel: '預支費用申請',
+    // APE's cooked state machine is single-gate (manager approve → done); the
+    // confirm/fin-review stages were copied from the GEE/GEV reference forms but
+    // never implemented, so the stepper now matches the real flow.
     steps: [
       STEP('apply', 'APPLY', '申請'),
       STEP('approve', 'APPROVE', '主管簽核'),
-      STEP('confirm', 'CONFIRM & PRINT', '確認列印'),
-      STEP('fin_review', 'FIN REVIEW', '財務審查'),
       STEP('close', 'CLOSE', '結案'),
     ],
-    ownerByStep: ['employee', 'manager', 'finance', 'finance', null],
+    ownerByStep: ['employee', 'manager', null],
     initialActive: 0,
   },
   HWP: {
@@ -131,28 +132,30 @@ export const FORMS: Record<FormCode, FormDef> = {
     code: 'TRQ',
     label: 'Travel Request (TRQ)',
     zhLabel: '差旅申請',
+    // TRQ is single-gate (manager approve → done). The notify-admin stage has no
+    // matching step in the cooked state machine (no admin notification is sent).
     steps: [
       STEP('apply', 'APPLY', '申請'),
       STEP('approve', 'APPROVE', '主管簽核'),
-      STEP('notify', 'NOTIFY ADM', '通知行政'),
       STEP('close', 'CLOSE', '結案'),
     ],
-    ownerByStep: ['employee', 'manager', 'admin', null],
-    initialActive: 3,
+    ownerByStep: ['employee', 'manager', null],
+    initialActive: 0,
   },
   TEO: {
     code: 'TEO',
     label: 'Travel Expense (TEO)',
     zhLabel: '差旅費報銷',
+    // TEO is manager → finance (fin_review is real); the confirm/print stage was
+    // copied from the reference forms but isn't in the cooked state machine.
     steps: [
       STEP('apply', 'APPLY', '申請'),
       STEP('approve', 'APPROVE', '主管簽核'),
-      STEP('confirm', 'CONFIRM & PRINT', '確認列印'),
       STEP('fin_review', 'FIN REVIEW', '財務審查'),
       STEP('close', 'CLOSE', '結案'),
     ],
-    ownerByStep: ['employee', 'manager', 'finance', 'finance', null],
-    initialActive: 4,
+    ownerByStep: ['employee', 'manager', 'finance', null],
+    initialActive: 0,
   },
   EXTOB: {
     code: 'EXTOB',
@@ -239,7 +242,7 @@ export const FORMS: Record<FormCode, FormDef> = {
     zhLabel: '固定資產處分',
     steps: [
       STEP('apply', 'APPLY', '處份申請單'),
-      STEP('judge', 'IT JUDGE', '固定資產判別'),
+      STEP('judge', 'MANAGER', '主管判別'),
       STEP('confirm', 'CONFIRMED', '領收確認'),
       STEP('closed', 'CLOSED', '處份'),
     ],

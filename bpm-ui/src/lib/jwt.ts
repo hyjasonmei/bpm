@@ -25,7 +25,10 @@ export function decodeJwt(token: string): DecodedJwt | null {
   try {
     const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/')
     const padded = payload + '='.repeat((4 - (payload.length % 4)) % 4)
-    const json = atob(padded)
+    // atob yields a Latin-1 byte string; decode as UTF-8 so non-ASCII claims
+    // (e.g. a Chinese role name like "採購") don't come back mojibaked.
+    const bytes = Uint8Array.from(atob(padded), c => c.charCodeAt(0))
+    const json = new TextDecoder('utf-8').decode(bytes)
     return JSON.parse(json) as DecodedJwt
   } catch {
     return null
