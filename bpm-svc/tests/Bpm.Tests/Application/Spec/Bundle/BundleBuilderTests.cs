@@ -12,7 +12,7 @@ namespace Bpm.Tests.Application.Spec.Bundle;
 
 public sealed class BundleBuilderTests
 {
-    private const string LeavePath = "/Users/jason/claude/bpm/sample_specs/leave_v1.json";
+    private static readonly string LeavePath = BundleTestFactory.LeaveSpecPath;
 
     private static BundleBuilder NewBuilder() => new(
         new BundleBuildValidator(),

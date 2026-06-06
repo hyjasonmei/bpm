@@ -13,7 +13,11 @@ namespace Bpm.Tests.Application.Spec.Bundle;
 /// </summary>
 internal static class BundleTestFactory
 {
-    public const string LeaveSpecPath = "/Users/jason/claude/bpm/sample_specs/leave_v1.json";
+    // Resolved next to the test assembly (copied from Fixtures/ via the csproj
+    // Content item) — portable across machines / CI, unlike the old hardcoded
+    // absolute path that was never committed.
+    public static readonly string LeaveSpecPath =
+        Path.Combine(AppContext.BaseDirectory, "Fixtures", "leave_v1.json");
 
     public static readonly Guid AliceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     public static readonly Guid BobId   = Guid.Parse("22222222-2222-2222-2222-222222222222");

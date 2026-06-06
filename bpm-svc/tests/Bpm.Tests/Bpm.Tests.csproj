@@ -19,6 +19,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Test fixtures (e.g. the LEAVE sample spec the bundle tests build from)
+         are copied next to the test assembly so they resolve via
+         AppContext.BaseDirectory on any machine / CI — no absolute paths. -->
+    <Content Include="Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Domain\Domain.csproj" />
     <ProjectReference Include="..\..\src\Application\Application.csproj" />
     <ProjectReference Include="..\..\src\Persistence\Persistence.csproj" />

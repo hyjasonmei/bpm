@@ -1,0 +1,120 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "tenant": "default",
+    "flowName": "請假申請",
+    "flowCode": "LEAVE",
+    "flowVersion": 1,
+    "language": "zh-TW"
+  },
+  "flow": {
+    "nodes": [
+      { "id": "start_1", "type": "startEvent", "label": "流程開始" },
+      { "id": "task_apply", "type": "userTask", "label": "員工填寫請假單" },
+      { "id": "approval_manager", "type": "approval", "label": "直屬主管核准" },
+      { "id": "gateway_days", "type": "gateway", "label": "天數判斷" },
+      { "id": "approval_vp", "type": "approval", "label": "VP 核准" },
+      { "id": "task_hr_archive", "type": "userTask", "label": "人資登錄" },
+      { "id": "end_1", "type": "endEvent", "label": "結案" }
+    ],
+    "edges": [
+      { "id": "e_start_apply", "source": "start_1", "target": "task_apply" },
+      { "id": "e_apply_mgr", "source": "task_apply", "target": "approval_manager" },
+      { "id": "e_mgr_gw", "source": "approval_manager", "target": "gateway_days" },
+      { "id": "e_gw_vp", "source": "gateway_days", "target": "approval_vp", "label": "7 天以上", "condition": "days >= 7" },
+      { "id": "e_gw_hr", "source": "gateway_days", "target": "task_hr_archive", "label": "未滿 7 天", "condition": "days < 7" },
+      { "id": "e_vp_hr", "source": "approval_vp", "target": "task_hr_archive" },
+      { "id": "e_hr_end", "source": "task_hr_archive", "target": "end_1" }
+    ]
+  },
+  "triggers": [
+    { "id": "leave-apply", "type": "form", "formCode": "LEAVE_APPLY" }
+  ],
+  "access": {
+    "launchableBy": [],
+    "visibleTo": [],
+    "watcher": []
+  },
+  "variables": [],
+  "userTasks": [
+    {
+      "id": "task_apply",
+      "formCode": "LEAVE_APPLY",
+      "fields": [
+        { "id": "leave_type", "label": { "zh-TW": "假別", "en": "Leave Type" }, "type": "select", "required": true, "options": [ { "value": "特休", "label": "特休" }, { "value": "病假", "label": "病假" } ] },
+        { "id": "start_date", "label": { "zh-TW": "開始日", "en": "Start Date" }, "type": "date", "required": true },
+        { "id": "end_date", "label": { "zh-TW": "結束日", "en": "End Date" }, "type": "date", "required": true },
+        { "id": "days", "label": { "zh-TW": "天數", "en": "Days" }, "type": "number", "required": true },
+        { "id": "reason", "label": { "zh-TW": "事由", "en": "Reason" }, "type": "textarea", "required": false }
+      ],
+      "permissions": { "submitter": "self", "viewers": [ "self" ] },
+      "actions": [ { "id": "act_submit", "kind": "submit", "label": { "zh-TW": "送出" } } ]
+    },
+    {
+      "id": "task_hr_archive",
+      "formCode": "LEAVE_HR_ARCHIVE",
+      "fields": [
+        { "id": "archive_note", "label": { "zh-TW": "登錄備註", "en": "Archive Note" }, "type": "textarea", "required": false }
+      ],
+      "permissions": { "submitter": "self", "viewers": [ "self" ] },
+      "actions": [ { "id": "act_complete", "kind": "complete", "label": { "zh-TW": "登錄完成" } } ]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "gateway_days",
+      "type": "exclusive",
+      "branches": [
+        { "edgeId": "e_gw_vp", "condition": "days >= 7", "isDefault": false },
+        { "edgeId": "e_gw_hr", "condition": "days < 7", "isDefault": true }
+      ]
+    }
+  ],
+  "approvals": [
+    {
+      "id": "approval_manager",
+      "approver": { "type": "expr", "path": "submitter.manager" },
+      "actions": [
+        { "id": "act_approve_mgr", "kind": "approve", "label": { "zh-TW": "核准" } },
+        { "id": "act_reject_mgr", "kind": "reject", "label": { "zh-TW": "駁回" }, "promptComment": "optional" }
+      ]
+    },
+    {
+      "id": "approval_vp",
+      "approver": { "type": "expr", "path": "submitter.department.head", "fallback": { "type": "role", "code": "VP" } },
+      "actions": [
+        { "id": "act_approve_vp", "kind": "approve", "label": { "zh-TW": "核准" } },
+        { "id": "act_reject_vp", "kind": "reject", "label": { "zh-TW": "駁回" }, "promptComment": "optional" }
+      ]
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notify_assign_manager",
+      "trigger": { "kind": "event", "event": "on_assign" },
+      "nodeId": "approval_manager",
+      "recipients": [ { "type": "current_approver" } ],
+      "channel": "email",
+      "subject": { "zh-TW": "【待簽】請假申請" },
+      "body": { "zh-TW": "有一筆請假申請待您核准。" }
+    },
+    {
+      "id": "notify_complete",
+      "trigger": { "kind": "event", "event": "on_complete" },
+      "nodeId": "end_1",
+      "recipients": [ { "type": "role", "code": "HR" }, { "type": "submitter" } ],
+      "channel": "email",
+      "subject": { "zh-TW": "【已結案】請假申請" },
+      "body": { "zh-TW": "請假申請已完成登錄結案。" }
+    }
+  ],
+  "sla": {
+    "perNode": {
+      "approval_manager": { "duration": "P1D" },
+      "approval_vp": { "duration": "P2D" }
+    }
+  },
+  "integrations": { "identityProvider": "csv", "items": [] },
+  "labels": { "zh-TW": {}, "en": {} },
+  "notes": ""
+}

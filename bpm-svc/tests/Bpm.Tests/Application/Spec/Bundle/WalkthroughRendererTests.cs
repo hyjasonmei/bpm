@@ -9,7 +9,7 @@ public sealed class WalkthroughRendererTests
     [Fact]
     public async Task Renders_happy_path_from_test_case_trace()
     {
-        var json = await File.ReadAllTextAsync("/Users/jason/claude/bpm/sample_specs/leave_v1.json");
+        var json = await File.ReadAllTextAsync(BundleTestFactory.LeaveSpecPath);
         using var doc = JsonDocument.Parse(json);
 
         using var inputDoc = JsonDocument.Parse("{\"leave_type\":\"特休\"}");
@@ -30,7 +30,7 @@ public sealed class WalkthroughRendererTests
     [Fact]
     public async Task Renders_default_path_when_no_test_case()
     {
-        var json = await File.ReadAllTextAsync("/Users/jason/claude/bpm/sample_specs/leave_v1.json");
+        var json = await File.ReadAllTextAsync(BundleTestFactory.LeaveSpecPath);
         using var doc = JsonDocument.Parse(json);
 
         var md = new WalkthroughRenderer().Render(doc.RootElement, null);
