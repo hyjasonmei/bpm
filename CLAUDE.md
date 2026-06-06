@@ -89,7 +89,7 @@ Reference cook：**LEAVE V1**（testbed 在 `leave-test-N` 系列分支，目前
 
 `IProcessRuntime` / `SpecSnapshot` / `ISpecLoader` 是舊的「spec-driven runtime」路（一支通用引擎吃 spec.json 解釋 runtime）。複雜度比 model B 預期還高 — `leave-test-3` 是 model A 最後一次嘗試，結果 submit 進 DB 但 UI 看不到。
 
-**舊 code 仍編譯通過但不再延伸**；新流程一律走 model B。舊 code（runtime engine、`useFormRuntime` / `useFlowSubmit` / `useFlowTask` hooks、`screens/forms/*` 的 dual-mode 11 隻表單、`/api/processes` / `/api/tasks` 通用路）的清理是獨立後續工作。
+新流程一律走 model B。**UI 端的 model A 已清除**：`useFormRuntime` / `useFlowSubmit` / `useFlowTask` / `useMyInstances` / `useMyTasks` hooks、`screens/forms/Reference_*.tsx`（11 隻）、`lib/api/hrFlows.ts` 都已刪（unrouted，沒有 live code import）。**尚未清的**（因為還接著 live feature）：bpm-svc 的 runtime engine（`IProcessRuntime` / `ProcessRuntime` / `SpecSnapshot` / `ISpecLoader` / `ActorResolver` / `CelNetExpressionEvaluator` / 舊 `INotificationDispatcher` / `ProcessInstance` 表）+ 其上的 admin Reports / Simulator / ProcessAdmin 功能，以及 bpm-ui 的 `/cases/:instanceId` + `/tasks/:taskId` 舊路由（`screens/CaseDetail.tsx` / `lib/api/process.ts`）。要清這層等於拿掉或改寫 Reports/Simulator——是產品決策。
 
 ## SharedIdentity 模型
 
@@ -123,7 +123,7 @@ POC 期跑 SQLite，但客戶上線後很可能要 Postgres / SQL Server。Code 
 
 - **chef/skill + LEAVE V1 testbed 對齊 Clean Arch 分層** — 目前 chef skill 把 entity + state machine + inbox provider 全寫進 `Persistence/Features/`；要拆到 Domain / Application / Persistence / Features/。`Persistence/DependencyInjection.cs` 的 `ITypedInboxProvider` assembly scan 也要跟著搬到 `Application/DependencyInjection.cs`，否則 chef 把 inbox provider 放對位置但 runtime 找不到
 - LEAVE V1 testbed 先對齊新分層，再 merge 進 main 當第一支真實 chef cook
-- Model A code 清理（runtime engine + 11 隻 `screens/forms/Reference_*.tsx` 之外的舊 hooks）
+- Model A code 清理 — UI 端已完成（hooks + 11 隻 `Reference_*.tsx` + `hrFlows.ts` 已刪）。**剩 bpm-svc runtime engine**（`ProcessInstance` / `ProcessRuntime` / `ISpecLoader` / `ActorResolver` / `CelNetExpressionEvaluator` / 舊 `INotificationDispatcher`）+ 其上的 admin Reports / Simulator / ProcessAdmin、以及 bpm-ui `/cases/:instanceId` + `/tasks/:taskId` 舊路由——清這層 = 拿掉或改寫那些功能，待產品決策
 - 第二支 chef-cooked flow — 驗證 chef 流程真的可重複（LEAVE 之後 GEE / APE / 其他流程）
 - NotificationDispatchAudit 表（生產通知稽核）— 目前只有 sandbox 的 `SandboxCapturedMessages`
 - Reports 改用 DB-side percentile（百萬級 instance 後切）

@@ -59,9 +59,11 @@ before continuing.
    - `.claude/**` — when updating dispatch / settings
    - `docs/**`, `openspec/**`, `db/**` (artefacts), top-level configs
 
-   `bpm-ui/src/screens/forms/Reference_*.tsx` is a chef-readable visual
-   reference — lead may edit it to keep the visual baseline current with
-   `components/ui/` changes, but do not turn it into a runtime path.
+   `bpm-ui/src/screens/forms/` now holds only the lead-owned `FormShell`
+   (shared form chrome) + `NotCookedYet` — the model-A `Reference_*.tsx`
+   set was removed. chef's visual baseline is now the shipped model-B
+   feature forms under `features/<CODE>/V1/*Form.tsx`; keep `FormShell`
+   current with `components/ui/` changes.
 
 3. **Every new primitive ships a contract.** Whenever you add something
    chef will consume, you owe three things in the same PR:

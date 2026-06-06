@@ -58,7 +58,7 @@ looks. **leave-test-4 is the model B redo** — entity + state machine
    - Anything outside the Features/<CODE>/V<N>/ subtrees above
    - `bpm-admin-svc/**`, `bpm-admin-ui/**`, `bpm-www/**`, `chef/**`,
      `docs/**`, `openspec/**`
-   - `bpm-ui/src/screens/forms/Reference_*.tsx`
+   - `bpm-ui/src/screens/forms/**` (lead-owned `FormShell` + `NotCookedYet`)
    - Top-level routes (`bpm-ui/src/router.tsx`, `App.tsx`,
      `screens/Home.tsx`) — lead owns these
 
@@ -301,15 +301,17 @@ silently skips it — **stop and ask** rather than working around it.
 The React component is **bespoke per flow** — there is no generic
 `<DynamicForm spec />` runtime. The wizard's `spec.layout` is your
 blueprint for what JSX to emit. **Before writing JSX**, open the
-matching `bpm-ui/src/screens/forms/Reference_*.tsx` — those eleven
-hand-written forms are the visual ground truth for layout, section
-cards, two-column grids, repeater header bars, currency-paired
-amount inputs and right-side row-action gutters. A form that skips
-this step works but looks amateur next to a reference. See
-**conventions.md § "Visual baseline — crib from a Reference_*.tsx"**
-for the shape-to-reference lookup table, the DO copy / DO NOT copy
-list (model A runtime hooks like `useFormRuntime` / `FormShell` /
-`useFlowSubmit` are stripped) and the step-by-step recipe.
+closest existing **model-B feature form** under
+`bpm-ui/src/features/<CODE>/V1/*Form.tsx` — those are the visual
+ground truth for layout, section cards, two-column grids, repeater
+header bars, currency-paired amount inputs and right-side row-action
+gutters, already wired the model-B way (`FormShell` + `apiFetch` +
+`ActionFooter`). A form that skips this step works but looks amateur
+next to a sibling. See **conventions.md § "Visual baseline — crib
+from a model-B feature form"** for the shape-to-form lookup table and
+the step-by-step recipe. (The old `screens/forms/Reference_*.tsx` set
++ its model-A runtime hooks were removed; the feature forms are now
+the single source of visual truth.)
 
 ### 3.4 Per-flow data-access port — `I<CODE>_V<N>_CaseStore`
 
@@ -511,8 +513,8 @@ When you start a fresh session, read in this order:
 3. `chef/skill/workflow.md` — step-by-step run.
 4. The bundle at the path Jason gave you — `spec.json` first, then
    `bpmn.xml` if structure is unclear.
-5. **One** matching `Reference_<Code>*.tsx` (if present) for layout
-   inspiration — visual pattern only.
+5. **One** closest `features/<CODE>/V1/*Form.tsx` model-B feature form
+   for layout inspiration — visual pattern only.
 6. `bpm-svc/CLAUDE.md` + `bpm-ui/CLAUDE.md` for repo conventions.
 7. The LEAVE V1 reference set on `leave-test-N` (most recent: 5) if
    you've never cooked in model B before — copy the shape, not the

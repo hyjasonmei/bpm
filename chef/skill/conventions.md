@@ -39,7 +39,7 @@ lives in Application/Features.
 | `bpm-svc/src/{Api,Application,Domain,Persistence,Functions,SeedCli}/**` outside `Features/<CODE>/V<N>/` | Shared platform — lead owns it |
 | `bpm-admin-svc/**`, `bpm-admin-ui/**` | Admin tooling — not chef's territory |
 | `bpm-www/**`, `chef/**`, `docs/**`, `openspec/**` | Docs / self |
-| `bpm-ui/src/screens/forms/Reference_*.tsx` | Hand-coded visual reference set |
+| `bpm-ui/src/screens/forms/{FormShell,NotCookedYet}.tsx` | Lead-owned shared shell + not-cooked page (model-A `Reference_*.tsx` removed) |
 | `bpm-ui/src/screens/Home.tsx`, `App.tsx`, `router.tsx`, `lib/workflow.ts` | Top-level shell — lead owns it |
 
 If you need to read something that isn't listed, it's probably fine —
@@ -194,46 +194,45 @@ When the spec uses a construct that isn't here yet, **stop and ask
 Jason** — lead ships the primitive (or extends this table) before
 chef ships.
 
-## Visual baseline — crib from a `Reference_*.tsx`
+## Visual baseline — crib from a model-B feature form
 
-The eleven hand-written reference forms under
-`bpm-ui/src/screens/forms/Reference_*.tsx` are the visual ground
-truth for the customer-facing UI. They predate model B and ride the
-old `useFormRuntime` runtime, but their *layout* (section cards,
-two-column grids, repeater header bars, currency-paired amount
-inputs, right-side action gutters) is what Jason expects every
-chef-cooked form to look like.
+The shipped **model-B feature forms** under
+`bpm-ui/src/features/<CODE>/V1/*Form.tsx` are the visual ground truth
+for the customer-facing UI — their layout (section cards, two-column
+grids, repeater header bars, currency-paired amount inputs, right-side
+action gutters) is what Jason expects every chef-cooked form to look
+like, and they are already wired the model-B way. (The old
+`screens/forms/Reference_*.tsx` set + its `useFormRuntime` /
+`useFlowSubmit` runtime were removed — the feature forms are now the
+single source of visual truth.)
 
 **Pick one before you write a line of JSX.** A bare form built only
-from `<Input>` / `<Select>` will work but look amateur next to the
-references; visiting the matching `Reference_*.tsx` first is what
-gets the cook past "functional" into "presentable".
+from `<Input>` / `<Select>` will work but look amateur next to its
+siblings; opening the closest feature form first is what gets the cook
+past "functional" into "presentable".
 
-> **Canonical model-B exemplar (copy this, not the refs' wiring):**
+> **Canonical exemplar:**
 > `bpm-ui/src/features/VENDOR_EXPENSE/V1/VENDOR_EXPENSE_V1_VendorExpenseForm.tsx`.
-> It applies the reference *layout* (sectioned cards, dark invoice
-> header band, currency-prefixed amount, grouped grand-total) with
-> correct **model-B** wiring — `FormShell` + `apiFetch` + `ActionFooter`
-> + `ConfirmDialog`, no `useFormRuntime`. For invoice / repeater / money
-> forms, crib its structure directly; use the `Reference_*.tsx` set only
-> for visual ideas. The whole `features/<CODE>/V1/*Form.tsx` set was
-> brought up to this bar — any of them is a live model-B example.
+> Sectioned cards, dark invoice header band, currency-prefixed amount,
+> grouped grand-total — all on correct model-B wiring (`FormShell` +
+> `apiFetch` + `ActionFooter` + `ConfirmDialog`). For invoice / repeater
+> / money forms crib its structure directly.
 
-### Shape → reference lookup
+### Shape → feature-form lookup
 
-| Spec shape | Closest reference | What to crib |
+| Spec shape | Closest feature form | What to crib |
 |---|---|---|
-| Repeater + amount + currency + running total | `Reference_GEEForm` (差旅費) | Per-row `SectionCard` with `bg-slate-50` header bar (`Invoice #N`, date, no.), 2-col grid for `Charge to / Project` + `Category / Amount`, currency `<Select>` glued to `<Input type=number>`, dual NTD/USD display via `fmtNTD` / `fmtUSD`, right-side gutter with Plus/Copy/Trash row actions, Totals row in its own `SectionCard` at the bottom |
-| Repeater with sub-lines (parent → children) | `Reference_GEVForm` | Nested repeater: outer invoices, inner line-items with their own add/copy/del. Use sparingly — keep one repeater level when you can. |
-| Repeater + attachment cluster per row | `Reference_HWPForm` (hardware purchase) | Same row card shape as GEE; each row owns a `<FilePicker>` + a metadata strip below. |
-| Repeater + line-item table style (no header bar) | `Reference_APEForm` (採購) | Flat table-style rows when each entry is a single line, not a sub-form. |
-| Single form + multi-section approval-friendly | `Reference_LeaveForm` (請假) | Stacked `SectionCard` + `SectionTitle` blocks per logical group; `InfoBanner` for policy text. Good shape for any approval-heavy single-form flow. |
-| Personnel-action form (lots of name / dept / date fields) | `Reference_DeptxForm` (調動) / `Reference_ResignForm` | Dense two-column grids, bilingual labels via `FieldLabel`, `<Field hint>` for inline help. |
-| Read-mostly view (case detail style) | `Reference_TEOView` / `Reference_ITPRView` / `Reference_TRQView` / `Reference_EXTOBView` | `SectionCard` blocks with read-only paired data; use these as the **case-detail** baseline, not the form baseline. |
+| Repeater + amount + currency + running total | `VENDOR_EXPENSE/V1` · `TEO/V1` | Per-row `SectionCard` with header bar, 2-col grid for paired fields, currency `<Select>` glued to `<Input type=number>`, dual NTD/USD display, right-side gutter with Plus/Copy/Trash row actions, Totals row in its own `SectionCard` at the bottom |
+| Line-item purchase / PO | `PURCHASE_REQUEST/V1` · `FAP/V1` | Line-item rows + grand total; FAP also shows an auto-generated PO number milestone |
+| Single form + multi-section approval-friendly | `APE/V1` · `LEAVE/V1` | Stacked `SectionCard` + `SectionTitle` blocks per logical group; `InfoBanner` for policy text; currency-paired amount (APE). Good shape for any approval-heavy single-form flow |
+| File-upload / attachment field | `LEAVE/V1` (conditional cert `<FilePicker>`) | `<FilePicker>` for `field.type==='file'`; case-detail reads it back via `<AuthedFileLink>` |
+| Personnel-action form (lots of name / dept / date fields) | `EOB/V1` · `ETM/V1` | Dense two-column grids, bilingual labels via `FieldLabel`, `<Field hint>` for inline help |
+| Asset / disposal form | `FAD/V1` | Manager-judged single-approval form with asset fields |
+| Read-mostly view (case detail style) | any `*_CaseDetail.tsx` (e.g. `APE/V1`) | `SectionCard` blocks with read-only paired data + 簽核 timeline + Stepper + BpmnView; use as the **case-detail** baseline, not the form baseline |
 
-When the spec doesn't match any reference exactly, pick the closest
-shape from the list above and tell the user in your cook complete
-report which one you used.
+When the spec doesn't match any shape exactly, pick the closest from
+the list above and tell the user in your cook-complete report which one
+you used.
 
 ### DO copy (structural)
 
@@ -263,52 +262,34 @@ report which one you used.
 - Totals row in its own `SectionCard` at the bottom with
   right-aligned `font-mono` amounts.
 
-### DO NOT copy (model A internals)
+### Required model-B wiring (don't reintroduce model A)
 
-The references all wrap themselves in model A runtime plumbing.
-Strip every one of these out — chef writes pure model B:
+The feature forms are already clean — keep them that way. Every cook:
 
-- `import { useFormRuntime, FlowToast, type FormRuntimeProps } from
-  '@/hooks/useFormRuntime'` — model A spec-driven runtime hook;
-  delete entirely.
-- The model-A `<FormShell>` *variant* only — `setActiveStep={…}` +
-  `mode={runtime.mode}`. **Keep `<FormShell>` itself.** Model B renders
-  it as `<FormShell code="<CODE>" activeStep={0} persona={persona as
-  PersonaCode} mode="create">` (no `setActiveStep`, literal `mode`).
-  It draws the step rail, requestor summary, View-BPMN and
-  copy-from-existing chrome that make a form look finished — dropping it
-  is what leaves a cook looking "plain". See the exemplar.
-- `import { useFlowSubmit } from '@/hooks/useFlowSubmit'` /
-  `useFlowTask` — model A submit + task plumbing; chef does its
-  own `<form onSubmit>` calling `apiFetch` against
-  `/api/<flow>/v<n>/...`.
-- Mock catalogs from `@/lib/mocks` (`CHARGE_OPTS`, `PROJECT_OPTS`,
-  `GEE_CATS`, `CURRENCIES`, etc.) — these are demo seed only. Pull
-  options from `field.options[]` in the spec, or call a real catalog
-  API.
-- `ActionBar` from `./FormShell` — replace with `ActionFooter` from
-  `@/components/ui/action-footer/ActionFooter` (the lead-shipped
-  sticky bottom bar for case detail / form submit buttons).
-- `instance` / `submission` / `runtime.toast` / `FlowToast` — all
-  model A runtime state; not part of model B.
+- Uses `<FormShell code="<CODE>" activeStep={0} persona={persona as
+  PersonaCode} mode="create">` — it draws the step rail, requestor
+  summary, View-BPMN and copy-from-existing chrome that make a form
+  look finished. Dropping it is what leaves a cook looking "plain".
+- Submits via a plain `<form onSubmit>` / handler calling `apiFetch`
+  against `/api/<flow>/v<n>/...` — there is **no** `useFormRuntime` /
+  `useFlowSubmit` / `useFlowTask` (those model-A hooks were deleted).
+- Wraps the submit / cancel bar in `ActionFooter` from
+  `@/components/ui/action-footer/ActionFooter` — never an inline
+  `SectionCard` button row, never a model-A `ActionBar`.
+- Pulls `<Select>` options from `field.options[]` in the spec (or a
+  real catalog API) — no `@/lib/mocks` demo catalogs.
 
 ### Workflow recipe
 
-1. Open the matching `Reference_*.tsx` side-by-side with the spec.
-2. Copy the JSX structure verbatim into your
-   `<CODE>_V<N>_<Purpose>Form.tsx`.
-3. Delete the model-A runtime plumbing — `useFormRuntime` / `FlowToast`
-   / `ActionBar` / `instance` / `submission`. **Keep `<FormShell>`** but
-   switch it to the model-B signature (drop `setActiveStep`, use a
-   literal `mode`). The diff should remove ~30-60 lines.
-4. Replace mock catalogs with `field.options` from the spec.
-5. Replace the model A submit (`useFlowSubmit`) with a plain `<form
-   onSubmit>` calling your controller's POST endpoint via
+1. Open the closest `features/<CODE>/V1/*Form.tsx` side-by-side with
+   the spec (see the shape lookup above).
+2. Copy its JSX structure into your `<CODE>_V<N>_<Purpose>Form.tsx`
+   and adapt fields/sections to your spec's `fields[]` + `layout[]`.
+3. Swap options to `field.options` from the spec.
+4. Point the submit handler at your controller's POST endpoint via
    `apiFetch`.
-6. Wrap the bottom buttons in `ActionFooter` instead of `ActionBar`.
-7. Confirm the result by eyeballing it next to the original
-   reference — if they don't look like cousins, the layout was
-   damaged in step 3 and needs a re-pass.
+5. Confirm the result by eyeballing it next to the form you cribbed —
+   if they don't look like cousins, the layout needs a re-pass.
 
 ## Inbox provider
 
@@ -412,9 +393,9 @@ a "pending <approver>" status → that approver's step; a send-back
 status (`Completed`) → the last step; reject/cancel terminals → the
 approval step where they stopped. APE V1 is the canonical reference.
 
-**⚠️ Steps MUST mirror YOUR cooked state machine 1:1 — never the reference
-form's.** This is the #1 stepper bug: when you crib a `Reference_*.tsx` /
-another flow's `FORMS.<CODE>` entry, you inherit ITS stages (e.g.
+**⚠️ Steps MUST mirror YOUR cooked state machine 1:1 — never the cribbed
+form's.** This is the #1 stepper bug: when you crib another flow's
+`FORMS.<CODE>` entry, you inherit ITS stages (e.g.
 `CONFIRM & PRINT`, `FIN REVIEW`, `NOTIFY ADM`, `IT JUDGE`) — but if your state
 machine doesn't actually transition through them, the stepper lights those
 stages green on completion even though they never ran (a lie to the user).
