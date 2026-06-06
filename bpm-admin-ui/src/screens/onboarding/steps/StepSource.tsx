@@ -57,13 +57,20 @@ export function StepSource({ draft, setDraft, bpmnXml }: { draft: DraftSpec; set
     setDraft({ ...draft, meta: { ...draft.meta, ...patch } })
 
   const loadPreset = (preset: Partial<DraftSpec>) => {
-    setDraft(ensureFieldUids({ ...EMPTY_DRAFT, ...preset, meta: { ...EMPTY_DRAFT.meta, ...preset.meta } }))
+    // Same rule as applySkeleton: a template starts the structure but must not
+    // hijack the operator's chosen flowCode / flowName.
+    setDraft(ensureFieldUids({ ...EMPTY_DRAFT, ...preset, meta: { ...EMPTY_DRAFT.meta, ...preset.meta, flowCode: draft.meta.flowCode || preset.meta?.flowCode || EMPTY_DRAFT.meta.flowCode, flowName: draft.meta.flowName || preset.meta?.flowName || EMPTY_DRAFT.meta.flowName } }))
   }
 
   const applySkeleton = (s: ExtractedSkeleton) => {
     setDraft({
       ...EMPTY_DRAFT,
-      meta: { ...EMPTY_DRAFT.meta, ...s.meta },
+      // flowCode is the immutable identifier chosen at flow creation (seeded into
+      // spec.meta by cookNew, and == the registry Flow.FlowCode). The AI must NOT
+      // rename it — letting s.meta.flowCode win desyncs the spec from the registry
+      // and from the cooked code/table names. Keep the existing flowCode (and the
+      // operator's flowName); take only the AI's nodes/edges.
+      meta: { ...EMPTY_DRAFT.meta, ...s.meta, flowCode: draft.meta.flowCode || s.meta.flowCode, flowName: draft.meta.flowName || s.meta.flowName },
       flow: { nodes: s.nodes, edges: s.edges },
     })
     setConfNotes(s.confidence_notes ?? null)
