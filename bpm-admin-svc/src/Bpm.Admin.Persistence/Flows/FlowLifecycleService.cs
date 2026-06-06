@@ -57,41 +57,70 @@ public class FlowLifecycleService : IFlowLifecycleService
         {
             var code = (f.FlowCode ?? string.Empty).Trim().ToUpperInvariant();
             if (string.IsNullOrWhiteSpace(code)) continue;
+            var deployedVersion = f.Version < 1 ? 1 : f.Version;
 
-            // Idempotent: an active (non-archived / non-retired / non-deleted)
-            // row with this code already covers the launcher → skip.
-            var exists = await _db.Flows.AnyAsync(x =>
-                x.FlowCode == code && x.ArchivedAt == null && x.DeletedAt == null && x.State != FlowState.Retired, ct);
-            if (exists) { skipped.Add(code); continue; }
+            // The active (non-archived / non-retired / non-deleted) row that
+            // currently backs the launcher for this code, highest version first.
+            var active = await _db.Flows
+                .Where(x => x.FlowCode == code && x.ArchivedAt == null && x.DeletedAt == null && x.State != FlowState.Retired)
+                .OrderByDescending(x => x.Version)
+                .FirstOrDefaultAsync(ct);
+
+            // Idempotent: the launcher is already covered at the deployed
+            // version (or newer) → nothing to do.
+            if (active is not null && active.Version >= deployedVersion)
+            {
+                skipped.Add(code);
+                continue;
+            }
+
+            // Either a brand-new code (active is null) or a newer runtime
+            // version has been deployed than what's registered. Either way the
+            // new version goes straight to Published (the one-click bootstrap's
+            // whole job — bypass the Draft → … → Committed cook lifecycle for
+            // code-first flows) and, on an upgrade, the superseded row is
+            // retired so the launcher's latest-per-code resolves to the new one.
+            var lineageId = active?.LineageId ?? Guid.NewGuid();
 
             var row = new Flow
             {
                 Id = Guid.NewGuid(),
-                LineageId = Guid.NewGuid(),
-                Version = 1,
-                // Blank-env one-click bootstrap: deployed flows go straight to
-                // Published (live), not just Approved — that's the button's whole job.
+                LineageId = lineageId,
+                Version = deployedVersion,
                 State = FlowState.Published,
                 FlowCode = code,
-                DisplayName = string.IsNullOrWhiteSpace(f.DisplayName) ? code : f.DisplayName.Trim(),
-                // Code-registered flows: pull the full spec + BPMN from the
-                // shipped bundle so the flow is a first-class, *versionable*
-                // flow in the AI Kitchen (editable spec, cloneable into a v2)
-                // instead of an empty stub. Falls back to "{}" / null when no
-                // matching bundle is found (e.g. LEAVE, which ships no bundle).
-                SpecJson = TryReadBundleSpec(code) ?? "{}",
-                BpmnXml = TryReadBundleBpmn(code),
+                DisplayName = !string.IsNullOrWhiteSpace(f.DisplayName)
+                    ? f.DisplayName.Trim()
+                    : (active?.DisplayName ?? code),
+                // On an upgrade, carry the spec/BPMN + launcher metadata forward
+                // from the superseded row so the new version keeps its editable
+                // spec, group, icon and order. For a brand-new code, pull the
+                // full spec + BPMN from the shipped bundle (falls back to "{}" /
+                // null when no bundle matches, e.g. LEAVE which ships none).
+                SpecJson = active?.SpecJson ?? TryReadBundleSpec(code) ?? "{}",
+                BpmnXml = active?.BpmnXml ?? TryReadBundleBpmn(code),
+                GroupId = active?.GroupId,
+                IconKey = active?.IconKey,
+                DisplayOrder = active?.DisplayOrder ?? 0,
                 CreatedByUserId = actorUserId,
             };
             _db.Flows.Add(row);
+
+            if (active is not null)
+            {
+                active.State = FlowState.Retired;
+                active.UpdatedAt = DateTime.UtcNow;
+            }
+
             await _db.SaveChangesAsync(ct);
 
             await _audit.LogAsync(
-                actionType: "flow_registered_shipped",
+                actionType: active is null ? "flow_registered_shipped" : "flow_shipped_version_upgraded",
                 targetType: "flow",
                 targetId: row.Id.ToString(),
                 actorUserId: actorUserId,
                 actorPrincipalId: null,
+                before: active is null ? null : (object)new { active.Id, active.Version, State = FlowState.Retired.ToString() },
                 after: new { row.Id, row.LineageId, row.Version, row.FlowCode, row.DisplayName, State = row.State.ToString() },
                 ct: ct);
 

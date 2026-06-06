@@ -7,8 +7,10 @@ public class FlowLifecycleException : Exception
     public FlowLifecycleException(string message) : base(message) { }
 }
 
-/// <summary>A deployed flow's code + display name, for register-shipped.</summary>
-public sealed record ShippedFlowInput(string FlowCode, string DisplayName);
+/// <summary>A deployed flow's code + display name + max deployed runtime
+/// version, for register-shipped. <paramref name="Version"/> defaults to 1 for
+/// back-compat with callers that only know the code.</summary>
+public sealed record ShippedFlowInput(string FlowCode, string DisplayName, int Version = 1);
 
 /// <summary>Outcome of a register-shipped batch.</summary>
 public sealed record RegisterShippedResult(IReadOnlyList<string> Registered, IReadOnlyList<string> Skipped);

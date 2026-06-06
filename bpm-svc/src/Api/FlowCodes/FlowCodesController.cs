@@ -23,9 +23,10 @@ namespace Bpm.Api.FlowCodes;
 public sealed class FlowCodesController(AppDbContext db) : ControllerBase
 {
     // Matches a flow case entity of ANY version: <CODE>_V<N>_Case. The code
-    // group strips the version so APE_V1_Case and a future APE_V2_Case both
-    // collapse to "APE".
-    private static readonly Regex CaseTypeRe = new(@"^(?<code>.+)_V\d+_Case$", RegexOptions.Compiled);
+    // group strips the version (so APE_V1_Case and APE_V2_Case both collapse to
+    // "APE") while the version group lets us report the *highest* deployed
+    // version per code — which drives admin's version-aware register-shipped.
+    private static readonly Regex CaseTypeRe = new(@"^(?<code>.+)_V(?<ver>\d+)_Case$", RegexOptions.Compiled);
 
     [HttpGet]
     public IReadOnlyList<DeployedFlowDto> Get()
@@ -35,11 +36,15 @@ public sealed class FlowCodesController(AppDbContext db) : ControllerBase
             .Where(x => x.Match.Success
                         && x.Type.GetProperty("Status") is not null
                         && x.Type.GetProperty("SubmittedAt") is not null)
-            .Select(x => x.Match.Groups["code"].Value)
-            .Distinct()
-            .OrderBy(c => c, StringComparer.Ordinal)
-            .Select(c => new DeployedFlowDto(c, c))
+            .Select(x => new
+            {
+                Code = x.Match.Groups["code"].Value,
+                Version = int.Parse(x.Match.Groups["ver"].Value),
+            })
+            .GroupBy(x => x.Code)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => new DeployedFlowDto(g.Key, g.Key, g.Max(x => x.Version)))
             .ToList();
 }
 
-public sealed record DeployedFlowDto(string FlowCode, string DisplayName);
+public sealed record DeployedFlowDto(string FlowCode, string DisplayName, int Version);
