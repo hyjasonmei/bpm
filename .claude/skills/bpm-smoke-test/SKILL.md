@@ -9,6 +9,16 @@ A repeatable smoke suite for the flowcook stack. The bulk is an API script
 (`smoke.sh`) that exercises every shipped flow and the guard rails; a short
 manual browser checklist covers the bits only the UI can show.
 
+**Version-agnostic.** The script never hardcodes a flow version. It resolves
+each flow at whatever version the bpm launcher currently serves — the highest
+**Published** version per flow code in `/api/flow-registry` (the same
+latest-per-code + Published gate the employee launcher uses) — and hits
+`/api/<flow>/v<live>`. Ship + publish a v2 and the suite follows it onto v2
+automatically; the Reset section re-registers at the deployed runtime version
+(from `/api/flow-codes`, which now reports the highest `<CODE>_V<N>_Case` per
+code) so a reset never silently downgrades the registry to v1. The run prints
+the resolved versions in section A.
+
 ## When to use
 
 - After touching identity / roles / seeding / flow state machines / the Reset feature.
