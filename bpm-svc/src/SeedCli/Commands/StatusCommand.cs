@@ -35,11 +35,6 @@ public static class StatusCommand
             var roles = await db.SharedRoles.CountAsync(ct);
             var roleAssignments = await db.SharedPrincipalRoles.CountAsync(ct);
 
-            var instActive = await db.ProcessInstances.CountAsync(i => i.Status == InstanceStatus.Running, ct);
-            var instCompleted = await db.ProcessInstances.CountAsync(i => i.Status == InstanceStatus.Completed, ct);
-            var instCancelled = await db.ProcessInstances.CountAsync(i => i.Status == InstanceStatus.Cancelled, ct);
-            var instErrored = await db.ProcessInstances.CountAsync(i => i.Status == InstanceStatus.Errored, ct);
-
             var bundleInstalled = await db.SpecBundles.CountAsync(b => b.Status == SpecBundleStatus.Installed, ct);
             var bundlePending = await db.SpecBundles.CountAsync(b => b.Status == SpecBundleStatus.Pending, ct);
             var bundleFailed = await db.SpecBundles.CountAsync(b => b.Status == SpecBundleStatus.Failed, ct);
@@ -57,7 +52,6 @@ public static class StatusCommand
             Console.WriteLine($"Departments:       {depts}");
             Console.WriteLine($"Roles:             {roles}");
             Console.WriteLine($"RoleAssignments:   {roleAssignments}");
-            Console.WriteLine($"ProcessInstances:  {instActive} active / {instCompleted} completed / {instCancelled} cancelled / {instErrored} errored");
             Console.WriteLine($"SpecBundles:       {bundleInstalled} installed / {bundlePending} pending / {bundleFailed} failed / {bundleDraft} draft");
             if (sandbox is not null)
             {

@@ -3,6 +3,7 @@ using System;
 using Bpm.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Bpm.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260606090722_DropModelAProcessRuntimeTables")]
+    partial class DropModelAProcessRuntimeTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.7");
@@ -1587,6 +1590,65 @@ namespace Bpm.Persistence.Migrations
                     b.ToTable("VENDOR_EXPENSE_V1_case", (string)null);
                 });
 
+            modelBuilder.Entity("Bpm.Domain.Features.WFH.V1.WFH_V1_Case", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CurrentAssigneeUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastActivityAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool?>("ManagerApproved")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ManagerComment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ManagerDecisionAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ManagerUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SubmitterUserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrentAssigneeUserId");
+
+                    b.HasIndex("SubmitterUserId");
+
+                    b.HasIndex("Status", "LastActivityAt");
+
+                    b.ToTable("WFH_V1_case", (string)null);
+                });
+
             modelBuilder.Entity("Bpm.Persistence.Features.LEAVE.V1.LEAVE_V1_Case", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1679,6 +1741,44 @@ namespace Bpm.Persistence.Migrations
                     b.HasIndex("Status", "LastActivityAt");
 
                     b.ToTable("LEAVE_V1_leave_case", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedDelegation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("DelegateToUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("DelegatorPrincipalId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("EndAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Admin_Delegations", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
                 });
 
             modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedDeptHead", b =>
@@ -1897,6 +1997,10 @@ namespace Bpm.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Description")

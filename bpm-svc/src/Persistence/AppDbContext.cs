@@ -37,10 +37,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<RoleAssignmentChange> RoleAssignmentChanges => Set<RoleAssignmentChange>();
 
-    public DbSet<ProcessInstance> ProcessInstances => Set<ProcessInstance>();
-    public DbSet<ProcessTask> ProcessTasks => Set<ProcessTask>();
-    public DbSet<TaskHistory> TaskHistory => Set<TaskHistory>();
-
     public DbSet<SpecBundle> SpecBundles => Set<SpecBundle>();
 
     public DbSet<NotificationDispatchAudit> NotificationDispatchAudits => Set<NotificationDispatchAudit>();

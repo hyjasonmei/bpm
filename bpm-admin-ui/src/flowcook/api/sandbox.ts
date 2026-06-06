@@ -62,9 +62,6 @@ export interface CapturedDetail extends CapturedSummary {
 }
 
 export interface ResetSummary {
-  instancesDeleted: number
-  tasksDeleted: number
-  historyRowsDeleted: number
   capturedMessagesDeleted: number
   casesDeleted: number
 }

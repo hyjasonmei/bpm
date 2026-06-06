@@ -64,13 +64,6 @@ public sealed class AuditSaveChangesInterceptor(
                     $"HrFlowAction is append-only: {entry.State} is not permitted (Id={entry.Entity.Id}).");
         }
 
-        foreach (EntityEntry<TaskHistory> entry in context.ChangeTracker.Entries<TaskHistory>())
-        {
-            if (entry.State is EntityState.Modified or EntityState.Deleted)
-                throw new InvalidOperationException(
-                    $"TaskHistory is append-only: {entry.State} is not permitted (Id={entry.Entity.Id}).");
-        }
-
         // Stamp ImpersonatedByUserId onto IImpersonable entities at insert time.
         if (currentUser.ImpersonatedById is { } impId)
         {
@@ -81,25 +74,5 @@ public sealed class AuditSaveChangesInterceptor(
             }
         }
 
-        // PR-J4 §6.5: stamp SandboxActualActor on ProcessTask + TaskHistory
-        // when the request is acting through a sandbox-persona token. Both
-        // entities already have the nullable Guid column (declared in PR-B,
-        // see ProcessTask.cs / TaskHistory.cs), so no migration is needed.
-        // We only stamp if the field hasn't already been set explicitly by
-        // the runtime — that gives the runtime an escape hatch to override
-        // (e.g. background-resumption code paths).
-        if (_sandboxActor.IsSandboxActor && _sandboxActor.ActualActorUserId is { } actualId)
-        {
-            foreach (EntityEntry<ProcessTask> entry in context.ChangeTracker.Entries<ProcessTask>())
-            {
-                if (entry.State == EntityState.Added && entry.Entity.SandboxActualActor is null)
-                    entry.Entity.SandboxActualActor = actualId;
-            }
-            foreach (EntityEntry<TaskHistory> entry in context.ChangeTracker.Entries<TaskHistory>())
-            {
-                if (entry.State == EntityState.Added && entry.Entity.SandboxActualActor is null)
-                    entry.Entity.SandboxActualActor = actualId;
-            }
-        }
     }
 }

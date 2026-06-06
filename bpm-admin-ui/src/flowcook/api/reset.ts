@@ -7,9 +7,6 @@ import {
 
 /** Counts returned by the bpm-svc factory wipe. */
 export interface FactoryWipeSummary {
-  instancesDeleted: number
-  tasksDeleted: number
-  historyRowsDeleted: number
   capturedMessagesDeleted: number
   casesDeleted: number
 }

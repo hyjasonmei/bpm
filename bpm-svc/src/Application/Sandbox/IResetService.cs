@@ -34,13 +34,11 @@ public interface IResetService
 
 /// <summary>
 /// Counts of rows hard-deleted by a single reset call. Returned to the
-/// caller so the UI can show "wiped 3 instances / 12 tasks / 47 history /
-/// 8 messages / 5 cases" without re-querying. <c>CasesDeleted</c> covers the
-/// Model-B <c>&lt;CODE&gt;_V*_Case</c> rows (the others are Model-A runtime tables).
+/// caller so the UI can show "wiped 5 cases / 8 messages" without re-querying.
+/// <c>CasesDeleted</c> covers the Model-B <c>&lt;CODE&gt;_V*_Case</c> rows; the
+/// Model-A runtime tables (ProcessInstance / ProcessTask / TaskHistory) were
+/// removed, so their counts no longer exist.
 /// </summary>
 public sealed record ResetSummary(
-    int InstancesDeleted,
-    int TasksDeleted,
-    int HistoryRowsDeleted,
     int CapturedMessagesDeleted,
     int CasesDeleted = 0);

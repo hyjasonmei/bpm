@@ -41,7 +41,7 @@ export function ResetTab() {
     try {
       setStep('wipe', 'running')
       const wipe = await factoryWipeRuntime()
-      setStep('wipe', 'done', `${wipe.casesDeleted} 案件 · ${wipe.instancesDeleted} instance · ${wipe.tasksDeleted} task`)
+      setStep('wipe', 'done', `${wipe.casesDeleted} 案件 · ${wipe.capturedMessagesDeleted} 通知`)
 
       setStep('reseed', 'running')
       const seed = await reseedIdentity()

@@ -40,28 +40,17 @@ public sealed class ResetService(
     {
         await EnsureSandboxOnAsync(ct);
 
-        // Order: history → tasks → instance → captured. SQLite without enforced
-        // FKs doesn't strictly require this but Postgres will, so we follow
-        // child-before-parent throughout. Captured rows reference the instance
-        // by id but the FK is nullable, so they sit at the end.
-        var historyDeleted = await db.TaskHistory
-            .Where(h => h.ProcessInstanceId == instanceId)
-            .ExecuteDeleteAsync(ct);
-        var tasksDeleted = await db.ProcessTasks
-            .Where(t => t.ProcessInstanceId == instanceId)
-            .ExecuteDeleteAsync(ct);
-        var instancesDeleted = await db.ProcessInstances
-            .Where(i => i.Id == instanceId)
-            .ExecuteDeleteAsync(ct);
+        // The Model-A ProcessInstance/Task/History tables were removed; the
+        // only per-instance state left is captured sandbox messages tagged
+        // with the (now-legacy) ProcessInstanceId correlation id.
         var capturedDeleted = await db.SandboxCapturedMessages
             .Where(m => m.ProcessInstanceId == instanceId)
             .ExecuteDeleteAsync(ct);
 
-        var summary = new ResetSummary(instancesDeleted, tasksDeleted, historyDeleted, capturedDeleted);
+        var summary = new ResetSummary(capturedDeleted);
         logger.LogInformation(
-            "Sandbox reset instance {InstanceId} by {Actor}: deleted {Instances} instance, {Tasks} tasks, {History} history, {Captured} captured",
-            instanceId, actorUserId, summary.InstancesDeleted, summary.TasksDeleted,
-            summary.HistoryRowsDeleted, summary.CapturedMessagesDeleted);
+            "Sandbox reset instance {InstanceId} by {Actor}: deleted {Captured} captured",
+            instanceId, actorUserId, summary.CapturedMessagesDeleted);
         return summary;
     }
 
@@ -70,17 +59,7 @@ public sealed class ResetService(
         await EnsureSandboxOnAsync(ct);
 
         // Tenant-scope every delete so spec / org / bundle / tenant-settings rows
-        // survive untouched. ExecuteDeleteAsync bypasses interceptors so the
-        // append-only TaskHistory guard doesn't fire.
-        var historyDeleted = await db.TaskHistory
-            .Where(h => h.TenantCode == DefaultTenant)
-            .ExecuteDeleteAsync(ct);
-        var tasksDeleted = await db.ProcessTasks
-            .Where(t => t.TenantCode == DefaultTenant)
-            .ExecuteDeleteAsync(ct);
-        var instancesDeleted = await db.ProcessInstances
-            .Where(i => i.TenantCode == DefaultTenant)
-            .ExecuteDeleteAsync(ct);
+        // survive untouched. ExecuteDeleteAsync bypasses interceptors.
         var capturedDeleted = await db.SandboxCapturedMessages
             .Where(m => m.TenantCode == DefaultTenant)
             .ExecuteDeleteAsync(ct);
@@ -93,11 +72,10 @@ public sealed class ResetService(
         // sandbox-on toggle itself (the tester wants to keep testing).
         await clockService.ResetAsync(ct);
 
-        var summary = new ResetSummary(instancesDeleted, tasksDeleted, historyDeleted, capturedDeleted, casesDeleted);
+        var summary = new ResetSummary(capturedDeleted, casesDeleted);
         logger.LogInformation(
-            "Sandbox reset ALL by {Actor}: deleted {Instances} instances, {Tasks} tasks, {History} history, {Captured} captured, {Cases} model-B cases (clock offset cleared)",
-            actorUserId, summary.InstancesDeleted, summary.TasksDeleted,
-            summary.HistoryRowsDeleted, summary.CapturedMessagesDeleted, summary.CasesDeleted);
+            "Sandbox reset ALL by {Actor}: deleted {Captured} captured, {Cases} model-B cases (clock offset cleared)",
+            actorUserId, summary.CapturedMessagesDeleted, summary.CasesDeleted);
         return summary;
     }
 
@@ -105,13 +83,9 @@ public sealed class ResetService(
     {
         // Deliberately NOT gated behind EnsureSandboxOnAsync and not
         // tenant-scoped — this is the admin "wipe back to seed-init" button,
-        // not a sandbox tester action. ExecuteDeleteAsync bypasses interceptors
-        // so the append-only TaskHistory guard doesn't fire. Child-before-parent
-        // order for the HR-flow pair (Postgres FK-safe).
+        // not a sandbox tester action. ExecuteDeleteAsync bypasses interceptors.
+        // Child-before-parent order for the HR-flow pair (Postgres FK-safe).
         var casesDeleted = await DeleteModelBCasesAsync(onlyFlowCode: null, ct);
-        var historyDeleted = await db.TaskHistory.ExecuteDeleteAsync(ct);
-        var tasksDeleted = await db.ProcessTasks.ExecuteDeleteAsync(ct);
-        var instancesDeleted = await db.ProcessInstances.ExecuteDeleteAsync(ct);
         var capturedDeleted = await db.SandboxCapturedMessages.ExecuteDeleteAsync(ct);
         await db.UserNotifications.ExecuteDeleteAsync(ct);
         await db.NotificationDispatchAudits.ExecuteDeleteAsync(ct);
@@ -129,9 +103,9 @@ public sealed class ResetService(
         catch (SandboxOffException) { /* no offset when sandbox is off */ }
 
         logger.LogWarning(
-            "FACTORY RESET: wiped all runtime data — {Cases} cases, {Instances} instances, {Tasks} tasks, {History} history, {Captured} captured",
-            casesDeleted, instancesDeleted, tasksDeleted, historyDeleted, capturedDeleted);
-        return new ResetSummary(instancesDeleted, tasksDeleted, historyDeleted, capturedDeleted, casesDeleted);
+            "FACTORY RESET: wiped all runtime data — {Cases} cases, {Captured} captured",
+            casesDeleted, capturedDeleted);
+        return new ResetSummary(capturedDeleted, casesDeleted);
     }
 
     public async Task<ResetSummary> ResetFlowAsync(string flowCode, Guid actorUserId, CancellationToken ct = default)
@@ -143,7 +117,7 @@ public sealed class ResetService(
             .Where(m => m.TenantCode == DefaultTenant && m.FlowCode == flowCode)
             .ExecuteDeleteAsync(ct);
 
-        var summary = new ResetSummary(0, 0, 0, capturedDeleted, casesDeleted);
+        var summary = new ResetSummary(capturedDeleted, casesDeleted);
         logger.LogInformation(
             "Sandbox reset flow {Flow} by {Actor}: deleted {Cases} cases, {Captured} captured",
             flowCode, actorUserId, casesDeleted, capturedDeleted);
