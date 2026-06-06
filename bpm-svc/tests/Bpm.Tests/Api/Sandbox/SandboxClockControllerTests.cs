@@ -299,11 +299,15 @@ public sealed class SandboxClockControllerTests : IDisposable
             => throw new NotSupportedException("clock-only test fixture");
         public Task<ResetSummary> ResetAllAsync(Guid actorUserId, CancellationToken ct = default)
             => throw new NotSupportedException("clock-only test fixture");
+        public Task<ResetSummary> ResetFlowAsync(string flowCode, Guid actorUserId, CancellationToken ct = default)
+            => throw new NotSupportedException("clock-only test fixture");
+        public Task<ResetSummary> FactoryResetAsync(CancellationToken ct = default)
+            => throw new NotSupportedException("clock-only test fixture");
     }
 
     private sealed class ThrowingMailboxService : IMailboxService
     {
-        public Task<IReadOnlyList<CapturedMessageSummaryDto>> ListAsync(Guid currentUserId, SandboxChannel? channel, Guid? recipientUserIdHint, Guid? processInstanceId, bool unreadOnly, int limit, CancellationToken ct = default)
+        public Task<IReadOnlyList<CapturedMessageSummaryDto>> ListAsync(Guid currentUserId, SandboxChannel? channel, Guid? recipientUserIdHint, Guid? processInstanceId, string? flowCode, bool unreadOnly, int limit, CancellationToken ct = default)
             => throw new NotSupportedException("clock-only test fixture");
         public Task<CapturedMessageDetailDto?> GetAsync(Guid id, Guid currentUserId, CancellationToken ct = default)
             => throw new NotSupportedException("clock-only test fixture");
