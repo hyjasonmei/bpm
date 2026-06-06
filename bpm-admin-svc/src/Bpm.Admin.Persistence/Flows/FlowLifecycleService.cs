@@ -74,10 +74,12 @@ public class FlowLifecycleService : IFlowLifecycleService
                 State = FlowState.Published,
                 FlowCode = code,
                 DisplayName = string.IsNullOrWhiteSpace(f.DisplayName) ? code : f.DisplayName.Trim(),
-                SpecJson = "{}",
-                // Code-registered flows have no AI-Kitchen spec; pull the
-                // canonical BPMN from the shipped bundle so the admin SOURCE
-                // step can show a read-only diagram (survives reset/reseed).
+                // Code-registered flows: pull the full spec + BPMN from the
+                // shipped bundle so the flow is a first-class, *versionable*
+                // flow in the AI Kitchen (editable spec, cloneable into a v2)
+                // instead of an empty stub. Falls back to "{}" / null when no
+                // matching bundle is found (e.g. LEAVE, which ships no bundle).
+                SpecJson = TryReadBundleSpec(code) ?? "{}",
                 BpmnXml = TryReadBundleBpmn(code),
                 CreatedByUserId = actorUserId,
             };
@@ -108,6 +110,53 @@ public class FlowLifecycleService : IFlowLifecycleService
     /// deployed admin-svc without the source tree) — the preview just stays
     /// empty. Proper long-term path: chef cook persists the bundle bpmn.
     /// </summary>
+    /// <summary>
+    /// Best-effort read of a shipped flow's full spec from the repo's
+    /// <c>bundles/**/spec.json</c> (matched by <c>meta.flowCode</c>, since the
+    /// bundle dir names aren't consistent). Stored into <see cref="Flow.SpecJson"/>
+    /// at register-shipped so the flow has an editable AI-Kitchen spec and can
+    /// be cloned into a new version. Returns null when no bundle matches (the
+    /// caller falls back to "{}"). Dev/POC convenience; the proper long-term
+    /// path is chef cook persisting the bundle. Same reachability caveat as
+    /// <see cref="TryReadBundleBpmn"/> (needs the source tree).
+    /// </summary>
+    private static string? TryReadBundleSpec(string flowCode)
+    {
+        try
+        {
+            var dir = AppContext.BaseDirectory;
+            for (var i = 0; i < 10 && dir is not null; i++)
+            {
+                var bundlesDir = System.IO.Path.Combine(dir, "bundles");
+                if (System.IO.Directory.Exists(bundlesDir))
+                {
+                    foreach (var file in System.IO.Directory.EnumerateFiles(bundlesDir, "spec.json", System.IO.SearchOption.AllDirectories))
+                    {
+                        try
+                        {
+                            var text = System.IO.File.ReadAllText(file);
+                            using var doc = System.Text.Json.JsonDocument.Parse(text);
+                            if (doc.RootElement.TryGetProperty("meta", out var meta)
+                                && meta.TryGetProperty("flowCode", out var fc)
+                                && string.Equals(fc.GetString(), flowCode, StringComparison.OrdinalIgnoreCase))
+                            {
+                                return text;
+                            }
+                        }
+                        catch { /* skip an unreadable / non-JSON spec file */ }
+                    }
+                    return null; // bundles dir located but no flowCode match
+                }
+                dir = System.IO.Directory.GetParent(dir)?.FullName;
+            }
+        }
+        catch
+        {
+            // Best-effort only.
+        }
+        return null;
+    }
+
     private static string? TryReadBundleBpmn(string flowCode)
     {
         try
@@ -439,8 +488,12 @@ public class FlowLifecycleService : IFlowLifecycleService
     public async Task<Flow> CloneVersionAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
     {
         var source = await Load(flowId, ct);
-        if (source.State != FlowState.Approved && source.State != FlowState.Retired)
-            throw new FlowLifecycleException($"Can only clone from Approved or Retired (state was {source.State})");
+        // A new version is conceptually "a fresh Draft reusing the flowCode +
+        // lineage". Allow forking from a live Published flow too (versioning a
+        // running flow), not just Approved/Retired — the source stays as-is.
+        // Draft/Submitted/Cooking/etc. are still rejected: nothing stable to fork.
+        if (source.State != FlowState.Approved && source.State != FlowState.Retired && source.State != FlowState.Published)
+            throw new FlowLifecycleException($"Can only clone from Published, Approved or Retired (state was {source.State})");
 
         var maxVersion = await _db.Flows
             .Where(f => f.LineageId == source.LineageId)
