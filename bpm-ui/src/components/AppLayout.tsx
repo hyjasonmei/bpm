@@ -46,7 +46,6 @@ export function AppLayout({ persona, setPersona, authedFullName = null, authPend
               <div className="flex h-7 w-7 items-center justify-center rounded bg-red-500 text-[10.5px] font-bold tracking-wider text-white">BPM</div>
             )}
             <span className="text-sm font-bold tracking-wide">{branding.systemName ?? 'BPM System'}</span>
-            <span className="ml-1 font-mono text-[10px] tracking-wider text-ink-muted">1.0.0</span>
           </Link>
 
           {/* Nav */}

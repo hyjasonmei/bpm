@@ -227,6 +227,7 @@ export function AccountMenu({
                     <span key={r} className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-ink-muted">{r}</span>
                   ))}
                 </div>
+                <div className="mt-1.5 font-mono text-[10px] tracking-wider text-ink-faint">v1.0.0</div>
               </div>
             </div>
           </div>
