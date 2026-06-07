@@ -44,6 +44,16 @@ public static class DependencyInjection
         {
             services.Configure<NotifyDispatcherOptions>(_ => { });
         }
+
+        // SMTP transport options (Bpm:Notifications:Smtp). Disabled by default;
+        // SmtpNotifyDispatcher no-ops until a deployment turns it on + points it
+        // at a real relay (ACS / SendGrid SMTP) via env.
+        var smtpSection = configuration?.GetSection("Bpm:Notifications:Smtp");
+        if (smtpSection is not null && smtpSection.Exists())
+            services.Configure<SmtpOptions>(smtpSection);
+        else
+            services.Configure<SmtpOptions>(_ => { });
+
         services.AddScoped<INotifyDispatcher, FileNotifyDispatcher>();
 
         services.AddMediatR(cfg =>

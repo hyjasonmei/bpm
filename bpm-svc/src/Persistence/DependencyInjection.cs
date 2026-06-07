@@ -125,10 +125,17 @@ public static class DependencyInjection
         services.AddScoped<FileNotifyDispatcher>();
         services.AddScoped<InAppNotifyDispatcher>();
         services.AddScoped<SandboxCaptureNotifyDispatcher>();
+        // SmtpNotifyDispatcher is the real outbound email transport (no-ops
+        // unless Bpm:Notifications:Smtp:Enabled). AuditNotifyDispatcher writes
+        // the production NotificationDispatchAudit row for every send.
+        services.AddScoped<SmtpNotifyDispatcher>();
+        services.AddScoped<AuditNotifyDispatcher>();
         services.AddScoped<INotifyDispatcher>(sp => new CompositeNotifyDispatcher(
             sp.GetRequiredService<FileNotifyDispatcher>(),
             sp.GetRequiredService<InAppNotifyDispatcher>(),
-            sp.GetRequiredService<SandboxCaptureNotifyDispatcher>()));
+            sp.GetRequiredService<SandboxCaptureNotifyDispatcher>(),
+            sp.GetRequiredService<SmtpNotifyDispatcher>(),
+            sp.GetRequiredService<AuditNotifyDispatcher>()));
 
         // Model-A process runtime (IProcessRuntime / IProcessQueryService /
         // ProcessAdminIntervention / ProcessSimulator / ProcessReporting) was
