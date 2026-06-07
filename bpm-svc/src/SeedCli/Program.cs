@@ -43,8 +43,8 @@ public static class Program
             configuration["ConnectionStrings:Default"] = connectionOverride;
         }
 
+        var dbProvider = configuration["Database:Provider"] ?? Bpm.Persistence.DbProviderSetup.DefaultProvider;
         var connStr = configuration.GetConnectionString("Default") ?? "Data Source=bpm.db";
-        connStr = Bpm.Persistence.DbPathResolver.Normalize(connStr);
 
         // Hand-roll just the DI we need (AppDbContext + audit interceptor +
         // bundle build/parse pipeline). This intentionally avoids
@@ -77,7 +77,7 @@ public static class Program
             sp.GetRequiredService<ICurrentUser>()));
         services.AddDbContext<AppDbContext>((sp, options) =>
         {
-            options.UseSqlite(connStr);
+            Bpm.Persistence.DbProviderSetup.Configure(options, dbProvider, connStr);
             options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
         });
 

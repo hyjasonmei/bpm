@@ -86,12 +86,12 @@ static async Task Status(string connectionString)
     Console.WriteLine($"AuditEvents: {await ctx.AuditEvents.CountAsync()}");
 }
 
-static DbContextOptions<AdminDbContext> AdminOptions(string connectionString) =>
-    new DbContextOptionsBuilder<AdminDbContext>()
-        .UseSqlite(connectionString, sqlite =>
-        {
-            // Match the API's MigrationsHistoryTable rename so SeedCli
-            // sees the same migration history rows as the running API.
-            sqlite.MigrationsHistoryTable("__AdminEFMigrationsHistory");
-        })
-        .Options;
+static DbContextOptions<AdminDbContext> AdminOptions(string connectionString)
+{
+    // Provider (sqlite | postgres) from config/env; history table matches the
+    // running API so SeedCli sees the same migration rows.
+    var builder = new DbContextOptionsBuilder<AdminDbContext>();
+    Bpm.Admin.Persistence.DbProviderSetup.Configure(
+        builder, Bpm.Admin.Persistence.DbProviderSetup.ResolveProvider(null), connectionString);
+    return builder.Options;
+}

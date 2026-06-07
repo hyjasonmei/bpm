@@ -75,12 +75,12 @@ public static class DependencyInjection
                 sp.GetRequiredService<ICurrentUser>(),
                 sp.GetService<ISandboxActorContext>()));
 
+        var dbProvider = configuration["Database:Provider"] ?? DbProviderSetup.DefaultProvider;
         var connectionString = configuration.GetConnectionString("Default") ?? "Data Source=bpm.db";
-        connectionString = DbPathResolver.Normalize(connectionString);
 
         services.AddDbContext<AppDbContext>((sp, options) =>
         {
-            options.UseSqlite(connectionString);
+            DbProviderSetup.Configure(options, dbProvider, connectionString);
             options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
         });
 

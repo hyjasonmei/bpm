@@ -52,13 +52,11 @@ builder.Services.AddDbContext<AdminDbContext>((sp, options) =>
     var connectionString = builder.Configuration.GetConnectionString("Admin")
         ?? builder.Configuration.GetConnectionString("Default")
         ?? "Data Source=bpm.db";
-    options.UseSqlite(DbPathResolver.Normalize(connectionString), sqlite =>
-    {
-        // Keep admin migrations in their own history table so bpm-svc
-        // and admin-svc can both apply migrations against the same
-        // physical file without EF rejecting "unknown" rows.
-        sqlite.MigrationsHistoryTable("__AdminEFMigrationsHistory");
-    });
+    // Provider (sqlite | postgres) is config-driven; admin migrations always
+    // live in their own history table so bpm-svc + admin-svc can both migrate
+    // the same physical database without EF rejecting each other's rows.
+    var dbProvider = DbProviderSetup.ResolveProvider(builder.Configuration["Database:Provider"]);
+    DbProviderSetup.Configure(options, dbProvider, connectionString);
     options.AddInterceptors(sp.GetRequiredService<AuditingSaveChangesInterceptor>());
 });
 

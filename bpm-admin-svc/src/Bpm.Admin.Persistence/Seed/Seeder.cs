@@ -18,10 +18,9 @@ public static class Seeder
     /// </summary>
     public static async Task SeedOrgAsync(string connectionString)
     {
-        var options = new DbContextOptionsBuilder<AdminDbContext>()
-            .UseSqlite(connectionString, sqlite =>
-                sqlite.MigrationsHistoryTable("__AdminEFMigrationsHistory"))
-            .Options;
+        var builder = new DbContextOptionsBuilder<AdminDbContext>();
+        DbProviderSetup.Configure(builder, DbProviderSetup.ResolveProvider(null), connectionString);
+        var options = builder.Options;
         await using var ctx = new AdminDbContext(options);
         var hasher = new PasswordHasher();
 
@@ -198,10 +197,9 @@ public static class Seeder
     /// </summary>
     public static async Task ClearOrgAsync(string connectionString)
     {
-        var options = new DbContextOptionsBuilder<AdminDbContext>()
-            .UseSqlite(connectionString, sqlite =>
-                sqlite.MigrationsHistoryTable("__AdminEFMigrationsHistory"))
-            .Options;
+        var builder = new DbContextOptionsBuilder<AdminDbContext>();
+        DbProviderSetup.Configure(builder, DbProviderSetup.ResolveProvider(null), connectionString);
+        var options = builder.Options;
         await using var ctx = new AdminDbContext(options);
         await ctx.Database.MigrateAsync();
         await ctx.Database.ExecuteSqlRawAsync(@"
