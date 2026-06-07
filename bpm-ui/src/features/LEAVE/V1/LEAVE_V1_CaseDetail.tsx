@@ -112,7 +112,6 @@ export function LEAVE_V1_CaseDetail({ caseId }: CaseDetailProps) {
   }, [caseId, archiveNote, load])
 
   const postCancel = useCallback(async () => {
-    if (!window.confirm('確定要撤回此申請？撤回後無法復原。')) return
     setActionPending(true); setActionError(null)
     try {
       const res = await apiFetch(`/api/leave/v1/${caseId}/cancel`, { method: 'POST' })
@@ -147,7 +146,7 @@ export function LEAVE_V1_CaseDetail({ caseId }: CaseDetailProps) {
     }
     // Submitter may withdraw their own case while it is still in flight.
     if (isSubmitter && data.status !== 'Completed' && data.status !== 'Rejected' && data.status !== 'Cancelled') {
-      actions.push({ id: 'withdraw', label: '撤回申請', variant: 'destructive', pending: actionPending, onClick: () => postCancel() })
+      actions.push({ id: 'withdraw', label: '撤回申請', variant: 'destructive', pending: actionPending, confirm: { titleZh: '撤回申請？', description: '撤回後無法復原。', confirmText: '確認撤回' }, onClick: () => postCancel() })
     }
     return actions
   }, [data, isCurrentAssignee, isSubmitter, actionPending, archiveNote, postApproval, postArchive, postCancel])

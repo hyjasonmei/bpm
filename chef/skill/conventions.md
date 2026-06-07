@@ -457,6 +457,17 @@ Variants map from `TaskAction.kind`: `submit`/`approve`/`complete` →
 `save_draft`/`custom` → default. Hide actions whose `guard` evaluates
 to false (or disable via `disabled` + `title`).
 
+**Every action confirms (product requirement).** `ActionFooter` shows a
+styled `ConfirmDialog` before firing `onClick` for **every** item by default —
+you don't wire confirm per-action and you MUST NOT use `window.confirm`. The
+auto modal derives its copy from the item `label` + `variant` (destructive →
+danger tone). Tailor it by passing `confirm: { titleZh, description,
+confirmText, tone }` (e.g. withdraw → `description: '撤回後無法復原。'`). Only a
+genuinely safe / non-mutating action (e.g. a `resubmit` that just navigates to
+the edit form, which has its own submit confirm) may opt out with
+`confirm: false`. Comment inputs for reject still live in an in-page
+SectionCard; the modal is the are-you-sure gate.
+
 ### Create-form submit bar → `<ActionFooter>`
 
 The submitter form (`<CODE>_V<N>_<Purpose>Form.tsx`, create mode) uses

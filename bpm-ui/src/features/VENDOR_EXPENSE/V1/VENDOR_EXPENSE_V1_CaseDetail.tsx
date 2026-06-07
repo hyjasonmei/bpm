@@ -96,7 +96,6 @@ export function VENDOR_EXPENSE_V1_CaseDetail({ caseId }: CaseDetailProps) {
   }, [caseId, approvalComment, load])
 
   const postCancel = useCallback(async () => {
-    if (!window.confirm('確定要撤回此申請？撤回後無法復原。')) return
     setActionPending(true); setActionError(null)
     try {
       const res = await apiFetch(`/api/vendor-expense/v1/${caseId}/cancel`, { method: 'POST' })
@@ -122,7 +121,7 @@ export function VENDOR_EXPENSE_V1_CaseDetail({ caseId }: CaseDetailProps) {
     }
     if (isSubmitter && data.status === 'ResubmitRequired') {
       actions.push({
-        id: 'resubmit',
+        id: 'resubmit', confirm: false,
         label: <span className="inline-flex items-center gap-1"><RotateCcw className="h-3.5 w-3.5" />修正後重新送出</span>,
         variant: 'primary',
         pending: actionPending,
@@ -131,7 +130,7 @@ export function VENDOR_EXPENSE_V1_CaseDetail({ caseId }: CaseDetailProps) {
     }
     // Submitter may withdraw their own case while it is still in flight.
     if (isSubmitter && data.status !== 'Completed' && data.status !== 'Cancelled') {
-      actions.push({ id: 'withdraw', label: '撤回申請', variant: 'destructive', pending: actionPending, onClick: () => postCancel() })
+      actions.push({ id: 'withdraw', label: '撤回申請', variant: 'destructive', pending: actionPending, confirm: { titleZh: '撤回申請？', description: '撤回後無法復原。', confirmText: '確認撤回' }, onClick: () => postCancel() })
     }
     return actions
   }, [data, isCurrentAssignee, isSubmitter, decisionPath, actionPending, postDecision, postCancel, navigate])

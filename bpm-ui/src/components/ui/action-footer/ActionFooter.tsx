@@ -1,8 +1,18 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Loader2 } from 'lucide-react'
 import { Button, type ButtonProps } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { cn } from '@/lib/cn'
+
+/** Per-action confirm modal copy. Pass `false` to opt OUT (rare). */
+export interface ActionConfirm {
+  title?: string
+  titleZh?: string
+  description?: string
+  confirmText?: string
+  tone?: 'danger' | 'default'
+}
 
 export interface ActionFooterItem {
   id: string
@@ -14,6 +24,12 @@ export interface ActionFooterItem {
   pending?: boolean
   /** Inline title attribute for hover tooltip (validation hint etc). */
   title?: string
+  /**
+   * Confirm modal before firing onClick. **Default ON** — every action gets a
+   * confirm step (product requirement). Pass an object to tailor the copy, or
+   * `false` to opt out for a genuinely safe action.
+   */
+  confirm?: ActionConfirm | false
   onClick: () => void | Promise<void>
 }
 
@@ -64,35 +80,63 @@ export interface ActionFooterProps {
  * `fixed` truly means viewport-fixed.
  */
 export function ActionFooter({ actions, hint, className }: ActionFooterProps) {
+  // Pending = the action awaiting its confirm modal. Every action confirms by
+  // default (product requirement); `confirm: false` opts a safe one out.
+  const [pending, setPending] = useState<ActionFooterItem | null>(null)
   if (actions.length === 0) return null
-  return createPortal(
-    <div
-      className={cn(
-        'fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-card/95 shadow-[0_-4px_12px_-8px_rgba(15,23,42,0.18)] backdrop-blur',
-        className,
+
+  const onButton = (a: ActionFooterItem) => {
+    if (a.confirm === false) { void a.onClick(); return }
+    setPending(a)
+  }
+
+  const c = pending && pending.confirm !== false ? (pending.confirm ?? {}) : null
+  const labelText = typeof pending?.label === 'string' ? pending.label : '此操作'
+
+  return (
+    <>
+      {createPortal(
+        <div
+          className={cn(
+            'fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-card/95 shadow-[0_-4px_12px_-8px_rgba(15,23,42,0.18)] backdrop-blur',
+            className,
+          )}
+        >
+          <div className="mx-auto flex max-w-screen-2xl items-center gap-3 px-4 py-3">
+            <div className="min-w-0 flex-1 text-xs text-ink-muted">
+              {hint}
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {actions.map(a => (
+                <Button
+                  key={a.id}
+                  variant={a.variant ?? 'primary'}
+                  size="md"
+                  disabled={a.disabled || a.pending}
+                  title={a.title}
+                  onClick={() => onButton(a)}
+                >
+                  {a.pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {a.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
-    >
-      <div className="mx-auto flex max-w-screen-2xl items-center gap-3 px-4 py-3">
-        <div className="min-w-0 flex-1 text-xs text-ink-muted">
-          {hint}
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {actions.map(a => (
-            <Button
-              key={a.id}
-              variant={a.variant ?? 'primary'}
-              size="md"
-              disabled={a.disabled || a.pending}
-              title={a.title}
-              onClick={() => { void a.onClick() }}
-            >
-              {a.pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {a.label}
-            </Button>
-          ))}
-        </div>
-      </div>
-    </div>,
-    document.body,
+      {pending && c && (
+        <ConfirmDialog
+          open
+          title={c.title ?? 'Confirm action'}
+          titleZh={c.titleZh ?? `確認${labelText}？`}
+          description={c.description}
+          confirmText={c.confirmText ?? '確認'}
+          tone={c.tone ?? (pending.variant === 'destructive' ? 'danger' : 'default')}
+          onConfirm={() => { const item = pending; setPending(null); void item.onClick() }}
+          onCancel={() => setPending(null)}
+        />
+      )}
+    </>
   )
 }
