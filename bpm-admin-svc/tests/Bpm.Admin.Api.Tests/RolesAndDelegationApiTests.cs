@@ -24,7 +24,7 @@ public class RolesAndDelegationApiTests : IClassFixture<AdminAppFactory>
         var client = _factory.CreateClient();
 
         var roleResp = await client.PostAsJsonAsync("/api/roles",
-            new CreateRoleRequest("Approver_" + Guid.NewGuid().ToString("N").Substring(0, 6), null));
+            new CreateRoleRequest("Approver_" + Guid.NewGuid().ToString("N").Substring(0, 6), "Approver", null));
         Assert.Equal(HttpStatusCode.Created, roleResp.StatusCode);
         var role = await roleResp.Content.ReadFromJsonAsync<RoleDto>();
         Assert.NotNull(role);

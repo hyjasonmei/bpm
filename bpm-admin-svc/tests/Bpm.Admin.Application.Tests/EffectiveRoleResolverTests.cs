@@ -31,7 +31,10 @@ public class EffectiveRoleResolverTests
 
     private static Guid AddRole(AdminDbContext ctx, string name)
     {
-        var r = new Role { Id = Guid.NewGuid(), Name = name };
+        // Code must be unique (A1 added a unique index on Admin_Roles.Code).
+        // Derive it from the name so tests creating several roles don't collide
+        // on the default empty string.
+        var r = new Role { Id = Guid.NewGuid(), Name = name, Code = $"{name}_{Guid.NewGuid():N}" };
         ctx.Roles.Add(r);
         ctx.SaveChanges();
         return r.Id;

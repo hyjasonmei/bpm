@@ -25,6 +25,17 @@ public class AdminAppFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
+        // A1 made the DbContext provider config-driven (default postgres). Force
+        // the sqlite branch so Program.cs registers the same provider this factory
+        // overrides with — otherwise EF sees both Npgsql + Sqlite registered and
+        // throws "Only a single database provider can be registered".
+        builder.UseSetting("Database:Provider", "sqlite");
+        // Disable startup org-seed: Seeder.SeedOrgAsync opens a NEW connection from
+        // the connection string, but in-memory sqlite (":memory:") gives each new
+        // connection its own empty db — the seed would write to a schema-less db and
+        // fail. These tests build their own fixtures and expect an empty store
+        // (e.g. Empty_list_returns_OK), so seeding is unwanted here anyway.
+        Environment.SetEnvironmentVariable("FLOWCOOK_ADMIN_SEED_ON_STARTUP", "false");
 
         builder.ConfigureServices(services =>
         {

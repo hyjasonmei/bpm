@@ -19,12 +19,9 @@ public class AuthApiTests : IClassFixture<AdminAppFactory>
     }
 
     [Fact]
-    public async Task Full_Login_Logout_Flow()
+    public async Task Login_Mints_Jwt_That_Authorizes_Me()
     {
-        var client = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
-        {
-            HandleCookies = true,
-        });
+        var client = _factory.CreateClient();
 
         var createResp = await client.PostAsJsonAsync("/api/principals",
             new CreatePrincipalRequest(PrincipalType.User, "AuthFlowUser", "auth-flow@example.com"));
@@ -38,25 +35,28 @@ public class AuthApiTests : IClassFixture<AdminAppFactory>
         var bad = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("auth-flow@example.com", "wrong"));
         Assert.Equal(HttpStatusCode.Unauthorized, bad.StatusCode);
 
-        // Right password
+        // Right password → JWT in the body (no cookie)
         var ok = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("auth-flow@example.com", "hunter22"));
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
         var loginBody = await ok.Content.ReadFromJsonAsync<LoginResponse>();
         Assert.Equal(user.Id, loginBody!.UserId);
+        Assert.False(string.IsNullOrWhiteSpace(loginBody.Token));
 
-        // Cookie is now in client; /me should succeed
-        var me = await client.GetAsync("/api/auth/me");
+        // Bearer the token → /me succeeds and echoes the user
+        var meReq = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
+        meReq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", loginBody.Token);
+        var me = await client.SendAsync(meReq);
         Assert.Equal(HttpStatusCode.OK, me.StatusCode);
         var meBody = await me.Content.ReadFromJsonAsync<CurrentUserResponse>();
         Assert.Equal(user.Id, meBody!.UserId);
 
-        // Logout
+        // No bearer → /me is anonymous → 401
+        var meAnon = await client.GetAsync("/api/auth/me");
+        Assert.Equal(HttpStatusCode.Unauthorized, meAnon.StatusCode);
+
+        // Logout is a stateless no-op (token TTL governs)
         var logout = await client.PostAsync("/api/auth/logout", null);
         Assert.Equal(HttpStatusCode.NoContent, logout.StatusCode);
-
-        // /me should now 401
-        var meAfter = await client.GetAsync("/api/auth/me");
-        Assert.Equal(HttpStatusCode.Unauthorized, meAfter.StatusCode);
     }
 
     [Fact]
