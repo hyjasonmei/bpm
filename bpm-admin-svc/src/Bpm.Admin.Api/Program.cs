@@ -194,7 +194,15 @@ using (var scope = app.Services.CreateScope())
             ?? (app.Environment.IsDevelopment() ? "true" : "false")).ToLowerInvariant() == "true";
         if (allowSeed && !await db.Principals.AnyAsync())
         {
-            var conn = db.Database.GetDbConnection().ConnectionString;
+            // Use the CONFIGURED connection string (carries the password). NOT
+            // db.Database.GetDbConnection().ConnectionString — Npgsql strips the
+            // password from that (Persist Security Info=false), so SeedOrgAsync's
+            // fresh connection fails SCRAM auth against Azure Postgres ("No
+            // password has been provided"). Local Postgres auth is laxer so this
+            // only bites in the cloud.
+            var conn = app.Configuration.GetConnectionString("Admin")
+                ?? app.Configuration.GetConnectionString("Default")
+                ?? db.Database.GetDbConnection().ConnectionString;
             logger.LogInformation("Admin DB empty — seeding org graph (13 users / 6 depts / 14 roles)");
             await Bpm.Admin.Persistence.Seed.Seeder.SeedOrgAsync(conn);
             logger.LogInformation("Admin seed complete. Demo password: {DemoPassword}", Bpm.Admin.Persistence.Seed.Seeder.DemoPassword);
