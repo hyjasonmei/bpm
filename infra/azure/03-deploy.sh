@@ -19,6 +19,8 @@ az account show >/dev/null 2>&1 || die "Not logged in — run 'az login'."
 command -v dotnet >/dev/null || die "dotnet SDK not found."
 command -v npm >/dev/null || die "npm not found."
 
+resolve_azure_hostnames   # option A: bake Azure default hostnames into VITE_* URLs
+
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 
 # ── Deploy one .NET API ─────────────────────────────────────────────────────
@@ -35,7 +37,10 @@ deploy_api() {
   fi
   ( cd "$out" && zip -qr "$WORK/$app.zip" . )
   say "Deploying $app → Azure"
-  az webapp deploy -n "$app" -g "$RG" --src-path "$WORK/$app.zip" --type zip -o none
+  # --track-status false: don't block on the startup probe. A cold start that
+  # also runs EF migrate + first-boot seed can exceed the 10-min deploy timeout
+  # and report a false "Site failed to start" even though the app comes up fine.
+  az webapp deploy -n "$app" -g "$RG" --src-path "$WORK/$app.zip" --type zip --track-status false -o none
   ok "$app deployed → https://$(az webapp show -n "$app" -g "$RG" --query defaultHostName -o tsv)"
 }
 
@@ -43,7 +48,7 @@ deploy_api() {
 deploy_api "$ADMIN_SVC_APP" "$ADMIN_SVC_PROJ" "Bpm.Admin.Api"
 say "Waiting 20s for admin-svc to migrate + seed before bringing up bpm-svc…"
 sleep 20
-deploy_api "$BPM_SVC_APP" "$BPM_SVC_PROJ" "Api"
+deploy_api "$BPM_SVC_APP" "$BPM_SVC_PROJ" "Bpm.Api"   # csproj AssemblyName is Bpm.Api, not Api
 
 # ── Deploy one Static Web App ───────────────────────────────────────────────
 command -v swa >/dev/null || die "SWA CLI not found — npm i -g @azure/static-web-apps-cli"

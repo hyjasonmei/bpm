@@ -38,6 +38,13 @@ BPM_API_FQDN="${ENV_PREFIX}-api.${DOMAIN}"
 ADMIN_API_FQDN="${ENV_PREFIX}-admin-api.${DOMAIN}"
 WWW_FQDN="www.${DOMAIN}"
 
+# ── Option A: Azure-default hostnames (no custom DNS) ───────────────────────
+# When true, 02/03 repoint the *_FQDN vars at the Azure-assigned hostnames
+# (<app>.azurewebsites.net / <swa>.azurestaticapps.net) discovered after 01, so
+# CORS + the frontend API URLs use the real reachable hosts with zero DNS work.
+# Flip to false (+ set DOMAIN) later to cut over to custom domains.
+USE_DEFAULT_HOSTNAMES="${USE_DEFAULT_HOSTNAMES:-true}"
+
 # ── SKUs (start small; scale later) ─────────────────────────────────────────
 PLAN_SKU="${PLAN_SKU:-B1}"                 # Linux App Service plan
 PG_SKU="${PG_SKU:-Standard_B1ms}"          # Postgres Flexible burstable
@@ -98,3 +105,16 @@ die()  { printf '\033[1;31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 
 # Idempotent guard: run an `az ... show` probe; create only if it fails.
 exists() { eval "$1" >/dev/null 2>&1; }
+
+# Option A: repoint the *_FQDN vars at the Azure-assigned hostnames discovered
+# after 01. Called at the top of 02 and 03 so CORS + the frontend API URLs use
+# the real reachable hosts (no DNS). No-op unless USE_DEFAULT_HOSTNAMES=true.
+resolve_azure_hostnames() {
+  [ "${USE_DEFAULT_HOSTNAMES:-false}" = "true" ] || return 0
+  BPM_API_FQDN="$(az webapp show -n "$BPM_SVC_APP" -g "$RG" --query defaultHostName -o tsv)"
+  ADMIN_API_FQDN="$(az webapp show -n "$ADMIN_SVC_APP" -g "$RG" --query defaultHostName -o tsv)"
+  BPM_UI_FQDN="$(az staticwebapp show -n "$BPM_UI_SWA" -g "$RG" --query defaultHostname -o tsv)"
+  ADMIN_UI_FQDN="$(az staticwebapp show -n "$ADMIN_UI_SWA" -g "$RG" --query defaultHostname -o tsv)"
+  WWW_FQDN="$(az staticwebapp show -n "$WWW_SWA" -g "$RG" --query defaultHostname -o tsv)"
+  say "Using Azure default hostnames: ui=$BPM_UI_FQDN api=$BPM_API_FQDN admin-ui=$ADMIN_UI_FQDN admin-api=$ADMIN_API_FQDN"
+}

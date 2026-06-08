@@ -21,6 +21,15 @@ az account show >/dev/null 2>&1 || die "Not logged in — run 'az login' (and 'a
 SUB="$(az account show --query name -o tsv)"
 say "Subscription: $SUB   ·   Env: $ENV_PREFIX   ·   RG: $RG   ·   Region: $LOCATION"
 
+# ── Resource providers (fresh subscriptions aren't registered for these) ────
+# --wait blocks until each provider reaches Registered. No-op once registered.
+say "Registering resource providers (one-time on a fresh subscription)…"
+for ns in Microsoft.KeyVault Microsoft.Web Microsoft.DBforPostgreSQL Microsoft.Storage Microsoft.Network; do
+  az provider register --namespace "$ns" --wait -o none 2>/dev/null \
+    && ok "provider $ns registered" \
+    || warn "provider $ns register skipped/failed"
+done
+
 # ── Resource group ──────────────────────────────────────────────────────────
 if exists "az group show -n '$RG'"; then ok "RG $RG exists"; else
   say "Creating RG $RG"; az group create -n "$RG" -l "$LOCATION" -o none; ok "RG $RG"

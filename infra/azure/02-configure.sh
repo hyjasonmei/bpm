@@ -17,6 +17,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$HERE/${CONFIG:-00-config.sh}"
 az account show >/dev/null 2>&1 || die "Not logged in — run 'az login'."
 
+resolve_azure_hostnames   # option A: repoint *_FQDN at Azure default hostnames
+
 KV_URI="$(az keyvault show -n "$KV_NAME" -g "$RG" --query properties.vaultUri -o tsv)"
 kv_set() { az keyvault secret set --vault-name "$KV_NAME" -n "$1" --value "$2" -o none; }
 kv_ref() { printf '@Microsoft.KeyVault(SecretUri=%ssecrets/%s)' "$KV_URI" "$1"; }
