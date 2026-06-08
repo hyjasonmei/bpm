@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { api, ApiError } from '@/flowcook/api'
+import { setJwt, clearJwt } from '@/lib/apiFetch'
 import type { CurrentUser } from '@/flowcook/types'
 
 interface AuthState {
@@ -36,10 +37,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refresh])
 
   const login = useCallback(async (username: string, password: string) => {
-    await api('/api/auth/login', {
+    // JWT login: store the token (key shared with lib/apiFetch so /bpmsvc calls
+    // to bpm-svc carry the same bearer), then load the user via /api/auth/me.
+    const res = await api<{ token: string }>('/api/auth/login', {
       method: 'POST',
       json: { username, password },
     })
+    setJwt(res.token)
     await refresh()
   }, [refresh])
 
@@ -47,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await api('/api/auth/logout', { method: 'POST' })
     } catch { /* tolerate failure */ }
+    clearJwt()
     setState({ status: 'unauthenticated', user: null })
   }, [])
 

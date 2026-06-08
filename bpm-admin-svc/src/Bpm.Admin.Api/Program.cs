@@ -1,6 +1,9 @@
+using System.Text;
 using System.Text.Json;
 using Bpm.Admin.Api.Auth;
 using Bpm.Admin.Api.Common;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Bpm.Admin.Application.Audit;
 using Bpm.Admin.Application.Auth;
 using Bpm.Admin.Application.Bundle;
@@ -19,6 +22,54 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+
+// ── Unify-JWT auth ──────────────────────────────────────────────────────────
+// admin-svc mints and validates the SAME token shape bpm-svc does (issuer
+// "bpm-svc", audience "bpm-ui", shared BPM_JWT_SECRET, sub = Admin_Principals id).
+// One admin login yields a bearer good against both /api (admin-svc) and
+// /bpmsvc (bpm-svc) — no cookie, no per-service login, no same-origin proxy.
+var jwtSecret = Environment.GetEnvironmentVariable("BPM_JWT_SECRET")
+    ?? "dev-secret-do-not-use-in-prod-must-be-32-bytes-long-x";  // dev fallback (matches bpm-svc)
+if (jwtSecret.Length < 32)
+    throw new InvalidOperationException("BPM_JWT_SECRET must be ≥ 32 bytes (current length: " + jwtSecret.Length + ")");
+var jwtOptions = new JwtOptions { Secret = jwtSecret };
+builder.Services.AddSingleton(jwtOptions);
+builder.Services.AddScoped<AdminJwtTokenService>();
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(opts =>
+    {
+        opts.RequireHttpsMetadata = false;
+        // Default inbound mapping ON: the token's "sub" maps to
+        // ClaimTypes.NameIdentifier, so the existing controllers
+        // (FlowsController / FlowGroupsController / FeatureTablesController /
+        // AuthController.Me) read the user id unchanged. RoleClaimType "roles"
+        // matches the repeated roles claims for User.IsInRole.
+        opts.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtOptions.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwtOptions.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(1),
+            RoleClaimType = "roles",
+        };
+    });
+builder.Services.AddAuthorization();
+
+// admin-ui calls admin-svc cross-origin with a JWT bearer (no cookie post
+// unify-jwt). Allowed origins are config-driven per environment.
+builder.Services.AddCors(o => o.AddPolicy("admin-ui", p =>
+{
+    var configured = builder.Configuration["Cors:AdminUiOrigin"]
+        ?? "http://localhost:5173,http://localhost:5174,http://localhost:5175";
+    var origins = configured.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    p.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+}));
 
 // PR-K1 / K2 dev ergonomics: when running in Development with no chef
 // token configured, fall back to a known constant. Lets a local chef
@@ -128,7 +179,16 @@ using (var scope = app.Services.CreateScope())
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     try
     {
-        await db.Database.MigrateAsync();
+        // Provider-aware schema init: postgres (prod / local) applies migrations;
+        // sqlite (in-memory tests, legacy local) builds straight from the model
+        // via EnsureCreated. The migrations + snapshot are postgres-flavoured
+        // (A1), so running MigrateAsync against sqlite trips
+        // PendingModelChangesWarning — EnsureCreated sidesteps it and needs no
+        // provider-specific migration history.
+        if (db.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true)
+            await db.Database.EnsureCreatedAsync();
+        else
+            await db.Database.MigrateAsync();
 
         var allowSeed = (Environment.GetEnvironmentVariable("FLOWCOOK_ADMIN_SEED_ON_STARTUP")
             ?? (app.Environment.IsDevelopment() ? "true" : "false")).ToLowerInvariant() == "true";
@@ -182,10 +242,11 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseMiddleware<SessionAuthMiddleware>();
-// PR-K1: chef token auth runs *after* the user session middleware so
-// the chef token never overrides an already-logged-in admin user, but
-// can claim an otherwise-anonymous request as a Chef.
+app.UseCors("admin-ui");
+app.UseAuthentication();
+// PR-K1: chef token auth runs *after* JWT authentication so the chef token
+// never overrides an already-logged-in admin user, but can claim an otherwise-
+// anonymous request as a Chef. (SessionAuthMiddleware retired by unify-jwt.)
 app.UseMiddleware<ChefTokenAuthMiddleware>();
 app.UseAuthorization();
 

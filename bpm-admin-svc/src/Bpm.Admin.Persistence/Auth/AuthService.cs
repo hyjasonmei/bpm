@@ -21,6 +21,45 @@ public class AuthService : IAuthService
         _audit = audit;
     }
 
+    public async Task<AuthenticatedUser?> AuthenticateAsync(string username, string password, string? ipAddress, string? userAgent, CancellationToken ct = default)
+    {
+        var user = await _db.Principals
+            .Where(p => p.Type == PrincipalType.User && p.Email == username && p.Active)
+            .FirstOrDefaultAsync(ct);
+        if (user is null || user.DeletedAt != null)
+        {
+            await _audit.LogAsync("login_fail", "session", null, null, null,
+                after: new { username, reason = "user_not_found" }, ct: ct);
+            return null;
+        }
+
+        var credential = await _db.UserCredentials.FirstOrDefaultAsync(c => c.UserId == user.Id, ct);
+        if (credential is null || !_hasher.Verify(password, credential.PasswordHash))
+        {
+            await _audit.LogAsync("login_fail", "session", null, user.Id, user.Id,
+                after: new { username, reason = "bad_password" }, ct: ct);
+            return null;
+        }
+
+        // Direct role assignments only — inherited roles (via dept/group) are
+        // layered in later by the resolver, matching bpm-svc's login behaviour.
+        var roleNames = await (
+            from pr in _db.PrincipalRoles
+            where pr.PrincipalId == user.Id
+            join r in _db.Roles on pr.RoleId equals r.Id
+            select r.Code).ToListAsync(ct);
+
+        var primaryDept = await (
+            from ud in _db.UserDepts
+            where ud.UserId == user.Id && ud.IsPrimary
+            join d in _db.Principals on ud.DeptId equals d.Id
+            select d.DisplayName).FirstOrDefaultAsync(ct);
+
+        await _audit.LogAsync("login", "session", null, user.Id, user.Id, ct: ct);
+
+        return new AuthenticatedUser(user.Id, user.DisplayName, user.Email ?? string.Empty, roleNames, primaryDept);
+    }
+
     public async Task<AuthenticatedSession?> LoginAsync(string username, string password, string? ipAddress, string? userAgent, CancellationToken ct = default)
     {
         // Username is the principal email (v0 simplification: human-friendly identifier)

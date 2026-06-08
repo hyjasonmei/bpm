@@ -10,10 +10,12 @@ namespace Bpm.Admin.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _auth;
+    private readonly AdminJwtTokenService _jwt;
 
-    public AuthController(IAuthService auth)
+    public AuthController(IAuthService auth, AdminJwtTokenService jwt)
     {
         _auth = auth;
+        _jwt = jwt;
     }
 
     [HttpPost("login")]
@@ -24,39 +26,32 @@ public class AuthController : ControllerBase
 
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
         var ua = Request.Headers.UserAgent.ToString();
-        var session = await _auth.LoginAsync(req.Username, req.Password, ip, ua, ct);
-        if (session is null) return Unauthorized();
+        var authed = await _auth.AuthenticateAsync(req.Username, req.Password, ip, ua, ct);
+        if (authed is null) return Unauthorized();
 
-        Response.Cookies.Append(SessionAuthDefaults.CookieName, session.SessionId.ToString(), new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = Request.IsHttps,
-            SameSite = SameSiteMode.Strict,
-            Expires = session.ExpiresAt,
-        });
+        // Mint a token whose claims (sub/email/roles/...) bpm-svc also accepts,
+        // so admin-ui can call both /api and /bpmsvc with this single bearer.
+        var (token, expiresAt) = _jwt.MintForUser(
+            authed.UserId, authed.Email, authed.DisplayName, authed.Roles, authed.DepartmentCode);
 
-        return Ok(new LoginResponse(session.UserId, session.DisplayName));
+        return Ok(new LoginResponse(
+            token, expiresAt, authed.UserId, authed.DisplayName, authed.Roles, authed.DepartmentCode));
     }
 
+    /// <summary>Stateless logout — JWT TTL governs; the client discards the token.</summary>
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout(CancellationToken ct)
-    {
-        if (Request.Cookies.TryGetValue(SessionAuthDefaults.CookieName, out var cookie) &&
-            Guid.TryParse(cookie, out var sessionId))
-        {
-            await _auth.LogoutAsync(sessionId, ct);
-        }
-        Response.Cookies.Delete(SessionAuthDefaults.CookieName);
-        return NoContent();
-    }
+    public IActionResult Logout() => NoContent();
 
     [HttpGet("me")]
     public ActionResult<CurrentUserResponse> Me()
     {
         if (User.Identity?.IsAuthenticated != true) return Unauthorized();
+        // MapInboundClaims maps the token's "sub" → NameIdentifier and "email"
+        // → Email; "full_name" is a custom claim read directly.
         var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        var nameClaim = User.FindFirstValue(ClaimTypes.Name);
-        if (idClaim is null || nameClaim is null) return Unauthorized();
-        return Ok(new CurrentUserResponse(Guid.Parse(idClaim), nameClaim, null));
+        if (idClaim is null || !Guid.TryParse(idClaim, out var uid)) return Unauthorized();
+        var name = User.FindFirstValue("full_name") ?? User.FindFirstValue(ClaimTypes.Name) ?? string.Empty;
+        var email = User.FindFirstValue(ClaimTypes.Email);
+        return Ok(new CurrentUserResponse(uid, name, email));
     }
 }
