@@ -234,6 +234,56 @@ public class FlowLifecycleService : IFlowLifecycleService
         return row;
     }
 
+    public async Task<Flow> RenameAsync(Guid flowId, string displayName, Guid? actorUserId, CancellationToken ct = default)
+    {
+        var name = (displayName ?? string.Empty).Trim();
+        if (name.Length == 0)
+            throw new FlowLifecycleException("Display name cannot be empty.");
+
+        var row = await Load(flowId, ct);
+        var before = SnapshotSpec(row);
+        row.DisplayName = name;
+
+        // Keep spec.meta.flowName in step with the row label so the wizard
+        // title + anything reading the spec match. Tolerate a spec that
+        // isn't valid JSON (older / hand-edited rows) — the row label is
+        // the source of truth either way.
+        if (!string.IsNullOrWhiteSpace(row.SpecJson))
+        {
+            try
+            {
+                if (System.Text.Json.Nodes.JsonNode.Parse(row.SpecJson) is System.Text.Json.Nodes.JsonObject obj)
+                {
+                    if (obj["meta"] is not System.Text.Json.Nodes.JsonObject meta)
+                    {
+                        meta = new System.Text.Json.Nodes.JsonObject();
+                        obj["meta"] = meta;
+                    }
+                    meta["flowName"] = name;
+                    row.SpecJson = obj.ToJsonString();
+                }
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // Leave SpecJson untouched; DisplayName is already updated.
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(
+            actionType: "flow_renamed",
+            targetType: "flow",
+            targetId: row.Id.ToString(),
+            actorUserId: actorUserId,
+            actorPrincipalId: null,
+            before: before,
+            after: SnapshotSpec(row),
+            ct: ct);
+
+        return row;
+    }
+
     public async Task<Flow> SubmitAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
     {
         // FlowCode uniqueness check (PR-F1): an "active" flow with the

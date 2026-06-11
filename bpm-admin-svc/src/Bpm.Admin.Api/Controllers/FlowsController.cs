@@ -102,6 +102,12 @@ public class FlowsController : ControllerBase
         catch (FlowLifecycleException ex) { return Conflict(ex.Message); }
     }
 
+    /// <summary>Rename a flow's display label only — allowed in any state.
+    /// Does not touch flowCode or spec behaviour (only syncs meta.flowName).</summary>
+    [HttpPatch("{id:guid}/display-name")]
+    public Task<ActionResult<FlowDetailDto>> Rename(Guid id, [FromBody] RenameFlowRequest req, CancellationToken ct)
+        => RunTransition(() => _lifecycle.RenameAsync(id, req.DisplayName, CurrentUserId(), ct));
+
     [HttpPost("{id:guid}/submit")]
     public Task<ActionResult<FlowDetailDto>> Submit(Guid id, CancellationToken ct)
         => RunTransition(() => _lifecycle.SubmitAsync(id, CurrentUserId(), ct));

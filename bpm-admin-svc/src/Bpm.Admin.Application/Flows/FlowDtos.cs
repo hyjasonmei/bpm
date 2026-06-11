@@ -53,6 +53,10 @@ public record ReorderFlowsRequest(IReadOnlyList<Guid> FlowIds);
 
 public record UpdateFlowSpecRequest(string SpecJson, string? FlowCode, string? DisplayName);
 
+/// <summary>Rename a flow's display label (any state). See
+/// <c>IFlowLifecycleService.RenameAsync</c>.</summary>
+public record RenameFlowRequest(string DisplayName);
+
 public record OnHoldRequest(string Question);
 
 // ── PR-K1: chef chat / lifecycle DTOs ─────────────────────────────────

@@ -31,6 +31,14 @@ public interface IFlowLifecycleService
 
     Task<Flow> UpdateSpecAsync(Guid flowId, string specJson, string? flowCode, string? displayName, Guid? actorUserId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Rename the flow's display label only — allowed in ANY state (the
+    /// display name is a label, not behaviour). Also syncs the spec's
+    /// <c>meta.flowName</c> so the wizard title and launcher stay in step.
+    /// Does NOT touch flowCode / spec semantics.
+    /// </summary>
+    Task<Flow> RenameAsync(Guid flowId, string displayName, Guid? actorUserId, CancellationToken ct = default);
+
     Task<Flow> SubmitAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
     Task<Flow> CancelAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
     Task<Flow> ResumeAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
