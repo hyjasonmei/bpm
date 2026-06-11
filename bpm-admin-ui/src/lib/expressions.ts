@@ -11,6 +11,7 @@
  * raw evaluator message so we never hide a real parse/scope error.
  */
 import { useEffect, useRef, useState } from 'react'
+import { apiRaw } from '@/flowcook/api'
 // Validator endpoint lives on admin-svc. We hit it with a relative-URL
 // fetch so the vite dev proxy targets the right server (apiFetch points
 // at bpm-svc, which is wrong now — bpm-svc no longer carries authoring
@@ -49,17 +50,16 @@ export async function validateExpression(
   signal?: AbortSignal,
 ): Promise<ValidateExpressionResponse> {
   try {
-    const res = await fetch('/api/specs/validate-expression', {
+    const res = await apiRaw('/api/specs/validate-expression', {
       method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({
+      headers: { Accept: 'application/json' },
+      json: {
         expression,
         shape,
         sample_context: sampleContext
           ? { form_data: sampleContext.formData, now: sampleContext.now }
           : null,
-      }),
+      },
       signal,
     })
     if (!res.ok) {

@@ -41,6 +41,7 @@ import { assignFlowGroup, listFlowGroups, type FlowGroupDto } from '@/flowcook/a
 import { resolveIcon } from '@/flowcook/pages/sitesetting/FlowGroupsTab'
 import { FolderPlus, GitBranch, Tag } from 'lucide-react'
 import { parseChefWorkContext } from '@/flowcook/api/flows'
+import { apiRaw } from '@/flowcook/api'
 import { CookPanel } from './aiKitchen/CookPanel'
 import { ServePanel } from './aiKitchen/ServePanel'
 import { LauncherPreviewPanel } from './aiKitchen/LauncherPreviewPanel'
@@ -699,16 +700,14 @@ function WizardView({
       expectedTrace: [],
       expectedFinalStatus: 'Completed',
     }]
-    const res = await fetch(`/api/flows/${flow.id}/bundle`, {
+    const res = await apiRaw(`/api/flows/${flow.id}/bundle`, {
       method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      json: {
         bpmnXml,
         sampleOrg: draft.sampleOrg,
         testCases,
         sourceInstanceId: `flow:${flow.id}`,
-      }),
+      },
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
     await res.blob()  // drain so the connection releases
@@ -750,16 +749,14 @@ function WizardView({
         expectedTrace: [],
         expectedFinalStatus: 'Completed',
       }]
-      const res = await fetch(`/api/flows/${flow.id}/bundle`, {
+      const res = await apiRaw(`/api/flows/${flow.id}/bundle`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        json: {
           bpmnXml,
           sampleOrg: draft.sampleOrg,
           testCases,
           sourceInstanceId: `flow:${flow.id}`,
-        }),
+        },
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`)
       const blob = await res.blob()

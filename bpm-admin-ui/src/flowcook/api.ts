@@ -28,6 +28,33 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Like {@link api} but returns the raw `Response` so callers can read a
+ * binary/blob body (e.g. the bundle .zip). Still routes through
+ * `resolveUrl` (so it hits VITE_ADMIN_SVC_URL in prod, not the SPA origin)
+ * and injects the JWT bearer. Does NOT throw on non-2xx — the caller
+ * inspects `res.ok` / `res.status` itself. Clears the token on 401.
+ */
+export async function apiRaw(
+  path: string,
+  init: RequestInit & { json?: unknown } = {},
+): Promise<Response> {
+  const { json, headers, ...rest } = init
+  const token = getJwt()
+  const finalHeaders: Record<string, string> = {
+    ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(headers as Record<string, string> | undefined),
+  }
+  const res = await fetch(resolveUrl(path), {
+    headers: finalHeaders,
+    body: json !== undefined ? JSON.stringify(json) : (rest.body as BodyInit | null | undefined),
+    ...rest,
+  })
+  if (res.status === 401) clearJwt()
+  return res
+}
+
 export async function api<T = unknown>(
   path: string,
   init: RequestInit & { json?: unknown } = {},
