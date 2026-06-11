@@ -7,6 +7,7 @@ import {
   Copy,
   Download,
   PackagePlus,
+  Pencil,
   RefreshCw,
   Save,
   Trash2,
@@ -27,6 +28,7 @@ import {
   cloneFlowVersion,
   createFlow,
   deleteFlow,
+  renameFlow,
   retireFlow,
   unretireFlow,
   type FlowDetail,
@@ -42,6 +44,8 @@ import { resolveIcon } from '@/flowcook/pages/sitesetting/FlowGroupsTab'
 import { FolderPlus, GitBranch, Tag } from 'lucide-react'
 import { parseChefWorkContext } from '@/flowcook/api/flows'
 import { apiRaw } from '@/flowcook/api'
+import { Modal } from '@/components/ui/modal'
+import { Button } from '@/components/ui/button'
 import { CookPanel } from './aiKitchen/CookPanel'
 import { ServePanel } from './aiKitchen/ServePanel'
 import { LauncherPreviewPanel } from './aiKitchen/LauncherPreviewPanel'
@@ -132,6 +136,10 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
   // PR-G2: groups for the row chip + assignment sub-menu. Loaded
   // alongside flows on mount.
   const [groups, setGroups] = useState<FlowGroupDto[]>([])
+  // Rename dialog: the row being renamed + the editable draft name.
+  const [renameTarget, setRenameTarget] = useState<FlowSummary | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [renameSaving, setRenameSaving] = useState(false)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -212,6 +220,24 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
   async function handleAssignGroup(row: FlowSummary, groupId: string | null) {
     await withPending(row.id, () => assignFlowGroup(row.id, groupId))
     await refresh()
+  }
+
+  function openRename(row: FlowSummary) {
+    setRenameTarget(row)
+    setRenameValue(row.displayName)
+  }
+
+  async function submitRename() {
+    if (!renameTarget) return
+    const name = renameValue.trim()
+    if (!name || name === renameTarget.displayName) { setRenameTarget(null); return }
+    setRenameSaving(true)
+    const ok = await withPending(renameTarget.id, () => renameFlow(renameTarget.id, name))
+    setRenameSaving(false)
+    if (ok) {
+      setRenameTarget(null)
+      await refresh()
+    }
   }
 
   async function cookNew(flowCode: string, displayName: string) {
@@ -336,6 +362,14 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                           icon: <ChefHat className="h-3 w-3" />,
                           onClick: () => { void onOpenFlow(f.id) },
                         },
+                        {
+                          id: 'rename',
+                          label: '改名 / Rename',
+                          icon: <Pencil className="h-3 w-3" />,
+                          disabled: rowBusy,
+                          hint: '改顯示名稱（任何狀態都可改，不動 flowCode）',
+                          onClick: () => { openRename(f) },
+                        },
                         ...((isLive || isRetired) ? [{
                           id: 'clone',
                           label: 'Clone as new version draft',
@@ -457,6 +491,41 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
       {creating && (
         <CookNewFlowModal onCreate={cookNew} onCancel={() => setCreating(false)} />
       )}
+
+      <Modal
+        open={renameTarget !== null}
+        onClose={() => setRenameTarget(null)}
+        title="改名 / Rename flow"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setRenameTarget(null)} disabled={renameSaving}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => { void submitRename() }}
+              disabled={renameSaving || !renameValue.trim() || renameValue.trim() === renameTarget?.displayName}
+            >
+              {renameSaving ? '儲存中…' : '儲存'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-xs text-ink-muted">
+            只改顯示名稱（<span className="font-mono">{renameTarget?.flowCode}</span> v{renameTarget?.version} 的 flowCode 不變）。
+          </p>
+          <input
+            autoFocus
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void submitRename() } }}
+            placeholder="顯示名稱"
+            className="w-full rounded-md border border-rule bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      </Modal>
     </div>
   )
 }

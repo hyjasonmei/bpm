@@ -130,6 +130,12 @@ export function deleteFlow(id: string): Promise<void> {
   return api<void>(`/api/flows/${id}`, { method: 'DELETE' })
 }
 
+/** Rename a flow's display label only — allowed in any state (it's a
+ *  label, not behaviour). Server also syncs the spec's meta.flowName. */
+export function renameFlow(id: string, displayName: string): Promise<FlowDetail> {
+  return api<FlowDetail>(`/api/flows/${id}/display-name`, { method: 'PATCH', json: { displayName } })
+}
+
 /** Set (or clear, with `iconKey: null`) the launcher icon. Curated lucide name. */
 export function setFlowIcon(id: string, iconKey: string | null): Promise<FlowDetail> {
   return api<FlowDetail>(`/api/flows/${id}/icon`, { method: 'POST', json: { iconKey } })
