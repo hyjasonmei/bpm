@@ -36,7 +36,7 @@ export function AppLayout({ persona, setPersona, authedFullName = null, authPend
       <SandboxBanner />
       <ImpersonationBanner />
       {/* ── Header ────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-header text-white shadow-md">
+      <header className="no-print sticky top-0 z-40 bg-header text-white shadow-md">
         <div className="mx-auto flex h-12 max-w-screen-2xl items-center gap-2 px-4">
           {/* Logo */}
           <Link to="/" className="mr-4 flex items-center gap-2 transition-opacity hover:opacity-90">

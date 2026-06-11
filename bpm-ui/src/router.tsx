@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
 
 import { AppLayout } from '@/components/AppLayout'
+import { CaseToolbar } from '@/components/CaseToolbar'
 import { Attendance } from '@/screens/Attendance'
 import { CreateIndex } from '@/screens/CreateIndex'
 import { Home } from '@/screens/Home'
@@ -75,7 +76,24 @@ function FeatureCaseDetailRoute() {
     </div>
   }
   const Detail = manifest.detailComponent
-  return <Detail caseId={caseId} persona={persona} />
+  return (
+    <div className="relative">
+      {/* Copy-link + Print overlaid onto the per-flow header row, just left
+          of its "View BPMN" button. Overlaid (not in normal flow) so chef's
+          CaseDetail is untouched; the container mirrors the detail's
+          `max-w-screen-lg` + `p-6` so the right edge lines up, and the
+          ~132px right offset clears the View BPMN button + gap (every flow
+          cribs the same header from LEAVE V1). pointer-events-none lets
+          clicks fall through to the detail (incl. View BPMN) everywhere
+          except the toolbar itself. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10">
+        <div className="mx-auto flex max-w-screen-lg justify-end pl-6 pr-[156px] pt-[30px]">
+          <CaseToolbar />
+        </div>
+      </div>
+      <Detail caseId={caseId} persona={persona} />
+    </div>
+  )
 }
 
 function FormRoute() {

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Workflow as WorkflowIcon, ExternalLink, Printer, Loader2 } from 'lucide-react'
+import { Workflow as WorkflowIcon, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SectionCard } from '@/components/ui/card'
 import { Stepper } from '@/components/Stepper'
@@ -22,7 +22,6 @@ interface FormShellProps {
   persona: PersonaCode
   /** info row content — overrides default Requestor / Cost Center / Business Unit */
   infoRow?: React.ReactNode
-  copySelector?: boolean
   rightActions?: React.ReactNode
   /** 'create' is the default; 'task' renders read-only summary forms with
    *  runtime ActionBar buttons (Approve / Reject / Return). */
@@ -32,8 +31,7 @@ interface FormShellProps {
 
 export function FormShell({
   code, activeStep, persona,
-  infoRow, copySelector = true, rightActions, children,
-  mode = 'create',
+  infoRow, rightActions, children,
 }: FormShellProps) {
   const def = FORMS[code]
   const [bpmnOpen, setBpmnOpen] = useState(false)
@@ -58,16 +56,11 @@ export function FormShell({
               <h1 className="text-xl font-bold text-ink">{def.label}</h1>
               <p className="text-[11px] uppercase tracking-wider text-ink-muted">{def.zhLabel}</p>
             </div>
-            <div className="flex items-center gap-2">
-              {rightActions}
-              {copySelector && mode === 'create' && (
-                <select className="h-8 rounded-md border border-rule bg-white px-3 text-sm text-ink-muted">
-                  <option>Copy from my existing requests</option>
-                </select>
-              )}
-              <Button variant="ghost" size="sm" title="Share permanent link"><ExternalLink className="h-3.5 w-3.5" /></Button>
-              <Button variant="ghost" size="sm" title="Print"><Printer className="h-3.5 w-3.5" /></Button>
-            </div>
+            {rightActions && (
+              <div className="flex items-center gap-2">
+                {rightActions}
+              </div>
+            )}
           </div>
 
           {/* Info row */}

@@ -99,3 +99,34 @@ button:disabled,
   fill: #DCFCE7 !important;
   stroke: #16A34A !important;
 }
+
+/* ── Print mode ──────────────────────────────────────────────────────────
+   The case-detail "Print" button (components/CaseToolbar) just calls
+   window.print(); these rules strip the app chrome so the printed page is
+   the case content only. Anything tagged `no-print` — the top nav header,
+   the case toolbar, fixed action bars — is hidden. Per-flow CaseDetail
+   components stay untouched (chef code), they just inherit this. */
+@media print {
+  .no-print,
+  [data-no-print] {
+    display: none !important;
+  }
+  html, body, #root {
+    height: auto !important;
+    background: #fff !important;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Drop the screen layout's padding / width cap + entry animation so the
+     content uses the full printable page. `main` is the AppLayout content
+     slot that hosts the case detail. */
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  .fade-in {
+    animation: none !important;
+  }
+}
