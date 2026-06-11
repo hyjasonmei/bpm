@@ -524,7 +524,10 @@ public class FlowLifecycleService : IFlowLifecycleService
         await _audit.LogAsync(
             actionType: "flow_reordered",
             targetType: "flow",
-            targetId: string.Join(",", rows.Select(r => r.Id)),
+            // Batch op — no single target. A comma-joined GUID list overflows
+            // TargetId's varchar(100) on Postgres (SQLite ignored the cap).
+            // The full ordered list lives in `after.OrderedFlowIds`.
+            targetId: $"reorder:{rows.Count}",
             actorUserId: actorUserId,
             actorPrincipalId: null,
             after: new { OrderedFlowIds = orderedFlowIds },
