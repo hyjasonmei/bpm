@@ -210,7 +210,7 @@ export function CookPanel({
 
       <div ref={scrollRef} className="flex-1 overflow-auto px-5 py-4">
         {messages.length === 0 ? (
-          <EmptyState />
+          <EmptyState state={state} />
         ) : (
           <ul className="space-y-4">
             {messages.map((m) => <MessageBubble key={m.id} m={m} />)}
@@ -318,19 +318,33 @@ function ChefOfflineHint({ flowId }: { flowId: string }) {
 // Bits
 // ──────────────────────────────────────────────────────────────
 
-function EmptyState() {
+function EmptyState({ state }: { state: FlowState }) {
+  const waiting = state === 'Submitted'
+  const cooking = state === 'Cooking'
+  const active = waiting || cooking
   return (
     <div className="flex h-full items-center justify-center">
       <div className="max-w-sm text-center">
         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-bg">
-          <ChefHat className="h-6 w-6 text-ink-faint" />
+          <ChefHat className={cn('h-6 w-6 text-ink-faint', active && 'animate-pulse text-accent')} />
         </div>
-        <p className="text-sm text-ink">Chef hasn't started yet.</p>
+        <p className="text-sm font-medium text-ink">
+          {waiting
+            ? '已送出，等待主廚接單中…'
+            : cooking
+              ? '主廚正在烹調中…'
+              : "Chef hasn't started yet."}
+        </p>
         <p className="mt-1 text-xs text-ink-muted">
-          Once chef picks up the spec, their memos, questions and completions land here.
-          The <span className="font-mono text-ink">manual</span> menu (top right) is your escape hatch
-          when chef MCP is unreachable — Force Accept / Commit / Stall Reset push the state machine
-          server-side without chef having to call <span className="font-mono text-ink">chef_transition</span>.
+          {waiting
+            ? '主廚接單後，進度、提問與完成訊息都會即時出現在這裡。'
+            : cooking
+              ? '主廚正在生成程式，提問與最終成果會顯示在這裡。'
+              : '主廚接單後，memos / questions / completions 會出現在這裡。'}
+        </p>
+        <p className="mt-3 text-[11px] text-ink-faint">
+          右上角 <span className="font-mono text-ink-muted">manual</span> 選單是 chef MCP 連不上時的逃生口
+          （Force Accept / Commit / Stall Reset 可在伺服器端手動推進狀態）。
         </p>
       </div>
     </div>
