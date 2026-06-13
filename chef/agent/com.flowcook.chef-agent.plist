@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.flowcook.chef-agent</string>
+
+  <!-- Edit the dotnet path + dll path + config path for your machine.
+       Find dotnet with: which dotnet -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/share/dotnet/dotnet</string>
+    <string>/Users/jason/claude/bpm/chef/agent/Bpm.ChefAgent/bin/Release/net10.0/Bpm.ChefAgent.dll</string>
+    <string>/Users/jason/claude/bpm/chef/agent/chef-agent.json</string>
+  </array>
+
+  <!-- Every 5 minutes. NOTE: StartInterval does NOT wake a sleeping Mac;
+       keep the machine awake (see README § Keep-awake). -->
+  <key>StartInterval</key>
+  <integer>300</integer>
+
+  <!-- Don't fire a cook the instant you load the agent. -->
+  <key>RunAtLoad</key>
+  <false/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/jason/claude/bpm-cooks/logs/agent.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/jason/claude/bpm-cooks/logs/agent.err.log</string>
+
+  <!-- claude / git / gh / az must be resolvable; add their dirs to PATH. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+</dict>
+</plist>
