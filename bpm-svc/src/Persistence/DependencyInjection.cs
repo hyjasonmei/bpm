@@ -5,6 +5,7 @@ using Bpm.Application.Common.Directory;
 using Bpm.Application.Common.Services;
 using Bpm.Application.Delegation;
 using Bpm.Application.Features.APE.V1;
+using Bpm.Application.Features.LEAVE.V1;
 using Bpm.Application.Features.EOB.V1;
 using Bpm.Application.Features.FAD.V1;
 using Bpm.Application.Features.FAP.V1;
@@ -162,12 +163,9 @@ public static class DependencyInjection
         services.AddSingleton(fileOptions);
         services.AddScoped<IFileStorageService, FileStorageService>();
 
-        // Chef-cooked features: per-flow state-machine services.
-        // LEAVE V1 lives entirely in Persistence under the old (pre-Clean-Arch)
-        // shape, so its service is registered here. New (Clean-Arch) cooks
-        // register their service from Application/DI instead — see
-        // PURCHASE_REQUEST V1 for the canonical pattern.
-        services.AddScoped<LEAVE_V1_LeaveService>();
+        // Chef-cooked features: per-flow EF case-store impls (the
+        // Application-side interfaces are bound to these EF classes here).
+        services.AddScoped<ILEAVE_V1_CaseStore, LEAVE_V1_CaseStore>();
 
         // Lead-owned platform abstraction used by Clean-Arch chef cooks for
         // SharedPrincipal display-name / email / role-member resolution

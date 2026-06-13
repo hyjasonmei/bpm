@@ -3,12 +3,12 @@ using Bpm.Application.Common.Authorization;
 using Bpm.Application.Common.Directory;
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Notifications;
-using Bpm.Persistence.SharedIdentity;
+using Bpm.Application.Org;
+using Bpm.Domain.Features.LEAVE.V1;
 using FluentValidation.Results;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace Bpm.Persistence.Features.LEAVE.V1;
+namespace Bpm.Application.Features.LEAVE.V1;
 
 /// <summary>
 /// State machine for LEAVE V1. One transition per public method.
@@ -17,7 +17,8 @@ namespace Bpm.Persistence.Features.LEAVE.V1;
 /// every action.
 /// </summary>
 public sealed class LEAVE_V1_LeaveService(
-    AppDbContext db,
+    ILEAVE_V1_CaseStore store,
+    IOrgChartReader org,
     IClock clock,
     ILogger<LEAVE_V1_LeaveService> log,
     INotifyDispatcher notify,
@@ -71,8 +72,8 @@ public sealed class LEAVE_V1_LeaveService(
             SubmittedAt = now,
             LastActivityAt = now,
         };
-        db.LEAVE_V1_Cases.Add(c);
-        await db.SaveChangesAsync(ct);
+        store.Add(c);
+        await store.SaveChangesAsync(ct);
 
         await NotifyAssignAsync(c, managerUserId.Value, ct);
         return c;
@@ -80,7 +81,7 @@ public sealed class LEAVE_V1_LeaveService(
 
     public async Task<LEAVE_V1_Case> ManagerDecisionAsync(Guid caseId, Guid actorUserId, bool approve, string? comment, CancellationToken ct)
     {
-        var c = await db.LEAVE_V1_Cases.SingleOrDefaultAsync(x => x.Id == caseId, ct)
+        var c = await store.FindByIdAsync(caseId, ct)
                 ?? throw new NotFoundException("LEAVE_V1_Case", caseId);
 
         if (c.Status != LEAVE_V1_CaseStatus.PendingManager)
@@ -98,7 +99,7 @@ public sealed class LEAVE_V1_LeaveService(
             c.Status = LEAVE_V1_CaseStatus.Rejected;
             c.CurrentAssigneeUserId = null;
             c.CompletedAt = clock.UtcNow;
-            await db.SaveChangesAsync(ct);
+            await store.SaveChangesAsync(ct);
             log.LogInformation("LEAVE/{CaseId}: manager rejected", c.Id);
             return c;
         }
@@ -112,7 +113,7 @@ public sealed class LEAVE_V1_LeaveService(
             c.VpUserId = vpUserId;
             c.CurrentAssigneeUserId = vpUserId;
             c.Status = LEAVE_V1_CaseStatus.PendingVp;
-            await db.SaveChangesAsync(ct);
+            await store.SaveChangesAsync(ct);
             await NotifyAssignAsync(c, vpUserId.Value, ct);
         }
         else
@@ -123,7 +124,7 @@ public sealed class LEAVE_V1_LeaveService(
             c.HrUserId = hrUserId;
             c.CurrentAssigneeUserId = hrUserId;
             c.Status = LEAVE_V1_CaseStatus.PendingHr;
-            await db.SaveChangesAsync(ct);
+            await store.SaveChangesAsync(ct);
             await NotifyAssignAsync(c, hrUserId.Value, ct);
         }
 
@@ -138,7 +139,7 @@ public sealed class LEAVE_V1_LeaveService(
     /// </summary>
     public async Task<LEAVE_V1_Case> CancelAsync(Guid caseId, Guid actorUserId, CancellationToken ct)
     {
-        var c = await db.LEAVE_V1_Cases.SingleOrDefaultAsync(x => x.Id == caseId, ct)
+        var c = await store.FindByIdAsync(caseId, ct)
                 ?? throw new NotFoundException("LEAVE_V1_Case", caseId);
         if (c.SubmitterUserId != actorUserId)
             throw new ForbiddenException("only the original submitter may withdraw this case");
@@ -149,14 +150,14 @@ public sealed class LEAVE_V1_LeaveService(
         c.CurrentAssigneeUserId = null;
         c.CompletedAt = clock.UtcNow;
         c.LastActivityAt = clock.UtcNow;
-        await db.SaveChangesAsync(ct);
+        await store.SaveChangesAsync(ct);
         log.LogInformation("LEAVE/{CaseId}: withdrawn by submitter", c.Id);
         return c;
     }
 
     public async Task<LEAVE_V1_Case> VpDecisionAsync(Guid caseId, Guid actorUserId, bool approve, string? comment, CancellationToken ct)
     {
-        var c = await db.LEAVE_V1_Cases.SingleOrDefaultAsync(x => x.Id == caseId, ct)
+        var c = await store.FindByIdAsync(caseId, ct)
                 ?? throw new NotFoundException("LEAVE_V1_Case", caseId);
 
         if (c.Status != LEAVE_V1_CaseStatus.PendingVp)
@@ -174,7 +175,7 @@ public sealed class LEAVE_V1_LeaveService(
             c.Status = LEAVE_V1_CaseStatus.Rejected;
             c.CurrentAssigneeUserId = null;
             c.CompletedAt = clock.UtcNow;
-            await db.SaveChangesAsync(ct);
+            await store.SaveChangesAsync(ct);
             log.LogInformation("LEAVE/{CaseId}: VP rejected", c.Id);
             return c;
         }
@@ -185,14 +186,14 @@ public sealed class LEAVE_V1_LeaveService(
         c.HrUserId = hrUserId;
         c.CurrentAssigneeUserId = hrUserId;
         c.Status = LEAVE_V1_CaseStatus.PendingHr;
-        await db.SaveChangesAsync(ct);
+        await store.SaveChangesAsync(ct);
         await NotifyAssignAsync(c, hrUserId.Value, ct);
         return c;
     }
 
     public async Task<LEAVE_V1_Case> HrArchiveAsync(Guid caseId, Guid actorUserId, string archiveNote, CancellationToken ct)
     {
-        var c = await db.LEAVE_V1_Cases.SingleOrDefaultAsync(x => x.Id == caseId, ct)
+        var c = await store.FindByIdAsync(caseId, ct)
                 ?? throw new NotFoundException("LEAVE_V1_Case", caseId);
 
         if (c.Status != LEAVE_V1_CaseStatus.PendingHr)
@@ -208,7 +209,7 @@ public sealed class LEAVE_V1_LeaveService(
         c.CurrentAssigneeUserId = null;
         c.LastActivityAt = clock.UtcNow;
         c.CompletedAt = clock.UtcNow;
-        await db.SaveChangesAsync(ct);
+        await store.SaveChangesAsync(ct);
 
         await NotifyCompleteAsync(c, ct);
         return c;
@@ -241,27 +242,15 @@ public sealed class LEAVE_V1_LeaveService(
         return count;
     }
 
-    public async Task<Guid?> ResolveManagerAsync(Guid userId, CancellationToken ct)
-    {
-        var row = await db.SharedUserManagers.AsNoTracking()
-            .Where(m => m.UserId == userId)
-            .Select(m => (Guid?)m.ManagerUserId)
-            .FirstOrDefaultAsync(ct);
-        return row;
-    }
+    public Task<Guid?> ResolveManagerAsync(Guid userId, CancellationToken ct)
+        => org.GetManagerIdAsync(userId, ct);
 
     public async Task<Guid?> ResolveDeptHeadAsync(Guid submitterUserId, CancellationToken ct)
     {
-        var deptId = await db.SharedUserDepts.AsNoTracking()
-            .Where(d => d.UserId == submitterUserId && d.IsPrimary)
-            .Select(d => (Guid?)d.DeptId)
-            .FirstOrDefaultAsync(ct);
+        var deptId = await org.GetPrimaryDepartmentIdAsync(submitterUserId, ct);
         if (deptId == null) return null;
 
-        var headId = await db.SharedDeptHeads.AsNoTracking()
-            .Where(h => h.DeptId == deptId)
-            .Select(h => (Guid?)h.HeadUserId)
-            .FirstOrDefaultAsync(ct);
+        var headId = await org.GetDepartmentHeadIdAsync(deptId.Value, ct);
 
         // Dept head can't approve their own leave — fall through.
         if (headId == submitterUserId) return null;
@@ -341,18 +330,11 @@ public sealed class LEAVE_V1_LeaveService(
 
     private async Task<string> ResolveDisplayNameAsync(Guid userId, CancellationToken ct)
     {
-        var name = await db.SharedPrincipals.AsNoTracking()
-            .Where(p => p.Id == userId)
-            .Select(p => p.DisplayName)
-            .FirstOrDefaultAsync(ct);
+        var info = await directory.GetByIdAsync(userId, ct);
+        var name = info?.DisplayName;
         return string.IsNullOrWhiteSpace(name) ? userId.ToString("N").Substring(0, 8) : name;
     }
 
     private async Task<string?> ResolveEmailAsync(Guid userId, CancellationToken ct)
-    {
-        return await db.SharedPrincipals.AsNoTracking()
-            .Where(p => p.Id == userId)
-            .Select(p => p.Email)
-            .FirstOrDefaultAsync(ct);
-    }
+        => (await directory.GetByIdAsync(userId, ct))?.Email;
 }

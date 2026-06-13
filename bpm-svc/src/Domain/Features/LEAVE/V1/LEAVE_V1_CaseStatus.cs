@@ -1,4 +1,4 @@
-namespace Bpm.Persistence.Features.LEAVE.V1;
+namespace Bpm.Domain.Features.LEAVE.V1;
 
 public enum LEAVE_V1_CaseStatus
 {

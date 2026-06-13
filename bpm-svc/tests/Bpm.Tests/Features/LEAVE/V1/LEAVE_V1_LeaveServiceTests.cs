@@ -1,7 +1,10 @@
 using Bpm.Application.Common.Exceptions;
 using Bpm.Application.Notifications;
 using Bpm.Persistence;
+using Bpm.Application.Features.LEAVE.V1;
+using Bpm.Domain.Features.LEAVE.V1;
 using Bpm.Persistence.Features.LEAVE.V1;
+using Bpm.Persistence.Org;
 using Bpm.Persistence.Interceptors;
 using Bpm.Persistence.SharedIdentity;
 using Bpm.Tests.Common;
@@ -395,7 +398,7 @@ public sealed class LEAVE_V1_LeaveServiceTests : IDisposable
     // ------------------------------------------------------------
 
     private static LEAVE_V1_LeaveService NewService(AppDbContext db, INotifyDispatcher? notify = null)
-        => new(db, new StubClock(), NullLogger<LEAVE_V1_LeaveService>.Instance, notify ?? new NullNotifyDispatcher(), new TestActorAuthorizer(), new Bpm.Persistence.Common.Directory.PrincipalDirectory(db));
+        => new(new LEAVE_V1_CaseStore(db), new OrgChartReader(db), new StubClock(), NullLogger<LEAVE_V1_LeaveService>.Instance, notify ?? new NullNotifyDispatcher(), new TestActorAuthorizer(), new Bpm.Persistence.Common.Directory.PrincipalDirectory(db));
 
     /// <summary>No-op dispatcher for unit tests that don't care about notify output.</summary>
     private sealed class NullNotifyDispatcher : INotifyDispatcher

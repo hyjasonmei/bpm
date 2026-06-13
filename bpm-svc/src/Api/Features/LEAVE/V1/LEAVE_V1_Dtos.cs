@@ -1,4 +1,4 @@
-using Bpm.Persistence.Features.LEAVE.V1;
+using Bpm.Domain.Features.LEAVE.V1;
 
 namespace Bpm.Api.Features.LEAVE.V1;
 

@@ -1,25 +1,25 @@
 using System.Globalization;
+using Bpm.Application.Common.Directory;
 using Bpm.Application.Inbox;
-using Microsoft.EntityFrameworkCore;
+using Bpm.Domain.Features.LEAVE.V1;
 
-namespace Bpm.Persistence.Features.LEAVE.V1;
+namespace Bpm.Application.Features.LEAVE.V1;
 
 /// <summary>
 /// Surface LEAVE V1 cases on the unified inbox. "Mine" lists cases the
 /// user submitted; "Pending" lists cases waiting on the user (manager
 /// approval / VP approval / HR archive).
 /// </summary>
-public sealed class LEAVE_V1_InboxProvider(AppDbContext db) : ITypedInboxProvider
+public sealed class LEAVE_V1_InboxProvider(
+    ILEAVE_V1_CaseStore store,
+    IPrincipalDirectory directory) : ITypedInboxProvider
 {
     public string FlowCode => LEAVE_V1_LeaveService.FlowCode;
     public int FlowVersion => LEAVE_V1_LeaveService.FlowVersion;
 
     public async Task<IReadOnlyList<InboxRow>> GetMineAsync(Guid userId, CancellationToken ct)
     {
-        var cases = await db.LEAVE_V1_Cases.AsNoTracking()
-            .Where(c => c.SubmitterUserId == userId)
-            .OrderByDescending(c => c.LastActivityAt)
-            .ToListAsync(ct);
+        var cases = await store.FindMineAsync(userId, ct);
         if (cases.Count == 0) return Array.Empty<InboxRow>();
 
         return cases.Select(c => new InboxRow(
@@ -35,23 +35,15 @@ public sealed class LEAVE_V1_InboxProvider(AppDbContext db) : ITypedInboxProvide
 
     public async Task<IReadOnlyList<InboxRow>> GetPendingAsync(Guid userId, CancellationToken ct)
     {
-        var cases = await db.LEAVE_V1_Cases.AsNoTracking()
-            .Where(c => c.CurrentAssigneeUserId == userId
-                        && c.Status != LEAVE_V1_CaseStatus.Completed
-                        && c.Status != LEAVE_V1_CaseStatus.Rejected
-                        && c.Status != LEAVE_V1_CaseStatus.Cancelled)
-            .OrderByDescending(c => c.LastActivityAt)
-            .ToListAsync(ct);
+        var cases = await store.FindPendingAsync(userId, ct);
         if (cases.Count == 0) return Array.Empty<InboxRow>();
 
         var submitterIds = cases.Select(c => c.SubmitterUserId).Distinct().ToArray();
-        var names = await db.SharedPrincipals.AsNoTracking()
-            .Where(p => submitterIds.Contains(p.Id))
-            .ToDictionaryAsync(p => p.Id, p => p.DisplayName, ct);
+        var names = await directory.GetManyAsync(submitterIds, ct);
 
         return cases.Select(c =>
         {
-            var who = names.GetValueOrDefault(c.SubmitterUserId, "—");
+            var who = names.TryGetValue(c.SubmitterUserId, out var info) ? info.DisplayName : "—";
             return new InboxRow(
                 CaseId: c.Id,
                 FlowCode: FlowCode,

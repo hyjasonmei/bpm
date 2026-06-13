@@ -4,6 +4,7 @@ using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Behaviors;
 using Bpm.Application.Common.Services;
 using Bpm.Application.Features.APE.V1;
+using Bpm.Application.Features.LEAVE.V1;
 using Bpm.Application.Features.EOB.V1;
 using Bpm.Application.Features.FAD.V1;
 using Bpm.Application.Features.FAP.V1;
@@ -96,8 +97,7 @@ public static class DependencyInjection
         services.AddSingleton<IBundleValidator, BundleValidator>();
 
         // Chef-cooked feature services living in the Application layer.
-        // (Legacy LEAVE V1 reference is registered from Persistence/DI
-        // because its service lives there in the old shape.)
+        services.AddScoped<LEAVE_V1_LeaveService>();
         services.AddScoped<PURCHASE_REQUEST_V1_PurchaseRequestService>();
         services.AddScoped<TRQ_V1_TravelRequestService>();
         services.AddScoped<APE_V1_AdvancePaymentService>();

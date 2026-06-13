@@ -10,7 +10,7 @@ using Bpm.Domain.Entities.Notifications;
 using Bpm.Domain.Entities.Process;
 using Bpm.Domain.Entities.Sandbox;
 using Bpm.Domain.Entities.Spec;
-using Bpm.Persistence.Features.LEAVE.V1;
+using Bpm.Domain.Features.LEAVE.V1;
 using Bpm.Persistence.SharedIdentity;
 using Microsoft.EntityFrameworkCore;
 

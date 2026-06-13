@@ -1,6 +1,7 @@
 using Bpm.Api.Common;
+using Bpm.Application.Features.LEAVE.V1;
+using Bpm.Domain.Features.LEAVE.V1;
 using Bpm.Persistence;
-using Bpm.Persistence.Features.LEAVE.V1;
 using Bpm.Persistence.SharedIdentity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Bpm.Persistence.Features.LEAVE.V1;
+namespace Bpm.Application.Features.LEAVE.V1;
 
 /// <summary>
 /// Pure render functions for the two spec-declared notification templates.

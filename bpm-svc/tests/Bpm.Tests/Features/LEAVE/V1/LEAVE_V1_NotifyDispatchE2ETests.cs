@@ -1,7 +1,10 @@
+using Bpm.Application.Features.LEAVE.V1;
 using Bpm.Application.Notifications;
+using Bpm.Domain.Features.LEAVE.V1;
 using Bpm.Persistence;
 using Bpm.Persistence.Features.LEAVE.V1;
 using Bpm.Persistence.Interceptors;
+using Bpm.Persistence.Org;
 using Bpm.Persistence.SharedIdentity;
 using Bpm.Tests.Common;
 using Microsoft.Data.Sqlite;
@@ -65,7 +68,7 @@ public sealed class LEAVE_V1_NotifyDispatchE2ETests : IDisposable
             Options.Create(new NotifyDispatcherOptions { FilePath = _notifyPath }),
             NullLogger<FileNotifyDispatcher>.Instance);
         var svc = new LEAVE_V1_LeaveService(
-            db, new StubClock(), NullLogger<LEAVE_V1_LeaveService>.Instance, dispatcher, new TestActorAuthorizer(), new Bpm.Persistence.Common.Directory.PrincipalDirectory(db));
+            new LEAVE_V1_CaseStore(db), new OrgChartReader(db), new StubClock(), NullLogger<LEAVE_V1_LeaveService>.Instance, dispatcher, new TestActorAuthorizer(), new Bpm.Persistence.Common.Directory.PrincipalDirectory(db));
 
         var c = await svc.SubmitAsync(new(
             SubmitterUserId: Bob,
@@ -104,7 +107,7 @@ public sealed class LEAVE_V1_NotifyDispatchE2ETests : IDisposable
             Options.Create(new NotifyDispatcherOptions { FilePath = _notifyPath }),
             NullLogger<FileNotifyDispatcher>.Instance);
         var svc = new LEAVE_V1_LeaveService(
-            db, new StubClock(), NullLogger<LEAVE_V1_LeaveService>.Instance, dispatcher, new TestActorAuthorizer(), new Bpm.Persistence.Common.Directory.PrincipalDirectory(db));
+            new LEAVE_V1_CaseStore(db), new OrgChartReader(db), new StubClock(), NullLogger<LEAVE_V1_LeaveService>.Instance, dispatcher, new TestActorAuthorizer(), new Bpm.Persistence.Common.Directory.PrincipalDirectory(db));
 
         await svc.SubmitAsync(new(Bob, "特休",
             new DateOnly(2026, 5, 11), new DateOnly(2026, 5, 13),

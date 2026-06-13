@@ -1,4 +1,4 @@
-namespace Bpm.Persistence.Features.LEAVE.V1;
+namespace Bpm.Domain.Features.LEAVE.V1;
 
 /// <summary>
 /// Persistent case for the LEAVE V1 flow. Holds business data
