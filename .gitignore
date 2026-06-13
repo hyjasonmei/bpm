@@ -24,3 +24,8 @@ bpm-www/dist/
 bpm-www/.astro/
 
 bpm-admin-ui/dist/
+
+# chef-agent real config holds tokens — never commit
+chef/agent/chef-agent.json
+chef/agent/**/bin/
+chef/agent/**/obj/

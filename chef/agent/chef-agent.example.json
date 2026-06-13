@@ -1,0 +1,15 @@
+{
+  "environments": [
+    { "name": "local", "baseUrl": "http://localhost:5266", "chefToken": "dev-chef-token", "enabled": true },
+    { "name": "azure-poc", "baseUrl": "https://poc-flowcook-admin-api.azurewebsites.net", "chefToken": "<az keyvault secret show --vault-name kv-poc-flowcook -n chef-token -o tsv --query value>", "enabled": false }
+  ],
+  "telegram": { "botToken": "<telegram bot token>", "chatId": "<your chat id>" },
+  "repoPath": "/Users/jason/claude/bpm",
+  "worktreeRoot": "/Users/jason/claude/bpm-cooks",
+  "claudeBin": "claude",
+  "maxTurns": 80,
+  "maxSessionMinutes": 45,
+  "maxAutoRetries": 1,
+  "lockFilePath": "/Users/jason/claude/bpm-cooks/agent.lock",
+  "stateFilePath": "/Users/jason/claude/bpm-cooks/agent-state.json"
+}
