@@ -17,11 +17,12 @@ public sealed record AgentConfig(
     string RepoPath,            // local bpm repo root (git worktree source)
     string WorktreeRoot,        // where per-cook worktrees + logs + state live
     string ClaudeBin,           // "claude"
-    int MaxTurns,               // claude -p --max-turns
-    int MaxSessionMinutes,      // wall-clock kill switch per cook
-    int MaxAutoRetries,         // stalled-cook auto-retry ceiling (1)
+    int MaxTurns,               // claude -p --max-turns PER SESSION (chunk size, not a hard finish limit)
+    int MaxSessionMinutes,      // wall-clock kill switch per session
+    int MaxCookSessions,        // absolute cap on resume sessions for one flow (runaway guard)
+    int MaxNoProgressSessions,  // consecutive no-progress sessions before giving up (→ OnHold)
     string LockFilePath,        // global single-instance lock
-    string StateFilePath)       // persisted retry / failure counters
+    string StateFilePath)       // persisted env-failure / cooldown state
 {
     private static readonly JsonSerializerOptions Opts = new() { PropertyNameCaseInsensitive = true };
 

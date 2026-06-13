@@ -16,7 +16,7 @@ public class ConfigAndLockTests
           ],
           "telegram": { "botToken": "b", "chatId": "c" },
           "repoPath": "/repo", "worktreeRoot": "/wt", "claudeBin": "claude",
-          "maxTurns": 80, "maxSessionMinutes": 45, "maxAutoRetries": 1,
+          "maxTurns": 300, "maxSessionMinutes": 45, "maxCookSessions": 8, "maxNoProgressSessions": 2,
           "lockFilePath": "/wt/agent.lock", "stateFilePath": "/wt/state.json"
         }
         """);
@@ -26,7 +26,9 @@ public class ConfigAndLockTests
         Assert.Equal(2, cfg.Environments.Count);
         Assert.Single(cfg.EnabledEnvironments);
         Assert.Equal("local", cfg.EnabledEnvironments.Single().Name);
-        Assert.Equal(80, cfg.MaxTurns);
+        Assert.Equal(300, cfg.MaxTurns);
+        Assert.Equal(8, cfg.MaxCookSessions);
+        Assert.Equal(2, cfg.MaxNoProgressSessions);
         Assert.Equal("c", cfg.Telegram!.ChatId);
         File.Delete(path);
     }
@@ -62,17 +64,15 @@ public class ConfigAndLockTests
         var path = Path.Combine(Path.GetTempPath(), $"chef-agent-state-{Guid.NewGuid():N}.json");
 
         var s = new AgentState();
-        s.Retries["flow-1"] = 1;
         s.EnvFailures["azure"] = 3;
         s.Save(path);
 
         var loaded = AgentState.Load(path);
-        Assert.Equal(1, loaded.Retries["flow-1"]);
         Assert.Equal(3, loaded.EnvFailures["azure"]);
 
         File.WriteAllText(path, "{ not json");
         var fromGarbage = AgentState.Load(path);   // never throws
-        Assert.Empty(fromGarbage.Retries);
+        Assert.Empty(fromGarbage.EnvFailures);
 
         File.Delete(path);
     }

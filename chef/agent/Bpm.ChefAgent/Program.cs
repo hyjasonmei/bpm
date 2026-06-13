@@ -59,7 +59,7 @@ foreach (var env in config.EnabledEnvironments)
         catch (Exception ex) { Console.Error.WriteLine($"[pr-fail] {task.FlowCode}: {ex.Message}"); }
     }
 
-    var plan = TaskPlanner.Plan(tasks, state.Retries, config.MaxAutoRetries);
+    var plan = TaskPlanner.Plan(tasks);
     if (plan.CookTask is not { } cook) continue;
 
     // Fresh submission → claim it (Submitted→Cooking) before spending a session.
@@ -70,29 +70,23 @@ foreach (var env in config.EnabledEnvironments)
     }
 
     await tg.SendAsync($"👨‍🍳 Cooking {cook.FlowCode} v{cook.Version} ({env.Name}){(plan.IsResume ? " — resume" : "")}…");
+    // RunAsync loops sessions internally until the flow is Committed / OnHold /
+    // gone, or it gives up after no progress — so the outcome here is terminal.
     var outcome = await cookRunner.RunAsync(env, api, cook, plan.IsResume);
 
     switch (outcome)
     {
         case CookOutcome.Committed:
-            state.Retries.Remove(cook.FlowId.ToString());
             await tg.SendAsync($"🍽️ {cook.FlowCode} v{cook.Version} committed — review & Approve in admin-ui.");
             break;
         case CookOutcome.OnHold:
-            state.Retries.Remove(cook.FlowId.ToString());
             await tg.SendAsync($"⏸️ {cook.FlowCode} v{cook.Version} is on hold — chef asked a question, your reply needed.");
             break;
-        case CookOutcome.FlowGone:
-            state.Retries.Remove(cook.FlowId.ToString());
-            Console.WriteLine($"{cook.FlowCode}: flow vanished mid-cook (deleted).");
+        case CookOutcome.GaveUp:
+            await tg.SendAsync($"🛑 {cook.FlowCode} v{cook.Version} cook stalled (no progress) — parked on hold for a human.");
             break;
-        case CookOutcome.Incomplete:
-            var tries = (state.Retries.TryGetValue(cook.FlowId.ToString(), out var t) ? t : 0) + 1;
-            state.Retries[cook.FlowId.ToString()] = tries;
-            if (tries > config.MaxAutoRetries)
-                await tg.SendAsync($"🛑 {cook.FlowCode} v{cook.Version} failed to finish after {tries} tries — needs a human.");
-            else
-                Console.WriteLine($"{cook.FlowCode}: incomplete, will auto-retry next poll ({tries}/{config.MaxAutoRetries}).");
+        case CookOutcome.FlowGone:
+            Console.WriteLine($"{cook.FlowCode}: flow vanished mid-cook (deleted).");
             break;
     }
 

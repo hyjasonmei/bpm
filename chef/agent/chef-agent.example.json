@@ -7,9 +7,10 @@
   "repoPath": "/Users/jason/claude/bpm",
   "worktreeRoot": "/Users/jason/claude/bpm-cooks",
   "claudeBin": "claude",
-  "maxTurns": 80,
+  "maxTurns": 300,
   "maxSessionMinutes": 45,
-  "maxAutoRetries": 1,
+  "maxCookSessions": 8,
+  "maxNoProgressSessions": 2,
   "lockFilePath": "/Users/jason/claude/bpm-cooks/agent.lock",
   "stateFilePath": "/Users/jason/claude/bpm-cooks/agent-state.json"
 }

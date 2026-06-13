@@ -53,6 +53,14 @@ public sealed class AdminApiClient : IDisposable
         resp.EnsureSuccessStatusCode();
     }
 
+    /// <summary>Move a stuck Cooking flow to OnHold with an auto-question, so a
+    /// give-up leaves the cook queue and surfaces to a human (PR-CA1).</summary>
+    public async Task OnHoldAsync(Guid flowId, string question, CancellationToken ct = default)
+    {
+        var resp = await PostTransitionAsync(flowId, "OnHold", question, ct);
+        resp.EnsureSuccessStatusCode();
+    }
+
     public async Task PostMemoAsync(Guid flowId, string content, CancellationToken ct = default)
     {
         var resp = await _http.PostAsJsonAsync($"api/chef/flows/{flowId}/messages",

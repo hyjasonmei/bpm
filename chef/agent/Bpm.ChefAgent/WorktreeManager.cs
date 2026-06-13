@@ -47,6 +47,15 @@ public sealed class WorktreeManager
         return path;
     }
 
+    /// <summary>Count of changed/new files in the worktree — a coarse "work
+    /// done" signal the cook loop uses to decide whether a session that ran
+    /// out of turns actually made progress (resume) or stalled (give up).</summary>
+    public async Task<int> MeasureProgressAsync(string worktreePath, CancellationToken ct = default)
+    {
+        var r = await ProcessRunner.RunAsync("git", ["status", "--porcelain"], worktreePath, ct: ct);
+        return r.Ok ? r.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length : 0;
+    }
+
     /// <summary>Re-attach (or create) the worktree for a resume/stalled cook.</summary>
     public async Task<string> EnsureForBranchAsync(string env, string flowCode, int version, string branch, CancellationToken ct = default)
     {

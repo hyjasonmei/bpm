@@ -1,10 +1,13 @@
 namespace Bpm.ChefAgent;
 
-public enum CookOutcome { Committed, OnHold, Incomplete, FlowGone }
+public enum CookOutcome { Committed, OnHold, GaveUp, FlowGone }
 
 /// <summary>
-/// Spins a headless `claude -p` session inside the cook worktree, then reads
-/// the resulting flow state back from the API to classify the outcome.
+/// Drives a flow to completion across one or more headless `claude -p`
+/// sessions in the cook worktree. A per-session turn/wall-clock cap is just a
+/// chunk size: if a session ends with the flow still Cooking but made progress
+/// (more changed files in the worktree), we resume and continue; we only give
+/// up — moving the flow to OnHold for a human — when a session produces nothing.
 /// </summary>
 public sealed class CookRunner
 {
@@ -16,7 +19,7 @@ public sealed class CookRunner
     public static string BuildPrompt(ChefTask task, bool isResume)
     {
         var verb = isResume
-            ? "Resume cooking (a prior session paused or crashed). FIRST call chef_get_messages and read the FULL thread — the user may have replied or filed an issue you must address."
+            ? "Resume cooking (a prior session paused, ran out of turns, or crashed). FIRST call chef_get_messages and read the FULL thread, and inspect the worktree for what's already done — continue from there, don't restart. The user may also have replied or filed an issue you must address."
             : "Cook this newly submitted flow from scratch.";
         return $"""
         You are the flowcook chef. Use the chef-codegen skill to cook flow {task.FlowCode} v{task.Version} (flowId={task.FlowId}).
@@ -36,34 +39,65 @@ public sealed class CookRunner
 
     public async Task<CookOutcome> RunAsync(EnvTarget env, AdminApiClient api, ChefTask task, bool isResume, CancellationToken ct = default)
     {
-        // Prepare the worktree: fresh branch for a new cook, re-attach chef's
-        // recorded branch for a resume/stalled one.
+        // Prepare the worktree ONCE: fresh branch for a new cook, re-attach
+        // chef's recorded branch for a resume/stalled one.
         string worktree;
         if (isResume && WorktreeManager.BranchFromWorkContext(task.ChefWorkContextJson) is { } branch)
             worktree = await _worktrees.EnsureForBranchAsync(env.Name, task.FlowCode, task.Version, branch, ct);
         else
             worktree = await _worktrees.CreateAsync(env.Name, task.FlowCode, task.Version, ct);
-
         await WorktreeManager.WriteMcpConfigAsync(worktree, env, ct);
 
-        var result = await ProcessRunner.RunAsync(
-            _cfg.ClaudeBin,
-            ["-p", BuildPrompt(task, isResume),
-             "--max-turns", _cfg.MaxTurns.ToString(),
-             "--permission-mode", "bypassPermissions"],
-            workingDir: worktree,
-            timeout: TimeSpan.FromMinutes(_cfg.MaxSessionMinutes),
-            ct: ct);
+        var prevProgress = await _worktrees.MeasureProgressAsync(worktree, ct);
+        var noProgressStreak = 0;
+        var sessionsRun = 0;
+        var resuming = isResume;
 
-        // The session's own exit code is advisory; the flow's state is the
-        // source of truth for what actually happened.
-        var state = await api.GetStateAsync(task.FlowId, ct);
-        return state switch
+        while (true)
         {
-            null        => CookOutcome.FlowGone,    // deleted mid-cook (pre-publish delete is allowed)
-            "Committed" => CookOutcome.Committed,
-            "OnHold"    => CookOutcome.OnHold,
-            _           => CookOutcome.Incomplete,  // still Cooking / unexpected → stall policy
-        };
+            await ProcessRunner.RunAsync(
+                _cfg.ClaudeBin,
+                ["-p", BuildPrompt(task, resuming),
+                 "--max-turns", _cfg.MaxTurns.ToString(),
+                 "--permission-mode", "bypassPermissions"],
+                workingDir: worktree,
+                timeout: TimeSpan.FromMinutes(_cfg.MaxSessionMinutes),
+                ct: ct);
+            sessionsRun++;
+
+            // Flow state is the source of truth for what happened; worktree
+            // file-churn is the progress signal for the resume decision.
+            var state = await api.GetStateAsync(task.FlowId, ct);
+            var curProgress = await _worktrees.MeasureProgressAsync(worktree, ct);
+            var decision = CookLoopPolicy.Decide(
+                state, prevProgress, curProgress,
+                noProgressStreak, sessionsRun, _cfg.MaxNoProgressSessions, _cfg.MaxCookSessions);
+
+            Console.WriteLine(
+                $"[cook] {task.FlowCode} session {sessionsRun}: state={state ?? "?"}, " +
+                $"progress {prevProgress}→{curProgress} → {decision.Action} ({decision.Reason})");
+
+            switch (decision.Action)
+            {
+                case CookLoopAction.Done:
+                    return state switch
+                    {
+                        null        => CookOutcome.FlowGone,
+                        "Committed" => CookOutcome.Committed,
+                        _           => CookOutcome.OnHold,   // chef asked a question
+                    };
+
+                case CookLoopAction.GiveUp:
+                    await api.OnHoldAsync(task.FlowId,
+                        $"Automated cook stopped — {decision.Reason} ({sessionsRun} session(s)). Please review the worktree / spec and reply to resume.", ct);
+                    return CookOutcome.GaveUp;
+
+                case CookLoopAction.Resume:
+                    noProgressStreak = curProgress > prevProgress ? 0 : noProgressStreak + 1;
+                    prevProgress = curProgress;
+                    resuming = true;
+                    continue;
+            }
+        }
     }
 }

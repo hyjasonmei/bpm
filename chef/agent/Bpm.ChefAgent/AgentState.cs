@@ -9,7 +9,6 @@ namespace Bpm.ChefAgent;
 /// </summary>
 public sealed class AgentState
 {
-    public Dictionary<string, int> Retries { get; set; } = new();         // flowId → auto-retry count
     public Dictionary<string, int> EnvFailures { get; set; } = new();     // env name → consecutive unreachable count
     public Dictionary<string, DateTime> LastEnvAlertAt { get; set; } = new();
     public Dictionary<string, DateTime> LastRemindedAt { get; set; } = new(); // flowId → last "branch ready, merge manually" ping
