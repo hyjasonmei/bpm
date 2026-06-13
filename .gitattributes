@@ -1,0 +1,24 @@
+# Normalize all text files to LF in the working tree on every platform.
+# Critical for future chef workers on Windows: default autocrlf=true would
+# convert checkouts to CRLF, polluting chef diffs and breaking *.sh scripts.
+* text=auto eol=lf
+
+# Windows-native scripts keep CRLF
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binaries — never touch line endings
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.zip binary
+*.pdf binary
+*.db binary
