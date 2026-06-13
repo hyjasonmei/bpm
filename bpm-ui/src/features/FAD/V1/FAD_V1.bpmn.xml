@@ -6,7 +6,7 @@
                   id="def_FAD" targetNamespace="http://flowcook/FAD">
   <bpmn:process id="FAD" isExecutable="true">
     <bpmn:startEvent id="s" name="報廢事件"><bpmn:outgoing>f1</bpmn:outgoing></bpmn:startEvent>
-    <bpmn:userTask id="dr" name="處份申請單 Disposal Request">
+    <bpmn:userTask id="dr" name="處分申請單 Disposal Request">
       <bpmn:incoming>f1</bpmn:incoming><bpmn:incoming>f4</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing>
     </bpmn:userTask>
     <bpmn:userTask id="ap" name="固定資產判別 IT">
@@ -15,7 +15,7 @@
     <bpmn:userTask id="cf" name="領收確認 Confirmed">
       <bpmn:incoming>f3</bpmn:incoming><bpmn:outgoing>f5</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:endEvent id="e" name="處份 Disposal"><bpmn:incoming>f5</bpmn:incoming></bpmn:endEvent>
+    <bpmn:endEvent id="e" name="處分 Disposal"><bpmn:incoming>f5</bpmn:incoming></bpmn:endEvent>
     <bpmn:sequenceFlow id="f1" sourceRef="s" targetRef="dr" />
     <bpmn:sequenceFlow id="f2" sourceRef="dr" targetRef="ap" />
     <bpmn:sequenceFlow id="f3" sourceRef="ap" targetRef="cf" name="Pass" />

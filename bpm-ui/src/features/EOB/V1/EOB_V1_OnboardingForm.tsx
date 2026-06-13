@@ -176,7 +176,7 @@ export function EOB_V1_OnboardingForm({ persona, mode = 'create', onSubmitted }:
       <ConfirmDialog
         open={confirmOpen}
         title={isResubmit ? 'Resubmit onboarding?' : 'Submit onboarding?'}
-        titleZh={isResubmit ? '重新送出新進員工登入？' : '送出新進員工登入？'}
+        titleZh={isResubmit ? '重新送出新進員工報到？' : '送出新進員工報到？'}
         description={`${f.firstName} ${f.lastName} will be sent to your manager for approval.`}
         tone="default"
         confirmText={isResubmit ? '確認重新送出' : '確認送出'}

@@ -151,7 +151,7 @@ export function VENDOR_EXPENSE_V1_CaseDetail({ caseId }: CaseDetailProps) {
         </Button>
         <div className="min-w-0">
           <h1 className="truncate text-lg font-bold text-ink">
-            採購申請案件 <span className="ml-2 text-base font-medium text-ink-muted">· VENDOR_EXPENSE V1</span>
+            廠商採購請款案件 <span className="ml-2 text-base font-medium text-ink-muted">· VENDOR_EXPENSE V1</span>
           </h1>
           <p className="font-mono text-[11px] text-ink-faint">{caseId}</p>
         </div>

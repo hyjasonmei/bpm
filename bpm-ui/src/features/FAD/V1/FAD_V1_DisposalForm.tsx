@@ -93,7 +93,7 @@ export function FAD_V1_DisposalForm({ persona, mode = 'create', onSubmitted }: F
   return (
     <FormShell code="FAD" activeStep={0} persona={persona as PersonaCode} mode="create">
       <SectionCard>
-        <SectionTitle>處份申請 / Disposal Request</SectionTitle>
+        <SectionTitle>處分申請 / Disposal Request</SectionTitle>
         <div className="border-b border-rule px-5 py-3">
           <InfoBanner>
             填寫報廢原因與資產資訊；可附照片佐證資產現況。
@@ -107,8 +107,8 @@ export function FAD_V1_DisposalForm({ persona, mode = 'create', onSubmitted }: F
             {/* Asset card — dark header band (mirrors the exemplar's InvoiceCard). */}
             <div className="overflow-hidden rounded-md border border-rule">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-slate-700 px-4 py-2 text-sm text-white">
-                <span className="min-w-[84px] font-semibold">處份資產 / Asset</span>
-                <span className="ml-auto text-xs text-slate-300">單筆資產處份</span>
+                <span className="min-w-[84px] font-semibold">處分資產 / Asset</span>
+                <span className="ml-auto text-xs text-slate-300">單筆資產處分</span>
               </div>
               <div className="grid grid-cols-12 gap-3 bg-card p-4">
                 <Field label="報廢原因 / Disposal Reason" required className="col-span-12 sm:col-span-4">
@@ -135,7 +135,7 @@ export function FAD_V1_DisposalForm({ persona, mode = 'create', onSubmitted }: F
         <SectionCard>
           <SectionTitle>佐證附件 / Attachment</SectionTitle>
           <div className="px-5 py-4">
-            <Field label="照片 / Photo" hint="可附資產現況照片或處份單據（PDF / 圖檔，選填）">
+            <Field label="照片 / Photo" hint="可附資產現況照片或處分單據（PDF / 圖檔，選填）">
               <FilePicker value={photo} onChange={setPhoto} disabled={pending} accept=".pdf,.png,.jpg,.jpeg" placeholder="PDF / 圖檔" />
             </Field>
           </div>
@@ -153,7 +153,7 @@ export function FAD_V1_DisposalForm({ persona, mode = 'create', onSubmitted }: F
       <ConfirmDialog
         open={confirmOpen}
         title={isResubmit ? 'Resubmit disposal?' : 'Submit disposal?'}
-        titleZh={isResubmit ? '重新送出資產處份？' : '送出資產處份？'}
+        titleZh={isResubmit ? '重新送出資產處分？' : '送出資產處分？'}
         description={`${assetName} will be sent for IT judgment.`}
         tone="default"
         confirmText={isResubmit ? '確認重新送出' : '確認送出'}

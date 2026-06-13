@@ -131,7 +131,7 @@ export function FAD_V1_CaseDetail({ caseId }: CaseDetailProps) {
       <div className="flex items-center gap-3">
         <Button variant="outline" size="sm" onClick={() => navigate('/')}><ArrowLeft className="h-3.5 w-3.5" /> 返回</Button>
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-bold text-ink">資產處份案件 <span className="ml-2 text-base font-medium text-ink-muted">· FAD V1</span></h1>
+          <h1 className="truncate text-lg font-bold text-ink">資產處分案件 <span className="ml-2 text-base font-medium text-ink-muted">· FAD V1</span></h1>
           <p className="font-mono text-[11px] text-ink-faint">{caseId}</p>
         </div>
         <div className="ml-auto"><Button variant="outline" size="sm" onClick={() => setBpmnOpen(true)}><WorkflowIcon className="h-3.5 w-3.5" /> View BPMN</Button></div>
@@ -162,7 +162,7 @@ export function FAD_V1_CaseDetail({ caseId }: CaseDetailProps) {
           </SectionCard>
 
           <SectionCard>
-            <SectionTitle>處份資訊 / Disposal Info</SectionTitle>
+            <SectionTitle>處分資訊 / Disposal Info</SectionTitle>
             <div className="grid grid-cols-12 gap-3 px-5 py-4 text-sm">
               <ReadField label="報廢原因" value={data.disposalReason} className="col-span-6" />
               <ReadField label="資產名稱" value={data.assetName} className="col-span-6" />
@@ -179,14 +179,14 @@ export function FAD_V1_CaseDetail({ caseId }: CaseDetailProps) {
           <SectionCard>
             <SectionTitle>簽核時序 / Approval Timeline</SectionTitle>
             <ol className="divide-y divide-slate-100">
-              <TimelineRow label="處份申請 / Submit" actor={data.submitterDisplayName ?? '—'} state="done" at={data.submittedAt} />
+              <TimelineRow label="處分申請 / Submit" actor={data.submitterDisplayName ?? '—'} state="done" at={data.submittedAt} />
               <TimelineRow label="固定資產判別 / Manager" actor={data.managerDecision?.displayName ?? '—'}
                 state={data.managerDecision?.approved === true ? 'done' : data.managerDecision?.approved === false ? 'rejected' : data.status === 'PendingManager' ? 'current' : 'idle'}
                 at={data.managerDecision?.decidedAt} comment={data.managerDecision?.comment} />
               <TimelineRow label="領收確認 / Confirmed" actor={data.confirmation?.displayName ?? '—'}
                 state={data.confirmation ? 'done' : data.status === 'PendingConfirm' ? 'current' : 'idle'}
                 at={data.confirmation?.confirmedAt} comment={data.confirmation?.handlingResult ? `${data.confirmation.handlingResult}${data.confirmation.remark ? ' — ' + data.confirmation.remark : ''}` : null} />
-              <TimelineRow label="處份 / Disposed" actor={data.status === 'Completed' ? '系統' : data.status === 'Cancelled' ? '申請人撤回' : '—'} state={data.status === 'Completed' ? 'done' : data.status === 'Cancelled' ? 'rejected' : 'idle'} at={data.completedAt} />
+              <TimelineRow label="處分 / Disposed" actor={data.status === 'Completed' ? '系統' : data.status === 'Cancelled' ? '申請人撤回' : '—'} state={data.status === 'Completed' ? 'done' : data.status === 'Cancelled' ? 'rejected' : 'idle'} at={data.completedAt} />
             </ol>
           </SectionCard>
 

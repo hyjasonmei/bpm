@@ -129,7 +129,7 @@ export function EOB_V1_CaseDetail({ caseId }: CaseDetailProps) {
       <div className="flex items-center gap-3">
         <Button variant="outline" size="sm" onClick={() => navigate('/')}><ArrowLeft className="h-3.5 w-3.5" /> 返回</Button>
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-bold text-ink">新進員工登入案件 <span className="ml-2 text-base font-medium text-ink-muted">· EOB V1</span></h1>
+          <h1 className="truncate text-lg font-bold text-ink">新進員工報到案件 <span className="ml-2 text-base font-medium text-ink-muted">· EOB V1</span></h1>
           <p className="font-mono text-[11px] text-ink-faint">{caseId}</p>
         </div>
         <div className="ml-auto"><Button variant="outline" size="sm" onClick={() => setBpmnOpen(true)}><WorkflowIcon className="h-3.5 w-3.5" /> View BPMN</Button></div>
