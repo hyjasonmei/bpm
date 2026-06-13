@@ -44,6 +44,25 @@ public record FlowDetailDto(
 
 public record CreateFlowRequest(string FlowCode, string DisplayName, string? SpecJson);
 
+/// <summary>One row in the chef agent's work queue (PR-CA1).</summary>
+public record ChefTaskDto(
+    Guid FlowId,
+    string FlowCode,
+    int Version,
+    string DisplayName,
+    FlowState State,
+    DateTime UpdatedAt,
+    string? ChefWorkContextJson,
+    string? PrUrl,
+    DateTime? LastUserMessageAt);
+
+/// <summary>The chef agent's polling payload — everything actionable, grouped.</summary>
+public record ChefTaskListDto(
+    IReadOnlyList<ChefTaskDto> Submitted,
+    IReadOnlyList<ChefTaskDto> AwaitingChef,          // OnHold, last non-system msg from the user (Reply/Issue)
+    IReadOnlyList<ChefTaskDto> ApprovedAwaitingMerge, // Approved, MergedAt == null
+    IReadOnlyList<ChefTaskDto> Stalled);              // Cooking, heartbeat cold > 30 min (crashed session)
+
 public record RegisterShippedRequest(List<ShippedFlowInput> Flows);
 
 /// <summary>Set or clear (<c>IconKey == null</c>) the launcher icon.</summary>

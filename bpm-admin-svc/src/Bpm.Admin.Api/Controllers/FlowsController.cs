@@ -141,6 +141,13 @@ public class FlowsController : ControllerBase
     public Task<ActionResult<FlowDetailDto>> Unpublish(Guid id, CancellationToken ct)
         => RunTransition(() => _lifecycle.UnpublishAsync(id, CurrentUserId(), ct));
 
+    /// <summary>Manual "Mark merged" escape hatch (PR-CA1): unblocks Publish
+    /// when merge auto-detection can't fire (e.g. a squash merge in a
+    /// remote-less environment breaks branch ancestry).</summary>
+    [HttpPost("{id:guid}/mark-merged")]
+    public Task<ActionResult<FlowDetailDto>> MarkMerged(Guid id, CancellationToken ct)
+        => RunTransition(() => _lifecycle.MarkMergedAsync(id, CurrentUserId(), "manual", ct));
+
     [HttpPost("{id:guid}/retire")]
     public Task<ActionResult<FlowDetailDto>> Retire(Guid id, CancellationToken ct)
         => RunTransition(() => _lifecycle.RetireAsync(id, CurrentUserId(), ct));
