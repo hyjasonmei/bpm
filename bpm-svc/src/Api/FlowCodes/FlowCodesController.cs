@@ -28,6 +28,27 @@ public sealed class FlowCodesController(AppDbContext db) : ControllerBase
     // version per code — which drives admin's version-aware register-shipped.
     private static readonly Regex CaseTypeRe = new(@"^(?<code>.+)_V(?<ver>\d+)_Case$", RegexOptions.Compiled);
 
+    // Customer-facing display names for the built-in cooked flows. Demo
+    // audiences can't read the SCREAMING_SNAKE codes, so register-shipped
+    // backfills these instead of the bare code. A code with no entry falls
+    // back to itself — add a row here when cooking a new built-in flow (or
+    // rename it later in admin-ui, which overrides this).
+    private static readonly IReadOnlyDictionary<string, string> DisplayNames =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["LEAVE"]            = "請假申請",
+            ["TRAINING"]         = "教育訓練申請",
+            ["APE"]              = "預支現金",
+            ["EOB"]              = "新進員工報到",
+            ["ETM"]              = "員工離職",
+            ["FAD"]              = "固定資產處分",
+            ["FAP"]              = "固定資產採購",
+            ["PURCHASE_REQUEST"] = "採購申請",
+            ["TEO"]              = "差旅費用核銷",
+            ["TRQ"]              = "差旅申請",
+            ["VENDOR_EXPENSE"]   = "廠商採購請款",
+        };
+
     [HttpGet]
     public IReadOnlyList<DeployedFlowDto> Get()
         => db.Model.GetEntityTypes()
@@ -43,7 +64,10 @@ public sealed class FlowCodesController(AppDbContext db) : ControllerBase
             })
             .GroupBy(x => x.Code)
             .OrderBy(g => g.Key, StringComparer.Ordinal)
-            .Select(g => new DeployedFlowDto(g.Key, g.Key, g.Max(x => x.Version)))
+            .Select(g => new DeployedFlowDto(
+                g.Key,
+                DisplayNames.TryGetValue(g.Key, out var name) ? name : g.Key,
+                g.Max(x => x.Version)))
             .ToList();
 }
 
