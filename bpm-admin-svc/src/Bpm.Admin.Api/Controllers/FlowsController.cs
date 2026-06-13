@@ -247,7 +247,7 @@ public class FlowsController : ControllerBase
     {
         try
         {
-            await _lifecycle.SoftDeleteDraftAsync(id, CurrentUserId(), ct);
+            await _lifecycle.SoftDeleteAsync(id, CurrentUserId(), ct);
             return NoContent();
         }
         catch (FlowLifecycleException ex) { return Conflict(ex.Message); }

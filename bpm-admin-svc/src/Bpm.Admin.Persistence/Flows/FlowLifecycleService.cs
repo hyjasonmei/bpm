@@ -21,13 +21,29 @@ public class FlowLifecycleService : IFlowLifecycleService
         if (string.IsNullOrWhiteSpace(flowCode)) throw new FlowLifecycleException("flowCode required");
         if (string.IsNullOrWhiteSpace(displayName)) throw new FlowLifecycleException("displayName required");
 
+        var code = flowCode.Trim().ToUpperInvariant();
+
+        // Same active-uniqueness rule as Submit (PR-F1), but enforced up
+        // front so the list-page modal rejects a duplicate code before the
+        // user invests a whole wizard walk in a doomed draft.
+        var clash = await _db.Flows
+            .AsNoTracking()
+            .AnyAsync(f =>
+                f.FlowCode == code &&
+                f.ArchivedAt == null &&
+                f.State != FlowState.Retired,
+                ct);
+        if (clash)
+            throw new FlowLifecycleException(
+                $"FlowCode '{code}' is already used by another active flow; pick a different code, or archive/retire that one first.");
+
         var row = new Flow
         {
             Id = Guid.NewGuid(),
             LineageId = Guid.NewGuid(),
             Version = 1,
             State = FlowState.Draft,
-            FlowCode = flowCode.Trim().ToUpperInvariant(),
+            FlowCode = code,
             DisplayName = displayName.Trim(),
             SpecJson = string.IsNullOrWhiteSpace(specJson) ? "{}" : specJson!,
             CreatedByUserId = actorUserId,
@@ -646,11 +662,19 @@ public class FlowLifecycleService : IFlowLifecycleService
         return row;
     }
 
-    public async Task SoftDeleteDraftAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
+    public async Task SoftDeleteAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
     {
         var row = await Load(flowId, ct);
-        if (row.State != FlowState.Draft)
-            throw new FlowLifecycleException($"Only Draft flows can be deleted (state was {row.State}). Cancel first if needed.");
+
+        // Any pre-publish state can be deleted. Published flows are live in
+        // the launcher (unpublish first); Retired flows keep serving in-
+        // flight cases (archive instead). Soft-delete sets DeletedAt, which
+        // the global query filter excludes from every read — including the
+        // active-uniqueness checks in CreateDraftAsync / SubmitAsync — so
+        // the FlowCode frees up immediately.
+        if (row.State is FlowState.Published or FlowState.Retired)
+            throw new FlowLifecycleException(
+                $"Cannot delete a {row.State} flow; unpublish (Published) or archive (Retired) it first.");
 
         row.DeletedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);

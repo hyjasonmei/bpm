@@ -43,7 +43,7 @@ import { assignFlowGroup, listFlowGroups, type FlowGroupDto } from '@/flowcook/a
 import { resolveIcon } from '@/flowcook/pages/sitesetting/FlowGroupsTab'
 import { FolderPlus, GitBranch, Tag } from 'lucide-react'
 import { parseChefWorkContext } from '@/flowcook/api/flows'
-import { apiRaw } from '@/flowcook/api'
+import { ApiError, apiRaw } from '@/flowcook/api'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { CookPanel } from './aiKitchen/CookPanel'
@@ -212,7 +212,10 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
   }
 
   async function handleDelete(row: FlowSummary) {
-    if (!window.confirm(`刪除 draft "${row.displayName}"？此為 soft-delete，可由 admin DB 還原。`)) return
+    const chefWarning = row.state === 'Cooking' || row.state === 'OnHold'
+      ? '\n⚠️ chef 還在烹煮中，刪除後 chef session 會失效。'
+      : ''
+    if (!window.confirm(`刪除 "${row.displayName}" v${row.version}（${row.state}）？此為 soft-delete，flowCode 立即可重用，可由 admin DB 還原。${chefWarning}`)) return
     await withPending(row.id, () => deleteFlow(row.id))
     await refresh()
   }
@@ -347,11 +350,11 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
               </thead>
               <tbody className="divide-y divide-rule">
                 {flows.map((f) => {
-                  const isDraft    = f.state === 'Draft'
                   const isApproved = f.state === 'Approved'
                   const isPublished = f.state === 'Published'
                   const isLive     = isApproved || isPublished   // reviewed or live
                   const isRetired  = f.state === 'Retired'
+                  const canDelete  = !isPublished && !isRetired  // any pre-publish state
                   const rowBusy    = rowPending === f.id
                   const menuGroups: OverflowGroup[] = [
                     {
@@ -422,13 +425,13 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                           hint: '上架回 Approved',
                           onClick: () => { void handleUnretire(f) },
                         }] : []),
-                        ...(isDraft ? [{
+                        ...(canDelete ? [{
                           id: 'delete',
-                          label: 'Delete draft',
+                          label: 'Delete flow',
                           icon: <Trash2 className="h-3 w-3" />,
                           tone: 'danger' as const,
                           disabled: rowBusy,
-                          hint: 'Soft-delete — 可由 admin DB 還原',
+                          hint: 'Soft-delete — flowCode 立即可重用，可由 admin DB 還原',
                           onClick: () => { void handleDelete(f) },
                         }] : []),
                       ],
@@ -557,7 +560,14 @@ function CookNewFlowModal({
     try {
       await onCreate(flowCode.trim().toUpperCase(), displayName.trim())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed')
+      // ApiError.body is the backend's plain message (BadRequest serializes
+      // a bare string as JSON, hence the quote-strip) — e.g. the duplicate
+      // FlowCode rejection from CreateDraftAsync. Show it without the
+      // "HTTP 400:" prefix.
+      const msg = err instanceof ApiError
+        ? err.body.replace(/^"|"$/g, '')
+        : err instanceof Error ? err.message : 'Failed'
+      setError(msg)
       setSaving(false)
     }
   }
@@ -845,7 +855,10 @@ function WizardView({
   }
 
   async function softDelete() {
-    if (!window.confirm(`Delete draft "${flow.displayName}"? This soft-deletes the row.`)) return
+    const chefWarning = flow.state === 'Cooking' || flow.state === 'OnHold'
+      ? '\n⚠️ chef 還在烹煮中，刪除後 chef session 會失效。'
+      : ''
+    if (!window.confirm(`刪除 "${flow.displayName}" v${flow.version}（${flow.state}）？此為 soft-delete，flowCode 立即可重用，可由 admin DB 還原。${chefWarning}`)) return
     setTransitionPending('delete')
     try {
       await deleteFlow(flow.id)
@@ -876,7 +889,7 @@ function WizardView({
 
   const canSubmit = flow.state === 'Draft'
   const canCancel = flow.state === 'Submitted' || flow.state === 'Cooking' || flow.state === 'OnHold'
-  const canDelete = flow.state === 'Draft'
+  const canDelete = flow.state !== 'Published' && flow.state !== 'Retired'
 
   // PR-X2: run every step's validator before allowing Submit; surfaces
   // the failing steps in the disabled button's tooltip so the user
@@ -949,11 +962,11 @@ function WizardView({
         }] : []),
         ...(canDelete ? [{
           id: 'delete',
-          label: 'Delete draft',
+          label: 'Delete flow',
           icon: <Trash2 className="h-3 w-3" />,
           tone: 'danger' as const,
           disabled: transitionPending !== null,
-          hint: 'Soft-delete — 可由 admin DB 還原',
+          hint: 'Soft-delete — flowCode 立即可重用，可由 admin DB 還原',
           onClick: () => void softDelete(),
         }] : []),
       ],

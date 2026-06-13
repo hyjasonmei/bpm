@@ -44,7 +44,11 @@ public interface IFlowLifecycleService
     Task<Flow> ResumeAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
     Task<Flow> CloneVersionAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
     Task<Flow> OnHoldFromChefAsync(Guid flowId, string question, CancellationToken ct = default);
-    Task SoftDeleteDraftAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
+    /// <summary>Soft-delete any pre-publish flow (everything except
+    /// Published / Retired). Frees the FlowCode for reuse immediately —
+    /// deleted rows drop out of the active-uniqueness checks via the
+    /// soft-delete query filter.</summary>
+    Task SoftDeleteAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
     /// <summary>Approved → Retired. Stops new case instances from
     /// being launched against this flow version.</summary>
     Task<Flow> RetireAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
