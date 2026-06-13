@@ -83,7 +83,9 @@ public sealed class WorktreeManager
             {
                 ["flowcook-admin"] = new
                 {
-                    type = "sse",
+                    // admin-svc exposes MapMcp = Streamable HTTP, so the client
+                    // transport must be "http" (not the legacy "sse").
+                    type = "http",
                     url = env.BaseUrl.TrimEnd('/') + "/mcp",
                     headers = new Dictionary<string, string> { ["Authorization"] = $"Bearer {env.ChefToken}" },
                 },

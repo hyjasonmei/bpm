@@ -2,7 +2,7 @@
   "_": "Example .mcp.json for chef Claude Code sessions. Drop this in the repo root (the same checkout Jason works in — chef has no separate worktree, see workflow.md) or merge into the existing one. For local dev, admin-svc auto-defaults Bpm:Chef:Token to 'dev-chef-token' when ASPNETCORE_ENVIRONMENT=Development and no token is configured, so the literal Bearer value below works without exporting anything. For production, set the same token under Bpm:Chef:Token in admin-svc appsettings and update the header here.",
   "mcpServers": {
     "flowcook-admin": {
-      "type": "sse",
+      "type": "http",
       "url": "http://localhost:5266/mcp",
       "headers": {
         "Authorization": "Bearer dev-chef-token"

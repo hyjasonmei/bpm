@@ -59,7 +59,14 @@ public sealed class CookRunner
                 _cfg.ClaudeBin,
                 ["-p", BuildPrompt(task, resuming),
                  "--max-turns", _cfg.MaxTurns.ToString(),
-                 "--permission-mode", "bypassPermissions"],
+                 "--permission-mode", "bypassPermissions",
+                 // Load ONLY the flowcook-admin chef MCP from the worktree config.
+                 // Without --mcp-config the project .mcp.json isn't trusted in
+                 // headless mode (chef tools missing); --strict-mcp-config stops
+                 // the session inheriting the operator's user-level MCP servers
+                 // (e.g. telegram), which otherwise get hijacked from the parent.
+                 "--mcp-config", Path.Combine(worktree, ".mcp.json"),
+                 "--strict-mcp-config"],
                 workingDir: worktree,
                 timeout: TimeSpan.FromMinutes(_cfg.MaxSessionMinutes),
                 ct: ct);
