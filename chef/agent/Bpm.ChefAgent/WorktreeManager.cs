@@ -47,13 +47,18 @@ public sealed class WorktreeManager
         return path;
     }
 
-    /// <summary>Count of changed/new files in the worktree — a coarse "work
-    /// done" signal the cook loop uses to decide whether a session that ran
-    /// out of turns actually made progress (resume) or stalled (give up).</summary>
+    /// <summary>A coarse "work done" signal the cook loop uses to decide
+    /// whether a session that ran out of turns made progress (resume) or
+    /// stalled (give up). Counts BOTH commits ahead of main AND uncommitted
+    /// churn — a chef that commits its progress mid-cook would otherwise read
+    /// as "no progress" once `git status` goes blank after the commit.</summary>
     public async Task<int> MeasureProgressAsync(string worktreePath, CancellationToken ct = default)
     {
-        var r = await ProcessRunner.RunAsync("git", ["status", "--porcelain"], worktreePath, ct: ct);
-        return r.Ok ? r.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length : 0;
+        var commits = await ProcessRunner.RunAsync("git", ["rev-list", "--count", "main..HEAD"], worktreePath, ct: ct);
+        var working = await ProcessRunner.RunAsync("git", ["status", "--porcelain"], worktreePath, ct: ct);
+        var c = int.TryParse(commits.Stdout.Trim(), out var n) ? n : 0;
+        var w = working.Ok ? working.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length : 0;
+        return c * 1000 + w;   // a new commit dominates: always counts as progress
     }
 
     /// <summary>Re-attach (or create) the worktree for a resume/stalled cook.</summary>
