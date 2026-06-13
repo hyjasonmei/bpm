@@ -16,7 +16,9 @@ public record FlowSummaryDto(
     string? GroupCode,
     string? IconKey,
     int DisplayOrder,
-    string? ChefWorkContextJson);
+    string? ChefWorkContextJson,
+    string? PrUrl,
+    DateTime? MergedAt);
 
 public record FlowDetailDto(
     Guid Id,
@@ -36,7 +38,9 @@ public record FlowDetailDto(
     string? IconKey,
     int DisplayOrder,
     string? ChefWorkContextJson,
-    string? BpmnXml);
+    string? BpmnXml,
+    string? PrUrl,
+    DateTime? MergedAt);
 
 public record CreateFlowRequest(string FlowCode, string DisplayName, string? SpecJson);
 

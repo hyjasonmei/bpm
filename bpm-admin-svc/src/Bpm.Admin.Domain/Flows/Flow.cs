@@ -118,4 +118,18 @@ public class Flow : ISoftDeletable
     /// for wizard-designed flows whose BPMN is derived from the spec.
     /// </summary>
     public string? BpmnXml { get; set; }
+
+    /// <summary>
+    /// PR opened by the chef agent for this flow's cook branch (e.g.
+    /// "https://github.com/hyjasonmei/bpm/pull/12"). Null until the agent
+    /// opens one; environments without a remote never set it.
+    /// </summary>
+    public string? PrUrl { get; set; }
+
+    /// <summary>
+    /// When the cook branch was confirmed merged into main — set by the
+    /// chef agent's merge detection, or manually via the admin "Mark
+    /// merged" escape hatch. Publish is blocked while null (PR-CA1).
+    /// </summary>
+    public DateTime? MergedAt { get; set; }
 }
