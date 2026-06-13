@@ -83,7 +83,7 @@ chef 邊界以外的**所有** code + 共用 primitive：
 - `chef/skill/SKILL.md` + `chef/skill/conventions.md` + `chef/skill/workflow.md`
 - `lead/skill/SKILL.md`
 
-Reference cook：**LEAVE V1**（testbed 在 `leave-test-N` 系列分支，目前最新 `leave-test-5`）— 完整一支流程的範例，新 chef session 從這隻 copy shape。⚠️ 目前 testbed 上實作把 entity / state machine / inbox provider 全擠在 `Persistence/Features/LEAVE/V1/`，與本文件的 Clean Arch 分層**不符**；先 refactor 對齊再合 main。**main 目前還沒有任何 chef-cooked flow merge 進去**。
+Reference cook：**LEAVE V1**，已在 main 並對齊本文件的 Clean Arch 分層（entity/enum→Domain、service/inbox/templates/CaseStore 介面→Application、EF mapping+CaseStore impl→Persistence）。新 chef session 從任一隻已 merge 的 flow copy shape。**main 上目前共有 10 隻 chef-cooked flow**（APE / EOB / ETM / FAD / FAP / PURCHASE_REQUEST / TEO / TRQ / VENDOR_EXPENSE / LEAVE），全部正確分層。
 
 ### Model A（已退役）
 
@@ -112,17 +112,61 @@ POC 期跑 SQLite，但客戶上線後很可能要 Postgres / SQL Server。Code 
 6. JSON 欄位用 EF Owned types 或純 TEXT，避 query 內部 JSON path — SQLite / Postgres JSON query 語法差很多
 7. 並發控制用 EF OptimisticConcurrency（RowVersion）— 兩邊都支援
 
+## Azure 上線狀況（2026-06-10）
+
+flowcook POC 已部署到 Azure 並掛上 `flowcook.ai`（HTTPS/TLS 正常，AI Kitchen 可用）。provisioning script 在 `infra/azure/`（`00-config.sh` 共用設定 → `01-provision` → `02-configure` → `03-deploy`）。
+
+**資源（resource group `rg-poc`）**
+
+| 服務 | 型態 | Region | 名稱 |
+|---|---|---|---|
+| bpm-svc | App Service (Linux .NET 10) | **japaneast** | `poc-flowcook-api` |
+| bpm-admin-svc | App Service (Linux .NET 10) | **japaneast** | `poc-flowcook-admin-api` |
+| bpm-ui | Static Web App | eastasia | `poc-flowcook-ui` |
+| bpm-admin-ui | Static Web App | eastasia | `poc-flowcook-admin-ui` |
+| bpm-www | Static Web App | eastasia | `poc-flowcook-www` |
+| DB | Postgres Flexible Server (B1ms Burstable) | japaneast | `pg-poc-flowcook` |
+| 機密 | Key Vault（managed identity + KV references） | japaneast | `kv-poc-flowcook` |
+
+App Service plan = B1；整套用最便宜 SKU。auth 走 unify-jwt（單一 `BPM_JWT_SECRET`，admin-svc 簽 token、bpm-svc 認）；`BPM_AUTH_MODE=prod` 關掉 `/api/dev/login`。
+
+**⚠️ demo dev-mode（2026-06-10 為周五 demo 暫時開啟）**：bpm-ui 的 persona 快速切換器（在右上角 **Account menu 頭像下拉**裡的「SWITCH ROLE (DEV MODE)」，**不是**「代理人」按鈕——那是 delegation 委任）靠 `/api/dev/login`，prod 模式會關掉。要讓它在雲端動需要**兩件事**：① `BPM_AUTH_MODE=dev`；② persona 對應表——它只寫在 `appsettings.Development.json`，Production 環境不載入，所以要把對應補成 App Service 環境變數 `Personas__employee=bob@acme.example`、`Personas__manager=alice@…`、`Personas__finance=frank@…`、`Personas__it=dave@…`、`Personas__hr=henry@…`、`Personas__admin=jack@…`。改完 restart bpm-svc 即生效（純增量，真實登入照常）。**demo 結束務必把 `BPM_AUTH_MODE` 改回 `prod`**（dev 模式 = 任何人可呼叫 `/api/dev/login` 切成任意 persona，無密碼）。
+seed demo 帳號：`{alice,bob,carol,dave,erin,frank,grace,henry,iris,jack,kate,leo,mia}@acme.example` / 密碼 `flowcook2026`（Jack=SYSTEM_ADMIN，admin-ui 登入用）。persona→帳號：employee=bob、manager=alice、finance=frank、it=dave、hr=henry、admin=jack。
+
+**POC 網址（2026-06-10 實際 live）**
+
+| 用途 | 網址 |
+|---|---|
+| 官網 bpm-www | <https://flowcook.ai>（apex/www）· default：<https://gentle-stone-058e93100.7.azurestaticapps.net> |
+| 客戶端 bpm-ui | <https://nice-dune-045efff00.7.azurestaticapps.net> |
+| 管理端 bpm-admin-ui（AI Kitchen 登入入口） | <https://polite-field-06fac5e00.7.azurestaticapps.net> |
+| bpm-svc API | <https://poc-flowcook-api.azurewebsites.net>（health：`/health`） |
+| bpm-admin-svc API | <https://poc-flowcook-admin-api.azurewebsites.net>（AI：`POST /api/chat`、`/api/spec-extract`） |
+
+> SWA default hostname 由 Azure 隨機產生（`nice-dune-…` 等），重建 SWA 會變；以 `az staticwebapp show -n <name> -g rg-poc --query defaultHostname` 為準。
+> AI Kitchen 雲端端到端已驗證（2026-06-10：直打部署 admin-svc `/api/chat` 回 200 + 真實 Anthropic message id + usage，KV key 正確）。
+
+**region 為什麼這樣切**：原本全放 eastasia（香港），但 Anthropic 對香港 IP geoblock → AI Kitchen 403。把兩個 API + DB + KV 搬到 **japaneast** 解掉；SWA 只在 5 個 region 提供且本身是全球 CDN（location 只是 metadata），留在 eastasia 無妨。japaneast App Service 配額初始為 0，用 `az quota update`（B1 → value=3）即時開通。
+
+**DNS**：GoDaddy 管 `flowcook.ai`，**只有官網（bpm-www）掛 `flowcook.ai`**（apex / www → www SWA）。其餘 4 個 app（兩 API + bpm-ui + admin-ui）都用 Azure default hostname（`*.azurewebsites.net` / `*.azurestaticapps.net`）——`00-config.sh` 的 `USE_DEFAULT_HOSTNAMES=true`，02/03 會把 CORS + 前端 API URL 指到 default host，零 DNS 設定。
+
+**Anthropic key**：放 Key Vault（secret），**由 Jason 自己更新真 key**，Claude 不碰。KV 重建時 key 會自動保留。
+
+**成本與停機**：running ~$31/mo，停機後 ~$3/mo（只剩 storage）。停 / 開用 `infra/azure/flowcook-stop.sh` / `flowcook-start.sh`（停兩個 API + Postgres；SWA 是 Free 不停，官網照常）。
+⚠️ **Postgres 停機滿 7 天會被 Azure 強制自動重啟**（平台硬性規則，無法取消）。要長期省錢需「每 6 天自動停機」排程，否則最差 ~$16/mo。**目前 stack 為停機狀態。**
+
+**部署踩過的雷**（都已修在 script 內）：① `az webapp deploy` 加 `--track-status false`（冷啟 + migrate + seed 超過 10 分鐘 deploy timeout 會誤判失敗）② bpm-svc assembly 名是 `Bpm.Api` 不是 `Api` ③ seed 連線字串要從 config 取（`GetDbConnection().ConnectionString` 被 Npgsql 去掉密碼 → SCRAM「No password」）④ 兩個 SPA 都要 `staticwebapp.config.json` 的 `navigationFallback`（否則 deep-link / reload 404）⑤ fresh subscription 要先 `az provider register`。
+
 ## 目前進度（2026-05-25）
 
 - **ADMIN**：`bpm-admin-svc` Clean-Arch skeleton（auth + principal / role / delegation / dept controllers）+ `bpm-admin-ui` flowcook V0 shell（AI Kitchen + User & Role pages；legacy admin shell 已 purge）已上線
 - **BPM**：unify-user-store 收尾（U2 / U5 / U7 + finale）— bpm-svc 完全切到 SharedX 讀 admin 的 identity；bpm-ui Login auto-fill demo credentials；JWT roles claim normalized to array；unified inbox + bundle BPMN passthrough 都已 land
-- **CHEF**：chef skill v3（model B）+ lead skill v1 + chef skill v2 unify-user-store update 都已 land；first reference cook（LEAVE V1）在 `leave-test-5` testbed 進行中 — **尚未 merge 回 main**
+- **CHEF**：chef skill v3（model B）+ lead skill v1 + chef skill v2 unify-user-store update 都已 land；**10 隻 chef-cooked flow 已在 main 且全部對齊 Clean Arch 分層**（含 reference cook LEAVE V1）
 - **WWW**：`bpm-www` Astro skeleton + 7 個首批頁面（index / about / features / how-it-works / pricing / use-cases / why-flowcook）
 
 ## 仍要做的事（未排程）
 
-- **chef/skill + LEAVE V1 testbed 對齊 Clean Arch 分層** — 目前 chef skill 把 entity + state machine + inbox provider 全寫進 `Persistence/Features/`；要拆到 Domain / Application / Persistence / Features/。`Persistence/DependencyInjection.cs` 的 `ITypedInboxProvider` assembly scan 也要跟著搬到 `Application/DependencyInjection.cs`，否則 chef 把 inbox provider 放對位置但 runtime 找不到
-- LEAVE V1 testbed 先對齊新分層，再 merge 進 main 當第一支真實 chef cook
+- chef skill SKILL.md 的 LEAVE 範例段落（§195-217 / 364 / 522）還指著舊的 `Persistence/Features/` 形狀，與已對齊的實作不符 — conventions.md + 路徑表已正確，只剩 SKILL.md 的 worked-example 沒同步
 - Model A code 清理 — UI 端已完成（hooks + 11 隻 `Reference_*.tsx` + `hrFlows.ts` 已刪）。**剩 bpm-svc runtime engine**（`ProcessInstance` / `ProcessRuntime` / `ISpecLoader` / `ActorResolver` / `CelNetExpressionEvaluator` / 舊 `INotificationDispatcher`）+ 其上的 admin Reports / Simulator / ProcessAdmin、以及 bpm-ui `/cases/:instanceId` + `/tasks/:taskId` 舊路由——清這層 = 拿掉或改寫那些功能，待產品決策
 - 第二支 chef-cooked flow — 驗證 chef 流程真的可重複（LEAVE 之後 GEE / APE / 其他流程）
 - NotificationDispatchAudit 表（生產通知稽核）— 目前只有 sandbox 的 `SandboxCapturedMessages`

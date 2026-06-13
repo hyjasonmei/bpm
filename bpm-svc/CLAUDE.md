@@ -34,12 +34,14 @@ business logic doesn't drop into Api.**
 | `tests/Bpm.Tests/Features/<CODE>/V<N>/**` | **chef** | per-flow unit + integration |
 | Everything else under `src/{Api,Application,Domain,Persistence,Functions,SeedCli}/**` | **lead** | Shared platform — `AppDbContext`, SharedIdentity DbSets, auth, sandbox, unified inbox plumbing, bundle install, REST scaffolding, primitives |
 
-As of 2026-05-25 the `Features/` subfolder is **absent** under all
-four layers — main has zero chef-cooked flows. The first cook is in
-progress on the `leave-test-N` testbed branches (currently `leave-test-5`)
-but folds entity / state machine / inbox provider into
-`Persistence/Features/LEAVE/V1/`, which doesn't match the Clean-Arch
-split above. Refactor must land before merging back to main.
+As of 2026-06-13 **main carries 10 chef-cooked flows**, all conforming
+to the Clean-Arch split above: APE, EOB, ETM, FAD, FAP,
+PURCHASE_REQUEST, TEO, TRQ, VENDOR_EXPENSE, and LEAVE (the reference
+cook, aligned in-place from its old Persistence-only shape). Each lives
+across `Domain/Features/<CODE>/V1/` (entity + enum),
+`Application/Features/<CODE>/V1/` (service + inbox + templates +
+`I<CODE>_V1_CaseStore`), and `Persistence/Features/<CODE>/V1/` (EF
+config + `<CODE>_V1_CaseStore` impl). Copy any of them for shape.
 
 ## SharedIdentity (read-only)
 
@@ -56,16 +58,16 @@ from the **Application** layer service. See
 `chef/skill/conventions.md` § "Actor resolution helpers" for the
 table mapping.
 
-## DI scan gotcha (enabling work)
+## Inbox provider DI scan (resolved)
 
-`src/Persistence/DependencyInjection.cs` currently scans
-`typeof(AppDbContext).Assembly` for `ITypedInboxProvider` impls.
-That works only while chef's inbox provider lives in
-`Persistence/Features/`. Once chef writes the impl into
-`Application/Features/<CODE>/V<N>/`, the scan won't find it —
-inbox would silently break. Lead needs to move the scan into
-`src/Application/DependencyInjection.cs` (or scan both assemblies)
-before the first Clean-Arch chef cook merges.
+`ITypedInboxProvider` impls are auto-registered by **two** scans:
+`src/Application/DependencyInjection.cs` scans the Application
+assembly (where Clean-Arch cooks put their provider — this is the
+path chef uses) and `src/Persistence/DependencyInjection.cs` keeps a
+legacy scan of the Persistence assembly. Both are additive; chef
+drops `<CODE>_V<N>_InboxProvider.cs` into
+`Application/Features/<CODE>/V<N>/` and it's picked up automatically —
+no DI edit needed.
 
 ## Model A is retired
 
@@ -86,9 +88,10 @@ flow under `Application/Features/<CODE>/V<N>/`, exposed at
   architecture, Clean Architecture five-layer convention, 7 DB rules
 - [`../chef/skill/SKILL.md`](../chef/skill/SKILL.md) +
   [`../chef/skill/conventions.md`](../chef/skill/conventions.md) —
-  per-flow folder shape, naming, primitive table, test patterns ⚠️
-  the skill currently documents `Persistence/Features/` only; the
-  Clean-Arch split above is the target shape, refactor pending
+  per-flow folder shape, naming, primitive table, test patterns —
+  conventions.md + the path table teach the Clean-Arch split above;
+  ⚠️ SKILL.md's LEAVE *worked-example* sections still show the old
+  `Persistence/Features/`-only shape and want syncing
 - [`../lead/skill/SKILL.md`](../lead/skill/SKILL.md) — what lead may
   edit here vs. what chef owns
 - [`../README.md`](../README.md) — run / seed / test / migrate
