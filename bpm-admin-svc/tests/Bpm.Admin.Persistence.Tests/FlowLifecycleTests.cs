@@ -169,4 +169,64 @@ public class FlowLifecycleTests
         }
         finally { ctx.Dispose(); conn.Dispose(); }
     }
+
+    // ── PR-CA1: publish gated on merge ──────────────────────────────
+
+    [Fact]
+    public async Task Publish_Blocks_When_Not_Merged()
+    {
+        var (svc, ctx, conn) = CreateService();
+        try
+        {
+            var row = SeedFlow(ctx, "LEAVE", FlowState.Approved);
+            var ex = await Assert.ThrowsAsync<FlowLifecycleException>(
+                () => svc.PublishAsync(row.Id, null));
+            Assert.Contains("merge", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Publish_Allows_After_MarkMerged()
+    {
+        var (svc, ctx, conn) = CreateService();
+        try
+        {
+            var row = SeedFlow(ctx, "LEAVE", FlowState.Approved);
+            await svc.MarkMergedAsync(row.Id, null, "test");
+            var published = await svc.PublishAsync(row.Id, null);
+            Assert.Equal(FlowState.Published, published.State);
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
+    [Fact]
+    public async Task MarkMerged_Is_Idempotent()
+    {
+        var (svc, ctx, conn) = CreateService();
+        try
+        {
+            var row = SeedFlow(ctx, "LEAVE", FlowState.Approved);
+            var first = await svc.MarkMergedAsync(row.Id, null, "test");
+            var stamp = first.MergedAt;
+            var second = await svc.MarkMergedAsync(row.Id, null, "test");
+            Assert.Equal(stamp, second.MergedAt);   // not overwritten
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
+    [Fact]
+    public async Task SetPrUrl_Persists_And_Is_Idempotent()
+    {
+        var (svc, ctx, conn) = CreateService();
+        try
+        {
+            var row = SeedFlow(ctx, "LEAVE", FlowState.Approved);
+            await svc.SetPrUrlAsync(row.Id, "https://github.com/x/y/pull/1");
+            await svc.SetPrUrlAsync(row.Id, "https://github.com/x/y/pull/1"); // no throw
+            var fresh = await ctx.Flows.AsNoTracking().SingleAsync(f => f.Id == row.Id);
+            Assert.Equal("https://github.com/x/y/pull/1", fresh.PrUrl);
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
 }

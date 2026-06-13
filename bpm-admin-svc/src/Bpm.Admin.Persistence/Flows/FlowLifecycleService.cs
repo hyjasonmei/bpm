@@ -104,6 +104,11 @@ public class FlowLifecycleService : IFlowLifecycleService
                 LineageId = lineageId,
                 Version = deployedVersion,
                 State = FlowState.Published,
+                // Shipped = the runtime code is already deployed (merged), so
+                // these rows go straight to Published. Stamp MergedAt to match
+                // that reality, otherwise the PR-CA1 publish guard would reject
+                // a later Unpublish→Publish round-trip on a registered flow.
+                MergedAt = DateTime.UtcNow,
                 FlowCode = code,
                 DisplayName = !string.IsNullOrWhiteSpace(f.DisplayName)
                     ? f.DisplayName.Trim()
@@ -403,11 +408,62 @@ public class FlowLifecycleService : IFlowLifecycleService
     public Task<Flow> UnretireAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
         => TransitionAsync(flowId, FlowState.Approved, "flow_unretired", actorUserId, new[] { FlowState.Retired }, ct);
 
-    public Task<Flow> PublishAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
-        => TransitionAsync(flowId, FlowState.Published, "flow_published", actorUserId, new[] { FlowState.Approved }, ct);
+    public async Task<Flow> PublishAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
+    {
+        // PR-CA1: publish only after the cook branch is confirmed merged to
+        // main. The chef agent sets MergedAt via merge detection; the admin
+        // "Mark merged" button is the manual escape hatch (e.g. a squash
+        // merge in a remote-less environment breaks ancestry detection).
+        var row = await Load(flowId, ct);
+        if (row.MergedAt is null)
+            throw new FlowLifecycleException(
+                "Cannot publish: cook branch is not merged to main yet. Wait for merge detection or use Mark merged.");
+        return await TransitionAsync(flowId, FlowState.Published, "flow_published", actorUserId, new[] { FlowState.Approved }, ct);
+    }
 
     public Task<Flow> UnpublishAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
         => TransitionAsync(flowId, FlowState.Approved, "flow_unpublished", actorUserId, new[] { FlowState.Published }, ct);
+
+    public async Task<Flow> SetPrUrlAsync(Guid flowId, string prUrl, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(prUrl)) throw new FlowLifecycleException("prUrl required");
+        var row = await Load(flowId, ct);
+        if (row.PrUrl == prUrl) return row;          // idempotent re-run
+        var before = new { row.PrUrl };
+        row.PrUrl = prUrl;
+        row.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        await _audit.LogAsync(
+            actionType: "flow_pr_opened",
+            targetType: "flow",
+            targetId: row.Id.ToString(),
+            actorUserId: null,
+            actorPrincipalId: null,
+            before: before,
+            after: new { row.PrUrl },
+            reason: "chef agent",
+            ct: ct);
+        return row;
+    }
+
+    public async Task<Flow> MarkMergedAsync(Guid flowId, Guid? actorUserId, string source, CancellationToken ct = default)
+    {
+        var row = await Load(flowId, ct);
+        if (row.MergedAt is not null) return row;    // idempotent — keep first stamp
+        row.MergedAt = DateTime.UtcNow;
+        row.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        await _audit.LogAsync(
+            actionType: "flow_branch_merged",
+            targetType: "flow",
+            targetId: row.Id.ToString(),
+            actorUserId: actorUserId,
+            actorPrincipalId: null,
+            after: new { row.MergedAt },
+            reason: source,
+            ct: ct);
+        return row;
+    }
 
     // ── chef-driven transitions (PR-K1) ──────────────────────────────
 

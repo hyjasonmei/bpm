@@ -85,6 +85,16 @@ public interface IFlowLifecycleService
     /// while keeping it reviewed.</summary>
     Task<Flow> UnpublishAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
 
+    /// <summary>Record the PR the chef agent opened for this flow's cook
+    /// branch (PR-CA1). Idempotent. Chef-token path (no actorUserId).</summary>
+    Task<Flow> SetPrUrlAsync(Guid flowId, string prUrl, CancellationToken ct = default);
+
+    /// <summary>Mark the cook branch merged into main; unblocks Publish
+    /// (PR-CA1). Idempotent — a second call keeps the first timestamp.
+    /// <paramref name="source"/> lands in the audit reason
+    /// ("gh-pr" | "git-ancestry" | "manual").</summary>
+    Task<Flow> MarkMergedAsync(Guid flowId, Guid? actorUserId, string source, CancellationToken ct = default);
+
     /// <summary>User-triggered escape hatch when chef appears stalled.
     /// Cooking → Submitted (so a fresh chef session can pick up). Auth
     /// requires the user JWT; not exposed on the chef API surface.</summary>
