@@ -202,21 +202,26 @@ public static class Seeder
         var options = builder.Options;
         await using var ctx = new AdminDbContext(options);
         await ctx.Database.MigrateAsync();
-        await ctx.Database.ExecuteSqlRawAsync(@"
-            DELETE FROM Admin_UserSessions;
-            DELETE FROM Admin_UserCredentials;
-            DELETE FROM Admin_AuditEvents;
-            DELETE FROM Admin_Delegations;
-            DELETE FROM Admin_PrincipalRoles;
-            DELETE FROM Admin_GroupMembers;
-            DELETE FROM Admin_DeptHeads;
-            DELETE FROM Admin_UserManagers;
-            DELETE FROM Admin_UserDepts;
-            DELETE FROM Admin_DeptParents;
-            DELETE FROM Admin_Flows;
-            DELETE FROM Admin_Roles;
-            DELETE FROM Admin_Principals;
-        ");
+        // Per-DbSet ExecuteDeleteAsync (NOT raw SQL): EF emits the
+        // provider-correct quoted identifier for each table. The old raw
+        // `DELETE FROM Admin_UserSessions` worked on SQLite (case-insensitive
+        // identifiers) but 500'd on Postgres — Npgsql created the tables as
+        // case-sensitive "Admin_UserSessions", while unquoted raw SQL folds
+        // to lowercase `admin_usersessions` → relation does not exist. Same
+        // FK-safe reverse order as before. Mirrors bpm-svc ResetService.
+        await ctx.UserSessions.ExecuteDeleteAsync();
+        await ctx.UserCredentials.ExecuteDeleteAsync();
+        await ctx.AuditEvents.ExecuteDeleteAsync();
+        await ctx.Delegations.ExecuteDeleteAsync();
+        await ctx.PrincipalRoles.ExecuteDeleteAsync();
+        await ctx.GroupMembers.ExecuteDeleteAsync();
+        await ctx.DeptHeads.ExecuteDeleteAsync();
+        await ctx.UserManagers.ExecuteDeleteAsync();
+        await ctx.UserDepts.ExecuteDeleteAsync();
+        await ctx.DeptParents.ExecuteDeleteAsync();
+        await ctx.Flows.ExecuteDeleteAsync();
+        await ctx.Roles.ExecuteDeleteAsync();
+        await ctx.Principals.ExecuteDeleteAsync();
     }
 
     /// <summary>Clear + re-seed the org graph in one call — the canonical

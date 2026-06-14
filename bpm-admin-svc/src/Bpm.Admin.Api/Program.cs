@@ -59,7 +59,17 @@ builder.Services
             RoleClaimType = "roles",
         };
     });
-builder.Services.AddAuthorization();
+// "SystemAdmin" policy gates destructive admin endpoints (e.g. the demo Reset).
+// We match the SYSTEM_ADMIN grant by ASSERTION over the raw claim values rather
+// than [Authorize(Roles=...)] / RequireClaim("roles", …): both of those returned
+// 403 for a jack token that demonstrably carried roles=["SYSTEM_ADMIN", …]. The
+// JWT handler's materialization of the array-valued "roles" claim (claim type
+// remap and/or array-string vs per-element) didn't line up with either check.
+// Asserting on the value directly is robust to both: only the roles claim ever
+// carries the literal "SYSTEM_ADMIN", so this admits the admin and no one else.
+builder.Services.AddAuthorization(options =>
+    options.AddPolicy("SystemAdmin", p => p.RequireAssertion(ctx =>
+        ctx.User.Claims.Any(c => c.Value is not null && c.Value.Contains("SYSTEM_ADMIN")))));
 
 // admin-ui calls admin-svc cross-origin with a JWT bearer (no cookie post
 // unify-jwt). Allowed origins are config-driven per environment.

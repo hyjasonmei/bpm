@@ -1,6 +1,7 @@
 using Bpm.Admin.Domain.Principals;
 using Bpm.Admin.Persistence;
 using Bpm.Admin.Persistence.Seed;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,8 +18,15 @@ namespace Bpm.Admin.Api.Controllers;
 /// re-register + publish flows. Destructive; the UI guards with a
 /// type-to-confirm dialog.
 /// </summary>
+// Destructive demo reset — gate to the "SystemAdmin" policy (RequireClaim on the
+// "roles" claim; see Program.cs). Only Jack is seeded with SYSTEM_ADMIN, which is
+// the admin-ui login. Authorization runs at request start (before ClearOrgAsync),
+// so the in-flight token stays valid through the wipe.
+// NOTE: the rest of admin-svc's controllers are currently un-gated — broader
+// hardening is a separate decision; this locks only the destructive endpoint.
 [ApiController]
 [Route("api/admin/reset")]
+[Authorize(Policy = "SystemAdmin")]
 public sealed class ResetController : ControllerBase
 {
     private readonly AdminDbContext _db;
