@@ -1,3 +1,5 @@
+using System.Net.Http.Headers;
+using Bpm.Admin.Api.Auth;
 using Bpm.Admin.Persistence;
 using Bpm.Admin.Persistence.Audit;
 using Microsoft.AspNetCore.Hosting;
@@ -52,6 +54,24 @@ public class AdminAppFactory : WebApplicationFactory<Program>
             var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
             db.Database.EnsureCreated();
         });
+    }
+
+    /// <summary>
+    /// A client carrying a valid admin bearer (SYSTEM_ADMIN). Needed since the
+    /// API now has a RequireAuthenticatedUser fallback policy — a tokenless
+    /// CreateClient() 401s on every gated endpoint. Mints a real JWT via the
+    /// host's AdminJwtTokenService so the token validates exactly like a login.
+    /// </summary>
+    public HttpClient CreateAdminClient()
+    {
+        var client = CreateClient();
+        using var scope = Services.CreateScope();
+        var jwt = scope.ServiceProvider.GetRequiredService<AdminJwtTokenService>();
+        var (token, _) = jwt.MintForUser(
+            Guid.NewGuid(), "test-admin@example.com", "Test Admin",
+            new[] { "SYSTEM_ADMIN" }, deptCode: null);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
     }
 
     protected override void Dispose(bool disposing)

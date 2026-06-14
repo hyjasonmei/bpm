@@ -21,7 +21,7 @@ public class RolesAndDelegationApiTests : IClassFixture<AdminAppFactory>
     [Fact]
     public async Task Role_CRUD_and_assignment()
     {
-        var client = _factory.CreateClient();
+        var client = _factory.CreateAdminClient();
 
         var roleResp = await client.PostAsJsonAsync("/api/roles",
             new CreateRoleRequest("Approver_" + Guid.NewGuid().ToString("N").Substring(0, 6), "Approver", null));
@@ -52,7 +52,7 @@ public class RolesAndDelegationApiTests : IClassFixture<AdminAppFactory>
     [Fact]
     public async Task Delegation_Lifecycle_and_Active_Filter()
     {
-        var client = _factory.CreateClient();
+        var client = _factory.CreateAdminClient();
 
         var dResp = await client.PostAsJsonAsync("/api/principals",
             new CreatePrincipalRequest(PrincipalType.User, "Delegator", null));
@@ -83,7 +83,7 @@ public class RolesAndDelegationApiTests : IClassFixture<AdminAppFactory>
     [Fact]
     public async Task Delegation_target_must_be_user()
     {
-        var client = _factory.CreateClient();
+        var client = _factory.CreateAdminClient();
 
         var delegatorResp = await client.PostAsJsonAsync("/api/principals",
             new CreatePrincipalRequest(PrincipalType.User, "DelTargetBadDel", null));

@@ -19,7 +19,7 @@ public class PrincipalsApiTests : IClassFixture<AdminAppFactory>
     [Fact]
     public async Task Empty_list_returns_OK_and_empty_array()
     {
-        var client = _factory.CreateClient();
+        var client = _factory.CreateAdminClient();
         var resp = await client.GetAsync("/api/principals");
         resp.EnsureSuccessStatusCode();
         var items = await resp.Content.ReadFromJsonAsync<List<PrincipalDto>>();
@@ -29,7 +29,7 @@ public class PrincipalsApiTests : IClassFixture<AdminAppFactory>
     [Fact]
     public async Task Full_CRUD_lifecycle()
     {
-        var client = _factory.CreateClient();
+        var client = _factory.CreateAdminClient();
 
         var createResp = await client.PostAsJsonAsync("/api/principals", new CreatePrincipalRequest(
             PrincipalType.User, "Alice Test", "alice@example.com"));
@@ -57,7 +57,7 @@ public class PrincipalsApiTests : IClassFixture<AdminAppFactory>
     [Fact]
     public async Task Filter_by_type()
     {
-        var client = _factory.CreateClient();
+        var client = _factory.CreateAdminClient();
 
         await client.PostAsJsonAsync("/api/principals", new CreatePrincipalRequest(PrincipalType.User, "U1", null));
         await client.PostAsJsonAsync("/api/principals", new CreatePrincipalRequest(PrincipalType.Dept, "D1", null));

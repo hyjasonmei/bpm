@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Bpm.Admin.Api.Auth;
 using Bpm.Admin.Application.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Bpm.Admin.Api.Controllers;
@@ -18,6 +19,9 @@ public class AuthController : ControllerBase
         _jwt = jwt;
     }
 
+    // Anonymous: you can't hold a token before you log in. The only anonymous
+    // entry point now that the API has a RequireAuthenticatedUser fallback policy.
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest req, CancellationToken ct)
     {
@@ -39,6 +43,8 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>Stateless logout — JWT TTL governs; the client discards the token.</summary>
+    // Anonymous so logout never fails on an already-expired/invalid token.
+    [AllowAnonymous]
     [HttpPost("logout")]
     public IActionResult Logout() => NoContent();
 

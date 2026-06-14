@@ -13,6 +13,9 @@ public sealed class JwtOptions
     public string Secret { get; set; } = string.Empty;
     public string Issuer { get; set; } = "bpm-svc";
     public string Audience { get; set; } = "bpm-ui";
-    public TimeSpan ExpiryDev { get; set; } = TimeSpan.FromHours(8);
-    public TimeSpan ExpiryProd { get; set; } = TimeSpan.FromHours(1);
+    // Token TTL = 1 day (both dev + prod). One login lasts a working day before
+    // re-auth — long enough for an uninterrupted demo / admin session, short
+    // enough to bound a leaked bearer.
+    public TimeSpan ExpiryDev { get; set; } = TimeSpan.FromDays(1);
+    public TimeSpan ExpiryProd { get; set; } = TimeSpan.FromDays(1);
 }

@@ -21,14 +21,18 @@ public class AuthApiTests : IClassFixture<AdminAppFactory>
     [Fact]
     public async Task Login_Mints_Jwt_That_Authorizes_Me()
     {
+        // Setup (principal + password) hits gated endpoints → needs an admin
+        // bearer. The auth assertions below run on `client` (no default token) so
+        // the "no bearer → 401" check is meaningful.
+        var admin = _factory.CreateAdminClient();
         var client = _factory.CreateClient();
 
-        var createResp = await client.PostAsJsonAsync("/api/principals",
+        var createResp = await admin.PostAsJsonAsync("/api/principals",
             new CreatePrincipalRequest(PrincipalType.User, "AuthFlowUser", "auth-flow@example.com"));
         var user = await createResp.Content.ReadFromJsonAsync<PrincipalDto>();
         Assert.NotNull(user);
 
-        var pwResp = await client.PutAsJsonAsync($"/api/principals/{user!.Id}/password", new SetPasswordRequest("hunter22"));
+        var pwResp = await admin.PutAsJsonAsync($"/api/principals/{user!.Id}/password", new SetPasswordRequest("hunter22"));
         Assert.Equal(HttpStatusCode.NoContent, pwResp.StatusCode);
 
         // Wrong password
@@ -62,8 +66,9 @@ public class AuthApiTests : IClassFixture<AdminAppFactory>
     [Fact]
     public async Task Login_Without_Credential_Returns_Unauthorized()
     {
+        var admin = _factory.CreateAdminClient();
         var client = _factory.CreateClient();
-        var createResp = await client.PostAsJsonAsync("/api/principals",
+        var createResp = await admin.PostAsJsonAsync("/api/principals",
             new CreatePrincipalRequest(PrincipalType.User, "NoCredUser", "no-cred@example.com"));
         Assert.Equal(HttpStatusCode.Created, createResp.StatusCode);
 
@@ -74,7 +79,7 @@ public class AuthApiTests : IClassFixture<AdminAppFactory>
     [Fact]
     public async Task Setting_Password_On_Non_User_Principal_Fails()
     {
-        var client = _factory.CreateClient();
+        var client = _factory.CreateAdminClient();
         var dResp = await client.PostAsJsonAsync("/api/principals",
             new CreatePrincipalRequest(PrincipalType.Dept, "PwTestDept", null));
         var dept = await dResp.Content.ReadFromJsonAsync<PrincipalDto>();

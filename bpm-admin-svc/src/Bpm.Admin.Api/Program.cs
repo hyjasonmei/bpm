@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Bpm.Admin.Api.Auth;
 using Bpm.Admin.Api.Common;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -68,8 +69,19 @@ builder.Services
 // Asserting on the value directly is robust to both: only the roles claim ever
 // carries the literal "SYSTEM_ADMIN", so this admits the admin and no one else.
 builder.Services.AddAuthorization(options =>
+{
     options.AddPolicy("SystemAdmin", p => p.RequireAssertion(ctx =>
-        ctx.User.Claims.Any(c => c.Value is not null && c.Value.Contains("SYSTEM_ADMIN")))));
+        ctx.User.Claims.Any(c => c.Value is not null && c.Value.Contains("SYSTEM_ADMIN"))));
+
+    // Secure-by-default: every endpoint requires an authenticated user unless it
+    // opts out with [AllowAnonymous] (currently only POST /api/auth/login). This
+    // closes the prior hole where the whole admin API was anonymous. Chef-token
+    // endpoints (/mcp, /api/chef/*) still pass — ChefTokenAuthMiddleware sets an
+    // authenticated Chef principal before the authorization middleware runs.
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 // admin-ui calls admin-svc cross-origin with a JWT bearer (no cookie post
 // unify-jwt). Allowed origins are config-driven per environment.
