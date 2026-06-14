@@ -21,4 +21,19 @@
     <ProjectReference Include="..\Bpm.Admin.Persistence\Bpm.Admin.Persistence.csproj" />
   </ItemGroup>
 
+  <!--
+    Ship the canonical per-flow BPMN diagrams into the build/publish output so
+    register-shipped (and Reset, which re-registers) can persist Flow.BpmnXml on
+    a DEPLOYED admin-svc that has no repo source tree. FlowLifecycleService.
+    TryReadBundleBpmn reads <BaseDirectory>/bpm-ui/src/features/<CODE>/V1/
+    <CODE>_V1.bpmn.xml; the Link preserves that exact layout next to the binary.
+    Without this, the AI-Kitchen "BPMN 預覽" tab is dead for shipped flows on
+    Azure (no source tree → BpmnXml = null).
+  -->
+  <ItemGroup>
+    <Content Include="..\..\..\bpm-ui\src\features\**\*.bpmn.xml"
+             Link="bpm-ui\src\features\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
