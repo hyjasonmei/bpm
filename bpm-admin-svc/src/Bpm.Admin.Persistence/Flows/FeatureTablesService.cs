@@ -292,7 +292,16 @@ public sealed class FeatureTablesService : IFeatureTablesService
         try
         {
             await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
+            // Provider-aware physical-table listing. sqlite_master is
+            // SQLite-only — on Postgres (cloud) it doesn't exist and the scan
+            // 500s, which killed the admin Feature Tables page. pg_tables is the
+            // Postgres equivalent; exclude the system schemas so only the app's
+            // own tables (Admin_*, <CODE>_V<N>_*) come back, matching SQLite.
+            var isSqlite = _db.Database.ProviderName?
+                .Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true;
+            cmd.CommandText = isSqlite
+                ? "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+                : "SELECT tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY tablename";
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {

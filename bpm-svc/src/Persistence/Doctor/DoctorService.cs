@@ -193,7 +193,11 @@ public sealed class DoctorService(
         {
             try
             {
-                var active = await ActiveMembersOfRoleAsync(role.Name, principals, deptMembers, isActive, ct);
+                // Resolve by Code (SCREAMING_SNAKE) — GetRoleAssigneesAsync keys
+                // on r.Code, same as the runtime ActorResolver. Passing role.Name
+                // (the display name, e.g. 系統管理員) never matched, so EVERY role
+                // was falsely flagged empty. role.Name is still the finding label.
+                var active = await ActiveMembersOfRoleAsync(role.Code, principals, deptMembers, isActive, ct);
                 if (active == 0)
                     findings.Add(new OrgFinding("empty_role", "info", "role", role.Id, role.Name, "此角色目前沒有任何在職成員（路由到它的流程會卡）"));
             }
@@ -216,10 +220,10 @@ public sealed class DoctorService(
     }
 
     private async Task<int> ActiveMembersOfRoleAsync(
-        string roleName, IReadOnlyDictionary<Guid, SharedPrincipal> principals,
+        string roleCode, IReadOnlyDictionary<Guid, SharedPrincipal> principals,
         IReadOnlyDictionary<Guid, List<Guid>> deptMembers, Func<Guid?, bool> isActive, CancellationToken ct)
     {
-        var assignees = await org.GetRoleAssigneesAsync(roleName, null, ct);
+        var assignees = await org.GetRoleAssigneesAsync(roleCode, null, ct);
         var users = new HashSet<Guid>();
         foreach (var (pid, _) in assignees)
         {
