@@ -46,7 +46,13 @@ export function Login({ onLoggedIn }: { onLoggedIn?: () => void }) {
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
           {branding.logoDataUri ? (
-            <img src={branding.logoDataUri} alt="" className="mx-auto mb-3 h-12 w-auto max-w-[160px] object-contain" />
+            // Customer logos are authored to read on the dark navy header
+            // (bg-header), so give the logo that same dark plate here — the
+            // login page's light slate gradient would otherwise wash out a
+            // white logo. Tight fit: just the logo plus a little padding.
+            <div className="mb-3 inline-flex items-center justify-center rounded-xl bg-header px-5 py-3 shadow-sm">
+              <img src={branding.logoDataUri} alt="" className="h-12 w-auto max-w-[160px] object-contain" />
+            </div>
           ) : (
             <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white text-lg font-bold mb-3">
               BPM
