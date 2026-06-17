@@ -12,6 +12,7 @@ import {
   FlaskConical,
   GitBranch,
   MessageSquareWarning,
+  RefreshCw,
   RotateCcw,
   Send,
   Sparkles,
@@ -55,6 +56,7 @@ export function CookPanel({
   const [input, setInput] = useState('')
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   // PR-W1: poll the flow detail alongside messages so we know what
   // branch chef is on without threading state through WizardView.
@@ -89,6 +91,24 @@ export function CookPanel({
     () => messages.filter(m => m.kind === 'completion').length,
     [messages],
   )
+
+  // Manual refresh — the thread already polls every 30s, but a remote
+  // cook moves fast and the user wants "now". Re-pull the chat thread +
+  // the flow's live state (pill) + work context (branch chip) in one click.
+  async function reloadAll() {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      await refresh()
+      try {
+        const flow = await getFlow(flowId)
+        onStateChange(flow.state)
+        setWorkContext(parseChefWorkContext(flow.chefWorkContextJson))
+      } catch { /* ignore — the chat thread already refreshed */ }
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   async function runSim(label: string, action: () => Promise<unknown>, nextState: FlowState | null) {
     setPending(label); setError(null)
@@ -198,13 +218,25 @@ export function CookPanel({
             </span>
           )}
         </div>
-        <SimulateChefMenu
-          state={state}
-          onStart={simulateStartCooking}
-          onComplete={simulateCompleteCook}
-          onResume={simulateResume}
-          onStallReset={manualStallReset}
-        />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void reloadAll()}
+            disabled={refreshing}
+            title="重新整理 — 重抓 chef 對話、流程狀態與分支"
+            className="inline-flex items-center gap-1 rounded border border-rule bg-card px-2 py-1 text-[11px] font-medium text-ink-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
+            {refreshing ? '更新中…' : '重新整理'}
+          </button>
+          <SimulateChefMenu
+            state={state}
+            onStart={simulateStartCooking}
+            onComplete={simulateCompleteCook}
+            onResume={simulateResume}
+            onStallReset={manualStallReset}
+          />
+        </div>
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-auto px-5 py-4">
@@ -341,6 +373,7 @@ function EmptyState({ state }: { state: FlowState }) {
               ? '主廚正在生成程式，提問與最終成果會顯示在這裡。'
               : '主廚接單後，memos / questions / completions 會出現在這裡。'}
         </p>
+        {active && <div className="mt-4 flex justify-center"><CookingDots /></div>}
       </div>
     </div>
   )
@@ -352,6 +385,7 @@ function ComposerHint({ state }: { state: FlowState }) {
       <div className="flex items-center gap-2 text-xs text-ink-muted">
         <Sparkles className="h-3.5 w-3.5 text-accent" />
         <span>Waiting for chef to pick up the order.</span>
+        <CookingDots />
       </div>
     )
   }
@@ -360,11 +394,28 @@ function ComposerHint({ state }: { state: FlowState }) {
       <div className="flex items-center gap-2 text-xs text-ink-muted">
         <ChefHat className="h-3.5 w-3.5 animate-pulse text-accent" />
         <span>Chef is cooking — sit tight. Questions and the final cook will appear above.</span>
+        <CookingDots />
       </div>
     )
   }
   return (
     <div className="text-xs text-ink-muted">No reply needed in this state.</div>
+  )
+}
+
+/** Three staggered bouncing dots — a lightweight "work in progress" cue
+ *  for the Submitted / Cooking states (CSS only, no image asset). */
+function CookingDots() {
+  return (
+    <span className="inline-flex items-center gap-1" aria-hidden>
+      {[0, 1, 2].map(i => (
+        <span
+          key={i}
+          className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce"
+          style={{ animationDelay: `${i * 160}ms` }}
+        />
+      ))}
+    </span>
   )
 }
 
