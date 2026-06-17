@@ -18,7 +18,9 @@ public class ChefTasksEndpointTests
     private sealed record TaskDto(Guid FlowId, string FlowCode, int Version, string DisplayName,
         FlowState State, DateTime UpdatedAt, string? ChefWorkContextJson, string? PrUrl, DateTime? LastUserMessageAt);
     private sealed record TaskListDto(List<TaskDto> Submitted, List<TaskDto> AwaitingChef,
-        List<TaskDto> ApprovedAwaitingMerge, List<TaskDto> Stalled);
+        List<TaskDto> ApprovedAwaitingMerge, List<TaskDto> Stalled, List<TaskDto> Publishing);
+
+    private sealed record PublishFailedRequest(string Reason);
 
     private static HttpClient ChefClient(AdminAppFactory f)
     {
@@ -112,6 +114,66 @@ public class ChefTasksEndpointTests
         var tasks = await ChefClient(f).GetFromJsonAsync<TaskListDto>("/api/chef/flows/tasks");
         Assert.Contains(tasks!.Stalled, t => t.FlowCode == "OLD");
         Assert.DoesNotContain(tasks!.Stalled, t => t.FlowCode == "HOT");
+    }
+
+    [Fact]
+    public async Task Publishing_flow_appears_in_Publishing_group()
+    {
+        using var f = new AdminAppFactory();
+        SeedFlow(f, "PUB", FlowState.Publishing);
+        var tasks = await ChefClient(f).GetFromJsonAsync<TaskListDto>("/api/chef/flows/tasks");
+        Assert.NotNull(tasks);
+        Assert.Contains(tasks!.Publishing, t => t.FlowCode == "PUB");
+    }
+
+    [Fact]
+    public async Task MarkPublished_transitions_Publishing_to_Published()
+    {
+        using var f = new AdminAppFactory();
+        var id = SeedFlow(f, "PUB", FlowState.Publishing);
+        var resp = await ChefClient(f).PostAsync($"/api/chef/flows/{id}/published", null);
+        resp.EnsureSuccessStatusCode();
+
+        using var scope = f.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
+        var row = await db.Flows.FindAsync(id);
+        Assert.Equal(FlowState.Published, row!.State);
+    }
+
+    [Fact]
+    public async Task MarkPublishFailed_transitions_Publishing_to_PublishFailed_with_reason()
+    {
+        using var f = new AdminAppFactory();
+        var id = SeedFlow(f, "PUB", FlowState.Publishing);
+        var resp = await ChefClient(f).PostAsJsonAsync($"/api/chef/flows/{id}/publish-failed",
+            new PublishFailedRequest("az deploy timed out"));
+        resp.EnsureSuccessStatusCode();
+
+        using var scope = f.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
+        var row = await db.Flows.FindAsync(id);
+        Assert.Equal(FlowState.PublishFailed, row!.State);
+        Assert.Equal("az deploy timed out", row.PublishFailedReason);
+    }
+
+    [Fact]
+    public async Task Published_endpoint_rejects_without_chef_token()
+    {
+        using var f = new AdminAppFactory();
+        var id = SeedFlow(f, "PUB", FlowState.Publishing);
+        // No Authorization header → FallbackPolicy 401 (or 403); not a success.
+        var resp = await f.CreateClient().PostAsync($"/api/chef/flows/{id}/published", null);
+        Assert.False(resp.IsSuccessStatusCode);
+    }
+
+    [Fact]
+    public async Task PublishFailed_endpoint_rejects_without_chef_token()
+    {
+        using var f = new AdminAppFactory();
+        var id = SeedFlow(f, "PUB", FlowState.Publishing);
+        var resp = await f.CreateClient().PostAsJsonAsync($"/api/chef/flows/{id}/publish-failed",
+            new PublishFailedRequest("nope"));
+        Assert.False(resp.IsSuccessStatusCode);
     }
 
     [Fact]

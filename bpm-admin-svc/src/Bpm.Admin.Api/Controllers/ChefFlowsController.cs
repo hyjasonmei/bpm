@@ -158,6 +158,11 @@ public sealed class ChefFlowsController : ControllerBase
             .OrderBy(f => f.UpdatedAt)
             .ToListAsync(ct);
 
+        var publishing = await _db.Flows.AsNoTracking()
+            .Where(f => f.State == FlowState.Publishing)
+            .OrderBy(f => f.UpdatedAt)
+            .ToListAsync(ct);
+
         var stallCutoff = DateTime.UtcNow.AddMinutes(-30);
         var stalled = await _db.Flows.AsNoTracking()
             .Where(f => f.State == FlowState.Cooking
@@ -203,7 +208,8 @@ public sealed class ChefFlowsController : ControllerBase
             submitted.Select(ToTask).ToList(),
             awaiting.Select(ToTask).ToList(),
             approved.Select(ToTask).ToList(),
-            stalled.Select(ToTask).ToList()));
+            stalled.Select(ToTask).ToList(),
+            publishing.Select(ToTask).ToList()));
     }
 
     public sealed record ChefSetPrRequest(string PrUrl);
@@ -223,6 +229,25 @@ public sealed class ChefFlowsController : ControllerBase
     {
         if (!RequireChef()) return Forbid();
         try { await _lifecycle.MarkMergedAsync(flowId, null, req.Source ?? "chef-agent", ct); return NoContent(); }
+        catch (FlowLifecycleException ex) { return BadRequest(ex.Message); }
+    }
+
+    // Task 6: the deploy worker reports the outcome of a Publishing deploy.
+    [HttpPost("{flowId:guid}/published")]
+    public async Task<IActionResult> Published(Guid flowId, CancellationToken ct)
+    {
+        if (!RequireChef()) return Forbid();
+        try { await _lifecycle.MarkPublishedAsync(flowId, null, ct); return NoContent(); }
+        catch (FlowLifecycleException ex) { return BadRequest(ex.Message); }
+    }
+
+    public sealed record ChefPublishFailedRequest(string? Reason);
+
+    [HttpPost("{flowId:guid}/publish-failed")]
+    public async Task<IActionResult> PublishFailed(Guid flowId, [FromBody] ChefPublishFailedRequest req, CancellationToken ct)
+    {
+        if (!RequireChef()) return Forbid();
+        try { await _lifecycle.MarkPublishFailedAsync(flowId, req.Reason ?? "", null, ct); return NoContent(); }
         catch (FlowLifecycleException ex) { return BadRequest(ex.Message); }
     }
 

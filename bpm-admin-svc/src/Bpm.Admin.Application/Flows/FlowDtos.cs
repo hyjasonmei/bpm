@@ -63,7 +63,8 @@ public record ChefTaskListDto(
     IReadOnlyList<ChefTaskDto> Submitted,
     IReadOnlyList<ChefTaskDto> AwaitingChef,          // OnHold, last non-system msg from the user (Reply/Issue)
     IReadOnlyList<ChefTaskDto> ApprovedAwaitingMerge, // Approved, MergedAt == null
-    IReadOnlyList<ChefTaskDto> Stalled);              // Cooking, heartbeat cold > 30 min (crashed session)
+    IReadOnlyList<ChefTaskDto> Stalled,               // Cooking, heartbeat cold > 30 min (crashed session)
+    IReadOnlyList<ChefTaskDto> Publishing);           // Publishing — deploy worker picks these up (Task 6)
 
 public record RegisterShippedRequest(List<ShippedFlowInput> Flows);
 
