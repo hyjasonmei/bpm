@@ -9,6 +9,8 @@ export type FlowState =
   | 'Approved'
   | 'Rejected'
   | 'Retired'
+  | 'Publishing'
+  | 'PublishFailed'
   | 'Published'
 
 export interface FlowSummary {
@@ -46,6 +48,13 @@ export interface FlowDetail extends FlowSummary {
   /** Canonical BPMN XML for flows registered from shipped code (no spec).
    *  Lets the SOURCE step show a read-only diagram when specJson is empty. */
   bpmnXml: string | null
+  /** When the flow reached Published (deploy went green). Null until then.
+   *  NOTE: not yet emitted by FlowDetailDto on the backend — present here so
+   *  the UI lights up automatically once the DTO exposes it. */
+  publishedAt?: string | null
+  /** Why the last deploy failed (state === 'PublishFailed'); null otherwise.
+   *  Same backend-DTO caveat as publishedAt. */
+  publishFailedReason?: string | null
 }
 
 /** Parse the chef work-context JSON helper; tolerant of nulls / garbage. */

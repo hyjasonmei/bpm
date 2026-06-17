@@ -1087,6 +1087,8 @@ const STATE_TONE: Record<FlowState, string> = {
   OnHold:    'bg-warn/15 text-warn',
   Committed: 'bg-good/10 text-good',
   Approved:  'bg-amber-500/15 text-amber-600',
+  Publishing:    'bg-primary/10 text-primary',
+  PublishFailed: 'bg-danger/10 text-danger',
   Published: 'bg-good/15 text-good',
   Rejected:  'bg-danger/10 text-danger',
   Retired:   'bg-slate-200 text-slate-600',
