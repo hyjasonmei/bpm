@@ -15,7 +15,11 @@ set -euo pipefail
 # ── Identity of this environment ────────────────────────────────────────────
 ENV_PREFIX="${ENV_PREFIX:-poc}"            # subdomain + resource name prefix
 DOMAIN="${DOMAIN:-flowcook.ai}"            # apex marketing domain
-LOCATION="${LOCATION:-eastasia}"           # Azure region
+LOCATION="${LOCATION:-japaneast}"          # Azure region (eastasia=HK is Anthropic-geoblocked; japaneast works)
+# Static Web Apps only exist in a few regions (centralus/eastus2/westus2/westeurope/eastasia).
+# SWA is a global CDN — its "location" is just metadata, doesn't affect serving or the AI
+# (Anthropic is called from the App Service APIs in $LOCATION), so any supported region is fine.
+SWA_LOCATION="${SWA_LOCATION:-eastasia}"
 
 # ── Resource group ──────────────────────────────────────────────────────────
 RG="${RG:-rg-${ENV_PREFIX}}"

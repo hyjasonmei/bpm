@@ -111,8 +111,8 @@ ok "Web app identities granted Key Vault read"
 create_swa() {
   local name="$1"
   if exists "az staticwebapp show -n '$name' -g '$RG'"; then ok "SWA $name exists"; return; fi
-  say "Creating Static Web App $name"
-  az staticwebapp create -n "$name" -g "$RG" -l "$LOCATION" -o none
+  say "Creating Static Web App $name (region $SWA_LOCATION — SWA isn't offered in every region)"
+  az staticwebapp create -n "$name" -g "$RG" -l "$SWA_LOCATION" -o none
   ok "SWA $name"
 }
 create_swa "$BPM_UI_SWA"
