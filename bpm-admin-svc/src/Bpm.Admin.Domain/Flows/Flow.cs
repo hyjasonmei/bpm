@@ -132,4 +132,19 @@ public class Flow : ISoftDeletable
     /// merged" escape hatch. Publish is blocked while null (PR-CA1).
     /// </summary>
     public DateTime? MergedAt { get; set; }
+
+    /// <summary>
+    /// When the flow reached <see cref="FlowState.Published"/> — stamped by
+    /// MarkPublished once a deploy succeeds. Null until the first successful
+    /// publish. Re-stamped on each Publishing → Published transition (e.g. a
+    /// republish after Unpublish or a retry).
+    /// </summary>
+    public DateTime? PublishedAt { get; set; }
+
+    /// <summary>
+    /// Why the last deploy attempt failed — set by MarkPublishFailed when a
+    /// flow goes Publishing → <see cref="FlowState.PublishFailed"/>. Null
+    /// while no failure is recorded.
+    /// </summary>
+    public string? PublishFailedReason { get; set; }
 }

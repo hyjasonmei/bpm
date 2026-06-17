@@ -77,9 +77,21 @@ public interface IFlowLifecycleService
     /// </summary>
     Task<Flow> ApproveAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
 
-    /// <summary>Approved → Published. Makes the flow live in this environment
-    /// (the bpm-ui launcher only offers Published flows).</summary>
+    /// <summary>Request the deploy: Approved (or PublishFailed for a retry) →
+    /// Publishing. Gated on <see cref="Flow.MergedAt"/> (throws if not merged).
+    /// Does NOT make the flow live — the flow only reaches Published once the
+    /// deploy succeeds and <see cref="MarkPublishedAsync"/> fires.</summary>
     Task<Flow> PublishAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
+
+    /// <summary>Publishing → Published. Records a successful deploy: sets
+    /// <see cref="Flow.PublishedAt"/> and clears any prior failure reason.
+    /// Only legal from Publishing.</summary>
+    Task<Flow> MarkPublishedAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default);
+
+    /// <summary>Publishing → PublishFailed. Records a failed deploy and stores
+    /// <paramref name="reason"/> in <see cref="Flow.PublishFailedReason"/>.
+    /// Only legal from Publishing; retry via <see cref="PublishAsync"/>.</summary>
+    Task<Flow> MarkPublishFailedAsync(Guid flowId, string reason, Guid? actorUserId, CancellationToken ct = default);
 
     /// <summary>Published → Approved. Takes the flow offline in this environment
     /// while keeping it reviewed.</summary>

@@ -187,15 +187,90 @@ public class FlowLifecycleTests
     }
 
     [Fact]
-    public async Task Publish_Allows_After_MarkMerged()
+    public async Task Publish_Moves_Approved_Merged_Flow_To_Publishing_Not_Published()
     {
         var (svc, ctx, conn) = CreateService();
         try
         {
             var row = SeedFlow(ctx, "LEAVE", FlowState.Approved);
             await svc.MarkMergedAsync(row.Id, null, "test");
-            var published = await svc.PublishAsync(row.Id, null);
-            Assert.Equal(FlowState.Published, published.State);
+            var result = await svc.PublishAsync(row.Id, null);
+            Assert.Equal(FlowState.Publishing, result.State);
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Publish_Retry_From_PublishFailed_Goes_To_Publishing()
+    {
+        var (svc, ctx, conn) = CreateService();
+        try
+        {
+            var row = SeedFlow(ctx, "LEAVE", FlowState.PublishFailed);
+            await svc.MarkMergedAsync(row.Id, null, "test");
+            var result = await svc.PublishAsync(row.Id, null);
+            Assert.Equal(FlowState.Publishing, result.State);
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
+    [Fact]
+    public async Task MarkPublished_From_Publishing_Sets_Published_And_PublishedAt()
+    {
+        var (svc, ctx, conn) = CreateService();
+        try
+        {
+            var row = SeedFlow(ctx, "LEAVE", FlowState.Publishing);
+            var result = await svc.MarkPublishedAsync(row.Id, null);
+            Assert.Equal(FlowState.Published, result.State);
+            Assert.NotNull(result.PublishedAt);
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(FlowState.Approved)]
+    [InlineData(FlowState.Published)]
+    [InlineData(FlowState.PublishFailed)]
+    [InlineData(FlowState.Committed)]
+    public async Task MarkPublished_Only_Allowed_From_Publishing(FlowState state)
+    {
+        var (svc, ctx, conn) = CreateService();
+        try
+        {
+            var row = SeedFlow(ctx, "LEAVE", state);
+            await Assert.ThrowsAsync<FlowLifecycleException>(
+                () => svc.MarkPublishedAsync(row.Id, null));
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
+    [Fact]
+    public async Task MarkPublishFailed_From_Publishing_Sets_PublishFailed_And_Reason()
+    {
+        var (svc, ctx, conn) = CreateService();
+        try
+        {
+            var row = SeedFlow(ctx, "LEAVE", FlowState.Publishing);
+            var result = await svc.MarkPublishFailedAsync(row.Id, "az deploy timed out", null);
+            Assert.Equal(FlowState.PublishFailed, result.State);
+            Assert.Equal("az deploy timed out", result.PublishFailedReason);
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData(FlowState.Approved)]
+    [InlineData(FlowState.Published)]
+    [InlineData(FlowState.PublishFailed)]
+    public async Task MarkPublishFailed_Only_Allowed_From_Publishing(FlowState state)
+    {
+        var (svc, ctx, conn) = CreateService();
+        try
+        {
+            var row = SeedFlow(ctx, "LEAVE", state);
+            await Assert.ThrowsAsync<FlowLifecycleException>(
+                () => svc.MarkPublishFailedAsync(row.Id, "boom", null));
         }
         finally { ctx.Dispose(); conn.Dispose(); }
     }

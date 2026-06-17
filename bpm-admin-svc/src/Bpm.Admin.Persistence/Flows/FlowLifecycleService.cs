@@ -418,7 +418,63 @@ public class FlowLifecycleService : IFlowLifecycleService
         if (row.MergedAt is null)
             throw new FlowLifecycleException(
                 "Cannot publish: cook branch is not merged to main yet. Wait for merge detection or use Mark merged.");
-        return await TransitionAsync(flowId, FlowState.Published, "flow_published", actorUserId, new[] { FlowState.Approved }, ct);
+        // Publish requests the deploy (it does NOT make the flow live). The
+        // flow only reaches Published after the deploy succeeds and
+        // MarkPublished fires. PublishFailed is allowed as a retry source.
+        return await TransitionAsync(flowId, FlowState.Publishing, "flow_publishing", actorUserId,
+            new[] { FlowState.Approved, FlowState.PublishFailed }, ct);
+    }
+
+    public async Task<Flow> MarkPublishedAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)
+    {
+        var row = await Load(flowId, ct);
+        if (row.State != FlowState.Publishing)
+            throw new FlowLifecycleException(
+                $"Cannot mark published from state {row.State}; expected {FlowState.Publishing}");
+
+        var before = new { State = row.State.ToString() };
+        row.State = FlowState.Published;
+        row.PublishedAt = DateTime.UtcNow;
+        // A successful publish supersedes any prior failure reason.
+        row.PublishFailedReason = null;
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(
+            actionType: "flow_published",
+            targetType: "flow",
+            targetId: row.Id.ToString(),
+            actorUserId: actorUserId,
+            actorPrincipalId: null,
+            before: before,
+            after: new { State = row.State.ToString(), row.PublishedAt },
+            ct: ct);
+
+        return row;
+    }
+
+    public async Task<Flow> MarkPublishFailedAsync(Guid flowId, string reason, Guid? actorUserId, CancellationToken ct = default)
+    {
+        var row = await Load(flowId, ct);
+        if (row.State != FlowState.Publishing)
+            throw new FlowLifecycleException(
+                $"Cannot mark publish-failed from state {row.State}; expected {FlowState.Publishing}");
+
+        var before = new { State = row.State.ToString() };
+        row.State = FlowState.PublishFailed;
+        row.PublishFailedReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(
+            actionType: "flow_publish_failed",
+            targetType: "flow",
+            targetId: row.Id.ToString(),
+            actorUserId: actorUserId,
+            actorPrincipalId: null,
+            before: before,
+            after: new { State = row.State.ToString(), row.PublishFailedReason },
+            ct: ct);
+
+        return row;
     }
 
     public Task<Flow> UnpublishAsync(Guid flowId, Guid? actorUserId, CancellationToken ct = default)

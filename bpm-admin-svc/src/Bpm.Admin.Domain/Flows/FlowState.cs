@@ -24,4 +24,19 @@ public enum FlowState
     /// Unpublish = Published → Approved (offline but still reviewed).
     /// </summary>
     Published = 8,
+    /// <summary>
+    /// Publish has been requested and the cook branch is merged, but the
+    /// deploy (build + az) has not yet confirmed success. The flow is NOT
+    /// live in the launcher yet. Reached via Publish (Approved/PublishFailed
+    /// → Publishing); leaves to Published (MarkPublished) on a green deploy
+    /// or PublishFailed (MarkPublishFailed) on a failed one. Appended after
+    /// Published so existing persisted int values stay stable.
+    /// </summary>
+    Publishing = 9,
+    /// <summary>
+    /// A deploy attempt failed; <see cref="Flow.PublishFailedReason"/> holds
+    /// why. Not live in the launcher. Retryable: Publish (PublishFailed →
+    /// Publishing) re-attempts the deploy.
+    /// </summary>
+    PublishFailed = 10,
 }
