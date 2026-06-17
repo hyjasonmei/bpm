@@ -40,7 +40,9 @@ public record FlowDetailDto(
     string? ChefWorkContextJson,
     string? BpmnXml,
     string? PrUrl,
-    DateTime? MergedAt);
+    DateTime? MergedAt,
+    DateTime? PublishedAt,
+    string? PublishFailedReason);
 
 public record CreateFlowRequest(string FlowCode, string DisplayName, string? SpecJson);
 
