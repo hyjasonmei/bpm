@@ -24,13 +24,26 @@ public sealed class ChefFlowsController : ControllerBase
     private readonly IFlowLifecycleService _lifecycle;
     private readonly IFlowChatService _chat;
     private readonly IBundleBuilder _bundle;
+    private readonly IDeployConfigService _deploy;
 
-    public ChefFlowsController(AdminDbContext db, IFlowLifecycleService lifecycle, IFlowChatService chat, IBundleBuilder bundle)
+    public ChefFlowsController(AdminDbContext db, IFlowLifecycleService lifecycle, IFlowChatService chat, IBundleBuilder bundle, IDeployConfigService deploy)
     {
         _db = db;
         _lifecycle = lifecycle;
         _chat = chat;
         _bundle = bundle;
+        _deploy = deploy;
+    }
+
+    /// <summary>Chef-token read of per-env deploy resource names, so the deploy
+    /// worker (PublishManager) can fetch the target App Service / SWA names with
+    /// its chef token — the admin Site Setting CRUD for the same data is admin-JWT
+    /// only, which the agent doesn't hold.</summary>
+    [HttpGet("deploy-config")]
+    public async Task<ActionResult<IReadOnlyList<DeployEnvConfigDto>>> DeployConfig(CancellationToken ct)
+    {
+        if (!RequireChef()) return Forbid();
+        return Ok(await _deploy.ListAsync(ct));
     }
 
     [HttpGet("{flowId:guid}")]
