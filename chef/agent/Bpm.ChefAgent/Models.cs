@@ -17,10 +17,22 @@ public sealed record ChefTaskList(
     List<ChefTask> Submitted,
     List<ChefTask> AwaitingChef,
     List<ChefTask> ApprovedAwaitingMerge,
-    List<ChefTask> Stalled)
+    List<ChefTask> Stalled,
+    List<ChefTask> Publishing)
 {
-    public static ChefTaskList Empty() => new([], [], [], []);
+    public static ChefTaskList Empty() => new([], [], [], [], []);
 }
+
+/// <summary>Mirror of admin-svc's DeployEnvConfigDto — Azure resource NAMES
+/// only (no secrets); the deploy worker fetches secrets at deploy time via az.</summary>
+public sealed record DeployEnvConfig(
+    string EnvName,
+    string ResourceGroup,
+    string BpmSvcApp,
+    string AdminSvcApp,
+    string BpmUiSwa,
+    string AdminUiSwa,
+    bool Enabled);
 
 /// <summary>chef's workspace context (ChefWorkContextJson shape).</summary>
 public sealed record ChefWorkContext(string? Branch, string? Notes, DateTime? SetAt);

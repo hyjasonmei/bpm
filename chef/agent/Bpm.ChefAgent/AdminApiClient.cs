@@ -68,6 +68,28 @@ public sealed class AdminApiClient : IDisposable
         resp.EnsureSuccessStatusCode();
     }
 
+    /// <summary>Deploy succeeded → Publishing→Published (Task 6).</summary>
+    public async Task MarkPublishedAsync(Guid flowId, CancellationToken ct = default)
+    {
+        var resp = await _http.PostAsync($"api/chef/flows/{flowId}/published", content: null, ct);
+        resp.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>Deploy failed → Publishing→PublishFailed with a reason (Task 6).</summary>
+    public async Task MarkPublishFailedAsync(Guid flowId, string reason, CancellationToken ct = default)
+    {
+        var resp = await _http.PostAsJsonAsync($"api/chef/flows/{flowId}/publish-failed", new { reason }, ct);
+        resp.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>Per-env Azure resource NAMES (no secrets) for the deploy worker.</summary>
+    public async Task<List<DeployEnvConfig>> GetDeployConfigAsync(CancellationToken ct = default)
+    {
+        var resp = await _http.GetAsync("api/chef/flows/deploy-config", ct);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<List<DeployEnvConfig>>(Json, ct) ?? [];
+    }
+
     /// <summary>Fetch the current state of one flow (post-cook outcome check).</summary>
     public async Task<string?> GetStateAsync(Guid flowId, CancellationToken ct = default)
     {
