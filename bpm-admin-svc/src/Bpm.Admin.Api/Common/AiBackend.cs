@@ -395,7 +395,7 @@ public sealed class ClaudeCliBackend : IAiBackend
         catch (JsonException)
         {
             // Malformed JSON in tool block — surface the whole reply as text
-            // so the user (and Jason) can see what went wrong.
+            // so the user can see what went wrong.
             return (trimmed, null);
         }
     }

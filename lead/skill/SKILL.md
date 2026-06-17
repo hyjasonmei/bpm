@@ -31,7 +31,7 @@ before continuing.
    - `bpm-ui/src/features/<CODE>/V<N>/**`
 
    If a task seems to require editing a per-flow file, you have the wrong
-   shape of task. Stop. Ask Jason whether the change should be:
+   shape of task. Stop. Ask the operator whether the change should be:
 
    - lifted into a core primitive that chef-cooked V<N+1> can re-emit, or
    - landed by chef as a new V<N+1> spec + regeneration, or
@@ -99,7 +99,7 @@ before continuing.
 6. **One commit per logical step**, matching the chef convention
    (`feat(core): X`, `feat(bpm-ui): Y`, `feat(bpm-svc): Z` —
    `feat(<area>-ui)` for UI components, `feat(<area>-svc)` for
-   backend, `feat(chef-skill): table update` for skill edits). Jason
+   backend, `feat(chef-skill): table update` for skill edits). The operator
    reviews in GitKraken slice by slice.
 
 ## 2. When lead vs. chef
@@ -120,14 +120,14 @@ The pattern: **lead generalises, chef specialises**.
 ## 3. The escalation loop (chef → lead → chef)
 
 When a chef session hits a stop-and-ask because the spec uses a
-construct without a core primitive, Jason will switch tracks and
+construct without a core primitive, the operator will switch tracks and
 dispatch a lead session. Your run looks like:
 
 1. **Read the chef session's report** — the stop-and-ask paragraph
-   explains exactly what was missing. If Jason hasn't pasted it,
+   explains exactly what was missing. If the operator hasn't pasted it,
    ask for it.
 
-2. **Confirm scope.** Tell Jason what you'll build, what the
+2. **Confirm scope.** Tell the operator what you'll build, what the
    interface will look like, and what chef will see in the
    conventions-table update. Get a yes before writing code.
 
@@ -145,10 +145,10 @@ dispatch a lead session. Your run looks like:
    `Features/<CODE>/V<N>/` shows up, you violated rule 1 — revert and
    refactor.
 
-6. **Final report.** Two-paragraph hand-off to Jason: what the
+6. **Final report.** Two-paragraph hand-off to the operator: what the
    primitive is, what chef can now do, the one-line table addition,
    any follow-ups (e.g. `add-file-storage` openspec follow-up to swap
-   filesystem → S3 in prod). Then Jason resumes chef on the original
+   filesystem → S3 in prod). Then the operator resumes chef on the original
    branch with the new primitive available.
 
 ## 4. Reading order for a fresh lead session
@@ -162,14 +162,14 @@ When you start clean, load context in this order:
    exactly what chef will see and call into. Your primitives must fit
    the table chef reads.
 5. The chef session's stop-and-ask paragraph (if escalated) or the
-   bug Jason filed.
+   bug the operator filed.
 6. The most recent 3–5 commits on the branch — your work usually
    stacks on someone else's earlier polish.
 7. The relevant existing primitive (`components/ui/FilePicker.tsx`,
    `components/ui/ConfirmDialog.tsx`, the `Bpm.Application.Files`
    namespace) — copy the shape, don't reinvent.
 
-## 5. When to stop and ask Jason
+## 5. When to stop and ask the operator
 
 Same spirit as chef's stop-and-ask list:
 
@@ -202,5 +202,5 @@ Same spirit as chef's stop-and-ask list:
       end-to-end at least once; for UI, took a chrome-devtools
       screenshot of the new state
 - [ ] One commit per logical step
-- [ ] You wrote one summary message to Jason: what shipped, what chef
+- [ ] You wrote one summary message to the operator: what shipped, what chef
       can now do, the one-line conventions-table addition, follow-ups

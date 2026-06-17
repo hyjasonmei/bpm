@@ -8,10 +8,10 @@ AI Kitchen wizard) into per-flow runtime code under `bpm-svc/` and
 
 The first cut of chef is **not a service**. Operating chef in v0 means:
 
-1. Jason downloads a bundle `.zip` from admin → unzips somewhere local.
-2. Jason creates a fresh branch off `main` in his normal checkout
+1. The operator downloads a bundle `.zip` from admin → unzips somewhere local.
+2. The operator creates a fresh branch off `main` in his normal checkout
    (e.g. `leave-test-1`).
-3. Jason starts a Claude Code session in the repo, invokes the
+3. The operator starts a Claude Code session in the repo, invokes the
    `chef-codegen` skill, and hands chef the bundle path.
 4. chef reads the skill + the bundle + the relevant repo references,
    then writes (one per Clean-Arch layer):
@@ -23,7 +23,7 @@ The first cut of chef is **not a service**. Operating chef in v0 means:
    - `bpm-svc/tests/Bpm.Tests/Features/<CODE>/V<N>/**` — tests
    - `bpm-ui/src/features/<CODE>/V<N>/**` — React component + manifest
 5. chef commits to the chef branch.
-6. Jason reviews the diff in GitKraken, runs `tsc` / `dotnet test`
+6. The operator reviews the diff in GitKraken, runs `tsc` / `dotnet test`
    himself if needed, merges into `main` when satisfied.
 
 No queue, no auto-pickup, no service deployment, no git worktree —
@@ -69,7 +69,7 @@ chef reads but never modifies anything else under `bpm-svc/src/**`,
 `bpm-admin-svc/**`, `bpm-admin-ui/**`, `chef/**`, `bpm-www/**`,
 `docs/**`, `openspec/**`.
 
-Anything outside the allowed-write set must be flagged to Jason —
+Anything outside the allowed-write set must be flagged to the operator —
 chef never silently expands its remit. The canonical breakdown lives
 in `chef/skill/SKILL.md` §1 / `chef/skill/conventions.md` "Path map".
 

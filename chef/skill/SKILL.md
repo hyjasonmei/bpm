@@ -76,7 +76,7 @@ looks. **leave-test-4 is the model B redo** — entity + state machine
      `FormShell` / `BpmnView` can render your flow.
 
    If the spec implies you need to touch a *different* forbidden
-   path (e.g. a new shared UI primitive), stop and tell Jason.
+   path (e.g. a new shared UI primitive), stop and tell the operator.
    Don't silently expand the boundary.
 
 2. **Name everything with the `<CODE>_V<N>_` prefix.** Classes, tables,
@@ -92,7 +92,7 @@ looks. **leave-test-4 is the model B redo** — entity + state machine
 4. **The spec drives intent, not implementation.** Triggers,
    approvals, notification text, SLA, integrations — all come from
    the spec. If the spec is ambiguous or silent on something material,
-   stop and ask Jason. In a future service version this becomes the
+   stop and ask the operator. In a future service version this becomes the
    `on-hold` callback; in MVP it's a chat message.
 
 5. **Plug into existing primitives. Don't reinvent them.** Lead
@@ -114,7 +114,7 @@ looks. **leave-test-4 is the model B redo** — entity + state machine
    - `ILogger<T>` for diagnostic logging
 
    When the spec uses a construct not covered by the
-   §spec-construct-table in conventions.md, stop and ask Jason. Lead
+   §spec-construct-table in conventions.md, stop and ask the operator. Lead
    ships the primitive; chef consumes it.
 
 6. **Ship tests with every artifact.** Per
@@ -135,7 +135,7 @@ looks. **leave-test-4 is the model B redo** — entity + state machine
 
 ## 2. Inputs you have
 
-Jason hands you one path to an unzipped bundle. The layout is fixed by
+The operator hands you one path to an unzipped bundle. The layout is fixed by
 `bpm-admin-svc`'s `BundleBuilder`:
 
 ```
@@ -511,7 +511,7 @@ When you start a fresh session, read in this order:
 1. This skill (`chef/skill/SKILL.md`) — already loaded.
 2. `chef/skill/conventions.md` — naming / paths / spec-construct table.
 3. `chef/skill/workflow.md` — step-by-step run.
-4. The bundle at the path Jason gave you — `spec.json` first, then
+4. The bundle at the path the operator gave you — `spec.json` first, then
    `bpmn.xml` if structure is unclear.
 5. **One** closest `features/<CODE>/V1/*Form.tsx` model-B feature form
    for layout inspiration — visual pattern only.
@@ -596,7 +596,7 @@ uses it for every subsequent MCP call. There is no separate
 ### Session lifecycle (one-shot — DO NOT poll)
 
 A chef session is short-lived. Don't run a polling loop waiting for
-user replies; instead, exit when blocked and let Jason relaunch
+user replies; instead, exit when blocked and let the operator relaunch
 chef. Admin-ui surfaces a copy-paste resume command when the flow
 is OnHold.
 
@@ -689,8 +689,8 @@ the customer probably forgot to assign the role.
 
 Don't shovel diffs into admin-svc. The actual code lives on chef's
 testbed branch (see `workflow.md` — chef runs against the same
-checkout Jason works in, no separate worktree, per-flow branches
-like `leave-test-N`). Jason reads diffs in GitKraken. `artifactsJson`
+checkout the operator works in, no separate worktree, per-flow branches
+like `leave-test-N`). The operator reads diffs in GitKraken. `artifactsJson`
 on a Completion should be a tiny summary like:
 
 ```json
@@ -707,7 +707,7 @@ completion message.
 
 ## 6. When to stop and ask
 
-Don't guess — tell Jason — when any of these is true:
+Don't guess — tell the operator — when any of these is true:
 
 - The spec leaves an approval node without an ActorRef rule.
 - A gateway has no `isDefault` branch and your CEL parse rejects the
@@ -739,7 +739,7 @@ MVP, just say "I need a decision on X" and stop.
 
 ## 7. Output checklist
 
-Before you tell Jason "the branch is ready":
+Before you tell the operator "the branch is ready":
 
 - [ ] `cd bpm-svc && dotnet build` clean (0 errors)
 - [ ] `cd bpm-svc && dotnet test --filter "<CODE>_V<N>"` all green
@@ -755,7 +755,7 @@ Before you tell Jason "the branch is ready":
       AND in the next-approver's "Pending My Approval"** — invisible
       cases are not shippable, however green the DB row looks
 - [ ] One commit per logical step (entity / state-machine / form /
-      tests) so Jason can review in GitKraken slice by slice
-- [ ] You wrote one summary message to Jason: what's done, what
+      tests) so the operator can review in GitKraken slice by slice
+- [ ] You wrote one summary message to the operator: what's done, what
       wasn't possible from the spec, what tests pass, what you E2E'd,
       which spec ambiguities you baked decisions into

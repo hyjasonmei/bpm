@@ -1,17 +1,17 @@
 # chef MVP workflow
 
-End-to-end run for a single flow version. Jason drives steps 0-3
+End-to-end run for a single flow version. The operator drives steps 0-3
 manually; chef (Claude session) drives steps 4-7 inside a normal
-checkout on a fresh testbed branch; Jason reviews + ships in step 8.
+checkout on a fresh testbed branch; the operator reviews + ships in step 8.
 
 There is **no separate git worktree** in this MVP. chef runs against
-the same repo Jason works in, on a per-flow branch (e.g.
+the same repo the operator works in, on a per-flow branch (e.g.
 `leave-test-1`), and chef + main bpm stack share the same `db/bpm.db`.
 
 **Only one dev-server stack at a time** on the local box (they share
 ports 5290 / 5173).
 
-## 0. Pre-flight (Jason)
+## 0. Pre-flight (the operator)
 
 Per chef session — shut any running dev stack down before chef boots:
 
@@ -19,7 +19,7 @@ Per chef session — shut any running dev stack down before chef boots:
 lsof -ti :5290 :5173 | xargs -r kill
 ```
 
-## 1. Author + freeze the spec (Jason, in admin wizard)
+## 1. Author + freeze the spec (the operator, in admin wizard)
 
 1. Open AI Kitchen, walk the 11 steps to completion.
 2. Download bundle → unzip to
@@ -27,7 +27,7 @@ lsof -ti :5290 :5173 | xargs -r kill
 3. Verify the unzipped tree contains `spec.json` + `bpmn.xml` +
    `manifest.json` + `forms/` + `sample-org.json` + `test-cases/`.
 
-## 2. Create / reset the chef branch (Jason)
+## 2. Create / reset the chef branch (the operator)
 
 Testbed branches are mutable — reset and re-cook freely:
 
@@ -42,7 +42,7 @@ git checkout -B "$BRANCH"     # -B resets if it already exists
 Never merge a testbed branch wholesale back to main — main lands via
 clean cherry-picks once chef + lead are happy.
 
-## 3. Start the chef session (Jason)
+## 3. Start the chef session (the operator)
 
 ```bash
 cd ~/claude/bpm
@@ -61,7 +61,7 @@ That's it.
 ## 4. Read + plan (chef)
 
 chef reads in the order spelled out in SKILL.md §4. After reading,
-chef states a one-paragraph plan back to Jason:
+chef states a one-paragraph plan back to the operator:
 
 > Plan for LEAVE V1: entity with Status enum (PendingManager /
 > PendingVp / PendingHr / Completed / Rejected / Cancelled) + per-stage
@@ -74,7 +74,7 @@ chef states a one-paragraph plan back to Jason:
 > {{undefined-token}} stretch — bake or ignore? (b) approval_vp uses
 > natural-language fallback "走 VP 角色" — bake as role:VP fallback?
 
-Jason accepts or pushes back. Once accepted, chef starts writing.
+The operator accepts or pushes back. Once accepted, chef starts writing.
 
 ## 5. Generate + verify (chef)
 
@@ -154,14 +154,14 @@ demo too.
 
 ## 6. Final report (chef)
 
-After the last commit chef tells Jason:
+After the last commit chef tells the operator:
 
 > Done. Branch leave-test-4, 5 commits.
 > dotnet test --filter LEAVE_V1: 15/15 green. tsc: clean.
 > Chrome E2E: Bob submits → Bob's Home renders the row → Alice sees
 > "Bob 申請 特休 3 天" in Pending My Approval. Screenshot attached.
 > Stop-and-ask items resolved: (a) notify body trailing tokens ignored
-> per Jason; (b) approval_vp baked as `dept_head → role:VP` fallback.
+> per the operator; (b) approval_vp baked as `dept_head → role:VP` fallback.
 > Orphan fields: none.
 > Spec ⇄ sampleOrg drift: spec.access.launchableBy carries
 > `dept:f745…` not in sampleOrg — test path uses seeded dept instead.
@@ -169,7 +169,7 @@ After the last commit chef tells Jason:
 If any stop-and-ask items remain open, chef lists them with the
 specific spec section + the proposed disambiguation.
 
-## 7. Review + ship (Jason)
+## 7. Review + ship (the operator)
 
 ```bash
 git log --oneline main..HEAD

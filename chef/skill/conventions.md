@@ -114,7 +114,7 @@ Five shapes, in priority order (use the highest that fits):
 4. `collection` — `any` / `all` of N actors with optional `min_approvals`.
 5. `natural_language` — last-resort string. Read it, decide. If you
    can't bake the rule cleanly into structured logic, stop and ask
-   Jason.
+   the operator.
 
 `fallback: { text }` carries the "primary resolved to nobody" case —
 also natural language. Bake structurally when you can (the LEAVE V1
@@ -172,7 +172,7 @@ Lead-maintained — chef imports, never reinvents.
 | Logging | `ILogger<T>` | Diagnostic only — real delivery goes through `INotifyDispatcher` |
 
 If you need a UI control or backend service not in this table, stop
-and ask Jason. Lead ships the primitive; chef consumes it.
+and ask the operator. Lead ships the primitive; chef consumes it.
 
 ## Spec construct → render pattern
 
@@ -191,7 +191,7 @@ no entry needed. Anything more complex:
 | `layout.repeater` | Render an array section with add / remove buttons and an inline totals strip (`totals[]` formulas evaluated client-side). |
 
 When the spec uses a construct that isn't here yet, **stop and ask
-Jason** — lead ships the primitive (or extends this table) before
+The operator** — lead ships the primitive (or extends this table) before
 chef ships.
 
 ## Visual baseline — crib from a model-B feature form
@@ -200,7 +200,7 @@ The shipped **model-B feature forms** under
 `bpm-ui/src/features/<CODE>/V1/*Form.tsx` are the visual ground truth
 for the customer-facing UI — their layout (section cards, two-column
 grids, repeater header bars, currency-paired amount inputs, right-side
-action gutters) is what Jason expects every chef-cooked form to look
+action gutters) is what the operator expects every chef-cooked form to look
 like, and they are already wired the model-B way. (The old
 `screens/forms/Reference_*.tsx` set + its `useFormRuntime` /
 `useFlowSubmit` runtime were removed — the feature forms are now the

@@ -300,10 +300,10 @@ public sealed class WFH_V1_WfhService(
 
     /// <summary>
     /// Senior-stage approver. Spec wrote <c>submitter.manager</c> for the
-    /// senior node, which Jason confirmed is a wizard slip — it should be
+    /// senior node, which the operator confirmed is a wizard slip — it should be
     /// the next level up (<c>submitter.manager.manager</c>). When the
     /// manager is already top of the org chain (no manager of their own),
-    /// fall back to the manager themselves (per Jason's "就用最高層級").
+    /// fall back to the manager themselves (per the operator's "就用最高層級").
     /// Returns null only when the submitter has no manager at all.
     /// </summary>
     public async Task<Guid?> ResolveSeniorApproverAsync(Guid submitterUserId, CancellationToken ct)

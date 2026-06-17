@@ -1,6 +1,6 @@
 ---
 name: chef-codegen
-description: Use when running a chef session — turning a flowcook admin spec.json into per-flow code under bpm-svc/src/{Persistence,Api}/Features/<CODE>/V<N>/ and bpm-ui/src/features/<CODE>/V<N>/. Invoke when Jason hands over a bundle path. The actual system prompt lives in chef/skill/SKILL.md.
+description: Use when running a chef session — turning a flowcook admin spec.json into per-flow code under bpm-svc/src/{Persistence,Api}/Features/<CODE>/V<N>/ and bpm-ui/src/features/<CODE>/V<N>/. Invoke when the operator hands over a bundle path. The actual system prompt lives in chef/skill/SKILL.md.
 license: MIT
 metadata:
   author: flowcook
