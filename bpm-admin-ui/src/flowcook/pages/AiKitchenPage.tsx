@@ -752,12 +752,13 @@ function WizardView({
       }
       const updated = await submitFlow(flow.id)
       onFlowChange(updated)
-      // Stay on the flow page (don't bounce back to the kitchen list).
-      // Land on Prep so the user sees the now-locked spec; Cook tab
-      // becomes enabled and they can click in to watch chef work.
+      // Submit hands the flow to chef, so jump straight to the Cook tab
+      // where the chef ↔ user thread lives. The Prep spec is now locked
+      // (read-only) and still reachable via the Prep tab if they want to
+      // review it.
       setMockState(updated.state)
       // PR-K3: chat thread persists server-side now; no FE seed needed.
-      setPhase('prep')
+      setPhase('cook')
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Submit failed')
     } finally {

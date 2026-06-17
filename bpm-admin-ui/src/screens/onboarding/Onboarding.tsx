@@ -195,6 +195,14 @@ export function Onboarding({
 
   const validation = useMemo(() => validators[step.id](draft), [step.id, draft])
 
+  // When the host marks the wizard read-only (flow handed to chef, past
+  // Draft), neutralise every draft mutation so fields, add/remove buttons,
+  // the AI-apply path and the Notes sticky can't change the locked spec.
+  // Paired with the `inert` + pointer-events lock on the canvas below
+  // (which also stops the BPMN editor from being dragged), the whole Prep
+  // surface becomes browse-only — the stepper + Back/Next stay live.
+  const editSetDraft = readOnly ? () => {} : setDraft
+
   const goNext = () => {
     if (stepIdx < ONBOARDING_STEPS.length - 1) setStepIdx(stepIdx + 1)
   }
@@ -289,17 +297,28 @@ export function Onboarding({
         </div>
         <NotesSticky
           notes={draft.notes ?? ''}
-          onChange={n => setDraft({ ...draft, notes: n })}
+          onChange={n => editSetDraft({ ...draft, notes: n })}
         />
       </div>
 
-      {/* Body — co-pilot canvas */}
-      <CoPilotCanvas
-        step={step}
-        draft={draft}
-        setDraft={setDraft}
-        canvas={renderCanvas(step.id, draft, setDraft, onNavigate, bpmnXml)}
-      />
+      {/* Body — co-pilot canvas. In read-only mode the whole canvas is
+          made inert (no focus / click / drag, removed from tab order) and
+          dimmed, which also locks the BPMN editor; mutations are already
+          neutralised via editSetDraft. */}
+      <div
+        className={cn(
+          'flex min-h-0 flex-1 flex-col',
+          readOnly && 'pointer-events-none select-none opacity-70',
+        )}
+        {...(readOnly ? { inert: '' } : {})}
+      >
+        <CoPilotCanvas
+          step={step}
+          draft={draft}
+          setDraft={editSetDraft}
+          canvas={renderCanvas(step.id, draft, editSetDraft, onNavigate, bpmnXml)}
+        />
+      </div>
 
       {/* Footer — back / next. A normal flex item pinned below the
           flex-1 canvas (the Onboarding root is a bounded h-full column),

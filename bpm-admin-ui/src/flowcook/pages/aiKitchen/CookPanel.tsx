@@ -16,7 +16,6 @@ import {
   Send,
   Sparkles,
   User as UserIcon,
-  Wrench,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { getFlow, parseChefWorkContext, type ChefWorkContext, type FlowState } from '@/flowcook/api/flows'
@@ -342,10 +341,6 @@ function EmptyState({ state }: { state: FlowState }) {
               ? '主廚正在生成程式，提問與最終成果會顯示在這裡。'
               : '主廚接單後，memos / questions / completions 會出現在這裡。'}
         </p>
-        <p className="mt-3 text-[11px] text-ink-faint">
-          右上角 <span className="font-mono text-ink-muted">manual</span> 選單是 chef MCP 連不上時的逃生口
-          （Force Accept / Commit / Stall Reset 可在伺服器端手動推進狀態）。
-        </p>
       </div>
     </div>
   )
@@ -409,13 +404,6 @@ function SimulateChefMenu({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span
-        title="Manual transitions — fire the same state machine paths as the chef MCP tools, but signed by the admin user. Use when chef MCP is unreachable or chef stalls."
-        className="inline-flex items-center gap-1 rounded border border-warn/30 bg-warn/5 px-1.5 py-0.5 font-mono text-[10px] tracking-[0.14em] uppercase text-warn"
-      >
-        <Wrench className="h-3 w-3" />
-        manual
-      </span>
       {state === 'Submitted' && (
         <SimButton onClick={guardedStart} icon={<Bot className="h-3 w-3" />} label="Force Accept" />
       )}
