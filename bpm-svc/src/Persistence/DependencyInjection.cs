@@ -14,6 +14,7 @@ using Bpm.Application.Features.ETM.V1;
 using Bpm.Application.Features.TEO.V1;
 using Bpm.Application.Features.TRQ.V1;
 using Bpm.Application.Features.VENDOR_EXPENSE.V1;
+using Bpm.Application.Features.WFH.V1;
 using Bpm.Application.Files;
 using Bpm.Application.Impersonation;
 using Bpm.Application.Inbox;
@@ -36,6 +37,7 @@ using Bpm.Persistence.Features.PURCHASE_REQUEST.V1;
 using Bpm.Persistence.Features.TEO.V1;
 using Bpm.Persistence.Features.TRQ.V1;
 using Bpm.Persistence.Features.VENDOR_EXPENSE.V1;
+using Bpm.Persistence.Features.WFH.V1;
 using Bpm.Persistence.Delegation;
 using Bpm.Persistence.Files;
 using Bpm.Persistence.Impersonation;
@@ -185,6 +187,7 @@ public static class DependencyInjection
         services.AddScoped<IEOB_V1_CaseStore, EOB_V1_CaseStore>();
         services.AddScoped<IETM_V1_CaseStore, ETM_V1_CaseStore>();
         services.AddScoped<IVENDOR_EXPENSE_V1_CaseStore, VENDOR_EXPENSE_V1_CaseStore>();
+        services.AddScoped<IWFH_V1_CaseStore, WFH_V1_CaseStore>();
 
         // Unified inbox: scan this assembly for ITypedInboxProvider
         // implementations and register each one. Chef-cooked flows
