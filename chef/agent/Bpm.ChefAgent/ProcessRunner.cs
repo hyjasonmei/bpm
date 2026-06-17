@@ -16,7 +16,8 @@ public static class ProcessRunner
 {
     public static async Task<ProcessResult> RunAsync(
         string file, IEnumerable<string> args, string? workingDir = null,
-        TimeSpan? timeout = null, CancellationToken ct = default)
+        TimeSpan? timeout = null, CancellationToken ct = default,
+        IReadOnlyDictionary<string, string>? env = null)
     {
         var psi = new ProcessStartInfo
         {
@@ -27,6 +28,8 @@ public static class ProcessRunner
             WorkingDirectory = workingDir ?? Environment.CurrentDirectory,
         };
         foreach (var a in args) psi.ArgumentList.Add(a);
+        if (env is not null)
+            foreach (var (k, val) in env) psi.Environment[k] = val;
 
         using var proc = new Process { StartInfo = psi };
         var stdout = new StringBuilder();

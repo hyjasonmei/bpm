@@ -13,6 +13,10 @@ public sealed class AgentState
     public Dictionary<string, DateTime> LastEnvAlertAt { get; set; } = new();
     public Dictionary<string, DateTime> LastRemindedAt { get; set; } = new(); // flowId → last "branch ready, merge manually" ping
 
+    // ── Deploy worker (PublishManager) ──────────────────────────────────────
+    public string? DeployInFlightFlowId { get; set; }                          // single-flight: a deploy is mid-run (set→deploy→clear)
+    public Dictionary<string, DateTime> LastDeployAttemptAt { get; set; } = new(); // flowId → last deploy attempt (RetryCooldown gate)
+
     public static AgentState Load(string path)
     {
         if (!File.Exists(path)) return new AgentState();

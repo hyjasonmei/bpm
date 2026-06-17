@@ -26,6 +26,14 @@ public sealed record AgentConfig(
 {
     private static readonly JsonSerializerOptions Opts = new() { PropertyNameCaseInsensitive = true };
 
+    // ── Deploy worker (PublishManager) paths — repo-relative, defaults match
+    //    infra/azure/00-config.sh. Override in config JSON only if the layout
+    //    differs. Resolved against RepoPath at use time. ───────────────────────
+    public string BpmSvcProj { get; init; } = "bpm-svc/src/Api/Api.csproj";
+    public string AdminSvcProj { get; init; } = "bpm-admin-svc/src/Bpm.Admin.Api/Bpm.Admin.Api.csproj";
+    public string BpmUiDir { get; init; } = "bpm-ui";
+    public string AdminUiDir { get; init; } = "bpm-admin-ui";
+
     public static AgentConfig Load(string path) =>
         JsonSerializer.Deserialize<AgentConfig>(File.ReadAllText(path), Opts)
         ?? throw new InvalidOperationException($"empty or invalid config: {path}");
