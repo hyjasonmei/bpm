@@ -34,4 +34,13 @@ public class PrAndCooldownTests
         Assert.Contains(task.FlowId.ToString(), body);
         Assert.Contains("Mark merged", body);   // squash escape-hatch reminder
     }
+
+    [Fact]
+    public void AutoFfMerge_only_when_branch_ahead_and_ff_possible()
+    {
+        Assert.True(PrManager.ShouldAutoFfMerge(branchAheadOfMain: true, ffPossible: true));
+        Assert.False(PrManager.ShouldAutoFfMerge(branchAheadOfMain: false, ffPossible: true));
+        Assert.False(PrManager.ShouldAutoFfMerge(branchAheadOfMain: true, ffPossible: false));
+        Assert.False(PrManager.ShouldAutoFfMerge(branchAheadOfMain: false, ffPossible: false));
+    }
 }

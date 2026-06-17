@@ -42,6 +42,11 @@ public sealed class PrManager
         {
             if (!hasRemote)
             {
+                // Local mode: if the cook branch fast-forwards cleanly into main,
+                // the agent merges it itself (--ff-only, never a merge commit /
+                // conflict resolution). Otherwise fall back to the manual reminder.
+                if (await TryAutoFfMergeAsync(branch, api, task, ct)) return;
+
                 if (Cooldown.ShouldSend(_now, Lookup(_state.LastRemindedAt, task.FlowId), RemindCooldown))
                 {
                     await api.PostMemoAsync(task.FlowId, $"Branch `{branch}` is ready — merge it into main manually, then press Publish (or Mark merged).", ct);
@@ -102,6 +107,46 @@ public sealed class PrManager
     {
         var r = await Git("merge-base", "--is-ancestor", branch, "main");
         return r.ExitCode == 0;
+    }
+
+    /// <summary>Auto-ff-merge gate (pure): only when the cook branch is ahead of
+    /// main AND a fast-forward is possible. Never auto-creates a merge commit or
+    /// resolves conflicts — those fall back to the manual-merge reminder.</summary>
+    public static bool ShouldAutoFfMerge(bool branchAheadOfMain, bool ffPossible)
+        => branchAheadOfMain && ffPossible;
+
+    /// <summary>Local-mode auto-merge: ff-only merge the cook branch into main and
+    /// stamp MergedAt server-side. Returns true when it merged (caller stops),
+    /// false to fall through to the manual reminder.</summary>
+    private async Task<bool> TryAutoFfMergeAsync(string branch, AdminApiClient api, ChefTask task, CancellationToken ct)
+    {
+        // branch ahead of main: main is an ancestor of the branch tip.
+        var mainAncestorOfBranch = (await Git("merge-base", "--is-ancestor", "main", branch)).ExitCode == 0;
+        // ff possible (no divergence): branch contains main's tip, i.e. nothing on
+        // main that the branch lacks — a `merge --ff-only` can succeed.
+        var branchAheadOfMain = mainAncestorOfBranch
+            && (await Git("merge-base", "--is-ancestor", branch, "main")).ExitCode != 0; // strictly ahead
+        var ffPossible = mainAncestorOfBranch; // main reachable from branch ⇒ ff-able
+
+        if (!ShouldAutoFfMerge(branchAheadOfMain, ffPossible)) return false;
+
+        var checkout = await Git("checkout", "main");
+        if (!checkout.Ok)
+        {
+            await _tg.SendAsync($"⚠️ auto-ff-merge: `git checkout main` failed for {task.FlowCode} v{task.Version}: {checkout.Stderr.Trim()}", ct);
+            return false;
+        }
+        var merge = await Git("merge", "--ff-only", branch);
+        if (!merge.Ok)
+        {
+            // non-ff / conflict / race → leave it for the manual reminder path.
+            await _tg.SendAsync($"⚠️ auto-ff-merge: `git merge --ff-only {branch}` failed for {task.FlowCode} v{task.Version} — falling back to manual merge.", ct);
+            return false;
+        }
+
+        await api.MarkMergedAsync(task.FlowId, "agent-ff-merge", ct);
+        await _tg.SendAsync($"✅ {task.FlowCode} v{task.Version} merged to main (agent ff) — ready to Publish.", ct);
+        return true;
     }
 
     private async Task TryCleanupAsync(EnvTarget env, ChefTask task, string branch, CancellationToken ct)

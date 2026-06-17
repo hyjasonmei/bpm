@@ -59,6 +59,28 @@ foreach (var env in config.EnabledEnvironments)
         catch (Exception ex) { Console.Error.WriteLine($"[pr-fail] {task.FlowCode}: {ex.Message}"); }
     }
 
+    // Publishing sweep: deploy main to this env's Azure resources for any flow
+    // in Publishing. One deploy per poll (serialize migrations + the cold-start
+    // window); single-flight is enforced inside PublishManager via AgentState.
+    if (tasks.Publishing.Count > 0)
+    {
+        List<DeployEnvConfig> deployCfgs;
+        try { deployCfgs = await api.GetDeployConfigAsync(); }
+        catch (Exception ex) { Console.Error.WriteLine($"[deploy-config-fail] {env.Name}: {ex.Message}"); deployCfgs = []; }
+
+        var cfg = deployCfgs.FirstOrDefault(c => string.Equals(c.EnvName, env.Name, StringComparison.OrdinalIgnoreCase));
+        if (cfg is { Enabled: true })
+        {
+            var publishManager = new PublishManager(config, tg, state, now);
+            foreach (var task in tasks.Publishing)
+            {
+                try { await publishManager.ProcessAsync(env, cfg, api, task); }
+                catch (Exception ex) { Console.Error.WriteLine($"[publish-fail] {task.FlowCode}: {ex.Message}"); }
+                break;   // one deploy per poll
+            }
+        }
+    }
+
     var plan = TaskPlanner.Plan(tasks);
     if (plan.CookTask is not { } cook) continue;
 
