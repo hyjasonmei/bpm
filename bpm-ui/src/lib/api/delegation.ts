@@ -45,6 +45,16 @@ export async function clearMyDelegation(): Promise<void> {
 
 export const getActingFor = () => apiFetch('/api/delegation/acting-for').then(r => jsonOrThrow<string[]>(r))
 
+export interface ActingFor {
+  delegatorUserId: string
+  delegatorName: string | null
+}
+
+/** Active inbound delegations with the delegator's display name — drives the
+ *  "你目前是 X 的代理人" banner so the delegate has visibility on their side. */
+export const getActingForDetail = () =>
+  apiFetch('/api/delegation/acting-for-detail').then(r => jsonOrThrow<ActingFor[]>(r))
+
 /** Server-side typeahead — pass the query so the client never fetches the full
  *  directory (scales to thousands of users). Returns up to 20 matches. */
 export const searchDelegationUsers = (q: string) =>

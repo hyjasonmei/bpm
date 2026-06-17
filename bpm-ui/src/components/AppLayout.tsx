@@ -6,6 +6,7 @@ import { cn } from '@/lib/cn'
 import { AccountMenu } from '@/components/AccountMenu'
 import { DelegationButton } from '@/components/DelegationButton'
 import { ImpersonationBanner } from '@/components/ImpersonationBanner'
+import { ActingForBanner } from '@/components/ActingForBanner'
 import { SandboxBanner } from '@/components/SandboxBanner'
 import { NotificationsMenu } from '@/components/NotificationsMenu'
 import { HelpReportMenu } from '@/components/HelpReportMenu'
@@ -35,6 +36,7 @@ export function AppLayout({ persona, setPersona, authedFullName = null, authPend
     <div className="min-h-screen bg-bg">
       <SandboxBanner />
       <ImpersonationBanner />
+      <ActingForBanner />
       {/* ── Header ────────────────────────────────────────── */}
       <header className="no-print sticky top-0 z-40 bg-header text-white shadow-md">
         <div className="mx-auto flex h-12 max-w-screen-2xl items-center gap-2 px-4">

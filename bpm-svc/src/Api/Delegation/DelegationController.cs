@@ -90,6 +90,21 @@ public sealed class DelegationController(AppDbContext db, IDelegationService del
     public async Task<IReadOnlyList<Guid>> ActingFor(CancellationToken ct)
         => await delegation.GetActiveDelegatorsAsync(RequireUserId(), clock.UtcNow, ct);
 
+    /// <summary>Same set as acting-for, but with the delegator's display name so
+    /// the bpm-ui can surface a "你目前是 X 的代理人" banner. Additive — acting-for
+    /// stays id-only for the case-detail can-act check.</summary>
+    [HttpGet("acting-for-detail")]
+    public async Task<IReadOnlyList<ActingForDto>> ActingForDetail(CancellationToken ct)
+    {
+        var me = RequireUserId();
+        var ids = await delegation.GetActiveDelegatorsAsync(me, clock.UtcNow, ct);
+        if (ids.Count == 0) return Array.Empty<ActingForDto>();
+        var names = await db.SharedPrincipals.AsNoTracking()
+            .Where(p => ids.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.DisplayName, ct);
+        return ids.Select(id => new ActingForDto(id, names.GetValueOrDefault(id))).ToList();
+    }
+
     /// <summary>
     /// Server-side typeahead for the delegate picker — scales to thousands of
     /// users since the client never fetches the full directory. Filters by name
@@ -120,3 +135,4 @@ public sealed class DelegationController(AppDbContext db, IDelegationService del
 public sealed record MyDelegationDto(Guid Id, Guid DelegateUserId, string? DelegateName, DateTime StartAt, DateTime EndAt, bool ActiveNow);
 public sealed record SetDelegationRequest(Guid DelegateUserId, DateTime StartAt, DateTime EndAt, string? Reason = null);
 public sealed record DelegationUserDto(Guid UserId, string Name, string? Email);
+public sealed record ActingForDto(Guid DelegatorUserId, string? DelegatorName);
