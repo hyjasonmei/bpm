@@ -35,7 +35,7 @@ export interface FormDef {
   initialActive: number
 }
 
-export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB' | 'RESIGN' | 'DEPTX' | 'PURCHASE_REQUEST' | 'VENDOR_EXPENSE' | 'FAP' | 'FAD' | 'EOB' | 'ETM'
+export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB' | 'RESIGN' | 'DEPTX' | 'PURCHASE_REQUEST' | 'VENDOR_EXPENSE' | 'FAP' | 'FAD' | 'EOB' | 'ETM' | 'WFH'
 
 const STEP = (id: string, en: string, zh: string): Step => ({ id, en, zh })
 
@@ -273,6 +273,22 @@ export const FORMS: Record<FormCode, FormDef> = {
       STEP('closed', 'CLOSED', '結案'),
     ],
     ownerByStep: ['employee', 'manager', 'employee', null],
+    initialActive: 0,
+  },
+  WFH: {
+    code: 'WFH',
+    label: 'Work From Home',
+    zhLabel: '居家辦公申請',
+    // Cooked state machine: apply → manager approve → (gateway days>7) senior
+    // approve → close. The senior step only runs when consecutive days > 7;
+    // ≤ 7-day cases complete at the manager step (stepper skips to CLOSE).
+    steps: [
+      STEP('apply', 'APPLY', '提出申請'),
+      STEP('manager_approve', 'MANAGER APPROVE', '主管核准'),
+      STEP('senior_approve', 'SENIOR APPROVE', '上級主管核准'),
+      STEP('closed', 'CLOSED', '結案'),
+    ],
+    ownerByStep: ['employee', 'manager', 'manager', null],
     initialActive: 0,
   },
 }
