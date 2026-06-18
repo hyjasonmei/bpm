@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, GitMerge, Loader2, Rocket, ShieldCheck, Undo2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { ApiError } from '@/flowcook/api'
 import {
   getFlow, approveFlow, publishFlow, unpublishFlow, markMerged, type FlowState,
 } from '@/flowcook/api/flows'
@@ -61,17 +62,30 @@ export function ServePanel({
     return () => { alive = false; clearInterval(timer) }
   }, [state, flowId, onStateChange])
 
+  async function syncFromServer() {
+    const fresh = await getFlow(flowId)
+    onStateChange(fresh.state)
+    setMergedAt(fresh.mergedAt)
+    setPrUrl(fresh.prUrl)
+    setPublishFailedReason(fresh.publishFailedReason ?? null)
+  }
+
   async function run(action: () => Promise<unknown>) {
     setBusy(true); setError(null)
     try {
       await action()
-      const fresh = await getFlow(flowId)
-      onStateChange(fresh.state)
-      setMergedAt(fresh.mergedAt)
-      setPrUrl(fresh.prUrl)
-      setPublishFailedReason(fresh.publishFailedReason ?? null)
+      await syncFromServer()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Action failed')
+      // The action failed — and publish() may have optimistically flipped the
+      // card to Publishing before the call threw. Re-sync so the UI snaps back
+      // to the true server state instead of stranding the optimistic one (e.g.
+      // a 409 when the flow was already published/changed elsewhere).
+      try { await syncFromServer() } catch { /* leave state as-is if resync also fails */ }
+      setError(
+        err instanceof ApiError && err.status === 409
+          ? '流程狀態已變更（可能已在別處上線或下架）——已重新整理為目前狀態。'
+          : err instanceof Error ? err.message : 'Action failed',
+      )
     } finally {
       setBusy(false)
     }
