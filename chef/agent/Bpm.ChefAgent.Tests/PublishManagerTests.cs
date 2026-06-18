@@ -29,4 +29,19 @@ public class PublishManagerTests
     [Fact]
     public void In_flight_blocks_even_after_cooldown()
         => Assert.False(PublishManager.ShouldStartDeploy(Now, Now.AddHours(-2), inFlight: true));
+
+    [Fact]
+    public void ParseBundleId_extracts_main_bundle_from_index_html()
+    {
+        const string html =
+            "<!doctype html><html><head>" +
+            "<script type=\"module\" crossorigin src=\"/assets/index-CvkIajz5.js\"></script>" +
+            "<link rel=\"stylesheet\" href=\"/assets/index-zP3A3g2w.css\">" +
+            "</head><body></body></html>";
+        Assert.Equal("/assets/index-CvkIajz5.js", PublishManager.ParseBundleId(html));
+    }
+
+    [Fact]
+    public void ParseBundleId_returns_null_when_no_bundle_reference()
+        => Assert.Null(PublishManager.ParseBundleId("<html><head></head><body>no assets here</body></html>"));
 }

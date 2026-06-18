@@ -152,12 +152,27 @@ public sealed class PublishManager
         return null;
     }
 
-    /// <summary>npm run build (with VITE_* exported) → swa deploy with the SWA's
-    /// deployment token from `az staticwebapp secrets list`.</summary>
+    private const int FrontendDeployAttempts = 3;
+
+    /// <summary>npm run build (VITE_* exported) → swa deploy → VERIFY the live SWA
+    /// actually serves the freshly-built bundle, retrying the deploy if not.
+    /// The swa CLI can exit 0 without uploading (StaticSitesClient flakiness), so
+    /// we don't trust its exit code alone — this is the frontend analog of the
+    /// backend health-check: deploy is only "done" once the live site serves the
+    /// new bundle hash.</summary>
     private async Task<string?> DeployFrontendAsync(DeployEnvConfig cfg, string swa, string dir, IReadOnlyDictionary<string, string> viteEnv, CancellationToken ct)
     {
         var build = await ProcessRunner.RunAsync("npm", ["run", "build"], dir, StepTimeout, ct, viteEnv);
         if (!build.Ok) return $"{swa}: npm run build failed: {Trim(build.Stderr)}";
+
+        var dist = Path.Combine(dir, "dist");
+        // Fingerprint the build: the main JS asset that index.html references
+        // (e.g. /assets/index-CvkIajz5.js). A verified deploy => the live site's
+        // index.html references this exact file.
+        var indexPath = Path.Combine(dist, "index.html");
+        if (!File.Exists(indexPath)) return $"{swa}: build produced no dist/index.html";
+        var builtBundle = ParseBundleId(await File.ReadAllTextAsync(indexPath, ct));
+        if (builtBundle is null) return $"{swa}: could not find a bundle reference in dist/index.html";
 
         var tokenRes = await Az(["staticwebapp", "secrets", "list", "-n", swa, "-g", cfg.ResourceGroup,
             "--query", "properties.apiKey", "-o", "tsv"], ct);
@@ -165,12 +180,58 @@ public sealed class PublishManager
         var token = tokenRes.Stdout.Trim();
         if (string.IsNullOrEmpty(token)) return $"{swa}: empty deployment token";
 
-        var dist = Path.Combine(dir, "dist");
-        var swaDeploy = await ProcessRunner.RunAsync("swa",
-            ["deploy", dist, "--deployment-token", token, "--env", "production"], dir, StepTimeout, ct);
-        if (!swaDeploy.Ok) return $"{swa}: swa deploy failed: {Trim(swaDeploy.Stderr)}";
+        var swaHost = await ResolveSwaHostAsync(swa, cfg.ResourceGroup, ct);
+        if (swaHost is null) return $"{swa}: could not resolve SWA defaultHostname for deploy verification";
+        var liveUrl = $"https://{swaHost}/";
 
-        return null;
+        string? lastSwaErr = null;
+        for (var attempt = 1; attempt <= FrontendDeployAttempts; attempt++)
+        {
+            var swaDeploy = await ProcessRunner.RunAsync("swa",
+                ["deploy", dist, "--deployment-token", token, "--env", "production"], dir, StepTimeout, ct);
+            lastSwaErr = swaDeploy.Ok ? null : Trim(swaDeploy.Stderr);
+
+            // Don't trust swaDeploy.Ok — verify the live site serves builtBundle.
+            if (await VerifyLiveBundleAsync(liveUrl, builtBundle, ct))
+                return null;
+
+            await _tg.SendAsync($"⚠️ {swa}: deploy attempt {attempt}/{FrontendDeployAttempts} did not take (live bundle ≠ {builtBundle}) — retrying…", ct);
+        }
+        return $"{swa}: frontend deploy not verified after {FrontendDeployAttempts} attempts — live site never served {builtBundle}"
+             + (lastSwaErr is null ? " (swa reported success each time)" : $" (last swa error: {lastSwaErr})");
+    }
+
+    /// <summary>The main JS asset filename index.html references, e.g.
+    /// <c>/assets/index-CvkIajz5.js</c>. Pure → unit-tested.</summary>
+    public static string? ParseBundleId(string indexHtml)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(indexHtml, @"/assets/index-[A-Za-z0-9_-]+\.js");
+        return m.Success ? m.Value : null;
+    }
+
+    /// <summary>Poll the live SWA index.html until it references <paramref name="bundle"/>
+    /// (CDN propagation), or the health window elapses.</summary>
+    private async Task<bool> VerifyLiveBundleAsync(string url, string bundle, CancellationToken ct)
+    {
+        var deadline = DateTime.UtcNow + HealthTimeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                var html = await _health.GetStringAsync(url, ct);
+                if (html.Contains(bundle, StringComparison.Ordinal)) return true;
+            }
+            catch { /* transient / CDN warmup → keep polling */ }
+            await Task.Delay(TimeSpan.FromSeconds(5), ct);
+        }
+        return false;
+    }
+
+    private async Task<string?> ResolveSwaHostAsync(string swa, string rg, CancellationToken ct)
+    {
+        var r = await Az(["staticwebapp", "show", "-n", swa, "-g", rg, "--query", "defaultHostname", "-o", "tsv"], ct);
+        var host = r.Stdout.Trim();
+        return r.Ok && host.Length > 0 ? host : null;
     }
 
     /// <summary>Poll a /health URL until 200 or the timeout elapses.</summary>
