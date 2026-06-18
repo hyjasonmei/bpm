@@ -44,4 +44,24 @@ public class PublishManagerTests
     [Fact]
     public void ParseBundleId_returns_null_when_no_bundle_reference()
         => Assert.Null(PublishManager.ParseBundleId("<html><head></head><body>no assets here</body></html>"));
+
+    [Fact]
+    public void ShouldRetryMark_retries_on_timeout_when_attempts_remain()
+        => Assert.True(PublishManager.ShouldRetryMark(attempt: 1, maxAttempts: 5, new TaskCanceledException(), shuttingDown: false));
+
+    [Fact]
+    public void ShouldRetryMark_retries_on_transport_error()
+        => Assert.True(PublishManager.ShouldRetryMark(attempt: 2, maxAttempts: 5, new HttpRequestException("connection refused"), shuttingDown: false));
+
+    [Fact]
+    public void ShouldRetryMark_stops_on_last_attempt()
+        => Assert.False(PublishManager.ShouldRetryMark(attempt: 5, maxAttempts: 5, new TaskCanceledException(), shuttingDown: false));
+
+    [Fact]
+    public void ShouldRetryMark_does_not_retry_when_shutting_down()
+        => Assert.False(PublishManager.ShouldRetryMark(attempt: 1, maxAttempts: 5, new TaskCanceledException(), shuttingDown: true));
+
+    [Fact]
+    public void ShouldRetryMark_does_not_retry_non_transient_error()
+        => Assert.False(PublishManager.ShouldRetryMark(attempt: 1, maxAttempts: 5, new InvalidOperationException("409"), shuttingDown: false));
 }

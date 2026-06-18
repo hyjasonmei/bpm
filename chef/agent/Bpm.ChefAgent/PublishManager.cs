@@ -21,6 +21,13 @@ public sealed class PublishManager
     private static readonly TimeSpan HealthTimeout = TimeSpan.FromSeconds(120);
     private static readonly TimeSpan StepTimeout = TimeSpan.FromMinutes(15);
 
+    // The deploy restarts admin-svc; the first DB-writing call after that cold
+    // start (mark-published) can time out even though the deploy succeeded. Retry
+    // it a few times — admin-svc warms within a poll or two — instead of failing
+    // the whole publish (and re-deploying everything 30 min later on cooldown).
+    public const int MarkPublishedAttempts = 5;
+    private static readonly TimeSpan MarkRetryDelay = TimeSpan.FromSeconds(15);
+
     private readonly AgentConfig _cfg;
     private readonly TelegramNotifier _tg;
     private readonly AgentState _state;
@@ -59,7 +66,7 @@ public sealed class PublishManager
             var reason = await RunDeployAsync(cfg, task, ct);
             if (reason is null)
             {
-                await api.MarkPublishedAsync(task.FlowId, ct);
+                await MarkPublishedWithRetryAsync(api, task, ct);
                 await _tg.SendAsync($"✅ {task.FlowCode} v{task.Version} deployed + published ({cfg.EnvName}).", ct);
             }
             else
@@ -79,6 +86,39 @@ public sealed class PublishManager
         finally
         {
             _state.DeployInFlightFlowId = null;
+        }
+    }
+
+    /// <summary>Retry decision (pure → unit-tested): retry a failed mark-published
+    /// only while attempts remain, we're not shutting down, and the error is a
+    /// transient transport/timeout (admin-svc still cold-warming) rather than a
+    /// real HTTP error (e.g. 409 — flow already moved, retrying won't help).</summary>
+    public static bool ShouldRetryMark(int attempt, int maxAttempts, Exception ex, bool shuttingDown)
+        => attempt < maxAttempts && !shuttingDown && IsTransientMarkError(ex);
+
+    /// <summary>A TaskCanceledException with no caller-cancellation is an
+    /// HttpClient.Timeout; HttpRequestException is a transport failure. Both mean
+    /// "try again", unlike an EnsureSuccessStatusCode throw (real HTTP status).</summary>
+    private static bool IsTransientMarkError(Exception ex)
+        => ex is TaskCanceledException or HttpRequestException;
+
+    /// <summary>Mark the flow Published, retrying through admin-svc's post-restart
+    /// cold start. Rethrows after the last attempt (or on a non-transient error)
+    /// so the caller's catch still marks PublishFailed.</summary>
+    private async Task MarkPublishedWithRetryAsync(AdminApiClient api, ChefTask task, CancellationToken ct)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await api.MarkPublishedAsync(task.FlowId, ct);
+                return;
+            }
+            catch (Exception ex) when (ShouldRetryMark(attempt, MarkPublishedAttempts, ex, ct.IsCancellationRequested))
+            {
+                await _tg.SendAsync($"⚠️ {task.FlowCode} v{task.Version}: mark-published attempt {attempt}/{MarkPublishedAttempts} failed ({ex.GetType().Name}) — admin-svc likely still warming, retrying in {MarkRetryDelay.TotalSeconds:0}s…", ct);
+                await Task.Delay(MarkRetryDelay, ct);
+            }
         }
     }
 
