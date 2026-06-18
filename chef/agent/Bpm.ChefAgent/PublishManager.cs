@@ -147,7 +147,11 @@ public sealed class PublishManager
             ["VITE_BPM_SVC_URL"] = $"https://{bpmApiHost}",
             ["VITE_ADMIN_SVC_URL"] = $"https://{adminApiHost}",
         };
-        if (await DeployFrontendAsync(cfg, cfg.BpmUiSwa, RepoRel(_cfg.BpmUiDir), viteEnv, ct) is { } bpmUiErr) return bpmUiErr;
+        // bpm-ui hosts the per-flow form/detail being published — assert the build
+        // actually contains it (see DeployFrontendAsync). admin-ui doesn't carry
+        // per-flow code, so no marker there.
+        var marker = FrontendApiMarker(task.FlowCode, task.Version);
+        if (await DeployFrontendAsync(cfg, cfg.BpmUiSwa, RepoRel(_cfg.BpmUiDir), viteEnv, ct, marker) is { } bpmUiErr) return bpmUiErr;
         if (await DeployFrontendAsync(cfg, cfg.AdminUiSwa, RepoRel(_cfg.AdminUiDir), viteEnv, ct) is { } adminUiErr) return adminUiErr;
 
         return null;
@@ -200,7 +204,7 @@ public sealed class PublishManager
     /// we don't trust its exit code alone — this is the frontend analog of the
     /// backend health-check: deploy is only "done" once the live site serves the
     /// new bundle hash.</summary>
-    private async Task<string?> DeployFrontendAsync(DeployEnvConfig cfg, string swa, string dir, IReadOnlyDictionary<string, string> viteEnv, CancellationToken ct)
+    private async Task<string?> DeployFrontendAsync(DeployEnvConfig cfg, string swa, string dir, IReadOnlyDictionary<string, string> viteEnv, CancellationToken ct, string? expectMarker = null)
     {
         var build = await ProcessRunner.RunAsync("npm", ["run", "build"], dir, StepTimeout, ct, viteEnv);
         if (!build.Ok) return $"{swa}: npm run build failed: {Trim(build.Stderr)}";
@@ -213,6 +217,16 @@ public sealed class PublishManager
         if (!File.Exists(indexPath)) return $"{swa}: build produced no dist/index.html";
         var builtBundle = ParseBundleId(await File.ReadAllTextAsync(indexPath, ct));
         if (builtBundle is null) return $"{swa}: could not find a bundle reference in dist/index.html";
+
+        // Guard against a build that silently omitted the flow version being
+        // published (stale working tree / cache — the failure mode WFH v3 hit:
+        // the deploy "succeeded" but shipped the previous version). The per-flow
+        // form fetches /api/<slug>/v<n>/…, a literal that MUST be in the bundle
+        // if this version was compiled in. Missing → fail loudly instead of
+        // deploying + "verifying" the wrong bundle (verify only proves swa
+        // uploaded the built bundle, not that the build contained the new code).
+        if (expectMarker is not null && !await BuiltBundleContainsAsync(dist, expectMarker, ct))
+            return $"{swa}: built bundle is missing '{expectMarker}' — the build did not include the version being published (stale tree/cache?). Refusing to deploy a stale bundle.";
 
         var tokenRes = await Az(["staticwebapp", "secrets", "list", "-n", swa, "-g", cfg.ResourceGroup,
             "--query", "properties.apiKey", "-o", "tsv"], ct);
@@ -239,6 +253,28 @@ public sealed class PublishManager
         }
         return $"{swa}: frontend deploy not verified after {FrontendDeployAttempts} attempts — live site never served {builtBundle}"
              + (lastSwaErr is null ? " (swa reported success each time)" : $" (last swa error: {lastSwaErr})");
+    }
+
+    /// <summary>The per-flow API path literal the cooked form/detail fetches,
+    /// e.g. WFH v3 → <c>/api/wfh/v3</c>. Slug = lower-cased flow code with
+    /// <c>_</c>→<c>-</c> (matches the bpm-ui route convention). Pure →
+    /// unit-tested; used as a build-content marker.</summary>
+    public static string FrontendApiMarker(string flowCode, int version)
+        => $"/api/{flowCode.ToLowerInvariant().Replace('_', '-')}/v{version}";
+
+    /// <summary>True when any built JS asset under <paramref name="dist"/>/assets
+    /// contains <paramref name="marker"/> — i.e. the version's frontend code was
+    /// compiled into the bundle.</summary>
+    private static async Task<bool> BuiltBundleContainsAsync(string dist, string marker, CancellationToken ct)
+    {
+        var assets = Path.Combine(dist, "assets");
+        if (!Directory.Exists(assets)) return false;
+        foreach (var js in Directory.EnumerateFiles(assets, "*.js"))
+        {
+            var text = await File.ReadAllTextAsync(js, ct);
+            if (text.Contains(marker, StringComparison.Ordinal)) return true;
+        }
+        return false;
     }
 
     /// <summary>The main JS asset filename index.html references, e.g.

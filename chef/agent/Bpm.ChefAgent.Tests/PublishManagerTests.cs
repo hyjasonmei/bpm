@@ -64,4 +64,12 @@ public class PublishManagerTests
     [Fact]
     public void ShouldRetryMark_does_not_retry_non_transient_error()
         => Assert.False(PublishManager.ShouldRetryMark(attempt: 1, maxAttempts: 5, new InvalidOperationException("409"), shuttingDown: false));
+
+    [Fact]
+    public void FrontendApiMarker_builds_slash_api_slug_version()
+        => Assert.Equal("/api/wfh/v3", PublishManager.FrontendApiMarker("WFH", 3));
+
+    [Fact]
+    public void FrontendApiMarker_hyphenates_underscored_flow_codes()
+        => Assert.Equal("/api/purchase-request/v1", PublishManager.FrontendApiMarker("PURCHASE_REQUEST", 1));
 }
