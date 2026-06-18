@@ -62,7 +62,9 @@ foreach (var env in config.EnabledEnvironments)
     // Publishing sweep: deploy main to this env's Azure resources for any flow
     // in Publishing. One deploy per poll (serialize migrations + the cold-start
     // window); single-flight is enforced inside PublishManager via AgentState.
-    if (tasks.Publishing.Count > 0)
+    // Null-safe: an env whose admin-svc predates the Publishing work returns
+    // no `publishing` field, so this list deserializes to null — don't crash.
+    if ((tasks.Publishing?.Count ?? 0) > 0)
     {
         List<DeployEnvConfig> deployCfgs;
         try { deployCfgs = await api.GetDeployConfigAsync(); }

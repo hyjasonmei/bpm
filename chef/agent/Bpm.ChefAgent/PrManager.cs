@@ -28,7 +28,16 @@ public sealed class PrManager
     public async Task<bool> HasRemoteAsync()
     {
         var r = await Git("remote");
-        return r.Ok && (r.Stdout.Contains("origin") || r.Stdout.Contains("github"));
+        var hasRemote = r.Ok && (r.Stdout.Contains("origin") || r.Stdout.Contains("github"));
+        if (!hasRemote) return false;
+        // A git remote is only usable for PR mode if `gh` is actually installed.
+        // This worker can't ssh-push and has no gh, so even though the repo has
+        // a remote (the operator pushes via GitKraken), fall back to local mode
+        // → the rebased cook branch gets ff-merged into local main here, and
+        // local main is what the deploy builds from. Without this, the gh path
+        // fails every poll and the cook never merges.
+        var gh = await Gh("--version");
+        return gh.Ok;
     }
 
     /// <summary>Process one Approved-awaiting-merge flow for one environment.</summary>
