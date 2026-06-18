@@ -312,11 +312,15 @@ public class FlowLifecycleService : IFlowLifecycleService
         // chef tables stay live and end-user-facing case data keeps
         // working; archived flows are OK because their tables are
         // renamed and the namespace is free.
+        // A *new version of the same flow* (same LineageId) is NOT a clash —
+        // e.g. submitting WFH V2 while WFH V1 is still Published is expected;
+        // only a DIFFERENT lineage stealing the same code is a real conflict.
         var row = await Load(flowId, ct);
         var clash = await _db.Flows
             .AsNoTracking()
             .AnyAsync(f =>
                 f.Id != row.Id &&
+                f.LineageId != row.LineageId &&
                 f.FlowCode == row.FlowCode &&
                 f.ArchivedAt == null &&
                 f.State != FlowState.Retired,

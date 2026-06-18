@@ -90,6 +90,55 @@ public class FlowLifecycleTests
         finally { ctx.Dispose(); conn.Dispose(); }
     }
 
+    [Fact]
+    public async Task Submit_Does_Not_Clash_On_New_Version_Of_Same_Lineage()
+    {
+        var (svc, ctx, conn) = CreateService();
+        try
+        {
+            // WFH V1 is live (Published); WFH V2 is a new version of the SAME
+            // lineage. The duplicate-code guard must NOT fire for a version
+            // bump (the bug: it did → 409 "code already in use" on Submit).
+            // A sanity-gate failure from a half-baked spec is a separate,
+            // acceptable outcome — this test isolates the clash guard.
+            var v1 = SeedFlow(ctx, "WFH", FlowState.Published);
+            var v2 = new Flow
+            {
+                Id = Guid.NewGuid(),
+                LineageId = v1.LineageId, // same lineage = version bump, not a clash
+                Version = 2,
+                State = FlowState.Draft,
+                FlowCode = "WFH",
+                DisplayName = "WFH",
+                SpecJson = "{}",
+            };
+            ctx.Flows.Add(v2);
+            ctx.SaveChanges();
+
+            var ex = await Record.ExceptionAsync(() => svc.SubmitAsync(v2.Id, null));
+            if (ex is FlowLifecycleException fle)
+                Assert.DoesNotContain("already used", fle.Message);
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Submit_Blocks_Different_Lineage_With_Same_Code()
+    {
+        var (svc, ctx, conn) = CreateService();
+        try
+        {
+            // A genuinely different flow (new lineage) reusing an active code
+            // must still be blocked — the fix must not weaken the real guard.
+            SeedFlow(ctx, "WFH", FlowState.Published);     // lineage A, live
+            var dup = SeedFlow(ctx, "WFH", FlowState.Draft); // lineage B, distinct flow
+            var ex = await Assert.ThrowsAsync<FlowLifecycleException>(
+                () => svc.SubmitAsync(dup.Id, null));
+            Assert.Contains("already used", ex.Message);
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
     [Theory]
     [InlineData(FlowState.Draft)]
     [InlineData(FlowState.Submitted)]
