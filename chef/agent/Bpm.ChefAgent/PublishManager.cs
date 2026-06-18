@@ -182,7 +182,13 @@ public sealed class PublishManager
             try
             {
                 var resp = await _health.GetAsync(url, ct);
-                if (resp.IsSuccessStatusCode) return true;
+                // 200 = healthy (bpm-svc /health is anonymous). 401 = the app is
+                // up but /health is auth-gated (admin-svc) — still proves Kestrel
+                // finished cold-starting and is serving. Only a missing response
+                // (timeout / connection refused) or a platform 5xx means "not up
+                // yet", so those fall through and keep polling.
+                if (resp.IsSuccessStatusCode || resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    return true;
             }
             catch { /* cold start / connection refused → keep polling */ }
             await Task.Delay(TimeSpan.FromSeconds(5), ct);

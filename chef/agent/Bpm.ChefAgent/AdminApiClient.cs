@@ -17,7 +17,11 @@ public sealed class AdminApiClient : IDisposable
 
     public AdminApiClient(EnvTarget env, HttpClient? http = null)
     {
-        _http = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        // 90s, not 15s: the deploy worker restarts admin-svc mid-publish, and the
+        // first DB-touching call after a cold start (e.g. mark-published) can take
+        // well over 15s — a short timeout there fails the whole publish even
+        // though the deploy itself succeeded.
+        _http = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(90) };
         _http.BaseAddress = new Uri(env.BaseUrl.TrimEnd('/') + "/");
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", env.ChefToken);
     }
