@@ -15,6 +15,7 @@ using Bpm.Application.Features.TRQ.V1;
 using Bpm.Application.Features.VENDOR_EXPENSE.V1;
 using Bpm.Application.Features.WFH.V1;
 using Bpm.Application.Features.WFH.V2;
+using Bpm.Application.Features.WFH.V3;
 using Bpm.Application.Inbox;
 using Bpm.Application.Notifications;
 using Bpm.Application.Spec;
@@ -111,6 +112,7 @@ public static class DependencyInjection
         services.AddScoped<VENDOR_EXPENSE_V1_VendorExpenseService>();
         services.AddScoped<WFH_V1_WfhService>();
         services.AddScoped<WFH_V2_WfhService>();
+        services.AddScoped<WFH_V3_WfhService>();
 
         // Unified inbox: scan the Application assembly for
         // ITypedInboxProvider impls so chef-cooked feature providers
