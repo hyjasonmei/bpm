@@ -12,6 +12,7 @@ import {
   ensureFieldUids,
 } from '@/lib/onboarding'
 import { parseBpmnXml } from '@/lib/bpmnXmlParse'
+import { flowToBpmnXml } from '@/lib/bpmnXml'
 import { api, ApiError } from '@/flowcook/api'
 import { BpmnEditor } from '@/components/BpmnEditor'
 import { BpmnXmlView } from '@/components/BpmnXmlView'
@@ -30,7 +31,7 @@ interface ExtractedSkeleton {
 
 type SourceTab = 'source' | 'preview'
 
-export function StepSource({ draft, setDraft, bpmnXml }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void; bpmnXml?: string | null }) {
+export function StepSource({ draft, setDraft, bpmnXml, readOnly }: { draft: DraftSpec; setDraft: (d: DraftSpec) => void; bpmnXml?: string | null; readOnly?: boolean }) {
   const [scratchText, setScratchText] = useState('')
   const [busyKind, setBusyKind] = useState<null | 'image' | 'description'>(null)
   const [error, setError] = useState<string | null>(null)
@@ -172,7 +173,7 @@ export function StepSource({ draft, setDraft, bpmnXml }: { draft: DraftSpec; set
       </div>
 
       {activeTab === 'preview' ? (
-        <PreviewPanel draft={draft} setDraft={setDraft} hasFlow={hasFlow} bpmnXml={bpmnXml} />
+        <PreviewPanel draft={draft} setDraft={setDraft} hasFlow={hasFlow} bpmnXml={bpmnXml} readOnly={readOnly} />
       ) : (
         <SourcePanel
           draft={draft}
@@ -361,8 +362,8 @@ function SourcePanel({
 }
 
 function PreviewPanel({
-  draft, setDraft, hasFlow, bpmnXml,
-}: { draft: DraftSpec; setDraft: (d: DraftSpec) => void; hasFlow: boolean; bpmnXml?: string | null }) {
+  draft, setDraft, hasFlow, bpmnXml, readOnly,
+}: { draft: DraftSpec; setDraft: (d: DraftSpec) => void; hasFlow: boolean; bpmnXml?: string | null; readOnly?: boolean }) {
   // No editable draft, but the flow was registered from shipped code that
   // carries a bundle bpmn.xml — show it read-only so admin can still see the
   // diagram (the spec wizard was never run for these flows).
@@ -383,6 +384,19 @@ function PreviewPanel({
       </div>
     )
   }
+  if (readOnly) {
+    // Flow handed to chef — show the diagram in the read-only viewer
+    // (pan + scroll-zoom, no palette / no editing) instead of the editable
+    // Modeler, so it can't be mutated but is still inspectable.
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          唯讀檢視 — 流程已送出，僅供瀏覽（可縮放 / 拖曳檢視，不能編輯）。
+        </div>
+        <ReadOnlyDraftBpmn draft={draft} />
+      </div>
+    )
+  }
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs text-ink-muted">
@@ -391,6 +405,21 @@ function PreviewPanel({
       <BpmnEditor draft={draft} onChange={setDraft} height={460} />
     </div>
   )
+}
+
+/** Read-only BPMN for a spec-backed draft: render the draft to BPMN XML and
+ *  show it in the pan/zoom viewer (no palette / no editing). */
+function ReadOnlyDraftBpmn({ draft }: { draft: DraftSpec }) {
+  const [xml, setXml] = useState<string | null>(null)
+  useEffect(() => {
+    let on = true
+    void flowToBpmnXml(draft).then(x => { if (on) setXml(x) }).catch(() => { if (on) setXml(null) })
+    return () => { on = false }
+  }, [draft])
+  if (xml === null) {
+    return <div className="rounded border border-dashed border-rule bg-bg/50 p-10 text-center text-xs text-ink-muted">產生流程圖中…</div>
+  }
+  return <BpmnXmlView xml={xml} height={460} />
 }
 
 function fileToDataUrl(file: File): Promise<string> {

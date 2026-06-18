@@ -301,24 +301,24 @@ export function Onboarding({
         />
       </div>
 
-      {/* Body — co-pilot canvas. In read-only mode the whole canvas is
-          made inert (no focus / click / drag, removed from tab order) and
-          dimmed, which also locks the BPMN editor; mutations are already
-          neutralised via editSetDraft. */}
-      <div
-        className={cn(
-          'flex min-h-0 flex-1 flex-col',
-          readOnly && 'pointer-events-none select-none opacity-70',
-        )}
-        {...(readOnly ? { inert: '' } : {})}
+      {/* Body — co-pilot canvas. In read-only mode we disable the form
+          controls via a <fieldset disabled> (locks every input / button /
+          textarea, dims them) WITHOUT blocking scrolling or BPMN pan/zoom —
+          the earlier inert+pointer-events lock was too blunt (couldn't even
+          scroll). The BPMN editor is swapped for a read-only viewer inside
+          StepSource when readOnly; mutations are also neutralised via
+          editSetDraft as a belt-and-suspenders. */}
+      <fieldset
+        disabled={readOnly}
+        className="m-0 flex min-h-0 min-w-0 flex-1 flex-col border-0 p-0 disabled:opacity-90"
       >
         <CoPilotCanvas
           step={step}
           draft={draft}
           setDraft={editSetDraft}
-          canvas={renderCanvas(step.id, draft, editSetDraft, onNavigate, bpmnXml)}
+          canvas={renderCanvas(step.id, draft, editSetDraft, onNavigate, bpmnXml, readOnly)}
         />
-      </div>
+      </fieldset>
 
       {/* Footer — back / next. A normal flex item pinned below the
           flex-1 canvas (the Onboarding root is a bounded h-full column),
@@ -352,9 +352,9 @@ export function Onboarding({
   )
 }
 
-function renderCanvas(stepId: string, draft: DraftSpec, setDraft: (d: DraftSpec) => void, _onNavigate?: (s: AdminScreen) => void, bpmnXml?: string | null) {
+function renderCanvas(stepId: string, draft: DraftSpec, setDraft: (d: DraftSpec) => void, _onNavigate?: (s: AdminScreen) => void, bpmnXml?: string | null, readOnly?: boolean) {
   switch (stepId) {
-    case 'source':         return <StepSource draft={draft} setDraft={setDraft} bpmnXml={bpmnXml} />
+    case 'source':         return <StepSource draft={draft} setDraft={setDraft} bpmnXml={bpmnXml} readOnly={readOnly} />
     case 'trigger_access': return <StepTriggerAccess draft={draft} setDraft={setDraft} />
     case 'variables':      return <StepVariables draft={draft} setDraft={setDraft} />
     case 'forms':          return <StepForms draft={draft} setDraft={setDraft} />
