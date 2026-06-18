@@ -36,8 +36,17 @@ public sealed class PrManager
         // → the rebased cook branch gets ff-merged into local main here, and
         // local main is what the deploy builds from. Without this, the gh path
         // fails every poll and the cook never merges.
-        var gh = await Gh("--version");
-        return gh.Ok;
+        // NB: ProcessRunner THROWS when the executable is missing (not Ok=false),
+        // so guard the gh probe — a throw here must mean "no gh" → local mode.
+        try
+        {
+            var gh = await Gh("--version");
+            return gh.Ok;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>Process one Approved-awaiting-merge flow for one environment.</summary>
