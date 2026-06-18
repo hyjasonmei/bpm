@@ -59,6 +59,15 @@ public sealed class InAppNotifyDispatcher(
         var caseId = ctx.GetValueOrDefault("caseId");
         var flowCode = ctx.GetValueOrDefault("flowCode");
         if (string.IsNullOrEmpty(caseId) || string.IsNullOrEmpty(flowCode)) return null;
-        return $"/cases/{flowCode.ToLowerInvariant()}/{caseId}";
+        var slug = flowCode.ToLowerInvariant();
+        // Qualify with the flow version (chef ships it in the notify context) so a
+        // bell link to an OLD-version case opens THAT version's detail page via
+        // bpm-ui's /cases/:flowCode/v:version/:caseId route. Without the version
+        // the link resolves to the latest version's detail, which fetches a
+        // sibling-version endpoint and 404s once a newer version is published.
+        var flowVersion = ctx.GetValueOrDefault("flowVersion");
+        return string.IsNullOrEmpty(flowVersion)
+            ? $"/cases/{slug}/{caseId}"
+            : $"/cases/{slug}/v{flowVersion}/{caseId}";
     }
 }

@@ -29,6 +29,11 @@ export const router = createBrowserRouter([
       { path: 'create', element: <CreateIndex /> },
       { path: 'search', element: <Search /> },
       { path: 'attendance', element: <Attendance /> },
+      // Version-qualified case detail (e.g. /cases/wfh/v1/<id>) — a historical
+      // case opens ITS version's detail component. The bare 2-segment form is
+      // kept for back-compat (old links / current-version cases) and resolves
+      // to the highest version.
+      { path: 'cases/:flowCode/:version/:caseId', element: <FeatureCaseDetailRoute /> },
       { path: 'cases/:flowCode/:caseId', element: <FeatureCaseDetailRoute /> },
       { path: 'apply/:code', element: <FormRoute /> },
       // 404 → home
@@ -60,7 +65,7 @@ function HomeRoute() {
 }
 
 function FeatureCaseDetailRoute() {
-  const { flowCode, caseId } = useParams()
+  const { flowCode, version, caseId } = useParams()
   const { code: persona } = useActivePersona()
   if (!flowCode || !caseId) return <Navigate to="/" replace />
   // The URL slug is the lowercased flow code; normalize back to the canonical
@@ -69,7 +74,10 @@ function FeatureCaseDetailRoute() {
   // an underscore (`PURCHASE_REQUEST`), so map `-` → `_` as well as uppercasing.
   // FormCodes never contain a hyphen, so this is a safe normalization.
   const normalizedCode = flowCode.toUpperCase().replace(/-/g, '_')
-  const manifest = lookupForm(normalizedCode as FormCode)
+  // `version` is the optional 3rd segment ("v1"). Resolve THAT version's detail
+  // so an old case hits its own API; absent → highest (back-compat).
+  const parsedVersion = version ? Number.parseInt(version.replace(/^v/i, ''), 10) : NaN
+  const manifest = lookupForm(normalizedCode as FormCode, Number.isFinite(parsedVersion) ? parsedVersion : undefined)
   if (!manifest?.detailComponent) {
     return <div className="mx-auto max-w-md p-8 text-sm text-ink-muted">
       {normalizedCode} 還沒提供 case detail view（chef ship `detailComponent` in manifest）.
@@ -113,7 +121,10 @@ export const routes = {
   create: () => '/create',
   search: () => '/search',
   attendance: () => '/attendance',
-  caseDetail: (flowCode: string, caseId: string) => `/cases/${flowCode.toLowerCase()}/${caseId}`,
+  caseDetail: (flowCode: string, caseId: string, version?: number) =>
+    version != null
+      ? `/cases/${flowCode.toLowerCase()}/v${version}/${caseId}`
+      : `/cases/${flowCode.toLowerCase()}/${caseId}`,
   formCreate: (code: FormCode) => `/apply/${code}`,
 } as const
 

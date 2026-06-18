@@ -247,7 +247,7 @@ function PendingTable({ persona, rows, loading, error, navigate }: {
                     <Button
                       variant="primary"
                       size="xs"
-                      onClick={() => navigate(r.detailUrl)}
+                      onClick={() => navigate(routes.caseDetail(r.flowCode, r.caseId, r.flowVersion))}
                     >
                       Open
                     </Button>
@@ -292,7 +292,7 @@ function MyCasesTable({ rows, loading, error, navigate }: { rows: InboxRow[]; lo
               return (
                 <tr
                   key={r.caseId}
-                  onClick={() => navigate(r.detailUrl)}
+                  onClick={() => navigate(routes.caseDetail(r.flowCode, r.caseId, r.flowVersion))}
                   className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/60"
                 >
                   <Td><span className="font-mono text-[11px] text-ink">{r.caseId.slice(0, 8)}</span></Td>

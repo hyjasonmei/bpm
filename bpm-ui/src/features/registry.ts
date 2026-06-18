@@ -56,7 +56,15 @@ const modules = import.meta.glob<{ default?: FormManifest; manifest?: FormManife
   { eager: true },
 )
 
+/** Highest version per code — the launcher / new-case path. */
 const collected = new Map<FormCode, FormManifest>()
+/** Every (code, version) — so an OLD case still resolves to ITS version's
+ *  detail component instead of being forced onto the latest (which would fetch
+ *  a sibling-version endpoint and 404). Keyed by `${code}@${version}`. */
+const byCodeVersion = new Map<string, FormManifest>()
+
+const key = (code: FormCode, version: number) => `${code}@${version}`
+
 for (const path in modules) {
   const mod = modules[path]
   const m = mod.default ?? mod.manifest
@@ -64,6 +72,7 @@ for (const path in modules) {
     console.warn(`[features registry] ${path} did not export a valid FormManifest`)
     continue
   }
+  byCodeVersion.set(key(m.code, m.version), m)
   const existing = collected.get(m.code)
   if (!existing || m.version > existing.version) {
     collected.set(m.code, m)
@@ -72,7 +81,14 @@ for (const path in modules) {
 
 export const formRegistry: ReadonlyMap<FormCode, FormManifest> = collected
 
-/** Convenience lookup; returns undefined when chef hasn't shipped this flow yet. */
-export function lookupForm(code: FormCode): FormManifest | undefined {
+/**
+ * Resolve a flow's manifest. With no `version`, returns the highest (launcher /
+ * new case). With a `version`, returns that exact version — used by the
+ * case-detail route so a historical V1 case opens V1's detail (and hits
+ * `/api/.../v1/...`), not whatever the latest version is. Returns undefined
+ * when chef hasn't shipped this flow / version.
+ */
+export function lookupForm(code: FormCode, version?: number): FormManifest | undefined {
+  if (version != null) return byCodeVersion.get(key(code, version))
   return collected.get(code)
 }

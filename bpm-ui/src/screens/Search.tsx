@@ -9,6 +9,7 @@ import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { TypeChip } from '@/components/ui/badge'
 import { FORMS, type FormCode } from '@/lib/workflow'
 import { useInboxMine, useInboxPending, type InboxRow } from '@/hooks/useUnifiedInbox'
+import { routes } from '@/router'
 
 const FILTERS_OPEN_KEY = 'bpm.search.filtersOpen'
 
@@ -235,7 +236,7 @@ export function Search() {
                 <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-ink-faint">No matches.</td></tr>
               ) : pageRows.map(c => (
                 <tr key={c.caseId}
-                  onClick={() => navigate(c.detailUrl)}
+                  onClick={() => navigate(routes.caseDetail(c.flowCode, c.caseId, c.flowVersion))}
                   className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/60">
                   <Td><span className="font-mono text-[12px] font-semibold text-ink">{c.caseId.slice(0, 8)}</span></Td>
                   <Td>
@@ -312,7 +313,7 @@ export function SearchModal({ open, onClose }: { open: boolean; onClose: () => v
 
   if (!open) return null
 
-  const openCase = (r: InboxRow) => { onClose(); navigate(r.detailUrl) }
+  const openCase = (r: InboxRow) => { onClose(); navigate(routes.caseDetail(r.flowCode, r.caseId, r.flowVersion)) }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-6 pt-24" onClick={onClose}>
