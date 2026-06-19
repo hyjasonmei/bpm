@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="WFH_def"
+                  targetNamespace="https://bpm.acme.example">
+  <bpmn:process id="WFH" isExecutable="true">
+    <bpmn:startEvent id="start_1" name="開始">
+      <bpmn:outgoing>e1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="task_apply" name="員工填寫申請單">
+      <bpmn:incoming>e1</bpmn:incoming>
+      <bpmn:outgoing>e2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="approval_manager" name="主管審核">
+      <bpmn:incoming>e2</bpmn:incoming>
+      <bpmn:outgoing>e3</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="gateway_days" name="連續日期 ≥ 60 天？">
+      <bpmn:incoming>e3</bpmn:incoming>
+      <bpmn:outgoing>e4</bpmn:outgoing>
+      <bpmn:outgoing>e5</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="approval_senior" name="上級主管審核">
+      <bpmn:incoming>e5</bpmn:incoming>
+      <bpmn:outgoing>e6</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="end_approved" name="申請完成">
+      <bpmn:incoming>e4</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="end_senior_approved" name="申請完成（上級核准）">
+      <bpmn:incoming>e6</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="e1" sourceRef="start_1" targetRef="task_apply">
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="e2" sourceRef="task_apply" targetRef="approval_manager">
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="e3" sourceRef="approval_manager" targetRef="gateway_days">
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="e4" sourceRef="gateway_days" targetRef="end_approved" name="&lt; 60 天">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">days &lt; 60</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="e5" sourceRef="gateway_days" targetRef="approval_senior" name="≥ 60 天">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">days &gt;= 60</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="e6" sourceRef="approval_senior" targetRef="end_senior_approved">
+    </bpmn:sequenceFlow>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="diagram_1">
+    <bpmndi:BPMNPlane id="plane_1" bpmnElement="WFH">
+      <bpmndi:BPMNShape id="start_1_di" bpmnElement="start_1">
+        <dc:Bounds x="12" y="107" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="task_apply_di" bpmnElement="task_apply">
+        <dc:Bounds x="118" y="85" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="approval_manager_di" bpmnElement="approval_manager">
+        <dc:Bounds x="288" y="85" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="gateway_days_di" bpmnElement="gateway_days" isMarkerVisible="true">
+        <dc:Bounds x="458" y="100" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="416" y="155" width="134" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="approval_senior_di" bpmnElement="approval_senior">
+        <dc:Bounds x="789" y="93" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_approved_di" bpmnElement="end_approved">
+        <dc:Bounds x="789" y="17" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_senior_approved_di" bpmnElement="end_senior_approved">
+        <dc:Bounds x="959" y="115" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="e1_di" bpmnElement="e1">
+        <di:waypoint x="48" y="125" />
+        <di:waypoint x="118" y="125" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e2_di" bpmnElement="e2">
+        <di:waypoint x="218" y="125" />
+        <di:waypoint x="288" y="125" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e3_di" bpmnElement="e3">
+        <di:waypoint x="388" y="125" />
+        <di:waypoint x="458" y="125" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e4_di" bpmnElement="e4">
+        <di:waypoint x="508" y="117" />
+        <di:waypoint x="622" y="117" />
+        <di:waypoint x="622" y="35" />
+        <di:waypoint x="789" y="35" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="662" y="12" width="57" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e5_di" bpmnElement="e5">
+        <di:waypoint x="508" y="133" />
+        <di:waypoint x="789" y="133" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="662" y="142" width="57" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e6_di" bpmnElement="e6">
+        <di:waypoint x="889" y="133" />
+        <di:waypoint x="959" y="133" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
