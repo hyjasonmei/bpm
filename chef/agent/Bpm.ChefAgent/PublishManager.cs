@@ -18,13 +18,16 @@ namespace Bpm.ChefAgent;
 public sealed class PublishManager
 {
     public static readonly TimeSpan RetryCooldown = TimeSpan.FromMinutes(30);
-    // 300s, not 120s: an App Service restart recreates the container (image pull
-    // + warmup probe ~90s) and the app then applies pending EF migrations before
-    // serving — a fresh per-flow migration pushed bpm-svc's cold start past 120s,
-    // failing the health-check even though the deploy succeeded (the app came up
-    // moments later). Cover the worst-case cold start so a slow-but-fine start
-    // doesn't abort the publish before the frontend step.
-    private static readonly TimeSpan HealthTimeout = TimeSpan.FromSeconds(300);
+    // 30 min, deliberately generous: an App Service restart recreates the
+    // container (image pull + warmup probe ~90s) and the app then applies pending
+    // EF migrations before serving — cold start has repeatedly run past shorter
+    // windows (120s, then 300s margins were still too tight in practice), failing
+    // the health-check even though the deploy succeeded and the app came up
+    // moments later. A healthy app responds in seconds; this ceiling only ever
+    // matters for a genuinely stuck start, so erring large costs nothing on the
+    // happy path and removes the whole "slow-but-fine cold start aborts publish"
+    // failure class.
+    private static readonly TimeSpan HealthTimeout = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan StepTimeout = TimeSpan.FromMinutes(15);
 
     // The deploy restarts admin-svc; the first DB-writing call after that cold
