@@ -49,11 +49,19 @@ public sealed class PublishManager
         _health = health ?? new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
     }
 
-    /// <summary>Start gate (pure): don't start if a deploy is already in flight,
-    /// or if we're within <see cref="RetryCooldown"/> of the last attempt for
-    /// this flow.</summary>
-    public static bool ShouldStartDeploy(DateTime now, DateTime? lastAttemptAt, bool inFlight)
-        => !inFlight && Cooldown.ShouldSend(now, lastAttemptAt, RetryCooldown);
+    /// <summary>Start gate (pure): never run two deploys at once. Otherwise a
+    /// FRESH publish request — the operator (re-)pressed Publish / Retry deploy,
+    /// which bumps the flow's UpdatedAt past our last attempt — always deploys
+    /// immediately; the <see cref="RetryCooldown"/> only spaces out AUTO-retries
+    /// of the same still-pending request (e.g. a crash before MarkPublishFailed
+    /// left it stuck in Publishing), so an explicit human retry is never swallowed
+    /// by the cooldown.</summary>
+    public static bool ShouldStartDeploy(DateTime now, DateTime? lastAttemptAt, bool inFlight, DateTime publishingSince)
+    {
+        if (inFlight) return false;
+        if (lastAttemptAt is { } last && publishingSince > last) return true;   // fresh request → bypass cooldown
+        return Cooldown.ShouldSend(now, lastAttemptAt, RetryCooldown);
+    }
 
     /// <summary>Deploy main to one env's Azure resources for one Publishing flow,
     /// health-check, then Mark{Published|PublishFailed}. Single-flight + retry
@@ -62,7 +70,9 @@ public sealed class PublishManager
     {
         var inFlight = _state.DeployInFlightFlowId is { Length: > 0 };
         var lastAttempt = _state.LastDeployAttemptAt.TryGetValue(task.FlowId.ToString(), out var v) ? v : (DateTime?)null;
-        if (!ShouldStartDeploy(_now, lastAttempt, inFlight)) return;
+        // task.UpdatedAt = when the flow last transitioned, i.e. when it (re-)entered
+        // Publishing — newer than lastAttempt means a fresh operator retry.
+        if (!ShouldStartDeploy(_now, lastAttempt, inFlight, task.UpdatedAt)) return;
 
         // Claim the single deploy slot + stamp the attempt (gates retries even if
         // we crash mid-deploy — the cooldown holds the next poll back).

@@ -6,29 +6,49 @@ public class PublishManagerTests
 {
     private static readonly DateTime Now = new(2026, 6, 17, 12, 0, 0, DateTimeKind.Utc);
 
+    // publishingSince in the past (≤ lastAttempt) → no fresh-request bypass, so
+    // these exercise the cooldown path. (A new operator retry would set it later.)
+    private static readonly DateTime Old = new(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
     [Fact]
     public void Starts_when_no_prior_attempt_and_not_in_flight()
-        => Assert.True(PublishManager.ShouldStartDeploy(Now, lastAttemptAt: null, inFlight: false));
+        => Assert.True(PublishManager.ShouldStartDeploy(Now, lastAttemptAt: null, inFlight: false, publishingSince: Old));
 
     [Fact]
     public void Does_not_start_when_in_flight()
-        => Assert.False(PublishManager.ShouldStartDeploy(Now, lastAttemptAt: null, inFlight: true));
+        => Assert.False(PublishManager.ShouldStartDeploy(Now, lastAttemptAt: null, inFlight: true, publishingSince: Now));
 
     [Fact]
     public void Does_not_start_within_retry_cooldown()
-        => Assert.False(PublishManager.ShouldStartDeploy(Now, Now.AddMinutes(-10), inFlight: false));
+        => Assert.False(PublishManager.ShouldStartDeploy(Now, Now.AddMinutes(-10), inFlight: false, publishingSince: Old));
 
     [Fact]
     public void Starts_after_retry_cooldown_elapses()
-        => Assert.True(PublishManager.ShouldStartDeploy(Now, Now.AddMinutes(-31), inFlight: false));
+        => Assert.True(PublishManager.ShouldStartDeploy(Now, Now.AddMinutes(-31), inFlight: false, publishingSince: Old));
 
     [Fact]
     public void Starts_exactly_at_retry_cooldown_boundary()
-        => Assert.True(PublishManager.ShouldStartDeploy(Now, Now.Subtract(PublishManager.RetryCooldown), inFlight: false));
+        => Assert.True(PublishManager.ShouldStartDeploy(Now, Now.Subtract(PublishManager.RetryCooldown), inFlight: false, publishingSince: Old));
 
     [Fact]
     public void In_flight_blocks_even_after_cooldown()
-        => Assert.False(PublishManager.ShouldStartDeploy(Now, Now.AddHours(-2), inFlight: true));
+        => Assert.False(PublishManager.ShouldStartDeploy(Now, Now.AddHours(-2), inFlight: true, publishingSince: Now));
+
+    [Fact]
+    public void Fresh_publish_request_bypasses_cooldown()
+        // operator re-pressed Publish/Retry 1 min ago, last deploy attempt was 5 min ago
+        // (well within the 30-min cooldown) → deploy anyway.
+        => Assert.True(PublishManager.ShouldStartDeploy(Now, lastAttemptAt: Now.AddMinutes(-5), inFlight: false, publishingSince: Now.AddMinutes(-1)));
+
+    [Fact]
+    public void Stale_publishing_within_cooldown_still_blocked()
+        // flow entered Publishing before our last attempt (stuck, not a new request)
+        // and we're inside the cooldown → don't redeploy yet.
+        => Assert.False(PublishManager.ShouldStartDeploy(Now, lastAttemptAt: Now.AddMinutes(-5), inFlight: false, publishingSince: Now.AddMinutes(-10)));
+
+    [Fact]
+    public void Fresh_request_still_blocked_when_in_flight()
+        => Assert.False(PublishManager.ShouldStartDeploy(Now, lastAttemptAt: Now.AddMinutes(-5), inFlight: true, publishingSince: Now.AddMinutes(-1)));
 
     [Fact]
     public void ParseBundleId_extracts_main_bundle_from_index_html()
