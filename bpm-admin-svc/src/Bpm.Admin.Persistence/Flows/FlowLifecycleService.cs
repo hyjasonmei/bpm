@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Bpm.Admin.Application.Audit;
 using Bpm.Admin.Application.Flows;
 using Bpm.Admin.Domain.Flows;
@@ -722,7 +723,10 @@ public class FlowLifecycleService : IFlowLifecycleService
             State = FlowState.Draft,
             FlowCode = source.FlowCode,
             DisplayName = source.DisplayName,
-            SpecJson = source.SpecJson,
+            // Stamp the new version into the spec's meta so chef cooks vN (and
+            // the BPMN/labels/tests match) instead of inheriting the source's
+            // meta.flowVersion — the wizard never bumps it on clone.
+            SpecJson = WithFlowVersion(source.SpecJson, maxVersion + 1),
             Notes = null,
             CreatedByUserId = actorUserId,
             // Carry forward launcher display metadata so a re-cook keeps
@@ -745,6 +749,25 @@ public class FlowLifecycleService : IFlowLifecycleService
             ct: ct);
 
         return clone;
+    }
+
+    /// <summary>Return <paramref name="specJson"/> with <c>meta.flowVersion</c> set
+    /// to <paramref name="version"/>. Pure + null/parse-safe: a missing or malformed
+    /// spec is returned unchanged so cloning never fails on it.</summary>
+    public static string? WithFlowVersion(string? specJson, int version)
+    {
+        if (string.IsNullOrWhiteSpace(specJson)) return specJson;
+        try
+        {
+            if (JsonNode.Parse(specJson) is not JsonObject root) return specJson;
+            if (root["meta"] is not JsonObject meta) return specJson;
+            meta["flowVersion"] = version;
+            return root.ToJsonString();
+        }
+        catch
+        {
+            return specJson;   // not our job to validate the spec here
+        }
     }
 
     public async Task<Flow> OnHoldFromChefAsync(Guid flowId, string question, CancellationToken ct = default)

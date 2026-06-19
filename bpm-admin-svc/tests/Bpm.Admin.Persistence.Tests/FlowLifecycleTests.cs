@@ -353,4 +353,21 @@ public class FlowLifecycleTests
         }
         finally { ctx.Dispose(); conn.Dispose(); }
     }
+
+    [Fact]
+    public void WithFlowVersion_Stamps_Meta_FlowVersion()
+    {
+        const string spec = """{"meta":{"flowCode":"WFH","flowVersion":1,"flowName":"x"},"flow":{}}""";
+        var bumped = FlowLifecycleService.WithFlowVersion(spec, 4);
+        Assert.Contains("\"flowVersion\":4", bumped);
+        Assert.DoesNotContain("\"flowVersion\":1", bumped);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("not json")]
+    [InlineData("{\"flow\":{}}")]   // no meta object → unchanged
+    public void WithFlowVersion_Is_Null_And_Malformed_Safe(string? spec)
+        => Assert.Equal(spec, FlowLifecycleService.WithFlowVersion(spec, 4));
 }
