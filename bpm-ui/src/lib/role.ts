@@ -98,6 +98,18 @@ export function personaFromRoles(roles: string[]): PersonaCode {
 }
 
 const STORAGE_KEY = 'bpm_active_role'
+// The dev/auth-login JWT carries identity (full_name) but NOT the department,
+// so persist the dept from the login response to survive a page reload —
+// otherwise the apply-form requestor summary has no real cost-center on reload.
+const DEPT_KEY = 'bpm_active_dept'
+
+/** Persist (or clear) the authenticated user's department code. Call on every
+ *  fresh login / persona switch so reload-time identity carries a real dept. */
+export function rememberDept(dept: string | null): void {
+  if (typeof window === 'undefined') return
+  if (dept) window.localStorage.setItem(DEPT_KEY, dept)
+  else window.localStorage.removeItem(DEPT_KEY)
+}
 
 /**
  * Persist the persona that matches the just-authenticated identity.
@@ -141,7 +153,7 @@ async function loginAs(personaCode: PersonaCode): Promise<DevLoginUser> {
   return data.user as DevLoginUser
 }
 
-function authedFromJwt(): DevLoginUser | null {
+export function authedFromJwt(): DevLoginUser | null {
   if (typeof window === 'undefined') return null
   const token = getJwt()
   if (!token) return null
@@ -152,7 +164,8 @@ function authedFromJwt(): DevLoginUser | null {
     id: decoded.sub,
     fullName: decoded.full_name ?? decoded.email ?? '(unknown)',
     email: decoded.email ?? '',
-    departmentCode: null,
+    // JWT doesn't carry dept; fall back to the dept persisted at login time.
+    departmentCode: (typeof window !== 'undefined' ? window.localStorage.getItem(DEPT_KEY) : null) || null,
     personaCode: (decoded.persona_code as PersonaCode) ?? personaFromRoles(roles),
     roles,
   }
@@ -180,6 +193,7 @@ export function useActivePersona() {
       const user = await loginAs(next)
       setAuthedUser(user)
       localStorage.setItem(STORAGE_KEY, next)
+      rememberDept(user.departmentCode)
       setCodeState(next)
       // Switching persona re-mints the JWT to a *different* identity without
       // a page reload. Anything that fetched identity-scoped data (the

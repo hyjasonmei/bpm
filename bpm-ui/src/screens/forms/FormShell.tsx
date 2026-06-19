@@ -7,7 +7,7 @@ import { BpmnView } from '@/components/BpmnView'
 import { lookupForm } from '@/features/registry'
 import { Textarea } from '@/components/ui/form'
 import { FORMS, type FormCode } from '@/lib/workflow'
-import { PERSONAS, type PersonaCode } from '@/lib/role'
+import { PERSONAS, authedFromJwt, type PersonaCode } from '@/lib/role'
 import type { NodeKind } from '@/types/process'
 
 /** Mode the form is operating in. Default 'create' preserves the current UX. */
@@ -85,19 +85,25 @@ export function FormShell({
 }
 
 function DefaultInfoRow({ persona }: { persona: PersonaCode }) {
-  const u = PERSONAS[persona].user
+  // Requestor / Cost Center reflect the ACTUAL authenticated user, not the
+  // static persona demo data — otherwise every employee-role login showed the
+  // canned persona user (e.g. "Bob / Backend"). Fall back to the persona only
+  // when there's no token yet. (Business Unit was a hardcoded placeholder with
+  // no real source, so it's dropped rather than shown wrong.)
+  const fallback = PERSONAS[persona].user
+  const me = authedFromJwt()
+  const name = me?.fullName ?? fallback.name
+  const dept = me?.departmentCode ?? fallback.dept
   return (
     <SectionCard className="mt-4">
       <div className="grid grid-cols-2 divide-x divide-rule">
         <div className="grid grid-cols-[110px_1fr] gap-x-4 gap-y-1 p-3 text-sm">
           <span className="text-ink-muted">Requestor</span>
-          <span className="font-medium text-ink">{u.name}</span>
+          <span className="font-medium text-ink">{name}</span>
           <span className="text-ink-muted">Cost Center</span>
-          <span className="text-ink">{u.dept}</span>
+          <span className="text-ink">{dept}</span>
         </div>
         <div className="grid grid-cols-[110px_1fr] gap-x-4 gap-y-1 p-3 text-sm">
-          <span className="text-ink-muted">Business Unit</span>
-          <span className="text-ink">Taiwan (Taipei)</span>
           <span className="text-ink-muted">Persona</span>
           <span className="text-ink">{PERSONAS[persona].displayName} · {PERSONAS[persona].zhName}</span>
         </div>
