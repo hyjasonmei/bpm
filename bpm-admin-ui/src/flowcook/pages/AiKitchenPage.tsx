@@ -6,6 +6,8 @@ import {
   ChefHat,
   Copy,
   Download,
+  Eye,
+  EyeOff,
   PackagePlus,
   Pencil,
   RefreshCw,
@@ -126,10 +128,21 @@ function WizardRoute() {
 // List
 // ──────────────────────────────────────────────────────────────
 
+/** Persisted toggle: retired flows are hidden by default; admins opt in. */
+const SHOW_RETIRED_KEY = 'flowcook.aikitchen.showRetired'
+
 function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<void> }) {
   const navigate = useNavigate()
   const [flows, setFlows] = useState<FlowSummary[]>([])
   const [loading, setLoading] = useState(true)
+  // Hide Retired versions by default (they clutter the active line); the
+  // header toggle reveals them, and the choice persists across visits.
+  const [showRetired, setShowRetired] = useState<boolean>(() => {
+    try { return localStorage.getItem(SHOW_RETIRED_KEY) === 'true' } catch { return false }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(SHOW_RETIRED_KEY, String(showRetired)) } catch { /* ignore */ }
+  }, [showRetired])
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [rowPending, setRowPending] = useState<string | null>(null)
@@ -156,6 +169,12 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
   }, [])
 
   useEffect(() => { void refresh() }, [refresh])
+
+  const retiredCount = useMemo(() => flows.filter(f => f.state === 'Retired').length, [flows])
+  const visibleFlows = useMemo(
+    () => (showRetired ? flows : flows.filter(f => f.state !== 'Retired')),
+    [flows, showRetired],
+  )
 
   // One-click: register every flow whose code is deployed on bpm-svc but
   // that isn't yet in the registry, directly as Approved, so the bpm
@@ -269,10 +288,20 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
           <div className="flex items-baseline gap-3">
             <h2 className="text-base font-semibold text-ink">Cooked flows</h2>
             <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
-              {loading ? '…' : `${flows.length} on the line`}
+              {loading ? '…' : `${visibleFlows.length} on the line`}
             </span>
           </div>
           <div className="flex items-center gap-2">
+            {retiredCount > 0 && (
+              <button
+                onClick={() => setShowRetired(v => !v)}
+                title={showRetired ? '隱藏已下架的流程版本' : '顯示已下架的流程版本'}
+                className="inline-flex items-center gap-1.5 rounded border border-rule bg-card px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-primary hover:text-primary"
+              >
+                {showRetired ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {showRetired ? '隱藏已下架' : `顯示已下架 (${retiredCount})`}
+              </button>
+            )}
             <button
               onClick={() => void refresh()}
               disabled={loading}
@@ -335,7 +364,17 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
           </div>
         )}
 
-        {flows.length > 0 && (
+        {!loading && flows.length > 0 && visibleFlows.length === 0 && !error && (
+          <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center text-sm text-ink-muted">
+            <ArchiveX className="mb-3 h-7 w-7 text-ink-faint" />
+            所有流程版本都已下架（已隱藏）。
+            <button onClick={() => setShowRetired(true)} className="mt-2 text-xs text-primary underline">
+              顯示已下架 ({retiredCount})
+            </button>
+          </div>
+        )}
+
+        {visibleFlows.length > 0 && (
           <div className="flex-1 overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 border-b border-rule bg-label-bg text-left font-mono text-[10px] tracking-[0.14em] uppercase text-ink-muted">
@@ -349,7 +388,7 @@ function CookedFlowsList({ onOpenFlow }: { onOpenFlow: (id: string) => Promise<v
                 </tr>
               </thead>
               <tbody className="divide-y divide-rule">
-                {flows.map((f) => {
+                {visibleFlows.map((f) => {
                   const isApproved = f.state === 'Approved'
                   const isPublished = f.state === 'Published'
                   const isLive     = isApproved || isPublished   // reviewed or live
