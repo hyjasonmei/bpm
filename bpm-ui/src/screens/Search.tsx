@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input, Select, FieldLabel } from '@/components/ui/form'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { TypeChip } from '@/components/ui/badge'
-import { FORMS, type FormCode } from '@/lib/workflow'
 import { useInboxMine, useInboxPending, type InboxRow } from '@/hooks/useUnifiedInbox'
+import { useFlowLabel } from '@/hooks/useFlowRegistry'
 import { routes } from '@/router'
 
 const FILTERS_OPEN_KEY = 'bpm.search.filtersOpen'
@@ -46,7 +46,7 @@ function useMyCases() {
 
 function matchRows(rows: InboxRow[], opts: {
   keyword?: string; caseId?: string; formTypes?: string[]; statuses?: string[]; dateFrom?: string; dateTo?: string
-}): InboxRow[] {
+}, flowLabel: (code: string, version?: number) => string): InboxRow[] {
   let r = rows
   if (opts.caseId) {
     const id = opts.caseId.toLowerCase()
@@ -59,7 +59,7 @@ function matchRows(rows: InboxRow[], opts: {
       || c.flowCode.toLowerCase().includes(k)
       || c.caseId.toLowerCase().includes(k)
       || c.status.toLowerCase().includes(k)
-      || (FORMS[c.flowCode as FormCode]?.label ?? '').toLowerCase().includes(k))
+      || flowLabel(c.flowCode, c.flowVersion).toLowerCase().includes(k))
   }
   if (opts.formTypes?.length) r = r.filter(c => opts.formTypes!.includes(c.flowCode))
   if (opts.statuses?.length) r = r.filter(c => opts.statuses!.includes(c.status))
@@ -71,6 +71,7 @@ function matchRows(rows: InboxRow[], opts: {
 export function Search() {
   const navigate = useNavigate()
   const { rows, loading, error, refresh } = useMyCases()
+  const flowLabel = useFlowLabel()
 
   const [keyword, setKeyword] = useState('')
   const [caseId, setCaseId] = useState('')
@@ -101,8 +102,8 @@ export function Search() {
   const availableStatuses = useMemo(() => [...new Set(rows.map(c => c.status))].sort(), [rows])
 
   const results = useMemo(
-    () => matchRows(rows, { keyword, caseId, formTypes, statuses, dateFrom, dateTo }),
-    [rows, keyword, caseId, formTypes, statuses, dateFrom, dateTo],
+    () => matchRows(rows, { keyword, caseId, formTypes, statuses, dateFrom, dateTo }, flowLabel),
+    [rows, keyword, caseId, formTypes, statuses, dateFrom, dateTo, flowLabel],
   )
 
   const totalPages = Math.max(1, Math.ceil(results.length / pageSize))
@@ -242,7 +243,7 @@ export function Search() {
                   <Td>
                     <div className="flex items-center gap-2">
                       <TypeChip type={c.flowCode} />
-                      <span className="text-xs text-ink-muted truncate">{FORMS[c.flowCode as FormCode]?.label ?? c.flowCode}</span>
+                      <span className="text-xs text-ink-muted truncate">{flowLabel(c.flowCode, c.flowVersion)}</span>
                     </div>
                   </Td>
                   <Td className="text-xs text-ink-muted truncate max-w-xs">{c.title}</Td>
@@ -298,6 +299,7 @@ function formatDate(iso: string): string {
 export function SearchModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate()
   const { rows } = useMyCases()
+  const flowLabel = useFlowLabel()
   const inputRef = useRef<HTMLInputElement>(null)
   const [q, setQ] = useState('')
 
@@ -309,7 +311,7 @@ export function SearchModal({ open, onClose }: { open: boolean; onClose: () => v
     return () => document.removeEventListener('keydown', onEsc)
   }, [open, onClose])
 
-  const matches = useMemo(() => (q ? matchRows(rows, { keyword: q }).slice(0, 8) : []), [q, rows])
+  const matches = useMemo(() => (q ? matchRows(rows, { keyword: q }, flowLabel).slice(0, 8) : []), [q, rows, flowLabel])
 
   if (!open) return null
 
@@ -335,7 +337,7 @@ export function SearchModal({ open, onClose }: { open: boolean; onClose: () => v
                 <TypeChip type={c.flowCode} />
                 <div className="min-w-0">
                   <p className="truncate text-[13px] text-ink">{c.title}</p>
-                  <p className="font-mono text-[11px] text-ink-muted">{c.caseId.slice(0, 8)} · {FORMS[c.flowCode as FormCode]?.label ?? c.flowCode}</p>
+                  <p className="font-mono text-[11px] text-ink-muted">{c.caseId.slice(0, 8)} · {flowLabel(c.flowCode, c.flowVersion)}</p>
                 </div>
               </div>
               <span className="shrink-0 text-xs text-ink-muted">{c.status}</span>

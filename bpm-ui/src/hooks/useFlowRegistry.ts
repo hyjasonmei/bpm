@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/apiFetch'
+import { FORMS, type FormCode } from '@/lib/workflow'
 
 /** Mirror of bpm-svc's FlowRegistryEntry record. */
 export interface FlowRegistryEntry {
@@ -80,4 +81,36 @@ export function latestPerCode(entries: FlowRegistryEntry[] | null): Map<string, 
     if (!cur || e.version > cur.version) out.set(e.flowCode, e)
   }
   return out
+}
+
+/**
+ * Resolve a flow's end-user display name. Admin's Flow.DisplayName (served by
+ * /api/flow-registry) is the single source of truth — the compile-time FORMS
+ * label is only a fallback while the registry is still loading or for a flow
+ * with no admin name set. Pass `version` to label a specific historical case;
+ * omit it for the launcher (latest version wins).
+ */
+export function resolveFlowLabel(
+  entries: FlowRegistryEntry[] | null,
+  code: string,
+  version?: number,
+): string {
+  const fallback = FORMS[code as FormCode]?.zhLabel ?? code
+  if (!entries) return fallback
+  let chosen: FlowRegistryEntry | undefined
+  for (const e of entries) {
+    if (e.flowCode !== code) continue
+    if (version != null) {
+      if (e.version === version) { chosen = e; break }
+    } else if (!chosen || e.version > chosen.version) {
+      chosen = e
+    }
+  }
+  return chosen?.displayName || fallback
+}
+
+/** Hook form of {@link resolveFlowLabel}, bound to the cached registry. */
+export function useFlowLabel(): (code: string, version?: number) => string {
+  const { entries } = useFlowRegistry()
+  return (code, version) => resolveFlowLabel(entries, code, version)
 }

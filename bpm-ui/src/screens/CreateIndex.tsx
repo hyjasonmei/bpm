@@ -45,7 +45,11 @@ export function CreateIndex() {
         const entry = latest.get(m.code)
         return {
           code: m.code,
-          label: FORMS[m.code]?.zhLabel ?? m.code,
+          // Admin's Flow display name (from /api/flow-registry) is the source
+          // of truth — same as icon/group/order below. Fall back to the
+          // compile-time FORMS label only while the registry is still loading
+          // or for a flow with no admin name set.
+          label: entry?.displayName || FORMS[m.code]?.zhLabel || m.code,
           iconKey: entry?.iconKey ?? null,
           groupKey: entry?.groupCode ?? OTHER_KEY,
           groupLabel: entry?.groupDisplayName?.['zh-TW'] ?? entry?.groupCode ?? '其他',

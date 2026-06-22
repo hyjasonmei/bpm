@@ -14,7 +14,7 @@ import { decodeJwt } from '@/lib/jwt'
 import { FORMS, type FormCode } from '@/lib/workflow'
 import { formRegistry } from '@/features/registry'
 import { useInboxMine, useInboxPending, type InboxRow } from '@/hooks/useUnifiedInbox'
-import { useFlowRegistry, latestPerCode } from '@/hooks/useFlowRegistry'
+import { useFlowRegistry, latestPerCode, useFlowLabel } from '@/hooks/useFlowRegistry'
 import { resolveLauncherIcon } from '@/lib/launcherIcons'
 import { routes } from '@/router'
 
@@ -202,6 +202,7 @@ function PendingTable({ persona, rows, loading, error, navigate }: {
   error: Error | null
   navigate: ReturnType<typeof useNavigate>
 }) {
+  const flowLabel = useFlowLabel()
   const titlePerPersona: Record<PersonaCode, string> = {
     employee: 'Pending My Action',
     manager:  'Pending My Approval',
@@ -239,7 +240,7 @@ function PendingTable({ persona, rows, loading, error, navigate }: {
               return (
                 <tr key={r.caseId} className="border-b border-slate-100 hover:bg-slate-50/60 transition-colors">
                   <Td><span className="font-mono text-[11px] text-ink-muted">{r.caseId.slice(0, 8)}</span></Td>
-                  <Td><div className="flex items-center gap-2">{formCode && <TypeChip type={formCode} />}<span className="text-xs text-ink-muted truncate">{formCode ? FORMS[formCode].label : r.flowCode}</span></div></Td>
+                  <Td><div className="flex items-center gap-2">{formCode && <TypeChip type={formCode} />}<span className="text-xs text-ink-muted truncate">{flowLabel(r.flowCode, r.flowVersion)}</span></div></Td>
                   <Td className="text-xs text-ink-muted truncate">{r.title}</Td>
                   <Td className="font-mono text-[11px] text-ink-muted">{humanAgo(r.submittedAt)}</Td>
                   <Td><span className="text-xs text-ink-muted">{r.status}</span></Td>
@@ -348,7 +349,7 @@ function QuickActionsPanel() {
       const groupLabel = entry?.groupDisplayName?.['zh-TW'] ?? entry?.groupCode ?? '其他'
       return {
         code: m.code,
-        label: FORMS[m.code]?.zhLabel ?? m.code,
+        label: entry?.displayName || FORMS[m.code]?.zhLabel || m.code,
         iconKey: entry?.iconKey ?? null,
         order: entry?.displayOrder ?? 0,
         groupKey,
@@ -442,6 +443,7 @@ function GroupGlyph({ name }: { name: string | null }) {
 }
 
 function ActivityFeedPanel({ rows, loading }: { rows: InboxRow[]; loading: boolean }) {
+  const flowLabel = useFlowLabel()
   const recent = [...rows]
     .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt))
     .slice(0, 8)
@@ -460,7 +462,7 @@ function ActivityFeedPanel({ rows, loading }: { rows: InboxRow[]; loading: boole
         )}
         {recent.map(r => {
           const meta = ICON_FOR_ACTIVITY[statusToActivityKind(r.status)]
-          const formLabel = FORMS[r.flowCode as FormCode]?.zhLabel ?? r.flowCode
+          const formLabel = flowLabel(r.flowCode, r.flowVersion)
           return (
             <div key={r.caseId} className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-slate-50/60">
               <span className={cn('mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full', meta.bg, meta.color)}>

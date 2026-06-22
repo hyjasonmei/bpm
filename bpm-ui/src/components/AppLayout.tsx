@@ -12,6 +12,7 @@ import { NotificationsMenu } from '@/components/NotificationsMenu'
 import { HelpReportMenu } from '@/components/HelpReportMenu'
 import type { PersonaCode } from '@/lib/role'
 import { FORMS, type FormCode } from '@/lib/workflow'
+import { useFlowLabel } from '@/hooks/useFlowRegistry'
 import { useBranding } from '@/lib/branding'
 
 interface AppLayoutProps {
@@ -118,6 +119,7 @@ function FormSubHeader({ code }: { code: FormCode }) {
   // Stepper is rendered inside the form screen itself.
   // This sub-header just shows a thin breadcrumb for context.
   const def = FORMS[code]
+  const flowLabel = useFlowLabel()
   if (!def) return null
   return (
     <div className="flex items-center gap-3 py-1.5 text-[11px] text-white/60">
@@ -127,7 +129,7 @@ function FormSubHeader({ code }: { code: FormCode }) {
       <span className="text-white/40">·</span>
       <span>{def.label}</span>
       <span className="text-white/40">·</span>
-      <span>{def.zhLabel}</span>
+      <span>{flowLabel(code)}</span>
     </div>
   )
 }

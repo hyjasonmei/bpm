@@ -5,6 +5,7 @@ import { SectionCard } from '@/components/ui/card'
 import { Stepper } from '@/components/Stepper'
 import { BpmnView } from '@/components/BpmnView'
 import { lookupForm } from '@/features/registry'
+import { useFlowLabel } from '@/hooks/useFlowRegistry'
 import { Textarea } from '@/components/ui/form'
 import { FORMS, type FormCode } from '@/lib/workflow'
 import { PERSONAS, authedFromJwt, type PersonaCode } from '@/lib/role'
@@ -34,6 +35,7 @@ export function FormShell({
   infoRow, rightActions, children,
 }: FormShellProps) {
   const def = FORMS[code]
+  const flowLabel = useFlowLabel()
   const [bpmnOpen, setBpmnOpen] = useState(false)
 
   return (
@@ -53,8 +55,8 @@ export function FormShell({
           {/* Title + copy selector / read-only actions */}
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h1 className="text-xl font-bold text-ink">{def.label}</h1>
-              <p className="text-[11px] uppercase tracking-wider text-ink-muted">{def.zhLabel}</p>
+              <h1 className="text-xl font-bold text-ink">{flowLabel(code)}</h1>
+              <p className="text-[11px] uppercase tracking-wider text-ink-muted">{def.label}</p>
             </div>
             {rightActions && (
               <div className="flex items-center gap-2">
