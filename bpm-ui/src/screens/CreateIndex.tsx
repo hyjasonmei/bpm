@@ -4,7 +4,7 @@ import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { formRegistry } from '@/features/registry'
 import { FORMS, type FormCode } from '@/lib/workflow'
 import { resolveLauncherIcon } from '@/lib/launcherIcons'
-import { useFlowRegistry, latestPerCode } from '@/hooks/useFlowRegistry'
+import { useFlowRegistry, entryForVersion } from '@/hooks/useFlowRegistry'
 import { routes } from '@/router'
 
 interface CreateAction {
@@ -32,17 +32,20 @@ export function CreateIndex() {
   // form ships). While the registry is still loading we fall back to
   // showing every registered manifest so the page never flashes empty.
   const { entries: registry } = useFlowRegistry()
-  const latest = latestPerCode(registry)
   const gateByState = registry !== null
 
+  // Gate each manifest on ITS OWN version's published state, not the latest
+  // registry version: a newer Draft version (e.g. a freshly cloned V2) must
+  // not hide the still-published V1 that the launcher actually renders
+  // (/apply/:code opens the highest manifest version).
   const actions: Array<CreateAction & { groupKey: string; groupLabel: string; groupIcon: string | null; groupSort: number; order: number }> =
     [...formRegistry.values()]
       .filter(m => {
         if (!gateByState) return true
-        return latest.get(m.code)?.state === 'Published'
+        return entryForVersion(registry, m.code, m.version)?.state === 'Published'
       })
       .map(m => {
-        const entry = latest.get(m.code)
+        const entry = entryForVersion(registry, m.code, m.version)
         return {
           code: m.code,
           // Admin's Flow display name (from /api/flow-registry) is the source

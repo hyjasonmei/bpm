@@ -83,6 +83,16 @@ export function latestPerCode(entries: FlowRegistryEntry[] | null): Map<string, 
   return out
 }
 
+/** The registry row for an exact (flowCode, version), or undefined. */
+export function entryForVersion(
+  entries: FlowRegistryEntry[] | null,
+  code: string,
+  version: number,
+): FlowRegistryEntry | undefined {
+  if (!entries) return undefined
+  return entries.find(e => e.flowCode === code && e.version === version)
+}
+
 /**
  * Resolve a flow's end-user display name. Admin's Flow.DisplayName (served by
  * /api/flow-registry) is the single source of truth — the compile-time FORMS

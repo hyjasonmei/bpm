@@ -14,7 +14,7 @@ import { decodeJwt } from '@/lib/jwt'
 import { FORMS, type FormCode } from '@/lib/workflow'
 import { formRegistry } from '@/features/registry'
 import { useInboxMine, useInboxPending, type InboxRow } from '@/hooks/useUnifiedInbox'
-import { useFlowRegistry, latestPerCode, useFlowLabel } from '@/hooks/useFlowRegistry'
+import { useFlowRegistry, entryForVersion, useFlowLabel } from '@/hooks/useFlowRegistry'
 import { resolveLauncherIcon } from '@/lib/launcherIcons'
 import { routes } from '@/router'
 
@@ -334,17 +334,17 @@ function QuickActionsPanel() {
   // catch-all '__other__' bucket sinks to the bottom for unassigned
   // entries.
   const { entries: registry } = useFlowRegistry()
-  const latest = latestPerCode(registry)
   const filterByState = registry !== null
   type Action = { code: FormCode; label: string; iconKey: string | null; order: number; groupKey: string; groupLabel: string; groupIcon: string | null; groupSort: number }
+  // Gate each manifest on its own version's published state (see CreateIndex):
+  // a newer Draft version must not hide the still-published version we render.
   const actions: Action[] = [...formRegistry.values()]
     .filter(m => {
       if (!filterByState) return true
-      const entry = latest.get(m.code)
-      return entry?.state === 'Published'
+      return entryForVersion(registry, m.code, m.version)?.state === 'Published'
     })
     .map(m => {
-      const entry = latest.get(m.code)
+      const entry = entryForVersion(registry, m.code, m.version)
       const groupKey = entry?.groupCode ?? '__other__'
       const groupLabel = entry?.groupDisplayName?.['zh-TW'] ?? entry?.groupCode ?? '其他'
       return {
