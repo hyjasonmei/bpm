@@ -82,10 +82,17 @@ public sealed class AnthropicApiBackend : IAiBackend
 
         const string model = "claude-sonnet-4-6";
         var hasTools = tools is { ValueKind: JsonValueKind.Array } t && t.GetArrayLength() > 0;
+        // A tool call (e.g. emit_form_fields) serialises the COMPLETE slice as
+        // JSON — a multi-field form easily exceeds 1024 output tokens. At 1024
+        // the tool_use block was getting truncated mid-JSON, producing
+        // malformed input the frontend apply() then rejected ("Tool 套用失敗")
+        // — intermittent, since it depends on how many fields the model emits.
+        // Give the tool path generous headroom; plain text replies stay snug.
+        var maxTokens = hasTools ? 8192 : 2048;
         var fields = new Dictionary<string, object?>
         {
             ["model"] = model,
-            ["max_tokens"] = 1024,
+            ["max_tokens"] = maxTokens,
             ["system"] = new object[] { new { type = "text", text = systemPrompt, cache_control = new { type = "ephemeral" } } },
             ["messages"] = JsonSerializer.Deserialize<object>(messages.GetRawText()),
         };

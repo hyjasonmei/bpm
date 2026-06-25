@@ -93,6 +93,10 @@ interface AnthropicToolUseBlock { type: 'tool_use'; id: string; name: string; in
 type AnthropicBlock = AnthropicTextBlock | AnthropicToolUseBlock
 interface AnthropicResponse {
   content?: AnthropicBlock[]
+  /** Anthropic stop reason — `max_tokens` here means the reply (incl. any
+   *  tool_use JSON) was truncated, which corrupts the tool input. Logged on
+   *  tool-apply failure so an intermittent "Tool 套用失敗" is diagnosable. */
+  stop_reason?: string
 }
 
 const STEP_OPENERS: Record<string, string> = {
@@ -294,6 +298,16 @@ export function CoPilotCanvas({
             appliedToolName = block.name
           } catch (e) {
             toolError = e instanceof Error ? e.message : String(e)
+            // Smoking gun for intermittent failures: dump exactly what the
+            // model sent + whether the reply was token-truncated. A truncated
+            // tool_use block yields malformed/partial input here.
+            console.error('[CoPilot] tool apply failed', {
+              tool: block.name,
+              step: step.id,
+              stopReason: data.stop_reason,
+              input: block.input,
+              error: toolError,
+            })
           }
         }
       }

@@ -5,7 +5,7 @@ import type {
   FormField, FieldType, ActorRef, NotifyTrigger, NotifyRecipient,
   UserTask, LayoutChild,
 } from './onboarding'
-import { ACTOR_PATH_WHITELIST, EMPTY_DRAFT, defaultApprovalActions, defaultUserTaskActions, newFieldUid, testCaseToSnapshot } from './onboarding'
+import { ACTOR_PATH_WHITELIST, EMPTY_DRAFT, buildDefaultLayout, collectLayoutFieldIds, defaultApprovalActions, defaultUserTaskActions, newFieldUid, testCaseToSnapshot } from './onboarding'
 
 const FLOW_NODE_TYPES = [
   'startEvent', 'endEvent', 'userTask', 'approval', 'gateway', 'serviceTask', 'notify',
@@ -145,12 +145,24 @@ const formsTool: StepToolBinding = {
       fields?: ToolField[]
       repeaters?: Array<{ repeaterId: string; itemFields: ToolField[] }>
     }
-    const node = draft.flow.nodes.find(n => n.id === input.taskId)
+    // Resilient taskId resolution. The model intermittently invents an id
+    // (`task_1` / `task__1` / `userTask_1`) instead of using
+    // draftSummary.availableUserTasks[].id verbatim — that used to dead-end
+    // the whole turn with a hard throw, losing all the fields it generated.
+    // When the flow has exactly one user task there's no ambiguity, so fall
+    // back to it rather than failing. Only throw when the choice is genuinely
+    // ambiguous (0 or 2+ user tasks).
+    const userTaskNodes = draft.flow.nodes.filter(n => n.type === 'userTask')
+    let node = draft.flow.nodes.find(n => n.id === input.taskId && n.type === 'userTask')
     if (!node) {
-      const valid = draft.flow.nodes.filter(n => n.type === 'userTask').map(n => n.id)
-      throw new Error(`taskId "${input.taskId}" 不存在；valid: ${valid.join(', ') || '(no user task nodes yet — draw one on the BPMN canvas first)'}`)
+      if (userTaskNodes.length === 1) {
+        node = userTaskNodes[0]
+      } else {
+        throw new Error(`taskId "${input.taskId}" 不存在；valid: ${userTaskNodes.map(n => n.id).join(', ') || '(no user task nodes yet — draw one on the BPMN canvas first)'}`)
+      }
     }
-    const existingTask = draft.userTasks.find(t => t.id === input.taskId)
+    const taskId = node.id
+    const existingTask = draft.userTasks.find(t => t.id === taskId)
     const mapField = (f: ToolField): FormField => ({
       id: f.id,
       label: { 'zh-TW': f.labelZh, ...(f.labelEn ? { en: f.labelEn } : {}) },
@@ -169,7 +181,7 @@ const formsTool: StepToolBinding = {
     let nextLayout = existingTask?.layout
     if (input.repeaters?.length) {
       if (!nextLayout?.length) {
-        throw new Error(`task "${input.taskId}" 沒有任何 repeater 可以更新；先手動加 repeater 再叫 AI 編輯`)
+        throw new Error(`task "${taskId}" 沒有任何 repeater 可以更新；先手動加 repeater 再叫 AI 編輯`)
       }
       const updates = new Map(input.repeaters.map(r => [r.repeaterId, r.itemFields]))
       const seen = new Set<string>()
@@ -177,12 +189,23 @@ const formsTool: StepToolBinding = {
       const missing = [...updates.keys()].filter(id => !seen.has(id))
       if (missing.length) {
         const valid = collectAllRepeaterIds(existingTask?.layout ?? []).join(', ')
-        throw new Error(`repeaterId ${missing.join(', ')} 不存在於 task "${input.taskId}"；valid: ${valid || '(none)'}`)
+        throw new Error(`repeaterId ${missing.join(', ')} 不存在於 task "${taskId}"；valid: ${valid || '(none)'}`)
       }
     }
 
+    // Reconcile the layout with the replaced outer fields. The tool replaces
+    // `fields[]` wholesale (new ids), but the layout was preserved from before
+    // — so without this, AI-added fields land in "未放置" and any field the AI
+    // dropped leaves an orphan ref. Prune orphan outer refs, append unplaced
+    // new fields, rebuild from scratch if nothing usable survives. Only runs
+    // when the AI actually replaced the outer fields. Repeater item layouts
+    // are left untouched (they close over their own itemFields namespace).
+    if (input.fields) {
+      nextLayout = reconcileOuterLayout(nextLayout, outerFields)
+    }
+
     const nextTask: UserTask = {
-      id: input.taskId,
+      id: taskId,
       formCode: input.formCode ?? existingTask?.formCode ?? `${draft.meta.flowCode || 'FLOW'}_${node.label.toUpperCase().replace(/\s+/g, '_').slice(0, 12)}`,
       fields: outerFields,
       ...(nextLayout ? { layout: nextLayout } : {}),
@@ -192,9 +215,61 @@ const formsTool: StepToolBinding = {
     }
     return {
       ...draft,
-      userTasks: [...draft.userTasks.filter(t => t.id !== input.taskId), nextTask],
+      userTasks: [...draft.userTasks.filter(t => t.id !== taskId), nextTask],
     }
   },
+}
+
+/**
+ * Realign a preserved layout to a freshly-replaced outer `fields[]` list.
+ * - Drops outer fieldRefs whose id is no longer a field (orphans).
+ * - Drops rows left empty by that pruning.
+ * - Appends any field not yet placed (into the first section, or a new
+ *   「其他欄位」section if none exists) so AI-added fields never silently
+ *   land in the "未放置" bucket.
+ * - Falls back to a fresh default layout when nothing usable survives.
+ * Repeaters and banners are passed through untouched.
+ */
+function reconcileOuterLayout(
+  layout: LayoutChild[] | undefined,
+  fields: FormField[],
+): LayoutChild[] | undefined {
+  if (!layout?.length) {
+    return fields.length ? buildDefaultLayout(fields) : layout
+  }
+  const fieldIds = new Set(fields.map(f => f.id))
+  const prune = (children: LayoutChild[]): LayoutChild[] =>
+    children.flatMap<LayoutChild>(c => {
+      if (c.kind === 'fieldRef') return fieldIds.has(c.id) ? [c] : []
+      if (c.kind === 'section') return [{ ...c, children: prune(c.children) }]
+      if (c.kind === 'row') {
+        const kept = c.children.filter(r => fieldIds.has(r.id))
+        return kept.length ? [{ ...c, children: kept }] : []
+      }
+      // repeater / banner — pass through verbatim.
+      return [c]
+    })
+  const pruned = prune(layout)
+
+  const placed = new Set(collectLayoutFieldIds(pruned))
+  const unplaced = fields.filter(f => !placed.has(f.id))
+  if (!unplaced.length) {
+    return pruned.length ? pruned : (fields.length ? buildDefaultLayout(fields) : pruned)
+  }
+
+  const refs: LayoutChild[] = unplaced.map(f => ({ kind: 'fieldRef', id: f.id }))
+  const firstSectionIdx = pruned.findIndex(c => c.kind === 'section')
+  if (firstSectionIdx === -1) {
+    return [
+      ...pruned,
+      { kind: 'section', id: `section_${Date.now().toString(36).slice(-4)}`, title: { 'zh-TW': '其他欄位' }, children: refs },
+    ]
+  }
+  return pruned.map((c, i) =>
+    i === firstSectionIdx && c.kind === 'section'
+      ? { ...c, children: [...c.children, ...refs] }
+      : c,
+  )
 }
 
 function patchRepeaterFields(
