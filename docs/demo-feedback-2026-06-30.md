@@ -17,7 +17,7 @@ Demo 後這波開發：**committed backlog 7 項 → 6 項完整完成並實測�
 | 1.2 | 代理人接受機制 | ✅ 完成（含通知） | Delegation `Pending → Accepted / Declined`；`CanActAsync` 改認 Accepted；delegator / delegatee 兩端 UI + 指定 / 接受 / 拒絕通知；Chrome 實測 |
 | 1.3 | 自定義資料集 | ✅ 完成 | admin 建資料集 + 連動選單（縣市→行政區）+ shadcn row edit-mode；4 服務 loop + Chrome 實測寫入連動 |
 | 1.6 | 並簽 / 會簽 | ✅ 完成（P1+P2+P3） | 真 BPMN 平行 gateway + 守 Model B；共用 primitive（10 測綠）+ CONTRACT_REVIEW 參考流程 + chef skill 範本 + AI Kitchen 設計 UI（門檻 M/N）；Postgres + Chrome BPMN 多節點高亮 E2E |
-| 1.1b | OData 自定義資料集（動態 EDM） | ⏸ **延後** | 本輪定調「先只做組織資料」。動態 EDM，接 1.3 後做。**仍在 roadmap。** |
+| 1.1b | OData 自定義資料集（動態 EDM） | ✅ 完成（2026-07-03） | 每個資料集 = 一張動態 OData 表（/odata-ds/{key}，欄位來自 ColumnsJson）。$metadata(CSDL) + $filter/$select/$orderby/$top/$count（in-memory 評估，因 CellsJson 存 TEXT + EnableQuery 不支援 untyped）。OdataBasic 帳密、唯讀。curl 實測含 `city eq '台北市'`、`contains()`、多資料集。→ Power BI/Excel 可把每個資料集當表拉 + 單欄過濾。 |
 
 **併帶交付（非原 backlog）：** reseed provider bug 修復（Postgres 上 Reset 沙盒賣點會 500）、smoke 腳本過時修正（auth token / 移除的 process-admin / reset 段）、資料集編輯器 shadcn Input/Switch + row edit-mode 重構。
 
