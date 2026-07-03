@@ -26,9 +26,9 @@ Demo 後這波開發：**committed backlog 7 項 → 6 項完整完成並實測�
 因 OData 做成 **CRUD**，安全寫入地基已具備。**定位改為：讀 Entra/AD + 對帳 的髒活丟回客戶側（他們的 IT / Power Automate 匯出再往我們 OData 打），我們只提供「安全寫入的 ingress」。** 於是：
 
 - **目錄同步 / 餵進來（⑤⑥ 合併）**：不是我們建連接器 → 塌縮成「用我們的 OData CRUD 端口」= **現成**。客戶推、我們收。首次一次性灌資料現在就能用。
-- **批次匯入（③）**：OData **`$batch` 已開**（2026-07-02）——一次 request 推多筆、少 round-trip。⚠️ **非交易性**：OData 每個 sub-request 各自 DbContext scope，changeset 不會 all-or-nothing（逐筆各自成敗）。對匯入通常反而好（回報哪幾筆失敗、不會一筆爛全退）。真要原子 changeset 需另做共用交易，多數情境用不到。若要「上傳檔案 UI + 欄位對應 + 預覽」則另加小–中的那層。
+- **批次匯入（③）**：OData **`$batch` 已開**（2026-07-02）——一次 request 推多筆、少 round-trip。⚠️ **非交易性**：OData 每個 sub-request 各自 DbContext scope，changeset 不會 all-or-nothing（逐筆各自成敗）。對匯入通常反而好（回報哪幾筆失敗、不會一筆爛全退）。真要原子 changeset 需另做共用交易，多數情境用不到。**「上傳檔案 UI」已定調不做（Jason 2026-07-03）——OData（客戶 iPaaS / Power Automate 推）已覆蓋匯入路徑。**
 - **定期重推的冪等性**：**已做**（2026-07-02）——POST 帶 `?upsert=true` 時 Users 以 email、Roles 以 code 命中就更新（Membership 重複冪等），可在 `$batch` 內使用；預設仍嚴格（撞就 400）。客戶無腦重推整批組織資料不會撞唯一性。
-- **SSO（①）**：屬登入 / 驗證層、與資料進出無關，另算（最先得分的整合點）。
+- **SSO（①）**：屬登入 / 驗證層、與資料進出無關，另算（最先得分的整合點）。**定調：延後到客戶確定下單再做（Jason 2026-07-03）——不投機開發。**
 
 > 一句話：OData-CRUD 通了之後，「餵進來」的工程重心不在我們——我們是收件口，客戶負責把資料弄出來推進來。`$batch` + upsert 是唯二值得順手加的小補強。真正大工的「AD 全同步連接器」不建（丟客戶側）。
 
