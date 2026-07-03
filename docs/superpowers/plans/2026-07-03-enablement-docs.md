@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 建一個 Astro + Starlight 的內部導入/使用手冊站（`bpm-docs/`），wiki 式導覽、可嵌 YouTube 解說影片、不對外索引，接進既有 Azure SWA 部署流程。
+**Goal:** 建一個 Astro + Starlight 的內部導入/使用手冊站（`bpm-docs/`），wiki 式導覽、可嵌 YouTube 解說影片、掛 `guide.flowcook.ai`、不對外索引，接進既有 Azure SWA 部署流程。
 
-**Architecture:** 新 top-level 專案 `bpm-docs/`，與 `bpm-www/` 平行。Astro 5 + `@astrojs/starlight`；內容是 `src/content/docs/**` 的 Markdown/MDX，五個 sidebar 分區（開始 / 功能介紹 / 導入指南 / 使用教學 / API 串接）。品牌對齊 flowcook（slate/blue/amber + DM Sans + Noto Sans TC，自 host 字型）。`noindex` + `robots disallow`。部署接 `infra/azure` 既有 `deploy_swa` 流程。
+**Architecture:** 新 top-level 專案 `bpm-docs/`，與 `bpm-www/` 平行。Astro 5 + `@astrojs/starlight`；內容是 `src/content/docs/**` 的 Markdown/MDX，**七個第一階 sidebar 章節**（開始 / 前台功能介紹 / 後台功能介紹 / 導入指南 / 使用案例（組織）/ 使用案例（流程）/ API 串接——權威版見 spec Content Structure）。品牌對齊 flowcook（slate/blue/amber + DM Sans + Noto Sans TC，自 host 字型）。`noindex` + `robots disallow`。部署接 `infra/azure` 既有 `deploy_swa` 流程，掛自訂網域 `guide.flowcook.ai`。
 
 **Tech Stack:** Astro 5、@astrojs/starlight、@fontsource（DM Sans / Noto Sans TC）、Azure Static Web Apps（Free tier）、swa CLI。
 
@@ -24,12 +24,15 @@
 | `bpm-docs/src/content.config.ts` | Starlight docs collection（Astro 5 loader 形式） |
 | `bpm-docs/src/styles/custom.css` | flowcook 品牌 token + 字型 import |
 | `bpm-docs/src/components/YouTube.astro` | 可重用的 YouTube(-nocookie) 嵌入元件（16:9 RWD） |
-| `bpm-docs/src/content/docs/index.mdx` | 首頁（splash） |
-| `bpm-docs/src/content/docs/start/overview.md` | 「開始」分區範例頁 |
-| `bpm-docs/src/content/docs/features/leave.mdx` | 「功能介紹」範例頁（含嵌影片） |
+| `bpm-docs/src/content/docs/index.mdx` | 首頁（splash，6 張 section 卡） |
+| `bpm-docs/src/content/docs/start/{overview,system,glossary}.md` | 「開始」三頁 |
+| `bpm-docs/src/content/docs/frontend/approval.mdx` | 「前台功能介紹」範例頁（含嵌影片） |
+| `bpm-docs/src/content/docs/backend/ai-kitchen.mdx` | 「後台功能介紹」範例頁（Prep/Cook/Serve，含嵌影片） |
 | `bpm-docs/src/content/docs/onboarding/playbook.md` | 「導入指南」範例頁 |
-| `bpm-docs/src/content/docs/usage/roles.md` | 「使用教學」範例頁 |
+| `bpm-docs/src/content/docs/cases-org/roles.md` | 「使用案例（組織）」範例頁（通用角色） |
+| `bpm-docs/src/content/docs/cases-flow/leave.md` | 「使用案例（流程）」範例頁（請假為例） |
 | `bpm-docs/src/content/docs/api/odata.md` | 「API 串接」實質內容頁（OData） |
+| 註 | 完整 leaf 清單見 spec Content Structure（七章）；骨架先建各章 landing/exemplar，內容逐步補 |
 | `bpm-docs/public/robots.txt` | Disallow all |
 | `bpm-docs/staticwebapp.config.json` | noindex header + navigationFallback |
 | `infra/azure/00-config.sh` | 加 `DOCS_SWA` / `DOCS_DIR`（修改） |
@@ -82,9 +85,9 @@
 import { defineConfig } from 'astro/config'
 import starlight from '@astrojs/starlight'
 
-// site 只影響 canonical/sitemap；此站 noindex，故用 default hostname 佔位即可。
+// site = 正式網域（canonical/sitemap 用）。此站 noindex，但仍設正式網域。
 export default defineConfig({
-  site: 'https://poc-flowcook-docs.azurestaticapps.net',
+  site: 'https://guide.flowcook.ai',
   server: { port: 4331, host: 'localhost' },
   integrations: [
     starlight({
@@ -95,11 +98,22 @@ export default defineConfig({
       ],
       customCss: ['./src/styles/custom.css'],
       pagination: true,
+      // 七章結構（權威版見 spec 的 Content Structure）。多數章用 autogenerate；
+      // 「開始」用 items 明確排序。前台/後台各自成第一階。
       sidebar: [
-        { label: '開始', items: [{ label: 'flowcook 是什麼', slug: 'start/overview' }] },
-        { label: '功能介紹', autogenerate: { directory: 'features' } },
+        {
+          label: '開始',
+          items: [
+            { label: 'flowcook 是什麼', slug: 'start/overview' },
+            { label: '系統全貌', slug: 'start/system' },
+            { label: '名詞速查', slug: 'start/glossary' },
+          ],
+        },
+        { label: '前台功能介紹', autogenerate: { directory: 'frontend' } },
+        { label: '後台功能介紹', autogenerate: { directory: 'backend' } },
         { label: '導入指南', autogenerate: { directory: 'onboarding' } },
-        { label: '使用教學', autogenerate: { directory: 'usage' } },
+        { label: '使用案例（組織）', autogenerate: { directory: 'cases-org' } },
+        { label: '使用案例（流程）', autogenerate: { directory: 'cases-flow' } },
         { label: 'API 串接', autogenerate: { directory: 'api' } },
       ],
     }),
@@ -295,15 +309,19 @@ git commit -m "feat(docs): reusable YouTube-nocookie embed component"
 
 ---
 
-## Task 4: 五分區內容骨架 + 範例頁
+## Task 4: 七章內容骨架 + 範例頁
+
+> 權威頁面清單見 spec 的 Content Structure（七章、約 40 個 leaf）。本 task **先建每章的 landing/exemplar 頁**讓站台結構完整、autogenerate sidebar 正確；其餘 leaf 頁之後逐步補內容。目錄名對應 Task 1 sidebar：`start` / `frontend` / `backend` / `onboarding` / `cases-org` / `cases-flow` / `api`。
 
 **Files:**
-- Create: `bpm-docs/src/content/docs/index.mdx`
-- Create: `bpm-docs/src/content/docs/features/leave.mdx`
+- Create: `bpm-docs/src/content/docs/index.mdx`（首頁 splash）
+- Create: `bpm-docs/src/content/docs/start/system.md`、`bpm-docs/src/content/docs/start/glossary.md`（`start/overview.md` 已於 Task 1 建）
+- Create: `bpm-docs/src/content/docs/frontend/approval.mdx`（前台範例：簽核，含嵌影片）
+- Create: `bpm-docs/src/content/docs/backend/ai-kitchen.mdx`（後台範例：AI Kitchen，Prep/Cook/Serve，含嵌影片）
 - Create: `bpm-docs/src/content/docs/onboarding/playbook.md`
-- Create: `bpm-docs/src/content/docs/usage/roles.md`
-- Create: `bpm-docs/src/content/docs/api/odata.md`
-- (Task 1 已建 `start/overview.md`)
+- Create: `bpm-docs/src/content/docs/cases-org/roles.md`（使用案例（組織）：通用角色）
+- Create: `bpm-docs/src/content/docs/cases-flow/leave.md`（使用案例（流程）：請假為例）
+- Create: `bpm-docs/src/content/docs/api/odata.md`（API：OData，實質內容）
 
 - [ ] **Step 1: 首頁 splash**
 
@@ -328,40 +346,113 @@ hero:
 import { CardGrid, Card } from '@astrojs/starlight/components'
 
 <CardGrid>
-  <Card title="功能介紹" icon="open-book">每個功能一頁，附解說影片。</Card>
-  <Card title="導入指南" icon="rocket">AI Kitchen → sandbox 驗收 → 上線 checklist。</Card>
-  <Card title="使用教學" icon="pencil">各角色怎麼操作。</Card>
-  <Card title="API 串接" icon="setting">OData 組織資料 / 自訂資料集整合。</Card>
+  <Card title="前台功能" icon="laptop">員工/主管端：表單、收件匣、簽核、委任、通知、打卡、搜尋。</Card>
+  <Card title="後台功能" icon="setting">管理端：AI Kitchen、User & Role、資料集、Sandbox、稽核、Doctor、Site Setting。</Card>
+  <Card title="導入指南" icon="rocket">AI Kitchen → Sandbox 驗收 → 上線 checklist。</Card>
+  <Card title="使用案例（組織）" icon="user">預設角色與怎麼設定角色。</Card>
+  <Card title="使用案例（流程）" icon="open-book">預設 11 個流程走一遍。</Card>
+  <Card title="API 串接" icon="puzzle">OData 組織資料 / 自訂資料集整合。</Card>
 </CardGrid>
 ```
 
-- [ ] **Step 2: 功能介紹範例頁（含嵌影片）**
+- [ ] **Step 2: 「開始」補兩頁（系統全貌 + 名詞速查）**
 
-`bpm-docs/src/content/docs/features/leave.mdx`（相對路徑到元件：`features` → `docs` → `content` → `src`，共三層）:
+`bpm-docs/src/content/docs/start/system.md`:
+```md
+---
+title: 系統全貌
+description: 給導入員的高層架構（非原始碼細節）。
+---
+
+flowcook 是 per-customer 部署（無 multi-tenant），一套堆疊由四個面組成：
+
+- **前台**（bpm-ui）：員工/主管每天用的客戶端 runtime。
+- **後台**（bpm-admin-ui）：管理員的 AI Kitchen / User & Role / Sandbox / 站台設定。
+- **AI 廚房 pipeline**：把 spec 煮成 per-flow 程式。
+- **官網**（bpm-www）：對外行銷站。
+
+（細節待補。）
+```
+
+`bpm-docs/src/content/docs/start/glossary.md`:
+```md
+---
+title: 名詞速查
+description: 常見術語一句話解釋。
+---
+
+| 術語 | 意思 |
+|---|---|
+| 流程 / Flow | 一條可送件的業務流程（如請假） |
+| 案件 / Case | 一次流程的執行實例 |
+| 關卡 | 流程中的一個節點（送件/簽核/歸檔） |
+| 角色 / Role | 授權單位（可掛部門或群組，成員繼承） |
+| 委任 / Delegation | 把某人的簽核權暫時交給代理人 |
+| Persona | dev 模式下快速切換身分 |
+| Sandbox | 驗收沙盒（mail capture / persona 切換 / 時間快轉 / reset） |
+| spec bundle | AI Kitchen 產出的流程規格 zip |
+```
+
+- [ ] **Step 3: 前台功能範例頁（簽核，含嵌影片）**
+
+`bpm-docs/src/content/docs/frontend/approval.mdx`（相對路徑到元件：`frontend` → `docs` → `content` → `src`，共三層 → `../../../components/YouTube.astro`）:
 ```mdx
 ---
-title: 請假流程（LEAVE）
-description: 請假申請、主管簽核、HR 歸檔的完整流程。
+title: 簽核（含並簽）
+description: 收件匣簽核、退回，以及並簽多人待簽的處理。
 ---
 
 import YouTube from '../../../components/YouTube.astro'
 
-請假流程涵蓋員工申請、主管核准、（長假）VP 加簽、HR 歸檔。
+簽核是主管/審核者在收件匣對案件核准或退回。並簽（多人）時，多位審核者同時待簽，達門檻或全簽才過關。
 
-<YouTube id="REPLACE_WITH_VIDEO_ID" title="請假流程解說" />
+<YouTube id="REPLACE_WITH_VIDEO_ID" title="簽核與並簽解說" />
 
-## 流程重點
+## 重點
 
-- 一般假：員工送出 → 主管核准 → HR 歸檔 → 完成
-- 長假（≥7 天）：主管核准後多一關 VP 加簽
-- 病假：附證明欄位變必填
+- 單簽：一位審核者核准 → 進下一關
+- 並簽（全簽 AND）：每位都要核准；一人退回 → 全退
+- 並簽（M/N 門檻）：達門檻票數即通過，其餘自動略過
+- 示範流程：`CONTRACT_REVIEW`（2/2 全簽）、`COMMITTEE_REVIEW`（2/3 門檻）
 
 :::tip[影片先佔位]
 `REPLACE_WITH_VIDEO_ID` 換成實際 YouTube unlisted 影片 id 即可。
 :::
 ```
 
-- [ ] **Step 3: 導入指南範例頁**
+- [ ] **Step 4: 後台功能範例頁（AI Kitchen，Prep/Cook/Serve，含嵌影片）**
+
+`bpm-docs/src/content/docs/backend/ai-kitchen.mdx`:
+```mdx
+---
+title: AI Kitchen
+description: 對談式設計流程，Prep → Cook → Serve 三階產出可運行的流程。
+---
+
+import YouTube from '../../../components/YouTube.astro'
+
+AI Kitchen 是後台的流程設計工具，走三幕：
+
+<YouTube id="REPLACE_WITH_VIDEO_ID" title="AI Kitchen 三幕解說" />
+
+## Prep（備料／設計）
+
+對談生成問卷，設計流程結構與表單、簽核路由（含並簽／會簽）、通知。
+
+## Cook（烹調／生成）
+
+AI 把 spec 煮成 per-flow 程式，產出 spec bundle。
+
+## Serve（上菜／驗收部署）
+
+進 Sandbox 試吃驗收，通過後發布上線。
+
+:::tip[影片先佔位]
+`REPLACE_WITH_VIDEO_ID` 換成實際 YouTube unlisted 影片 id 即可。
+:::
+```
+
+- [ ] **Step 5: 導入指南範例頁**
 
 `bpm-docs/src/content/docs/onboarding/playbook.md`:
 ```md
@@ -380,26 +471,55 @@ description: 怎麼帶一個新客戶從零到上線。
 （各步驟細節待補。）
 ```
 
-- [ ] **Step 4: 使用教學範例頁**
+- [ ] **Step 6: 使用案例（組織）範例頁——通用角色**
 
-`bpm-docs/src/content/docs/usage/roles.md`:
+`bpm-docs/src/content/docs/cases-org/roles.md`（用**通用角色**，不綁我們 demo 專屬的財務/HR；客戶組織不同但操作一致）:
 ```md
 ---
-title: 各角色怎麼用
-description: 員工 / 主管 / 財務 / HR / 管理員的操作入口。
+title: 角色與設定（案例）
+description: 以 demo 組織示範；客戶角色名稱不同，但操作一致。
 ---
 
-| 角色 | 主要操作 |
-|---|---|
-| 員工 | 送出申請、查自己的案件 |
-| 主管 | 收件匣簽核、委任代理人 |
-| 財務 / HR | 該關卡簽核 / 歸檔 |
-| 管理員 | User & Role、AI Kitchen、Sandbox、Reset |
+:::note
+以下拿我們 demo 組織當範例。你們公司的部門/角色名稱會不一樣，但**設定與操作方式相同**。
+:::
 
-（逐項截圖與步驟待補。）
+## 通用角色概念
+
+| 通用角色 | 在流程裡做什麼 |
+|---|---|
+| 申請人 | 送出申請、追蹤自己的案件 |
+| 審核者 | 在收件匣簽核/退回；可設委任代理人 |
+| 管理員 | 維護組織（User & Role）、跑 AI Kitchen、Sandbox |
+
+## 怎麼設定角色
+
+在後台 **User & Role**：建部門/角色 → 指派成員（角色可掛在部門或群組，成員自動繼承）。
+
+（逐步截圖待補。）
 ```
 
-- [ ] **Step 5: API 串接實質頁（OData，內容我們已知）**
+- [ ] **Step 7: 使用案例（流程）範例頁——請假為例**
+
+`bpm-docs/src/content/docs/cases-flow/leave.md`:
+```md
+---
+title: 請假申請（案例）
+description: 一張請假單從送出到完成走一遍。
+---
+
+以「請假申請 LEAVE」示範一條流程的完整旅程（其餘 10 隻預設流程結構類似）：
+
+1. 員工填表送出（病假 → 證明變必填）
+2. 主管核准（長假 ≥7 天 → 多一關 VP 加簽）
+3. HR 歸檔 → 完成
+
+預設 11 流程：請假申請、差旅申請、差旅費用核銷、遠距工作、採購申請、廠商採購請款、資產採購、資產處分、預支現金、新進員工報到、員工離職。
+
+（各流程逐一補頁。）
+```
+
+- [ ] **Step 8: API 串接實質頁（OData，內容我們已知）**
 
 `bpm-docs/src/content/docs/api/odata.md`:
 ```md
@@ -436,21 +556,21 @@ curl -u "$USER:$PASS" https://<admin-svc>/odata/Users
 （Power Automate 逐步接法待補。）
 ```
 
-- [ ] **Step 6: 驗證 build 綠（含所有頁 + 元件引用）**
+- [ ] **Step 9: 驗證 build 綠（含所有頁 + 元件引用）**
 
 Run: `cd bpm-docs && npm run build`
-Expected: `astro check` 0 errors、build 成功、`dist/` 含 `features/leave/index.html` 等所有頁。MDX 對元件的相對 import 解析成功。
+Expected: `astro check` 0 errors、build 成功、`dist/` 含 `frontend/approval/index.html`、`backend/ai-kitchen/index.html`、`api/odata/index.html` 等所有頁。MDX 對元件的相對 import（`../../../components/YouTube.astro`）解析成功。
 
-- [ ] **Step 7: 目視確認 sidebar 五分區 + 影片框**
+- [ ] **Step 10: 目視確認 sidebar 七章 + 影片框**
 
 Run: `cd bpm-docs && npm run dev`
-chrome-devtools 開 `http://localhost:4331/`，確認左側五分區；開 `http://localhost:4331/features/leave/`，確認 16:9 影片框渲染（佔位 id 會顯示 YouTube 錯誤畫面，正常）。截圖。
+chrome-devtools 開 `http://localhost:4331/`，確認左側七章（開始／前台功能介紹／後台功能介紹／導入指南／使用案例（組織）／使用案例（流程）／API 串接）；開 `http://localhost:4331/frontend/approval/`，確認 16:9 影片框渲染（佔位 id 會顯示 YouTube 錯誤畫面，正常）。截圖。
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
 git add bpm-docs/src/content/docs
-git commit -m "feat(docs): five-section content skeleton + exemplar pages (incl OData API page + embedded video)"
+git commit -m "feat(docs): seven-section content skeleton + exemplar pages (front/back feature pages w/ video + OData API page)"
 ```
 
 ---
@@ -551,7 +671,19 @@ git add infra/azure/00-config.sh infra/azure/01-provision.sh infra/azure/03-depl
 git commit -m "feat(infra): wire bpm-docs into Azure SWA provision + deploy (poc-flowcook-docs)"
 ```
 
-> **Azure 實際 provision/deploy 由 Jason 觸發**（Azure 操作向來 Jason 手動、stack 目前停機）。本 task 只把 script 接好並過語法檢查；跑 `01-provision.sh` / `03-deploy.sh` 不在此 plan 的執行範圍。
+- [ ] **Step 7: 記錄自訂網域綁定步驟（Jason 手動觸發，非本 plan 執行）**
+
+`guide.flowcook.ai` 綁定備忘（首次 provision + deploy 後執行；DNS 在 GoDaddy、Azure 綁定由 Jason 跑）：
+```bash
+# 1) 取得 docs SWA 的 default hostname
+az staticwebapp show -n poc-flowcook-docs -g rg-poc --query defaultHostname -o tsv
+# 2) GoDaddy：加一筆 CNAME  guide → <上面的 default hostname>
+# 3) 綁自訂網域（Azure 自動簽 managed TLS）
+az staticwebapp hostname set -n poc-flowcook-docs -g rg-poc --hostname guide.flowcook.ai
+```
+把這段也寫進 `bpm-docs/README.md` 的部署段（Task 7 已含）。
+
+> **Azure 實際 provision/deploy + DNS 由 Jason 觸發**（Azure/DNS 操作向來 Jason 手動、stack 目前停機）。本 task 只把 script 接好並過語法檢查、把網域步驟記錄下來；跑 `01-provision.sh` / `03-deploy.sh` / `hostname set` / GoDaddy CNAME 不在此 plan 的執行範圍。
 
 ---
 
@@ -576,12 +708,13 @@ git commit -m "feat(infra): wire bpm-docs into Azure SWA provision + deploy (poc
 
 ## 內容
 
-`src/content/docs/**` 的 Markdown/MDX，五分區：開始 / 功能介紹 / 導入指南 / 使用教學 / API 串接。
-嵌影片：`import YouTube from '@/components/YouTube.astro'` 或相對路徑，`<YouTube id="..." />`（YouTube unlisted）。
+`src/content/docs/**` 的 Markdown/MDX，七章：開始 / 前台功能介紹 / 後台功能介紹 / 導入指南 / 使用案例（組織）/ 使用案例（流程）/ API 串接。
+嵌影片：相對路徑 `import YouTube from '../../../components/YouTube.astro'`，`<YouTube id="..." />`（YouTube unlisted）。
 
 ## 部署
 
-Azure SWA `poc-flowcook-docs`（Free tier）。接在 `infra/azure` 的 `03-deploy.sh`。noindex + robots disallow。
+Azure SWA `poc-flowcook-docs`（Free tier），自訂網域 **guide.flowcook.ai**。接在 `infra/azure` 的 `03-deploy.sh`。noindex + robots disallow。
+綁網域：GoDaddy 加 CNAME `guide` → SWA default hostname，再 `az staticwebapp hostname set -n poc-flowcook-docs -g rg-poc --hostname guide.flowcook.ai`（Azure 自動簽 TLS）。
 ```
 
 - [ ] **Step 2: 全站最終 build**
@@ -589,10 +722,10 @@ Azure SWA `poc-flowcook-docs`（Free tier）。接在 `infra/azure` 的 `03-depl
 Run: `cd bpm-docs && npm run build`
 Expected: 綠。
 
-- [ ] **Step 3: Chrome 走查五分區**
+- [ ] **Step 3: Chrome 走查七章**
 
 Run: `cd bpm-docs && npm run dev`
-chrome-devtools 依序開 `/`、`/start/overview/`、`/features/leave/`、`/onboarding/playbook/`、`/usage/roles/`、`/api/odata/`，各截圖。確認：品牌配色/字型、sidebar 五分區、搜尋框在、影片框在、深淺色切換正常。
+chrome-devtools 依序開 `/`、`/start/overview/`、`/frontend/approval/`、`/backend/ai-kitchen/`、`/onboarding/playbook/`、`/cases-org/roles/`、`/cases-flow/leave/`、`/api/odata/`，各截圖。確認：品牌配色/字型、sidebar 七章、搜尋框在、影片框在、深淺色切換正常。
 
 - [ ] **Step 4: Commit**
 
@@ -605,8 +738,9 @@ git commit -m "docs(bpm-docs): add README (run/build/deploy)"
 
 ## Self-Review Notes
 
-- **Spec coverage：** 五分區（Task 1/4）、YouTube 嵌入（Task 3/4）、品牌對齊（Task 2）、noindex+robots（Task 5）、SWA 部署接線（Task 6）、驗收目視（Task 2/4/7）——皆對應 spec。內部架構文件刻意不放此站（spec Out of Scope），plan 亦未含。
-- **YAGNI：** 無 i18n / CMS / 留言 / 真存取控制 / 公開行銷 tour。Basic auth gating 留待日後。
-- **命名一致：** `DOCS_SWA` / `DOCS_DIR` / `bpm-docs` / `poc-flowcook-docs` 全 plan 一致；元件名 `YouTube.astro`、prop `id`/`title` 一致。
-- **相對路徑：** `features/leave.mdx` → 元件為 `../../../components/YouTube.astro`（三層），已在 Task 4 Step 2 標明。
+- **Spec coverage：** 七章結構（Task 1 sidebar + Task 4，權威版見 spec Content Structure）、YouTube 嵌入（Task 3/4）、品牌對齊（Task 2）、noindex+robots（Task 5）、SWA 部署接線 + guide.flowcook.ai 網域（Task 6）、驗收目視（Task 2/4/7）——皆對應 spec。內部架構文件刻意不放此站（spec Out of Scope），plan 亦未含。
+- **YAGNI：** 無 i18n / CMS / 留言 / 真存取控制 / 公開行銷 tour / Reports 頁。Basic auth gating 留待日後。
+- **命名一致：** `DOCS_SWA` / `DOCS_DIR` / `bpm-docs` / `poc-flowcook-docs` / `guide.flowcook.ai` 全 plan 一致；sidebar 目錄 `start`/`frontend`/`backend`/`onboarding`/`cases-org`/`cases-flow`/`api` 與 Task 4 檔案路徑一致；元件名 `YouTube.astro`、prop `id`/`title` 一致。
+- **相對路徑：** 章目錄在 `src/content/docs/<dir>/`，到元件為 `../../../components/YouTube.astro`（三層），已在 Task 4 Step 3/4 標明。
+- **內容 vs 案例分家：** §2/§3 功能面、§5/§6 案例面（通用角色 + demo 示範），對齊 spec 結構決策紀錄。
 - **版本：** Starlight `^0.34` 對應 Astro `^5`；若安裝時 peer-dep 有出入，以 `npm install @astrojs/starlight astro` 取當時相容版並更新 package.json。
