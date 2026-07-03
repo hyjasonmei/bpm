@@ -30,6 +30,9 @@ public sealed class TEO_V1_CaseConfiguration : IEntityTypeConfiguration<TEO_V1_C
             v => JsonSerializer.Deserialize<List<TEO_V1_ExpenseItem>>(JsonSerializer.Serialize(v, JsonOpts), JsonOpts) ?? new());
         b.Property(c => c.ExpenseItems).HasColumnName("expense_items_json").HasConversion(conv).Metadata.SetValueComparer(comp);
 
+        b.Property(c => c.CurrentAssigneeRoleCode).HasMaxLength(60);
+        b.HasIndex(c => new { c.CurrentAssigneeRoleCode, c.LastActivityAt });
+
         b.HasIndex(c => c.SubmitterUserId);
         b.HasIndex(c => c.CurrentAssigneeUserId);
         b.HasIndex(c => new { c.Status, c.LastActivityAt });

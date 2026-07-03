@@ -16,10 +16,10 @@ public static class Seeder
     /// 13 users / 6 depts / 1 group / 14 roles / a few role assignments / 1 delegation.
     /// Sets every seeded user's password to <see cref="DemoPassword"/>.
     /// </summary>
-    public static async Task SeedOrgAsync(string connectionString)
+    public static async Task SeedOrgAsync(string connectionString, string? provider = null)
     {
         var builder = new DbContextOptionsBuilder<AdminDbContext>();
-        DbProviderSetup.Configure(builder, DbProviderSetup.ResolveProvider(null), connectionString);
+        DbProviderSetup.Configure(builder, DbProviderSetup.ResolveProvider(provider), connectionString);
         var options = builder.Options;
         await using var ctx = new AdminDbContext(options);
         var hasher = new PasswordHasher();
@@ -90,6 +90,7 @@ public static class Seeder
             ("HR_MANAGER",     "人資主管",         "Human Resources manager"),
             ("PROCUREMENT",    "採購",             "採購審核"),
             ("FINANCE",        "財務",             "財務審核"),
+            ("LEGAL",          "法務",             "法務審查（合約並簽）"),
             ("AUDITOR",        "稽核",             "稽核 / 監察"),
             ("FLOW_OWNER",     "流程負責人",       "Flow owner"),
             ("SYSTEM_ADMIN",   "系統管理員",       "System administrator"),
@@ -132,7 +133,14 @@ public static class Seeder
             // TEO / PURCHASE_REQUEST / VENDOR_EXPENSE / long-leave.
             new PrincipalRole { PrincipalId = users[5].Id, RoleId = roleIds["FINANCE"], InheritToMembers = false },
             new PrincipalRole { PrincipalId = users[6].Id, RoleId = roleIds["PROCUREMENT"], InheritToMembers = false },
-            new PrincipalRole { PrincipalId = users[11].Id, RoleId = roleIds["VP"], InheritToMembers = false }
+            // 一人多職 demo (shared-role-queue): Grace also holds FINANCE, so she
+            // sees BOTH the procurement and finance queues alongside Frank — one
+            // person, two job functions, no displacement.
+            new PrincipalRole { PrincipalId = users[6].Id, RoleId = roleIds["FINANCE"], InheritToMembers = false },
+            new PrincipalRole { PrincipalId = users[11].Id, RoleId = roleIds["VP"], InheritToMembers = false },
+            // 並簽 demo (CONTRACT_REVIEW): Carol holds LEGAL, Frank holds FINANCE —
+            // the two concurrent approvers of the parallel review gateway.
+            new PrincipalRole { PrincipalId = users[2].Id, RoleId = roleIds["LEGAL"], InheritToMembers = false }
         );
 
         // ---- Dept heads (added by unify-user-store change so bpm-svc
@@ -183,8 +191,45 @@ public static class Seeder
             StartAt = DateTime.UtcNow.AddDays(2),
             EndAt = DateTime.UtcNow.AddDays(9),
             Active = true,
+            Status = DelegationStatus.Accepted,   // seeded sample is already accepted (effective)
+            RespondedAt = DateTime.UtcNow,
             Reason = "seeded sample delegation",
         });
+
+        // ── demo dataset: 台灣行政區劃 (cascading 縣市 -> 行政區) ──────────────
+        if (!ctx.Datasets.Any(d => d.Key == "tw-regions"))
+        {
+            var ds = new Bpm.Admin.Domain.Datasets.Dataset
+            {
+                Id = Guid.NewGuid(),
+                Key = "tw-regions",
+                Name = "台灣行政區劃",
+                Description = "Demo dataset for cascading 縣市→行政區",
+                ColumnsJson = System.Text.Json.JsonSerializer.Serialize(new[] {
+                    new { key = "city", label = "縣市", type = "text" },
+                    new { key = "district", label = "行政區", type = "text" } }),
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            };
+            ctx.Datasets.Add(ds);
+            var pairs = new (string City, string District)[] {
+                ("台北市","大安區"), ("台北市","信義區"), ("台北市","中山區"),
+                ("新北市","板橋區"), ("新北市","三重區"), ("新北市","新莊區"),
+                ("台中市","西屯區"), ("台中市","北屯區") };
+            var order = 0;
+            foreach (var (city, district) in pairs)
+                ctx.DatasetRows.Add(new Bpm.Admin.Domain.Datasets.DatasetRow
+                {
+                    Id = Guid.NewGuid(),
+                    DatasetId = ds.Id,
+                    CellsJson = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string> { ["city"] = city, ["district"] = district }),
+                    IsActive = true,
+                    SortOrder = ++order,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                });
+        }
 
         await ctx.SaveChangesAsync();
     }
@@ -195,10 +240,10 @@ public static class Seeder
     /// tables are left untouched — wipe those via bpm-svc. Shared by the
     /// SeedCli <c>clear</c>/<c>seed</c> commands and the admin Reset endpoint.
     /// </summary>
-    public static async Task ClearOrgAsync(string connectionString)
+    public static async Task ClearOrgAsync(string connectionString, string? provider = null)
     {
         var builder = new DbContextOptionsBuilder<AdminDbContext>();
-        DbProviderSetup.Configure(builder, DbProviderSetup.ResolveProvider(null), connectionString);
+        DbProviderSetup.Configure(builder, DbProviderSetup.ResolveProvider(provider), connectionString);
         var options = builder.Options;
         await using var ctx = new AdminDbContext(options);
         await ctx.Database.MigrateAsync();
@@ -226,10 +271,10 @@ public static class Seeder
 
     /// <summary>Clear + re-seed the org graph in one call — the canonical
     /// "back to demo init" for admin-owned identity tables.</summary>
-    public static async Task ResetOrgAsync(string connectionString)
+    public static async Task ResetOrgAsync(string connectionString, string? provider = null)
     {
-        await ClearOrgAsync(connectionString);
-        await SeedOrgAsync(connectionString);
+        await ClearOrgAsync(connectionString, provider);
+        await SeedOrgAsync(connectionString, provider);
     }
 
     private static Guid AddPrincipal(AdminDbContext ctx, PrincipalType type, string name)

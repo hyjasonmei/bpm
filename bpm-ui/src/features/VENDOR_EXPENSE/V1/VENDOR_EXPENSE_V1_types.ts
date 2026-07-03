@@ -37,6 +37,7 @@ export interface VENDOR_EXPENSE_V1_CaseResponse {
   roundCount: number
   currentAssigneeUserId: string | null
   currentAssigneeDisplayName: string | null
+  currentAssigneeRoleCode?: string | null
   supervisorDecision: VENDOR_EXPENSE_V1_DecisionDto | null
   procurementDecision: VENDOR_EXPENSE_V1_DecisionDto | null
   signDecision: VENDOR_EXPENSE_V1_DecisionDto | null

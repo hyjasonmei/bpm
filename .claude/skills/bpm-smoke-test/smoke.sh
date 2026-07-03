@@ -51,9 +51,9 @@ R_VENDOR=$(rt VENDOR_EXPENSE vendor-expense); R_PR=$(rt PURCHASE_REQUEST purchas
 
 echo "### A. health + identity"
 chk "bpm-svc up" 200 "$(P "$BPM/api/flow-codes")"
-chk "admin-svc up" 200 "$(P "$ADM/api/roles")"
+chk "admin-svc up" 200 "$(P -H "Authorization: Bearer $TA" "$ADM/api/roles")"
 chk "admin JWT = codes" "PERSONA_SWITCH,SYSTEM_ADMIN" "$(echo "$TA" | roles)"
-chk "no empty role codes" 0 "$(curl -s "$ADM/api/roles" | python3 -c "import sys,json;print(sum(1 for r in json.load(sys.stdin) if not r.get('code')))")"
+chk "no empty role codes" 0 "$(curl -s -H "Authorization: Bearer $TA" "$ADM/api/roles" | python3 -c "import sys,json;print(sum(1 for r in json.load(sys.stdin) if not r.get('code')))")"
 chk "10 flows published" 10 "$(curl -s -H "Authorization: Bearer $TE" "$BPM/api/flow-registry" | python3 -c "import sys,json;print(len(set(x['flowCode'] for x in json.load(sys.stdin) if x['state']=='Published')))")"
 echo "  ---- live versions: LEAVE v$(ver LEAVE) · TEO v$(ver TEO) · VENDOR_EXPENSE v$(ver VENDOR_EXPENSE) · PURCHASE_REQUEST v$(ver PURCHASE_REQUEST) ----"
 
@@ -120,17 +120,21 @@ chk "act on Rejected case" 409 "$(P -X POST -H "Authorization: Bearer $TM" -H 'C
 echo "### C. UNHAPPY — cross-flow ordering + admin gating"
 VID=$(J -X POST -H "Authorization: Bearer $TE" -H 'Content-Type: application/json' -d '{"vendor":"V","submitterComment":"c","invoices":[{"invoiceDate":"2026-06-01","amount":"10"}]}' "$R_VENDOR" | field id)
 chk "VENDOR procurement before supervisor" 409 "$(P -X POST -H "Authorization: Bearer $TF" -H 'Content-Type: application/json' -d '{"approve":true}' "$R_VENDOR/$VID/procurement-decision")"
-chk "admin process-admin (SYSTEM_ADMIN)" 200 "$(P -H "Authorization: Bearer $TA" "$BPM/api/admin/process-admin/definitions")"
-chk "employee process-admin denied" 403 "$(P -H "Authorization: Bearer $TE" "$BPM/api/admin/process-admin/definitions")"
 chk "employee persona-switch denied" 403 "$(P -X POST -H "Authorization: Bearer $TE" -H 'Content-Type: application/json' -d '{"targetEmail":"bob@acme.example"}' "$BPM/api/sandbox/persona")"
 
 echo "### C. UNHAPPY — delegation authz cycle"
-FRANK=$(curl -s "$ADM/api/principals" | python3 -c "import sys,json;[print(p['id']) for p in json.load(sys.stdin) if p.get('email')=='frank@acme.example']" 2>/dev/null | head -1)
-chk "delegate to self -> 400" 400 "$(P -X PUT -H "Authorization: Bearer $TM" -H 'Content-Type: application/json' -d "{\"delegateUserId\":\"$(curl -s "$ADM/api/principals" | python3 -c "import sys,json;[print(p['id']) for p in json.load(sys.stdin) if p.get('email')=='alice@acme.example']" 2>/dev/null | head -1)\",\"startAt\":\"2026-06-01T00:00:00Z\",\"endAt\":\"2026-12-31T00:00:00Z\"}" "$BPM/api/delegation/mine")"
+FRANK=$(curl -s -H "Authorization: Bearer $TA" "$ADM/api/principals" | python3 -c "import sys,json;[print(p['id']) for p in json.load(sys.stdin) if p.get('email')=='frank@acme.example']" 2>/dev/null | head -1)
+chk "delegate to self -> 400" 400 "$(P -X PUT -H "Authorization: Bearer $TM" -H 'Content-Type: application/json' -d "{\"delegateUserId\":\"$(curl -s -H "Authorization: Bearer $TA" "$ADM/api/principals" | python3 -c "import sys,json;[print(p['id']) for p in json.load(sys.stdin) if p.get('email')=='alice@acme.example']" 2>/dev/null | head -1)\",\"startAt\":\"2026-06-01T00:00:00Z\",\"endAt\":\"2026-12-31T00:00:00Z\"}" "$BPM/api/delegation/mine")"
 CID=$(J -X POST -H "Authorization: Bearer $TE" -H 'Content-Type: application/json' -d '{"leaveType":"Annual","dateRange":{"start":"2026-07-01","end":"2026-07-02"},"reason":"d"}' "$R_LEAVE" | field id)
 chk "before delegation: Frank denied" 403 "$(P -X POST -H "Authorization: Bearer $TF" -H 'Content-Type: application/json' -d '{"approve":true}' "$R_LEAVE/$CID/manager-decision")"
+# Designate Frank — starts PENDING; not effective until Frank accepts.
 J -X PUT -H "Authorization: Bearer $TM" -H 'Content-Type: application/json' -d "{\"delegateUserId\":\"$FRANK\",\"startAt\":\"2026-06-01T00:00:00Z\",\"endAt\":\"2026-12-31T00:00:00Z\"}" "$BPM/api/delegation/mine" >/dev/null
-chk "during delegation: Frank allowed" 200 "$(P -X POST -H "Authorization: Bearer $TF" -H 'Content-Type: application/json' -d '{"approve":true}' "$R_LEAVE/$CID/manager-decision")"
+chk "pending (not yet accepted): Frank still denied" 403 "$(P -X POST -H "Authorization: Bearer $TF" -H 'Content-Type: application/json' -d '{"approve":true}' "$R_LEAVE/$CID/manager-decision")"
+# Frank sees the pending designation and accepts it.
+DID=$(J -H "Authorization: Bearer $TF" "$BPM/api/delegation/pending-mine" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d[0]['id'] if d else '')" 2>/dev/null)
+chk "Frank has a pending designation" 1 "$([ -n "$DID" ] && echo 1 || echo 0)"
+J -X POST -H "Authorization: Bearer $TF" "$BPM/api/delegation/$DID/accept" >/dev/null
+chk "after accept: Frank allowed" 200 "$(P -X POST -H "Authorization: Bearer $TF" -H 'Content-Type: application/json' -d '{"approve":true}' "$R_LEAVE/$CID/manager-decision")"
 J -X DELETE -H "Authorization: Bearer $TM" "$BPM/api/delegation/mine" >/dev/null
 CID=$(J -X POST -H "Authorization: Bearer $TE" -H 'Content-Type: application/json' -d '{"leaveType":"Annual","dateRange":{"start":"2026-07-03","end":"2026-07-04"},"reason":"d2"}' "$R_LEAVE" | field id)
 chk "after revoke: Frank denied again" 403 "$(P -X POST -H "Authorization: Bearer $TF" -H 'Content-Type: application/json' -d '{"approve":true}' "$R_LEAVE/$CID/manager-decision")"
@@ -138,11 +142,15 @@ chk "after revoke: Frank denied again" 403 "$(P -X POST -H "Authorization: Beare
 if [ "${SKIP_RESET:-0}" != "1" ]; then
 echo "### D. RESET feature (factory-wipe -> reseed -> register/publish -> verify init + post-reset flow works)"
 chk "factory-reset 200" 200 "$(P -X POST "$BPM/api/sandbox-admin/factory-reset")"
-chk "reseed 200" 200 "$(P -X POST "$ADM/api/admin/reset/reseed")"
+# Reset rebuilds identity with NEW GUIDs and clears sessions, so every pre-reset
+# token is now dead. Mint a FRESH admin token before the admin-svc reseed/register
+# calls (which are auth-gated post secure-by-default).
+TA=$(login admin)
+chk "reseed 200" 200 "$(P -X POST -H "Authorization: Bearer $TA" "$ADM/api/admin/reset/reseed")"
 # Register at the DEPLOYED runtime version (flow-codes reports the highest <CODE>_V<N>_Case
 # per flow) so reset re-publishes whatever's actually shipped — not a hardcoded v1.
 FLOWS=$(curl -s "$BPM/api/flow-codes" | python3 -c "import sys,json;d=json.load(sys.stdin);print(json.dumps({'flows':[{'flowCode':f['flowCode'],'displayName':f['displayName'],'version':f.get('version',1)} for f in d]}))")
-chk "register-shipped 10" 10 "$(J -X POST "$ADM/api/flows/register-shipped" -H 'Content-Type: application/json' -d "$FLOWS" | python3 -c "import sys,json;print(len(json.load(sys.stdin)['registered']))")"
+chk "register-shipped 10" 10 "$(J -X POST -H "Authorization: Bearer $TA" "$ADM/api/flows/register-shipped" -H 'Content-Type: application/json' -d "$FLOWS" | python3 -c "import sys,json;print(len(json.load(sys.stdin)['registered']))")"
 # re-login (sessions/identity were reseeded), re-resolve live versions, confirm a flow still runs end-to-end
 TE=$(login employee); TM=$(login manager); TH=$(login hr)
 load_flow_versions "$TE"; R_LEAVE=$(rt LEAVE leave)

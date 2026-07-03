@@ -8,7 +8,7 @@ namespace Bpm.Api.Auth;
 [AllowAnonymous]
 public sealed class DevLoginController(PersonaLoginService logins) : ControllerBase
 {
-    private static readonly string[] AllowedPersonas = ["employee", "manager", "finance", "it", "hr", "admin"];
+    private static readonly string[] AllowedPersonas = ["employee", "manager", "finance", "it", "procurement", "hr", "admin"];
 
     public sealed record LoginRequest(string PersonaCode);
 

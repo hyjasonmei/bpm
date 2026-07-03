@@ -44,7 +44,14 @@ public sealed class ResetController : ControllerBase
         var connectionString = _config.GetConnectionString("Admin")
             ?? _config.GetConnectionString("Default")
             ?? "Data Source=bpm.db";
-        await Seeder.ResetOrgAsync(DbPathResolver.Normalize(connectionString));
+        // Pass the CONFIGURED provider explicitly. The Seeder's own fallback is
+        // env-only (BPM_DB_PROVIDER/Database__Provider → default sqlite), so when
+        // the provider is set via appsettings config (Database:Provider=postgres)
+        // rather than an env var, an unqualified reseed builds a sqlite context
+        // against the postgres DB → PendingModelChangesWarning → 500. Threading the
+        // config value through keeps reseed on the same provider the app runs on.
+        var provider = _config["Database:Provider"];
+        await Seeder.ResetOrgAsync(DbPathResolver.Normalize(connectionString), provider);
 
         var users = await _db.Principals.CountAsync(p => p.Type == PrincipalType.User, ct);
         var roles = await _db.Roles.CountAsync(ct);

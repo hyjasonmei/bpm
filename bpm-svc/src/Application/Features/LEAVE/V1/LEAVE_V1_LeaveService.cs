@@ -30,6 +30,9 @@ public sealed class LEAVE_V1_LeaveService(
 
     public const string DaysGateThreshold = "7";   // spec: days >= 7 → VP
 
+    public const string VpRoleName = "VP";          // VP-stage role-queue fallback (dept_head primary)
+    public const string HrRoleName = "HR_MANAGER";  // HR archive is a shared role queue
+
     public sealed record SubmitInput(
         Guid SubmitterUserId,
         string LeaveType,
@@ -106,27 +109,9 @@ public sealed class LEAVE_V1_LeaveService(
 
         // Gateway: days >= 7 → VP, else → HR
         if (c.Days >= 7m)
-        {
-            var vpUserId = await ResolveVpApproverAsync(c.SubmitterUserId, ct);
-            if (vpUserId == null)
-                throw new ConflictException("no VP approver could be resolved (dept_head primary, role:VP fallback)");
-            c.VpUserId = vpUserId;
-            c.CurrentAssigneeUserId = vpUserId;
-            c.Status = LEAVE_V1_CaseStatus.PendingVp;
-            await store.SaveChangesAsync(ct);
-            await NotifyAssignAsync(c, vpUserId.Value, ct);
-        }
+            await RouteToVpAsync(c, ct);
         else
-        {
-            var hrUserId = await ResolveFirstUserInRoleAsync("HR_MANAGER", ct);
-            if (hrUserId == null)
-                throw new ConflictException("no user assigned to role:HR_MANAGER; cannot route HR archive");
-            c.HrUserId = hrUserId;
-            c.CurrentAssigneeUserId = hrUserId;
-            c.Status = LEAVE_V1_CaseStatus.PendingHr;
-            await store.SaveChangesAsync(ct);
-            await NotifyAssignAsync(c, hrUserId.Value, ct);
-        }
+            await RouteToHrAsync(c, ct);
 
         return c;
     }
@@ -162,9 +147,11 @@ public sealed class LEAVE_V1_LeaveService(
 
         if (c.Status != LEAVE_V1_CaseStatus.PendingVp)
             throw new ConflictException($"case is in status {c.Status}, expected PendingVp");
-        if (c.VpUserId is not { } vp || !await auth.CanActAsync(vp, actorUserId, ct))
-            throw new ForbiddenException("only the assigned VP approver (or their active delegate) may act on this case");
+        // VP step may be a specific user (dept head) OR a shared role queue (role:VP fallback).
+        if (!await auth.CanActAsync(c.CurrentAssigneeUserId, c.CurrentAssigneeRoleCode, actorUserId, ct))
+            throw new ForbiddenException("only a holder of the VP role / the assigned dept head (or their active delegate) may act on this case");
 
+        c.VpUserId = actorUserId;   // record who actually acted (dept head or role holder)
         c.VpApproved = approve;
         c.VpComment = comment;
         c.VpDecisionAt = clock.UtcNow;
@@ -174,20 +161,14 @@ public sealed class LEAVE_V1_LeaveService(
         {
             c.Status = LEAVE_V1_CaseStatus.Rejected;
             c.CurrentAssigneeUserId = null;
+            c.CurrentAssigneeRoleCode = null;            // leaving the VP step
             c.CompletedAt = clock.UtcNow;
             await store.SaveChangesAsync(ct);
             log.LogInformation("LEAVE/{CaseId}: VP rejected", c.Id);
             return c;
         }
 
-        var hrUserId = await ResolveFirstUserInRoleAsync("HR_MANAGER", ct);
-        if (hrUserId == null)
-            throw new ConflictException("no user assigned to role:HR_MANAGER; cannot route HR archive");
-        c.HrUserId = hrUserId;
-        c.CurrentAssigneeUserId = hrUserId;
-        c.Status = LEAVE_V1_CaseStatus.PendingHr;
-        await store.SaveChangesAsync(ct);
-        await NotifyAssignAsync(c, hrUserId.Value, ct);
+        await RouteToHrAsync(c, ct);
         return c;
     }
 
@@ -198,15 +179,18 @@ public sealed class LEAVE_V1_LeaveService(
 
         if (c.Status != LEAVE_V1_CaseStatus.PendingHr)
             throw new ConflictException($"case is in status {c.Status}, expected PendingHr");
-        if (c.HrUserId is not { } hr || !await auth.CanActAsync(hr, actorUserId, ct))
-            throw new ForbiddenException("only the assigned HR (or their active delegate) may archive this case");
+        // HR archive is a shared role queue — any holder of role:HR_MANAGER may act.
+        if (!await auth.CanActAsync(c.CurrentAssigneeUserId, c.CurrentAssigneeRoleCode, actorUserId, ct))
+            throw new ForbiddenException("only a holder of the HR role (or the assigned user / delegate) may archive this case");
         if (string.IsNullOrWhiteSpace(archiveNote))
             throw Invalid("archiveNote", "archive_note is required");
 
+        c.HrUserId = actorUserId;   // shared role queue: record who actually archived
         c.ArchiveNote = archiveNote;
         c.HrArchivedAt = clock.UtcNow;
         c.Status = LEAVE_V1_CaseStatus.Completed;
         c.CurrentAssigneeUserId = null;
+        c.CurrentAssigneeRoleCode = null;                // leaving the HR step
         c.LastActivityAt = clock.UtcNow;
         c.CompletedAt = clock.UtcNow;
         await store.SaveChangesAsync(ct);
@@ -273,6 +257,93 @@ public sealed class LEAVE_V1_LeaveService(
         var head = await ResolveDeptHeadAsync(submitterUserId, ct);
         if (head != null) return head;
         return await ResolveFirstUserInRoleAsync("VP", ct);
+    }
+
+    /// <summary>
+    /// Route an approved long-leave case to the VP stage. The spec's
+    /// <c>submitter.department.head</c> resolves first; when a dept head
+    /// exists it's a specific user (user-assigned). Only when it falls
+    /// through to the <c>role:VP</c> fallback does the case become a
+    /// shared role queue (any VP holder can act).
+    /// </summary>
+    private async Task RouteToVpAsync(LEAVE_V1_Case c, CancellationToken ct)
+    {
+        var head = await ResolveDeptHeadAsync(c.SubmitterUserId, ct);
+        if (head != null)
+        {
+            // Dept head is a specific user — keep the user-assigned path.
+            c.VpUserId = head;
+            c.CurrentAssigneeUserId = head;
+            c.CurrentAssigneeRoleCode = null;
+            c.Status = LEAVE_V1_CaseStatus.PendingVp;
+            await store.SaveChangesAsync(ct);
+            await NotifyAssignAsync(c, head.Value, ct);
+            return;
+        }
+
+        // Fallback: shared role queue on role:VP — any VP holder can act.
+        var vpMembers = await directory.GetUsersInRoleAsync(VpRoleName, ct);
+        if (vpMembers.Count == 0)
+            throw new ConflictException("no VP approver could be resolved (dept_head primary, role:VP fallback)");
+        c.VpUserId = null;
+        c.CurrentAssigneeUserId = null;
+        c.CurrentAssigneeRoleCode = VpRoleName;
+        c.Status = LEAVE_V1_CaseStatus.PendingVp;
+        await store.SaveChangesAsync(ct);
+        await NotifyRoleAsync(c, vpMembers, ct);
+    }
+
+    /// <summary>
+    /// Route a case to the HR archive stage — always a shared role queue
+    /// on role:HR_MANAGER (any holder can pick it up).
+    /// </summary>
+    private async Task RouteToHrAsync(LEAVE_V1_Case c, CancellationToken ct)
+    {
+        var hrMembers = await directory.GetUsersInRoleAsync(HrRoleName, ct);
+        if (hrMembers.Count == 0)
+            throw new ConflictException("no active user holds role:HR_MANAGER; cannot route HR archive");
+        c.HrUserId = null;
+        c.CurrentAssigneeUserId = null;
+        c.CurrentAssigneeRoleCode = HrRoleName;
+        c.Status = LEAVE_V1_CaseStatus.PendingHr;
+        await store.SaveChangesAsync(ct);
+        await NotifyRoleAsync(c, hrMembers, ct);
+    }
+
+    /// Shared-role-queue: notify every current holder of the role the case is
+    /// now pending on (in_app), so any of them can pick it up.
+    private async Task NotifyRoleAsync(LEAVE_V1_Case c, IReadOnlyList<Guid> memberUserIds, CancellationToken ct)
+    {
+        if (memberUserIds.Count == 0) return;
+        var applicantName = await ResolveDisplayNameAsync(c.SubmitterUserId, ct);
+        var rendered = LEAVE_V1_NotificationTemplates.RenderAssignManager(
+            applicantName: applicantName,
+            days: c.Days,
+            leaveType: c.LeaveType,
+            start: c.StartDate,
+            end: c.EndDate,
+            reason: c.Reason,
+            caseUrl: $"/cases/leave/{c.Id}");
+        var lookups = await directory.GetManyAsync(memberUserIds, ct);
+        var recipients = memberUserIds.Select(uid =>
+        {
+            var r = lookups.GetValueOrDefault(uid);
+            return new NotifyRecipient(uid, r?.Email, r?.DisplayName);
+        }).ToArray();
+        await notify.DispatchAsync(new NotifyMessage(
+            SourceId:   "LEAVE_V1.notify_role_assign",
+            Subject:    rendered.Subject,
+            Body:       rendered.Body,
+            Channels:   new[] { "in_app" },
+            Recipients: recipients,
+            Context:    new Dictionary<string, string?>
+            {
+                ["caseId"]      = c.Id.ToString(),
+                ["flowCode"]    = FlowCode,
+                ["flowVersion"] = FlowVersion.ToString(),
+                ["stage"]       = c.Status.ToString(),
+            }
+        ), ct);
     }
 
     private async Task NotifyAssignAsync(LEAVE_V1_Case c, Guid recipientUserId, CancellationToken ct)

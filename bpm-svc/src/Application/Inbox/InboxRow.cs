@@ -12,6 +12,11 @@ namespace Bpm.Application.Inbox;
 /// <param name="FlowVersion">Spec version, e.g. 1.</param>
 /// <param name="Title">Human-readable summary for the inbox row (e.g. "Bob 申請 特休 3 天").</param>
 /// <param name="Status">Per-flow status string (display only — not parsed by UI).</param>
+/// <param name="Lifecycle">
+/// Canonical, UI-parseable lifecycle state (one of <see cref="InboxLifecycle"/>:
+/// Open / Completed / Cancelled / Rejected). The dashboard counts on THIS —
+/// never on <see cref="Status"/>, which is per-flow localized display text.
+/// </param>
 /// <param name="SubmittedAt">When the case was first created.</param>
 /// <param name="LastActivityAt">When the case last changed state. Used for sorting.</param>
 /// <param name="DetailUrl">
@@ -24,6 +29,33 @@ public sealed record InboxRow(
     int FlowVersion,
     string Title,
     string Status,
+    string Lifecycle,
     DateTime SubmittedAt,
     DateTime LastActivityAt,
     string DetailUrl);
+
+/// <summary>
+/// Canonical lifecycle buckets for the unified inbox — the UI-parseable
+/// counterpart to the per-flow localized <see cref="InboxRow.Status"/>.
+/// Every flow's status enum names its terminals identically
+/// (<c>Completed</c> / <c>Cancelled</c>, plus <c>Rejected</c> where a flow has
+/// a terminal reject); every other state (Pending*, ResubmitRequired) is Open.
+/// So the mapping is by enum-member name via <see cref="FromStatusName"/> —
+/// each provider passes <c>InboxLifecycle.FromStatusName(c.Status.ToString())</c>.
+/// </summary>
+public static class InboxLifecycle
+{
+    public const string Open = "Open";
+    public const string Completed = "Completed";
+    public const string Cancelled = "Cancelled";
+    public const string Rejected = "Rejected";
+
+    /// <summary>Map a per-flow status enum's member name to a canonical bucket.</summary>
+    public static string FromStatusName(string statusName) => statusName switch
+    {
+        "Completed" => Completed,
+        "Cancelled" => Cancelled,
+        "Rejected"  => Rejected,
+        _           => Open,
+    };
+}

@@ -8,7 +8,8 @@ export interface InboxRow {
   flowCode: string
   flowVersion: number
   title: string
-  status: string
+  status: string           // per-flow localized display text — do NOT parse
+  lifecycle: string        // canonical: 'Open' | 'Completed' | 'Cancelled' | 'Rejected' — parse THIS
   submittedAt: string
   lastActivityAt: string
   detailUrl: string

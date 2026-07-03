@@ -37,6 +37,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<RoleAssignmentChange> RoleAssignmentChanges => Set<RoleAssignmentChange>();
 
+    // Shared parallel-approval primitive (並簽): one group per parallel gateway
+    // instance, N slots per group. Used by any flow whose spec has a parallel gateway.
+    public DbSet<Bpm.Domain.Parallel.ParallelApprovalGroup> ParallelApprovalGroups => Set<Bpm.Domain.Parallel.ParallelApprovalGroup>();
+    public DbSet<Bpm.Domain.Parallel.ParallelApprovalSlot> ParallelApprovalSlots => Set<Bpm.Domain.Parallel.ParallelApprovalSlot>();
+
     public DbSet<SpecBundle> SpecBundles => Set<SpecBundle>();
 
     public DbSet<NotificationDispatchAudit> NotificationDispatchAudits => Set<NotificationDispatchAudit>();
@@ -66,6 +71,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SharedFlow> SharedFlows => Set<SharedFlow>();
     /// <summary>Read-only launcher-group view onto Admin_FlowGroups — see SharedFlowGroup.</summary>
     public DbSet<SharedFlowGroup> SharedFlowGroups => Set<SharedFlowGroup>();
+    /// <summary>Read-only view onto admin-owned custom datasets — see SharedDataset.</summary>
+    public DbSet<SharedDataset> SharedDatasets => Set<SharedDataset>();
+    public DbSet<SharedDatasetRow> SharedDatasetRows => Set<SharedDatasetRow>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

@@ -3,12 +3,12 @@
 End-to-end design for moving the Cook tab from FE-only mock to a real
 chef ↔ admin loop. Decision summary (locked 2026-05-28 via TG):
 
-- **Chef stays manually launched** by Jason. No auto-spawn.
+- **Chef stays manually launched** by 開發者. No auto-spawn.
 - **chef ↔ admin talks MCP**, not raw HTTP. The MCP server is hosted
   inside bpm-admin-svc itself (same process / port / DI container).
 - **chef sessions are one-shot.** No polling loop. When chef hits a
   blocker it posts the question, transitions the flow to `OnHold`, and
-  the session exits. Jason re-launches chef after user replies; the new
+  the session exits. 開發者 re-launches chef after user replies; the new
   session re-fetches messages and continues.
 - **Simulate buttons share the same backend.** The "demo" controls in
   CookPanel call the same chef HTTP endpoints (with a special demo
@@ -31,7 +31,7 @@ chef ↔ admin loop. Decision summary (locked 2026-05-28 via TG):
 │                           │         │  └────────┬────────────┘  │
 │  reads bundle/spec.json   │         │           │               │
 │  writes code → worktree   │         │           │ (shared DI)   │
-│  branch (Jason pushes)    │         │           │               │
+│  branch (開發者 pushes)    │         │           │               │
 └───────────────────────────┘         │  ┌────────▼────────────┐  │
                                        │  │ Application layer:  │  │
 ┌───────────────────────────┐         │  │  FlowLifecycleSvc   │  │
@@ -289,9 +289,9 @@ Total ~2.25 days.
 
 ## 12. Acceptance criteria (POC)
 
-1. Jason runs `dotnet run` on admin-svc → both API and MCP up on :5266.
+1. 開發者 runs `dotnet run` on admin-svc → both API and MCP up on :5266.
 2. From admin-ui, Submit a Draft → state moves to `Submitted`.
-3. Jason starts a chef Claude Code session in a worktree pointed at the
+3. 開發者 starts a chef Claude Code session in a worktree pointed at the
    downloaded bundle. chef MCP client connects.
 4. Chef calls `chef_get_flow` → reads spec → calls
    `chef_transition('Cooking')` → admin-ui CookPanel **automatically
@@ -299,7 +299,7 @@ Total ~2.25 days.
    picks it up within 30s).
 5. Chef writes some code, posts 2 memos, then a Completion message.
    State moves to `Committed`. admin-ui shows the timeline.
-6. Jason opens an issue from admin-ui (user reply). New chef session
+6. 開發者 opens an issue from admin-ui (user reply). New chef session
    sees it via `chef_get_messages`, resumes, posts a fix memo.
 7. Simulate "Chef picks up" button on a fresh draft moves state +
    appends a chef-side message via the same backend (no FE-only state).

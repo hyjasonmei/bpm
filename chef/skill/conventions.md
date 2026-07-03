@@ -169,6 +169,8 @@ Lead-maintained — chef imports, never reinvents.
 | JWT decode | `@/lib/jwt` (`decodeJwt`) | Read `sub` to identify the current viewer in CaseDetail |
 | Auth (backend) | `BpmControllerBase.RequireUserId()` | JWT `sub` claim |
 | Decision authorization | `Bpm.Application.Common.Authorization.IActorAuthorizer.CanActAsync(requiredUserId, caller, ct)` | **Required for every approval/assignee step.** Gate decisions with `if (c.XUserId is not { } x \|\| !await auth.CanActAsync(x, actorUserId, ct)) throw new ForbiddenException(...)` — NOT a raw `if (c.XUserId != caller)`. `CanActAsync` returns true for the assignee **or their active delegate**, so delegation (代理人) is honored. Submitter-only gates (withdraw/resubmit/cancel) stay strict (`c.SubmitterUserId != caller`). On the UI side, gate decision buttons with `assignee === viewer \|\| useDelegatedFor().includes(assignee)` (hook `@/lib/useDelegatedFor`), never a bare `=== viewer`. |
+| **Parallel approval (並簽)** | `Bpm.Application.Parallel.IParallelApprovalService` | **The only way to cook a parallel gateway** (concurrent multi-approver step). Do NOT hand-roll per-approver columns or a fork/join engine. `OpenAsync(flowCode, ver, caseId, gatewayNodeId, slots, threshold)` opens the group + one Pending slot per branch; `DecideAsync(slotId, actor, approve, comment)` records + recomputes (returns `DecisionResult.GroupStatus`: `Open`/`Approved`/`Rejected`); `GetAsync(caseId, gatewayNodeId)` for display; `FindPendingForUserAsync(flowCode, userId, roleCodes)` → `PendingSlot[]` (carries `CaseId`) for the inbox. Threshold = N/N (全簽/AND) or M/N (門檻); any single reject → group Rejected + rest Skipped. **Reference cook: `CONTRACT_REVIEW` V1.** See §"Parallel gateway (並簽)". |
+| Parallel checklist (UI) | `@/components/ParallelApprovalPanel` + `BpmnView` `currentNodes[]`/`rejectedNodes`/`skippedNodes` | Case-detail 並簽 checklist + multi-node BPMN highlight. |
 | Logging | `ILogger<T>` | Diagnostic only — real delivery goes through `INotifyDispatcher` |
 
 If you need a UI control or backend service not in this table, stop
@@ -189,10 +191,71 @@ no entry needed. Anything more complex:
 | `layout.banner` | `<InfoBanner>` between section content. |
 | `layout.row` | A 12-column grid with `colSpan` per fieldRef. |
 | `layout.repeater` | Render an array section with add / remove buttons and an inline totals strip (`totals[]` formulas evaluated client-side). |
+| `gateway.kind === 'parallel'` (並簽) | A concurrent multi-approver step. Do NOT model per-branch columns on the case. Use `IParallelApprovalService` — see §"Parallel gateway (並簽)". The spec shape: a gateway node `{ id, kind: 'parallel', join: { threshold } }` fanning out to N approval user-tasks (each with an `assignee`: role or user), converging on a join gateway. `threshold` = branch count for 全簽(AND), 1 for 或簽(OR), or M for 門檻 M/N. |
 
 When the spec uses a construct that isn't here yet, **stop and ask
 The operator** — lead ships the primitive (or extends this table) before
 chef ships.
+
+## Parallel gateway (並簽)
+
+When the spec has a `gateway.kind === 'parallel'` step (concurrent
+multi-approver — 並簽 / 會簽 / 或簽), **do not** hand-roll fork/join or
+per-approver columns. Consume `IParallelApprovalService` and copy a reference
+cook across all five layers. **Two references**: `CONTRACT_REVIEW` V1 = 全簽/AND
+(2 branches, threshold N/N); `COMMITTEE_REVIEW` V1 = 門檻/quorum (3 branches,
+threshold 2/3) — copy whichever join semantics matches; they differ only in the
+`threshold` passed to `OpenAsync`. The recipe:
+
+**Domain** — the case status enum has ONE parallel-pending state
+(e.g. `PendingParallelReview`) plus the terminals (`Completed`/`Rejected`).
+The case entity holds business data + minimal workflow state; the
+concurrent decisions live in the primitive, NOT on the case. Keep the
+gateway + branch node ids as `const` on the service (they must match the
+`.bpmn.xml`).
+
+**Persistence** — `I<CODE>_V<N>_CaseStore` needs `Add` / `FindByIdAsync` /
+`FindMineAsync` / `FindByIdsAsync` (**no `FindPendingAsync`** — pending is
+served by the primitive's slot query). EF config + migration as usual.
+
+**Application — service:**
+- `SubmitAsync`: validate → create case (`PendingParallelReview`) → `await parallel.OpenAsync(FlowCode, Ver, case.Id, GatewayNodeId, slots, threshold, ct)` where `slots` are `SlotSpec(nodeId, roleCode, userId)` from the spec's branches (`threshold` = branch count for AND / 1 for OR / M for 門檻).
+- `DecideAsync(caseId, slotId, actorUserId, approve, comment)`: `var r = await parallel.DecideAsync(slotId, actorUserId, approve, comment, ct);` then advance: `Approved` → case `Completed` (+`CompletedAt`); `Rejected` → case `Rejected`; `Open` → leave pending. (Authorization is enforced inside `DecideAsync` via `IActorAuthorizer` — don't re-gate.)
+
+**Application — inbox provider:** `GetMineAsync` from the store;
+`GetPendingAsync` = `var roles = await directory.GetRoleCodesForUserAsync(userId, ct); var slots = await parallel.FindPendingForUserAsync(FlowCode, userId, roles, ct);` then load `store.FindByIdsAsync(slots.Select(s => s.CaseId).Distinct())` → rows. Skipped/resolved slots drop out automatically.
+
+**Notifications:** inject `INotifyDispatcher` + `IPrincipalDirectory`; on submit,
+notify the submitter (submitted ack) AND every holder of each branch role
+(`directory.GetUsersInRoleAsync(role)` per branch → one 待簽 message to all
+concurrent approvers); on resolve, notify the submitter completed / rejected.
+Both reference cooks show this (`*_NotificationTemplates` + `Notify*` helpers).
+
+**Api — controller:** `POST /api/<flow>/v<n>` (submit),
+`POST /api/<flow>/v<n>/{caseId}/slots/{slotId}/decision` `{approve, comment}`,
+`GET /api/<flow>/v<n>/{caseId}` — detail builds a review DTO from
+`parallel.GetAsync(caseId, gatewayNodeId)`: `policyLabel` (全簽 vs 門檻 M/N),
+`approvedCount`, `threshold`, and one slot view per branch (`slotId`,
+`roleCode`, `state` = slot.Decision lowercased, decider name, comment, time).
+
+**UI — case-detail:** render `<ParallelApprovalPanel>` from the review;
+for each `pending` slot show 核准/退件 behind `<ConfirmDialog>` posting to the
+decision endpoint (403 = not your slot). "檢視流程圖" opens `<BpmnView>` with
+`completedNodes` = approved node ids, `currentNodes` = pending, `rejectedNodes`
+= rejected, `skippedNodes` = skipped — so multiple nodes light simultaneously.
+**Also colour the STRUCTURAL nodes** (start / fork gateway / join gateway / end —
+they aren't slots, so they never colour on their own): add start + fork to
+`completedNodes` once submitted, and add join + end once the case is `Completed`.
+Without this a finished case leaves its end (完成) node unlit even though the flow
+is done.
+
+**`.bpmn.xml`** — a real `bpmn:parallelGateway` fork → N `bpmn:userTask`
+branches → a `bpmn:parallelGateway` join → end. **Node ids MUST equal** the
+slot `NodeId`s and the case `GatewayNodeId` (that's how highlight maps state to
+diagram). Ship full BPMN DI (bounds + waypoints), same as any other cook.
+
+**Register** the flow as usual; seed any new approver role (e.g. `LEGAL`) +
+a holder in the admin `Seeder` if the spec references a role that doesn't exist.
 
 ## Visual baseline — crib from a model-B feature form
 

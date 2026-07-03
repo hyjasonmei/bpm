@@ -67,7 +67,7 @@ export interface ActionFooterProps {
  * content. Previously short pages would render the bar inline below
  * the content (sticky has no effect until the page can scroll), which
  * read as "below the content" rather than "fixed at the bottom" —
- * Jason called this out as a regression. Inner row stays centred via
+ * this was flagged as a regression. Inner row stays centred via
  * `max-w-screen-2xl` to line up with the header.
  *
  * PR-X13: render through a portal to `document.body`. The host

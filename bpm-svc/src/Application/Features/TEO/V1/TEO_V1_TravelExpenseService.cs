@@ -147,14 +147,15 @@ public sealed class TEO_V1_TravelExpenseService(
             return c;
         }
 
-        var financeUser = await directory.FindFirstUserInRoleAsync(FinanceRoleName, ct);
-        if (financeUser is null)
-            throw new ConflictException($"no active user assigned to role:{FinanceRoleName}; cannot route finance approval");
-        c.FinanceUserId = financeUser;
-        c.CurrentAssigneeUserId = financeUser;
+        var financeMembers = await directory.GetUsersInRoleAsync(FinanceRoleName, ct);
+        if (financeMembers.Count == 0)
+            throw new ConflictException($"no active user holds role:{FinanceRoleName}; cannot route finance approval");
+        c.FinanceUserId = null;                        // shared role queue — no single designated finance user
+        c.CurrentAssigneeUserId = null;
+        c.CurrentAssigneeRoleCode = FinanceRoleName;   // pending on role:FINANCE — any holder can act
         c.Status = TEO_V1_CaseStatus.PendingFinance;
         await store.SaveChangesAsync(ct);
-        await NotifyAssignAsync(c, financeUser.Value, ct);
+        await NotifyRoleAsync(c, financeMembers, ct);
         return c;
     }
 
@@ -168,15 +169,17 @@ public sealed class TEO_V1_TravelExpenseService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != TEO_V1_CaseStatus.PendingFinance)
             throw new ConflictException($"case is in status {c.Status}, expected PendingFinance");
-        if (c.FinanceUserId is not { } fin || !await auth.CanActAsync(fin, actorUserId, ct))
-            throw new ForbiddenException("only the assigned finance approver (or their active delegate) may act on this case");
+        if (!await auth.CanActAsync(c.CurrentAssigneeUserId, c.CurrentAssigneeRoleCode, actorUserId, ct))
+            throw new ForbiddenException("only a holder of the finance role (or the assigned user / delegate) may act on this case");
 
+        c.FinanceUserId = actorUserId;   // shared role queue: record who actually signed
         c.FinanceApproved = approve; c.FinanceComment = comment; c.FinanceDecisionAt = clock.UtcNow; c.LastActivityAt = clock.UtcNow;
 
         if (!approve)
         {
             c.Status = TEO_V1_CaseStatus.ResubmitRequired;
             c.CurrentAssigneeUserId = c.SubmitterUserId;
+            c.CurrentAssigneeRoleCode = null;            // leaving the role step
             await store.SaveChangesAsync(ct);
             log.LogInformation("TEO/{CaseId}: finance rejected (round {Round})", c.Id, c.RoundCount);
             await NotifyAssignAsync(c, c.SubmitterUserId, ct);
@@ -185,6 +188,7 @@ public sealed class TEO_V1_TravelExpenseService(
 
         c.Status = TEO_V1_CaseStatus.Completed;
         c.CurrentAssigneeUserId = null;
+        c.CurrentAssigneeRoleCode = null;                // leaving the role step
         c.CompletedAt = clock.UtcNow;
         await store.SaveChangesAsync(ct);
         return c;
@@ -236,6 +240,27 @@ public sealed class TEO_V1_TravelExpenseService(
             SourceId: "TEO_V1.notify_n_submit", Subject: rendered.Subject, Body: rendered.Body,
             Channels: new[] { "email", "in_app" },
             Recipients: new[] { new NotifyRecipient(recipientUserId, recipient?.Email, recipient?.DisplayName) },
+            Context: NotificationContext(c)), ct);
+    }
+
+    /// Shared-role-queue: notify every current holder of the role the case is
+    /// now pending on (in_app), so any of them can pick it up.
+    private async Task NotifyRoleAsync(TEO_V1_Case c, IReadOnlyList<Guid> memberUserIds, CancellationToken ct)
+    {
+        if (memberUserIds.Count == 0) return;
+        var ids = memberUserIds.Append(c.SubmitterUserId).Distinct().ToArray();
+        var lookups = await directory.GetManyAsync(ids, ct);
+        var applicantName = lookups.GetValueOrDefault(c.SubmitterUserId)?.DisplayName ?? ShortIdLabel(c.SubmitterUserId);
+        var rendered = TEO_V1_NotificationTemplates.RenderAssign(applicantName, BuildSummary(c), $"/cases/teo/{c.Id}");
+        var recipients = memberUserIds.Select(uid =>
+        {
+            var r = lookups.GetValueOrDefault(uid);
+            return new NotifyRecipient(uid, r?.Email, r?.DisplayName);
+        }).ToArray();
+        await notify.DispatchAsync(new NotifyMessage(
+            SourceId: "TEO_V1.notify_n_submit", Subject: rendered.Subject, Body: rendered.Body,
+            Channels: new[] { "in_app" },
+            Recipients: recipients,
             Context: NotificationContext(c)), ct);
     }
 

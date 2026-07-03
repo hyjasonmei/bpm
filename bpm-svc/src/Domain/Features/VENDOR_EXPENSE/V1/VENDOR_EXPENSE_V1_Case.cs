@@ -31,6 +31,7 @@ public class VENDOR_EXPENSE_V1_Case
     // Workflow state
     public VENDOR_EXPENSE_V1_CaseStatus Status { get; set; } = VENDOR_EXPENSE_V1_CaseStatus.PendingSupervisor;
     public Guid? CurrentAssigneeUserId { get; set; }
+    public string? CurrentAssigneeRoleCode { get; set; }   // shared-role-queue: non-null = pending on this role (any holder can act); UserId is null then
     public int RoundCount { get; set; } = 1;
 
     // Per-stage approver columns. Approved=true/false captures the

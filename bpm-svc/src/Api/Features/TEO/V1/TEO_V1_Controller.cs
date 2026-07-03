@@ -72,7 +72,11 @@ public sealed class TEO_V1_Controller(
 
     [HttpGet("pending")]
     public async Task<IReadOnlyList<TEO_V1_CaseRowResponse>> Pending(CancellationToken ct)
-        => await BuildRowsAsync(await store.FindPendingAsync(RequireUserId(), ct), ct);
+    {
+        var uid = RequireUserId();
+        var myRoles = await directory.GetRoleCodesForUserAsync(uid, ct);
+        return await BuildRowsAsync(await store.FindPendingAsync(uid, myRoles, ct), ct);
+    }
 
     private async Task<TEO_V1_CaseResponse> BuildResponseAsync(TEO_V1_Case c, CancellationToken ct)
     {

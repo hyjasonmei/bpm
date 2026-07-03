@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { apiFetch, setJwt, clearJwt, getJwt } from './apiFetch'
 import { decodeJwt, jwtRoles } from './jwt'
 
-export type PersonaCode = 'employee' | 'manager' | 'finance' | 'it' | 'hr' | 'admin'
+export type PersonaCode = 'employee' | 'manager' | 'finance' | 'it' | 'procurement' | 'hr' | 'admin'
 
 export interface Persona {
   id: PersonaCode
@@ -51,6 +51,14 @@ export const PERSONAS: Record<PersonaCode, Persona> = {
     user: { id: 'dave', name: 'Dave', dept: 'Frontend' },
     description: 'Spec-review and procure hardware / software',
   },
+  procurement: {
+    id: 'procurement',
+    displayName: 'Procurement',
+    zhName: '採購',
+    emoji: '🛒',
+    user: { id: 'grace', name: 'Grace', dept: 'Procurement' },
+    description: 'Run procurement review on vendor purchase cases',
+  },
   hr: {
     id: 'hr',
     displayName: 'HR',
@@ -80,6 +88,7 @@ export const PERSONA_TO_ADMIN_ROLE: Record<PersonaCode, string> = {
   manager:  'Approver',
   finance:  'Finance',
   it:       'Procurement',
+  procurement: 'Procurement',
   hr:       'HR_Manager',
   admin:    'SystemAdmin',
 }

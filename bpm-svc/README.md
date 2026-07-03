@@ -66,7 +66,7 @@ SQL Server in production:
 
 ## Why this scaffold matters for the Concierge MVP
 
-When a new customer's `spec.json` arrives, Jason runs Claude Code with the
+When a new customer's `spec.json` arrives, 開發者 runs Claude Code with the
 prompt template (`../prompt_template_v1.md`) against a copy of this repo. The
 prompt assumes:
 

@@ -1,4 +1,5 @@
 using Bpm.Api.Common;
+using Bpm.Application.Common.Directory;
 using Bpm.Application.Features.LEAVE.V1;
 using Bpm.Domain.Features.LEAVE.V1;
 using Bpm.Persistence;
@@ -14,6 +15,7 @@ namespace Bpm.Api.Features.LEAVE.V1;
 [Route("api/leave/v1")]
 public sealed class LEAVE_V1_Controller(
     LEAVE_V1_LeaveService service,
+    IPrincipalDirectory directory,
     AppDbContext db) : BpmControllerBase
 {
     [HttpPost]
@@ -98,8 +100,10 @@ public sealed class LEAVE_V1_Controller(
     public async Task<IReadOnlyList<LEAVE_V1_CaseRowResponse>> Pending(CancellationToken ct)
     {
         var userId = RequireUserId();
+        var roles = (await directory.GetRoleCodesForUserAsync(userId, ct)).ToArray();
         var cases = await db.LEAVE_V1_Cases.AsNoTracking()
-            .Where(c => c.CurrentAssigneeUserId == userId
+            .Where(c => (c.CurrentAssigneeUserId == userId
+                         || (c.CurrentAssigneeRoleCode != null && roles.Contains(c.CurrentAssigneeRoleCode)))
                         && c.Status != LEAVE_V1_CaseStatus.Completed
                         && c.Status != LEAVE_V1_CaseStatus.Rejected
                         && c.Status != LEAVE_V1_CaseStatus.Cancelled)

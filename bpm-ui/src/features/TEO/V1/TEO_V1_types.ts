@@ -27,6 +27,7 @@ export interface TEO_V1_CaseResponse {
   roundCount: number
   currentAssigneeUserId: string | null
   currentAssigneeDisplayName: string | null
+  currentAssigneeRoleCode?: string | null
   managerDecision: TEO_V1_DecisionDto | null
   financeDecision: TEO_V1_DecisionDto | null
   submittedAt: string

@@ -43,6 +43,7 @@ public sealed record PURCHASE_REQUEST_V1_CaseResponse(
     int RoundCount,
     Guid? CurrentAssigneeUserId,
     string? CurrentAssigneeDisplayName,
+    string? CurrentAssigneeRoleCode,
     PURCHASE_REQUEST_V1_DecisionDto? DeptHeadDecision,
     PURCHASE_REQUEST_V1_DecisionDto? FinanceDecision,
     DateTime SubmittedAt,
@@ -100,6 +101,7 @@ internal static class PURCHASE_REQUEST_V1_DtoMapping
             CurrentAssigneeUserId: c.CurrentAssigneeUserId,
             CurrentAssigneeDisplayName: c.CurrentAssigneeUserId is { } a
                 ? displayNames.GetValueOrDefault(a) : null,
+            CurrentAssigneeRoleCode: c.CurrentAssigneeRoleCode,
             DeptHeadDecision: c.DeptHeadUserId is null ? null : new PURCHASE_REQUEST_V1_DecisionDto(
                 UserId: c.DeptHeadUserId,
                 DisplayName: displayNames.GetValueOrDefault(c.DeptHeadUserId.Value),

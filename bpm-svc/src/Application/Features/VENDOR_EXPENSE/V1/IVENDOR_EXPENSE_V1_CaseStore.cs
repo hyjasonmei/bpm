@@ -16,7 +16,9 @@ public interface IVENDOR_EXPENSE_V1_CaseStore
 
     Task<IReadOnlyList<VENDOR_EXPENSE_V1_Case>> FindMineAsync(Guid submitterUserId, CancellationToken ct = default);
 
-    Task<IReadOnlyList<VENDOR_EXPENSE_V1_Case>> FindPendingAsync(Guid assigneeUserId, CancellationToken ct = default);
+    // Shared-role-queue: a case is pending for the user if they're the direct
+    // assignee OR they hold the role the case is pending on (myRoleCodes).
+    Task<IReadOnlyList<VENDOR_EXPENSE_V1_Case>> FindPendingAsync(Guid assigneeUserId, IReadOnlySet<string> myRoleCodes, CancellationToken ct = default);
 
     Task SaveChangesAsync(CancellationToken ct = default);
 }

@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
+    <PackageReference Include="Microsoft.AspNetCore.OData" Version="9.4.1" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -31,9 +32,7 @@
     Azure (no source tree → BpmnXml = null).
   -->
   <ItemGroup>
-    <Content Include="..\..\..\bpm-ui\src\features\**\*.bpmn.xml"
-             Link="bpm-ui\src\features\%(RecursiveDir)%(Filename)%(Extension)"
-             CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\..\bpm-ui\src\features\**\*.bpmn.xml" Link="bpm-ui\src\features\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

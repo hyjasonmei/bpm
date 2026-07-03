@@ -149,8 +149,9 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseServiceTests : IDisposable
         var after = await svc.ApproveBySupervisorAsync(c.Id, Mike, "ok", default);
 
         Assert.Equal(VENDOR_EXPENSE_V1_CaseStatus.PendingProcurement, after.Status);
-        Assert.Equal(Pam, after.ProcurementUserId);
-        Assert.Equal(Pam, after.CurrentAssigneeUserId);
+        Assert.Null(after.ProcurementUserId);                  // shared role queue — no single designated user
+        Assert.Null(after.CurrentAssigneeUserId);
+        Assert.Equal("PROCUREMENT", after.CurrentAssigneeRoleCode);
         Assert.True(after.SupervisorApproved);
     }
 
@@ -421,7 +422,11 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseServiceTests : IDisposable
         return new VENDOR_EXPENSE_V1_VendorExpenseService(
             store, org, directory, new StubClock(),
             NullLogger<VENDOR_EXPENSE_V1_VendorExpenseService>.Instance,
-            notify ?? new NullNotifyDispatcher(), new TestActorAuthorizer());
+            notify ?? new NullNotifyDispatcher(),
+            new TestActorAuthorizer(new Dictionary<Guid, IReadOnlySet<string>>
+            {
+                [Pam] = new HashSet<string> { "PROCUREMENT" },
+            }));
     }
 
     private static VENDOR_EXPENSE_V1_Invoice OneInvoice()

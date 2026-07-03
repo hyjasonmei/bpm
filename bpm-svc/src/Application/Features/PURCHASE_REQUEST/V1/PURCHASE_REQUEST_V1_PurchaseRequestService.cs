@@ -187,16 +187,16 @@ public sealed class PURCHASE_REQUEST_V1_PurchaseRequestService(
             return c;
         }
 
-        var financeUser = await directory.FindFirstUserInRoleAsync(FinanceRoleName, ct);
-        if (financeUser is null)
+        var financeMembers = await directory.GetUsersInRoleAsync(FinanceRoleName, ct);
+        if (financeMembers.Count == 0)
             throw new ConflictException(
-                $"no active user assigned to role:{FinanceRoleName}; cannot route finance approval");
-
-        c.FinanceUserId = financeUser;
-        c.CurrentAssigneeUserId = financeUser;
+                $"no active user holds role:{FinanceRoleName}; cannot route finance approval");
+        c.FinanceUserId = null;                          // shared role queue — no single designated finance user
+        c.CurrentAssigneeUserId = null;
+        c.CurrentAssigneeRoleCode = FinanceRoleName;     // pending on role:FINANCE — any holder can act
         c.Status = PURCHASE_REQUEST_V1_CaseStatus.PendingFinance;
         await store.SaveChangesAsync(ct);
-        await NotifyAssignAsync(c, financeUser.Value, ct);
+        await NotifyRoleAsync(c, financeMembers, ct);
         return c;
     }
 
@@ -218,9 +218,10 @@ public sealed class PURCHASE_REQUEST_V1_PurchaseRequestService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != PURCHASE_REQUEST_V1_CaseStatus.PendingFinance)
             throw new ConflictException($"case is in status {c.Status}, expected PendingFinance");
-        if (c.FinanceUserId is not { } finance || !await auth.CanActAsync(finance, actorUserId, ct))
-            throw new ForbiddenException("only the assigned finance approver (or their active delegate) may act on this case");
+        if (!await auth.CanActAsync(c.CurrentAssigneeUserId, c.CurrentAssigneeRoleCode, actorUserId, ct))
+            throw new ForbiddenException("only a holder of the finance role (or the assigned user / delegate) may act on this case");
 
+        c.FinanceUserId = actorUserId;   // shared role queue: record who actually signed
         c.FinanceApproved = approve;
         c.FinanceComment = comment;
         c.FinanceDecisionAt = clock.UtcNow;
@@ -230,6 +231,7 @@ public sealed class PURCHASE_REQUEST_V1_PurchaseRequestService(
         {
             c.Status = PURCHASE_REQUEST_V1_CaseStatus.ResubmitRequired;
             c.CurrentAssigneeUserId = c.SubmitterUserId;
+            c.CurrentAssigneeRoleCode = null;            // leaving the role step
             await store.SaveChangesAsync(ct);
             log.LogInformation("PURCHASE_REQUEST/{CaseId}: finance rejected (round {Round})", c.Id, c.RoundCount);
             await NotifyAssignAsync(c, c.SubmitterUserId, ct);
@@ -238,6 +240,7 @@ public sealed class PURCHASE_REQUEST_V1_PurchaseRequestService(
 
         c.Status = PURCHASE_REQUEST_V1_CaseStatus.Completed;
         c.CurrentAssigneeUserId = null;
+        c.CurrentAssigneeRoleCode = null;                // leaving the role step
         c.CompletedAt = clock.UtcNow;
         await store.SaveChangesAsync(ct);
         return c;
@@ -321,6 +324,33 @@ public sealed class PURCHASE_REQUEST_V1_PurchaseRequestService(
             Body:       rendered.Body,
             Channels:   new[] { "email", "in_app" },
             Recipients: new[] { new NotifyRecipient(recipientUserId, recipient?.Email, recipient?.DisplayName) },
+            Context:    NotificationContext(c)
+        ), ct);
+    }
+
+    /// Shared-role-queue: notify every current holder of the role the case is
+    /// now pending on (in_app), so any of them can pick it up.
+    private async Task NotifyRoleAsync(PURCHASE_REQUEST_V1_Case c, IReadOnlyList<Guid> memberUserIds, CancellationToken ct)
+    {
+        if (memberUserIds.Count == 0) return;
+        var ids = memberUserIds.Append(c.SubmitterUserId).Distinct().ToArray();
+        var lookups = await directory.GetManyAsync(ids, ct);
+        var applicantName = lookups.GetValueOrDefault(c.SubmitterUserId)?.DisplayName ?? ShortIdLabel(c.SubmitterUserId);
+        var rendered = PURCHASE_REQUEST_V1_NotificationTemplates.RenderAssign(
+            applicantName: applicantName,
+            summary: BuildSummary(c),
+            caseUrl: $"/cases/purchase-request/{c.Id}");
+        var recipients = memberUserIds.Select(uid =>
+        {
+            var r = lookups.GetValueOrDefault(uid);
+            return new NotifyRecipient(uid, r?.Email, r?.DisplayName);
+        }).ToArray();
+        await notify.DispatchAsync(new NotifyMessage(
+            SourceId:   "PURCHASE_REQUEST_V1.notify_crme",
+            Subject:    rendered.Subject,
+            Body:       rendered.Body,
+            Channels:   new[] { "in_app" },
+            Recipients: recipients,
             Context:    NotificationContext(c)
         ), ct);
     }

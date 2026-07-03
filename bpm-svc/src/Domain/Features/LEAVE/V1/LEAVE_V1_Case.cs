@@ -25,6 +25,7 @@ public class LEAVE_V1_Case
     // Workflow state
     public LEAVE_V1_CaseStatus Status { get; set; } = LEAVE_V1_CaseStatus.PendingManager;
     public Guid? CurrentAssigneeUserId { get; set; }
+    public string? CurrentAssigneeRoleCode { get; set; }   // shared-role-queue: non-null = pending on this role (any holder can act); UserId is null then
 
     // Per-stage approver columns — Approved=true/false captures the decision;
     // null = not yet acted; Comment + DecisionAt populated on action.

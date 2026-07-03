@@ -1,7 +1,7 @@
 # Process Doctor — Design (v1)
 
 **Date:** 2026-06-04
-**Status:** Approved scope (Jason, Telegram). Doctor sequenced before delegation.
+**Status:** Approved scope (開發者, Telegram). Doctor sequenced before delegation.
 **Owner:** lead (admin-ui + bpm-svc shared platform)
 
 ## Goal

@@ -373,6 +373,14 @@ entry is a button at the bottom of the user-facing screen **and** a
 state-machine transition you emit on the backend. Treat them as the
 single source of truth for "what can the user do at this node?".
 
+> **Parallel gateway (並簽 / concurrent multi-approver)?** If the spec has
+> a `gateway.kind === 'parallel'` step, do NOT hand-write a fork/join state
+> machine or per-approver columns. Consume the `IParallelApprovalService`
+> primitive and copy the reference cook **`CONTRACT_REVIEW` V1**. Full recipe:
+> **conventions.md → "Parallel gateway (並簽)"**. The case gets one
+> `PendingParallelReview`-style status; the concurrent decisions + join +
+> multi-node BPMN highlight all come from the primitive.
+
 **TaskAction shape** (verbatim from `bpm-admin-ui/src/lib/onboarding.ts`):
 
 ```ts

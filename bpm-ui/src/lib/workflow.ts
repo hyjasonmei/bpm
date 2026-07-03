@@ -35,7 +35,7 @@ export interface FormDef {
   initialActive: number
 }
 
-export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB' | 'RESIGN' | 'DEPTX' | 'PURCHASE_REQUEST' | 'VENDOR_EXPENSE' | 'FAP' | 'FAD' | 'EOB' | 'ETM' | 'WFH'
+export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB' | 'RESIGN' | 'DEPTX' | 'PURCHASE_REQUEST' | 'VENDOR_EXPENSE' | 'FAP' | 'FAD' | 'EOB' | 'ETM' | 'WFH' | 'CONTRACT_REVIEW' | 'COMMITTEE_REVIEW'
 
 const STEP = (id: string, en: string, zh: string): Step => ({ id, en, zh })
 
@@ -51,6 +51,30 @@ export const FORMS: Record<FormCode, FormDef> = {
       STEP('closed', 'CLOSED', '結案'),
     ],
     ownerByStep: ['employee', 'manager', 'hr', null],
+    initialActive: 0,
+  },
+  CONTRACT_REVIEW: {
+    code: 'CONTRACT_REVIEW',
+    label: 'Contract Review',
+    zhLabel: '合約審查',
+    steps: [
+      STEP('apply', 'APPLY', '送審'),
+      STEP('parallel_review', 'PARALLEL REVIEW', '法務+財務並簽'),
+      STEP('closed', 'CLOSED', '結案'),
+    ],
+    ownerByStep: ['employee', 'finance', null],
+    initialActive: 0,
+  },
+  COMMITTEE_REVIEW: {
+    code: 'COMMITTEE_REVIEW',
+    label: 'Committee Review',
+    zhLabel: '委員會審議',
+    steps: [
+      STEP('apply', 'APPLY', '送審'),
+      STEP('committee', 'COMMITTEE', '委員會門檻 2/3'),
+      STEP('closed', 'CLOSED', '結案'),
+    ],
+    ownerByStep: ['employee', 'finance', null],
     initialActive: 0,
   },
   GEE: {
@@ -307,6 +331,7 @@ export function ownerLabel(persona: PersonaCode | null): string {
     manager:  'Manager / 主管',
     finance:  'Finance / 財務',
     it:       'IT / 資訊',
+    procurement: 'Procurement / 採購',
     hr:       'HR / 人資',
     admin:    'Admin / 管理員',
   } as const)[persona]

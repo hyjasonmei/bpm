@@ -48,7 +48,7 @@ Custom function registration in Cel.NET is documented (`Decls.NewFunction` + scr
 
 Cel.NET is .NET only. The frontend still needs an independent JS evaluator implementing the same subset. Options:
 
-- **`cel-js`** (third-party JS CEL impl) — quick check needed: NPM presence, maintenance, feature coverage. NOT investigated in this spike (out of scope per Jason's "spike Cel.NET" framing).
+- **`cel-js`** (third-party JS CEL impl) — quick check needed: NPM presence, maintenance, feature coverage. NOT investigated in this spike (out of scope per 開發者's "spike Cel.NET" framing).
 - **Hand-rolled JS subset** — limited to bpm-cel-v1 surface only; ~1 week work using a parser combinator like `parsimmon`.
 
 The `bpm-cel-v1` subset spec already documents cross-runtime parity rules (UTF-8 string ordering, `decimal.js` for decimals, ECMAScript regex flavor, strict null/bool, throw-on-div-by-zero) — these need to be enforced regardless of which JS library we choose. The contract is the spec, not the implementation.

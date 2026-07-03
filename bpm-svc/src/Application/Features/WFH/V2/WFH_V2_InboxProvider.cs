@@ -24,6 +24,7 @@ public sealed class WFH_V2_InboxProvider(
             CaseId: c.Id, FlowCode: FlowCode, FlowVersion: FlowVersion,
             Title: $"居家辦公 · {c.Days} 天",
             Status: ZhStatus(c.Status),
+            Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
             SubmittedAt: c.SubmittedAt, LastActivityAt: c.LastActivityAt,
             DetailUrl: $"/cases/wfh/{c.Id}")).ToList();
     }
@@ -40,6 +41,7 @@ public sealed class WFH_V2_InboxProvider(
                 CaseId: c.Id, FlowCode: FlowCode, FlowVersion: FlowVersion,
                 Title: $"{who} 居家辦公 · {c.Days} 天",
                 Status: ZhStatus(c.Status),
+                Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
                 SubmittedAt: c.SubmittedAt, LastActivityAt: c.LastActivityAt,
                 DetailUrl: $"/cases/wfh/{c.Id}");
         }).ToList();

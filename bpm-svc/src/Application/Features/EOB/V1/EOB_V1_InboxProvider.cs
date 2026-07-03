@@ -20,6 +20,7 @@ public sealed class EOB_V1_InboxProvider(
             CaseId: c.Id, FlowCode: FlowCode, FlowVersion: FlowVersion,
             Title: $"新進員工登入 · {c.FirstName} {c.LastName}",
             Status: ZhStatus(c.Status),
+            Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
             SubmittedAt: c.SubmittedAt, LastActivityAt: c.LastActivityAt,
             DetailUrl: $"/cases/eob/{c.Id}")).ToList();
     }
@@ -37,6 +38,7 @@ public sealed class EOB_V1_InboxProvider(
                 CaseId: c.Id, FlowCode: FlowCode, FlowVersion: FlowVersion,
                 Title: $"{who} {verb} · {c.FirstName} {c.LastName}",
                 Status: ZhStatus(c.Status),
+                Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
                 SubmittedAt: c.SubmittedAt, LastActivityAt: c.LastActivityAt,
                 DetailUrl: $"/cases/eob/{c.Id}");
         }).ToList();

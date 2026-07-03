@@ -3,7 +3,7 @@
 Lets the admin user spot chef-cooked tables that have no matching
 `Admin_Flows` row (orphans), as well as archive linked features —
 freeing the `<CODE>_V<N>` namespace for a fresh cook of the same
-flow code/version. Triggered by Jason's TG thread today: LEAVE V1
+flow code/version. Triggered by 開發者's TG thread today: LEAVE V1
 testbed left chef tables in the DB with no admin row backing them.
 
 Decisions locked 2026-05-29 via TG:

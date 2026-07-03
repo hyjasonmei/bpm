@@ -1,6 +1,6 @@
 # flowcook BPM 專案
 
-Jason 正在開發一個商業 BPM 平台，兩人副業團隊（Jason 負責開發，夥伴負責業務導入）。夥伴從前公司帶回十幾個真實流程圖，涵蓋請假、採購、差旅、發公告等，作為 MVP 的需求基礎。
+開發者 正在開發一個商業 BPM 平台，兩人副業團隊（開發者 負責開發，夥伴負責業務導入）。夥伴從前公司帶回十幾個真實流程圖，涵蓋請假、採購、差旅、發公告等，作為 MVP 的需求基礎。
 
 ## 發行商
 
@@ -150,7 +150,7 @@ seed demo 帳號：`{alice,bob,carol,dave,erin,frank,grace,henry,iris,jack,kate,
 
 **DNS**：GoDaddy 管 `flowcook.ai`，**只有官網（bpm-www）掛 `flowcook.ai`**（apex / www → www SWA）。其餘 4 個 app（兩 API + bpm-ui + admin-ui）都用 Azure default hostname（`*.azurewebsites.net` / `*.azurestaticapps.net`）——`00-config.sh` 的 `USE_DEFAULT_HOSTNAMES=true`，02/03 會把 CORS + 前端 API URL 指到 default host，零 DNS 設定。
 
-**Anthropic key**：放 Key Vault（secret），**由 Jason 自己更新真 key**，Claude 不碰。KV 重建時 key 會自動保留。
+**Anthropic key**：放 Key Vault（secret），**由 開發者 自己更新真 key**，Claude 不碰。KV 重建時 key 會自動保留。
 
 **成本與停機**：running ~$31/mo，停機後 ~$3/mo（只剩 storage）。停 / 開用 `infra/azure/flowcook-stop.sh` / `flowcook-start.sh`（停兩個 API + Postgres；SWA 是 Free 不停，官網照常）。
 ⚠️ **Postgres 停機滿 7 天會被 Azure 強制自動重啟**（平台硬性規則，無法取消）。要長期省錢需「每 6 天自動停機」排程，否則最差 ~$16/mo。**目前 stack 為停機狀態。**

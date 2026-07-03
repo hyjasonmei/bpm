@@ -19,8 +19,16 @@ interface BpmnViewProps {
   /** Real spec node ids that have already completed (used for visited
    *  styling). Only consulted when `bpmnXml` is provided. */
   completedNodes?: string[]
-  /** Real spec node id currently in flight. */
+  /** Real spec node id currently in flight (sequential flows). */
   currentNode?: string | null
+  /** Multiple concurrently-active node ids (parallel gateway / 並簽). Takes
+   *  precedence over `currentNode` when provided; both light yellow. */
+  currentNodes?: string[]
+  /** Node ids rejected (red) — e.g. a rejected parallel branch. */
+  rejectedNodes?: string[]
+  /** Node ids skipped/moot (grey) — e.g. remaining branches after a
+   *  parallel gateway resolved. */
+  skippedNodes?: string[]
 }
 
 /**
@@ -38,7 +46,7 @@ interface BpmnViewProps {
  */
 export function BpmnView({
   open, steps, activeStep, ownerByStep, formLabel, onClose,
-  bpmnXml, completedNodes, currentNode,
+  bpmnXml, completedNodes, currentNode, currentNodes, rejectedNodes, skippedNodes,
 }: BpmnViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const viewerRef = useRef<{ destroy: () => void; importXML: (xml: string) => Promise<unknown>; get<T>(name: string): T } | null>(null)
@@ -74,7 +82,10 @@ export function BpmnView({
           const canvas = viewer.get<BpmnCanvas>('canvas')
           sizeAndFit(canvas, containerRef.current)
           for (const id of completedNodes ?? []) canvas.addMarker(id, 'bpm-completed')
-          if (currentNode) canvas.addMarker(currentNode, 'bpm-active')
+          const activeIds = currentNodes ?? (currentNode ? [currentNode] : [])
+          for (const id of activeIds) canvas.addMarker(id, 'bpm-active')
+          for (const id of rejectedNodes ?? []) canvas.addMarker(id, 'bpm-rejected')
+          for (const id of skippedNodes ?? []) canvas.addMarker(id, 'bpm-skipped')
         } else {
           await viewer.importXML(buildBpmnXml(steps, ownerByStep))
           const canvas = viewer.get<BpmnCanvas>('canvas')

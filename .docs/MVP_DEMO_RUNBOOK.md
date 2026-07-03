@@ -1,6 +1,6 @@
 # flowcook MVP demo runbook
 
-End-to-end runbook for the first chef demo (LEAVE flow). Jason-facing —
+End-to-end runbook for the first chef demo (LEAVE flow). 開發者-facing —
 this is the operational walk-through; the chef-side detail lives in
 `chef/skill/SKILL.md` + `chef/skill/workflow.md`.
 
@@ -11,7 +11,7 @@ source of truth and update this file.
 
 Three things, in one continuous loop:
 
-1. **admin** (AI Kitchen) — Jason walks an 11-step wizard, AI helps fill
+1. **admin** (AI Kitchen) — 開發者 walks an 11-step wizard, AI helps fill
    detail, output is a portable `.zip` bundle containing
    `spec.json` + form layout + sample org + test cases.
 2. **chef** (manual Claude session on a fresh branch in the normal

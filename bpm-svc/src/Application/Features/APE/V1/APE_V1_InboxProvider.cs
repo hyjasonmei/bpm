@@ -24,6 +24,7 @@ public sealed class APE_V1_InboxProvider(
             CaseId: c.Id, FlowCode: FlowCode, FlowVersion: FlowVersion,
             Title: $"預支現金 · {c.Currency} {c.Amount:N0}",
             Status: ZhStatus(c.Status),
+            Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
             SubmittedAt: c.SubmittedAt, LastActivityAt: c.LastActivityAt,
             DetailUrl: $"/cases/ape/{c.Id}")).ToList();
     }
@@ -40,6 +41,7 @@ public sealed class APE_V1_InboxProvider(
                 CaseId: c.Id, FlowCode: FlowCode, FlowVersion: FlowVersion,
                 Title: $"{who} 預支現金 · {c.Currency} {c.Amount:N0}",
                 Status: ZhStatus(c.Status),
+                Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
                 SubmittedAt: c.SubmittedAt, LastActivityAt: c.LastActivityAt,
                 DetailUrl: $"/cases/ape/{c.Id}");
         }).ToList();

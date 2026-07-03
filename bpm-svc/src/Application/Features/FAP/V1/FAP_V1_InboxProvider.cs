@@ -20,6 +20,7 @@ public sealed class FAP_V1_InboxProvider(
             CaseId: c.Id, FlowCode: FlowCode, FlowVersion: FlowVersion,
             Title: $"資產採購 · {c.PurchaseItems.Count} 項",
             Status: ZhStatus(c.Status),
+            Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
             SubmittedAt: c.SubmittedAt, LastActivityAt: c.LastActivityAt,
             DetailUrl: $"/cases/fap/{c.Id}")).ToList();
     }
@@ -37,6 +38,7 @@ public sealed class FAP_V1_InboxProvider(
                 CaseId: c.Id, FlowCode: FlowCode, FlowVersion: FlowVersion,
                 Title: $"{who} {verb} · {c.PurchaseItems.Count} 項",
                 Status: ZhStatus(c.Status),
+                Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
                 SubmittedAt: c.SubmittedAt, LastActivityAt: c.LastActivityAt,
                 DetailUrl: $"/cases/fap/{c.Id}");
         }).ToList();

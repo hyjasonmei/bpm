@@ -23,6 +23,7 @@ public sealed record TEO_V1_CaseResponse(
     int RoundCount,
     Guid? CurrentAssigneeUserId,
     string? CurrentAssigneeDisplayName,
+    string? CurrentAssigneeRoleCode,
     TEO_V1_DecisionDto? ManagerDecision,
     TEO_V1_DecisionDto? FinanceDecision,
     DateTime SubmittedAt,
@@ -53,6 +54,7 @@ internal static class TEO_V1_DtoMapping
             RoundCount: c.RoundCount,
             CurrentAssigneeUserId: c.CurrentAssigneeUserId,
             CurrentAssigneeDisplayName: c.CurrentAssigneeUserId is { } a ? names.GetValueOrDefault(a) : null,
+            CurrentAssigneeRoleCode: c.CurrentAssigneeRoleCode,
             ManagerDecision: c.ManagerUserId is null ? null : new TEO_V1_DecisionDto(
                 c.ManagerUserId, names.GetValueOrDefault(c.ManagerUserId.Value), c.ManagerApproved, c.ManagerComment, c.ManagerDecisionAt),
             FinanceDecision: c.FinanceUserId is null ? null : new TEO_V1_DecisionDto(

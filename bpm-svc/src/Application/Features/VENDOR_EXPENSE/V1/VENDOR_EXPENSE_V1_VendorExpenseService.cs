@@ -204,15 +204,16 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseService(
         if (!approve)
             return await BounceToResubmitAsync(c, "supervisor", comment, ct);
 
-        var procurementUser = await directory.FindFirstUserInRoleAsync(ProcurementRoleName, ct);
-        if (procurementUser is null)
+        var procurementMembers = await directory.GetUsersInRoleAsync(ProcurementRoleName, ct);
+        if (procurementMembers.Count == 0)
             throw new ConflictException(
-                $"no active user assigned to role:{ProcurementRoleName}; cannot route procurement approval");
-
-        c.ProcurementUserId = procurementUser;
-        c.CurrentAssigneeUserId = procurementUser;
+                $"no active user holds role:{ProcurementRoleName}; cannot route procurement approval");
+        c.ProcurementUserId = null;                          // shared role queue — no single designated procurement user
+        c.CurrentAssigneeUserId = null;
+        c.CurrentAssigneeRoleCode = ProcurementRoleName;     // pending on role:PROCUREMENT — any holder can act
         c.Status = VENDOR_EXPENSE_V1_CaseStatus.PendingProcurement;
         await store.SaveChangesAsync(ct);
+        await NotifyRoleAsync(c, procurementMembers, ct);
         return c;
     }
 
@@ -234,9 +235,10 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != VENDOR_EXPENSE_V1_CaseStatus.PendingProcurement)
             throw new ConflictException($"case is in status {c.Status}, expected PendingProcurement");
-        if (c.ProcurementUserId is not { } procurement || !await auth.CanActAsync(procurement, actorUserId, ct))
-            throw new ForbiddenException("only the assigned procurement approver (or their active delegate) may act on this case");
+        if (!await auth.CanActAsync(c.CurrentAssigneeUserId, c.CurrentAssigneeRoleCode, actorUserId, ct))
+            throw new ForbiddenException("only a holder of the procurement role (or the assigned user / delegate) may act on this case");
 
+        c.ProcurementUserId = actorUserId;   // shared role queue: record who actually signed
         c.ProcurementApproved = approve;
         c.ProcurementComment = comment;
         c.ProcurementDecisionAt = clock.UtcNow;
@@ -246,7 +248,8 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseService(
             return await BounceToResubmitAsync(c, "procurement", comment, ct);
 
         // 簽核 stage resolves to the submitter's department head again
-        // (same ActorRef as the supervisor stage).
+        // (same ActorRef as the supervisor stage) — a specific user, so we
+        // leave the shared role queue and re-assign to that user.
         var signer = await ResolveDeptHeadAsync(c.SubmitterUserId, ct);
         if (signer is null)
             throw new ConflictException(
@@ -254,6 +257,7 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseService(
 
         c.SignUserId = signer;
         c.CurrentAssigneeUserId = signer;
+        c.CurrentAssigneeRoleCode = null;    // leaving the role step → user-assigned sign
         c.Status = VENDOR_EXPENSE_V1_CaseStatus.PendingSign;
         await store.SaveChangesAsync(ct);
         return c;
@@ -311,6 +315,7 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseService(
     {
         c.Status = VENDOR_EXPENSE_V1_CaseStatus.ResubmitRequired;
         c.CurrentAssigneeUserId = c.SubmitterUserId;
+        c.CurrentAssigneeRoleCode = null;            // leaving any role step
         await store.SaveChangesAsync(ct);
         log.LogInformation("VENDOR_EXPENSE/{CaseId}: {Stage} rejected (round {Round})", c.Id, stage, c.RoundCount);
         await NotifyRejectedAsync(c, comment, ct);
@@ -384,6 +389,33 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseService(
             Body:       rendered.Body,
             Channels:   new[] { "email", "in_app" },
             Recipients: new[] { new NotifyRecipient(c.SubmitterUserId, submitter?.Email, submitter?.DisplayName) },
+            Context:    NotificationContext(c)
+        ), ct);
+    }
+
+    /// Shared-role-queue: notify every current holder of the role the case is
+    /// now pending on (in_app), so any of them can pick it up.
+    private async Task NotifyRoleAsync(VENDOR_EXPENSE_V1_Case c, IReadOnlyList<Guid> memberUserIds, CancellationToken ct)
+    {
+        if (memberUserIds.Count == 0) return;
+        var ids = memberUserIds.Append(c.SubmitterUserId).Distinct().ToArray();
+        var lookups = await directory.GetManyAsync(ids, ct);
+        var applicantName = lookups.GetValueOrDefault(c.SubmitterUserId)?.DisplayName ?? c.SubmitterUserId.ToString("N")[..8];
+        var rendered = VENDOR_EXPENSE_V1_NotificationTemplates.RenderRoleAssign(
+            applicantName: applicantName,
+            summary: BuildSummary(c),
+            caseUrl: CaseUrl(c));
+        var recipients = memberUserIds.Select(uid =>
+        {
+            var r = lookups.GetValueOrDefault(uid);
+            return new NotifyRecipient(uid, r?.Email, r?.DisplayName);
+        }).ToArray();
+        await notify.DispatchAsync(new NotifyMessage(
+            SourceId:   "VENDOR_EXPENSE_V1.notify_role_assign",
+            Subject:    rendered.Subject,
+            Body:       rendered.Body,
+            Channels:   new[] { "in_app" },
+            Recipients: recipients,
             Context:    NotificationContext(c)
         ), ct);
     }

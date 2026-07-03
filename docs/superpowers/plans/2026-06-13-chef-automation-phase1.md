@@ -24,7 +24,7 @@
 | MCP 工具：chef_get_flow / chef_get_messages / chef_post_message / chef_transition / chef_download_bundle / chef_set_worktree。**沒有列表工具** | `ChefMcpTools.cs` |
 | Publish 是 admin JWT 權限（`PublishAsync`：Approved→Published）；chef transition 不含 Publish | `FlowLifecycleService.cs` ~L405 |
 | `ITypedInboxProvider` assembly scan 目前只掃 Persistence assembly | `bpm-svc/src/Persistence/DependencyInjection.cs` L191-203 |
-| git remote 只有 ssh（`git@github.com:hyjasonmei/bpm.git`）；這台 Claude Bash 不能 ssh push；gh CLI **未安裝** | 實測 |
+| git remote 只有 ssh（`git@github.com:acme/bpm.git`）；這台 Claude Bash 不能 ssh push；gh CLI **未安裝** | 實測 |
 | `.gitattributes` 已加（鎖 LF）— item 0 已完成 | repo root |
 | named Mutex 在 macOS/Linux 會丟 PlatformNotSupportedException → 跨平台鎖必須用 exclusive file lock | .NET 行為 |
 | launchd `StartInterval` 不會喚醒睡眠中的 Mac → 防睡眠是 ops 設定 | macOS 行為 |
@@ -35,8 +35,8 @@
 - 環境不可達：skip + 連續失敗計數，連續失敗 ≥ 3 次才 TG 通知一次，之後 60 分鐘冷卻（azure 常態停機，不能每 5 分鐘吵）。
 - stalled 自動重撈最多 1 次（agent 端記次數），第二次改 TG 叫人。
 - chef session 上限：`--max-turns` + wall-clock timeout，超時殺進程 → 留 stalled 給下一輪政策處理。
-- PR 制：chef 永不直接 merge main。merge 由 Jason 在 GitHub / GitKraken 做。
-- Commit 規範：本 repo push 由 Jason 用 GitKraken 處理，計畫內所有「Commit」步驟只 commit 不 push。
+- PR 制：chef 永不直接 merge main。merge 由 開發者 在 GitHub / GitKraken 做。
+- Commit 規範：本 repo push 由 開發者 用 GitKraken 處理，計畫內所有「Commit」步驟只 commit 不 push。
 
 ---
 
@@ -179,12 +179,12 @@ cd bpm-svc && dotnet build && dotnet test
 git add -A && git commit -m "test(leave): LEAVE V1 aligned to Clean Arch layers on leave-test-6"
 ```
 
-### Task A4: LEAVE V1 cherry-pick 進 main（🚪 GATE — 要 Jason 點頭才做）
+### Task A4: LEAVE V1 cherry-pick 進 main（🚪 GATE — 要 開發者 點頭才做）
 
 - [ ] Step 1: 在 leave-test-6 上把要進 main 的 commit 整理成乾淨的一串（必要時 squash）
 - [ ] Step 2: `git checkout main && git cherry-pick <range>`
 - [ ] Step 3: `dotnet test`（bpm-svc + bpm-admin-svc）+ `npx tsc -p tsconfig.app.json --noEmit`（兩個 UI）全綠
-- [ ] Step 4: commit 訊息標明「first chef-cooked flow lands main」；**push 由 Jason 用 GitKraken**
+- [ ] Step 4: commit 訊息標明「first chef-cooked flow lands main」；**push 由 開發者 用 GitKraken**
 
 ---
 
@@ -204,7 +204,7 @@ git add -A && git commit -m "test(leave): LEAVE V1 aligned to Clean Arch layers 
 ```csharp
 /// <summary>
 /// PR opened by the chef agent for this flow's cook branch (e.g.
-/// "https://github.com/hyjasonmei/bpm/pull/12"). Null until the agent
+/// "https://github.com/acme/bpm/pull/12"). Null until the agent
 /// opens one; environments without a remote never set it.
 /// </summary>
 public string? PrUrl { get; set; }
@@ -846,21 +846,21 @@ git add chef/agent/ && git commit -m "feat(chef-agent): pr/merge detection, tele
 git add chef/agent/ && git commit -m "feat(chef-agent): launchd schedule + cross-platform install docs"
 ```
 
-### Task C6: 前置工具安裝（人工，Jason 或 Claude 終端互動）
+### Task C6: 前置工具安裝（人工，開發者 或 Claude 終端互動）
 
 - [ ] `brew install gh` → `gh auth login`（建議 HTTPS + token，這台 ssh 對 GitHub 不通）
 - [ ] 確認 `gh pr create` 在 bpm repo 可用（dry-run：`gh pr list`）
-- [ ] `chef-agent.json` 從 example 複製填真值（TG bot token 沿用 telegram plugin 那顆或另開 bot — Jason 決定）
+- [ ] `chef-agent.json` 從 example 複製填真值（TG bot token 沿用 telegram plugin 那顆或另開 bot — 開發者 決定）
 
 ---
 
 ## Sub-project D — 首隻 flow 監督跑（GATE：A + B + C 全完成後）
 
-- [ ] D1: local 環境、azure `enabled:false`。Jason 在 admin-ui submit 一隻簡單流程（建議 WFH 或重 cook LEAVE 類）
+- [ ] D1: local 環境、azure `enabled:false`。開發者 在 admin-ui submit 一隻簡單流程（建議 WFH 或重 cook LEAVE 類）
 - [ ] D2: 手動觸發一輪 agent（不等排程）：`dotnet run --project chef/agent/Bpm.ChefAgent -- chef-agent.json`，全程看 log
 - [ ] D3: 驗證鏈：claim→Cooking ✓ / worktree + branch 建立 ✓ / heartbeat 跳動（admin-ui 無 stalled）✓ / Committed + Completion 訊息 ✓ / TG 通知齊 ✓
 - [ ] D4: admin-ui Approve → 下一輪 agent 開 PR ✓ → Publish 按鈕 disabled ✓
-- [ ] D5: Jason merge PR（GitKraken）→ 下一輪偵測 merged ✓ → Publish enable → Publish ✓ → bpm-ui launcher 看得到 ✓
+- [ ] D5: 開發者 merge PR（GitKraken）→ 下一輪偵測 merged ✓ → Publish enable → Publish ✓ → bpm-ui launcher 看得到 ✓
 - [ ] D6: 全程 OK → `launchctl load` 啟用排程；觀察兩天再開 azure（`enabled:true` + KV token）
 
 ---

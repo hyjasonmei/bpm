@@ -107,6 +107,8 @@ public static class DependencyInjection
         services.AddScoped<PURCHASE_REQUEST_V1_PurchaseRequestService>();
         services.AddScoped<TRQ_V1_TravelRequestService>();
         services.AddScoped<APE_V1_AdvancePaymentService>();
+        services.AddScoped<Features.CONTRACT_REVIEW.V1.CONTRACT_REVIEW_V1_Service>();
+        services.AddScoped<Features.COMMITTEE_REVIEW.V1.COMMITTEE_REVIEW_V1_Service>();
         services.AddScoped<TEO_V1_TravelExpenseService>();
         services.AddScoped<FAP_V1_PurchaseService>();
         services.AddScoped<FAD_V1_DisposalService>();

@@ -13,6 +13,8 @@ public class SharedDelegation
     public DateTime StartAt { get; set; }
     public DateTime EndAt { get; set; }
     public bool Active { get; set; } = true;
+    public int Status { get; set; }                 // 0=Pending 1=Accepted 2=Declined (Bpm.Application.Delegation.DelegationStatus)
+    public DateTime? RespondedAt { get; set; }
     public string? Reason { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

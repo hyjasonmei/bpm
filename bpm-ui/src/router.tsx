@@ -6,6 +6,7 @@ import { Attendance } from '@/screens/Attendance'
 import { CreateIndex } from '@/screens/CreateIndex'
 import { Home } from '@/screens/Home'
 import { Search } from '@/screens/Search'
+import DatasetDemo from '@/screens/DatasetDemo'
 import { NotCookedYet } from '@/screens/forms/NotCookedYet'
 import { lookupForm } from '@/features/registry'
 import type { FormCode } from '@/lib/workflow'
@@ -36,6 +37,8 @@ export const router = createBrowserRouter([
       { path: 'cases/:flowCode/:version/:caseId', element: <FeatureCaseDetailRoute /> },
       { path: 'cases/:flowCode/:caseId', element: <FeatureCaseDetailRoute /> },
       { path: 'apply/:code', element: <FormRoute /> },
+      // dev-only: custom-dataset cascading demo (stripped from prod builds)
+      ...(import.meta.env.DEV ? [{ path: 'dataset-demo', element: <DatasetDemo /> }] : []),
       // 404 → home
       { path: '*', element: <Navigate to="/" replace /> },
     ],

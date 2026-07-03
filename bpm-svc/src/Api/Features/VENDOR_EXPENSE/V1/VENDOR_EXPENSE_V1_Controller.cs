@@ -113,7 +113,8 @@ public sealed class VENDOR_EXPENSE_V1_Controller(
     public async Task<IReadOnlyList<VENDOR_EXPENSE_V1_CaseRowResponse>> Pending(CancellationToken ct)
     {
         var userId = RequireUserId();
-        var cases = await store.FindPendingAsync(userId, ct);
+        var myRoles = await directory.GetRoleCodesForUserAsync(userId, ct);
+        var cases = await store.FindPendingAsync(userId, myRoles, ct);
         return await BuildRowsAsync(cases, ct);
     }
 

@@ -44,6 +44,7 @@ public sealed record VENDOR_EXPENSE_V1_CaseResponse(
     int RoundCount,
     Guid? CurrentAssigneeUserId,
     string? CurrentAssigneeDisplayName,
+    string? CurrentAssigneeRoleCode,
     VENDOR_EXPENSE_V1_DecisionDto? SupervisorDecision,
     VENDOR_EXPENSE_V1_DecisionDto? ProcurementDecision,
     VENDOR_EXPENSE_V1_DecisionDto? SignDecision,
@@ -102,6 +103,7 @@ internal static class VENDOR_EXPENSE_V1_DtoMapping
             CurrentAssigneeUserId: c.CurrentAssigneeUserId,
             CurrentAssigneeDisplayName: c.CurrentAssigneeUserId is { } a
                 ? displayNames.GetValueOrDefault(a) : null,
+            CurrentAssigneeRoleCode: c.CurrentAssigneeRoleCode,
             SupervisorDecision: Decision(c.SupervisorUserId, c.SupervisorApproved, c.SupervisorComment, c.SupervisorDecisionAt, displayNames),
             ProcurementDecision: Decision(c.ProcurementUserId, c.ProcurementApproved, c.ProcurementComment, c.ProcurementDecisionAt, displayNames),
             SignDecision: Decision(c.SignUserId, c.SignApproved, c.SignComment, c.SignDecisionAt, displayNames),

@@ -1,7 +1,7 @@
 # Deploy model: split approve/publish + remove multi-environment
 
 **Date:** 2026-06-04
-**Status:** Approved (Jason, Telegram) — "拆兩段 go" + remove Environment.
+**Status:** Approved (開發者, Telegram) — "拆兩段 go" + remove Environment.
 **Owner:** lead (admin-svc + bpm-svc + both UIs)
 
 ## Why
@@ -13,7 +13,7 @@ and (per their own code comments) pure bookkeeping the runtime never reads. The
 real per-env live state already lives in each env's own `Admin_Flows`.
 
 Separately, the flow lifecycle conflates "reviewed" and "live": the launcher
-gates on `State == Approved`, so approving = publishing in one step. Jason wants
+gates on `State == Approved`, so approving = publishing in one step. 開發者 wants
 the two split (approve = reviewed; publish = live in this env).
 
 ## Two changes (one cohesive PR)

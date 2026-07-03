@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { AlertCircle, CheckCircle2, Code2, Star } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Field, Select } from '@/components/ui/form'
@@ -148,13 +148,22 @@ function GatewayEditor({
       </div>
 
       <div className="space-y-3 p-3">
-        <Field label="Decision type" hint="exclusive 最常用；parallel = 同時全走；inclusive = 條件吻合的都走 (罕見)">
+        <Field label="Decision type" hint="exclusive 最常用；parallel = 同時全走 / 並簽；inclusive = 條件吻合的都走 (罕見)">
           <Select value={decision.type} onChange={e => onChange({ ...decision, type: e.target.value as Decision['type'] })}>
             <option value="exclusive">exclusive — 擇一走（最常用）</option>
-            <option value="parallel">parallel — 同時全走（並聯通知）</option>
+            <option value="parallel">parallel — 同時全走 / 並簽（多人同時簽核）</option>
             <option value="inclusive">inclusive — 條件吻合的都走（罕見）</option>
           </Select>
         </Field>
+
+        {decision.type === 'parallel' && (
+          <ParallelJoinConfig
+            branchCount={outgoing.length}
+            threshold={decision.joinThreshold}
+            branchLabels={outgoing.map(e => nodes.find(n => n.id === e.target)?.label ?? e.target)}
+            onChange={t => onChange({ ...decision, joinThreshold: t })}
+          />
+        )}
 
         <div>
           <p className="mb-2 text-xs font-semibold text-ink">Branches</p>
@@ -197,6 +206,55 @@ function GatewayEditor({
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function ParallelJoinConfig({ branchCount, threshold, branchLabels, onChange }: {
+  branchCount: number
+  threshold?: number
+  branchLabels: string[]
+  onChange: (t: number | undefined) => void
+}) {
+  const mode = threshold == null ? 'all' : threshold <= 1 ? 'any' : 'threshold'
+  const clamp = (n: number) => Math.max(1, Math.min(branchCount, n))
+  const Btn = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
+        active ? 'border-primary bg-primary/10 text-ink' : 'border-rule bg-white text-ink-muted hover:border-primary/40',
+      )}
+    >
+      {children}
+    </button>
+  )
+  return (
+    <div className="space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3">
+      <p className="text-xs font-semibold text-ink">並簽 join 條件 — 幾個分支核准才通過</p>
+      <div className="flex flex-wrap gap-2">
+        <Btn active={mode === 'all'} onClick={() => onChange(undefined)}>全部核准（{branchCount}/{branchCount}）</Btn>
+        <Btn active={mode === 'any'} onClick={() => onChange(1)}>任一核准（1/{branchCount}）</Btn>
+        <Btn active={mode === 'threshold'} onClick={() => onChange(clamp(2))}>門檻 M/{branchCount}</Btn>
+      </div>
+      {mode === 'threshold' && (
+        <label className="flex items-center gap-1 text-xs text-ink">
+          需
+          <input
+            type="number"
+            min={1}
+            max={branchCount}
+            value={threshold ?? 2}
+            onChange={e => onChange(clamp(Number(e.target.value) || 1))}
+            className="w-14 rounded border border-rule px-2 py-1 text-sm"
+          />
+          / {branchCount} 個分支核准
+        </label>
+      )}
+      <p className="text-[11px] text-ink-muted">
+        並行分支：{branchLabels.join('、')}。任一分支退件 → 整關立刻退件。
+      </p>
     </div>
   )
 }

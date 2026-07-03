@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using Bpm.Admin.Domain.Audit;
 using Bpm.Admin.Domain.Auth;
+using Bpm.Admin.Domain.Datasets;
 using Bpm.Admin.Domain.Delegations;
 using Bpm.Admin.Domain.Flows;
 using Bpm.Admin.Domain.Principals;
@@ -31,6 +32,8 @@ public class AdminDbContext : DbContext
     public DbSet<Flow> Flows => Set<Flow>();
     public DbSet<FlowChatMessage> FlowChatMessages => Set<FlowChatMessage>();
     public DbSet<FlowGroup> FlowGroups => Set<FlowGroup>();
+    public DbSet<Dataset> Datasets => Set<Dataset>();
+    public DbSet<DatasetRow> DatasetRows => Set<DatasetRow>();
     public DbSet<FeatureRegistration> FeatureRegistrations => Set<FeatureRegistration>();
     public DbSet<DeployEnvConfig> DeployEnvConfigs => Set<DeployEnvConfig>();
 

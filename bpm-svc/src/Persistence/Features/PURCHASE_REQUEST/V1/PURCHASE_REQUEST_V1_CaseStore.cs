@@ -26,13 +26,17 @@ public sealed class PURCHASE_REQUEST_V1_CaseStore(AppDbContext db) : IPURCHASE_R
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<PURCHASE_REQUEST_V1_Case>> FindPendingAsync(
-        Guid assigneeUserId, CancellationToken ct = default)
-        => await db.Set<PURCHASE_REQUEST_V1_Case>().AsNoTracking()
-            .Where(c => c.CurrentAssigneeUserId == assigneeUserId
+        Guid assigneeUserId, IReadOnlySet<string> myRoleCodes, CancellationToken ct = default)
+    {
+        var roles = myRoleCodes.ToArray();
+        return await db.Set<PURCHASE_REQUEST_V1_Case>().AsNoTracking()
+            .Where(c => (c.CurrentAssigneeUserId == assigneeUserId
+                         || (c.CurrentAssigneeRoleCode != null && roles.Contains(c.CurrentAssigneeRoleCode)))
                         && c.Status != PURCHASE_REQUEST_V1_CaseStatus.Completed
                         && c.Status != PURCHASE_REQUEST_V1_CaseStatus.Cancelled)
             .OrderByDescending(c => c.LastActivityAt)
             .ToListAsync(ct);
+    }
 
     public Task SaveChangesAsync(CancellationToken ct = default)
         => db.SaveChangesAsync(ct);

@@ -140,8 +140,9 @@ public sealed class LEAVE_V1_LeaveServiceTests : IDisposable
         var after = await svc.ManagerDecisionAsync(c.Id, Alice, approve: true, comment: "ok", default);
 
         Assert.Equal(LEAVE_V1_CaseStatus.PendingHr, after.Status);
-        Assert.Equal(Henry, after.HrUserId);
-        Assert.Equal(Henry, after.CurrentAssigneeUserId);
+        Assert.Null(after.HrUserId);                           // shared role queue — no single designated user
+        Assert.Null(after.CurrentAssigneeUserId);
+        Assert.Equal("HR_MANAGER", after.CurrentAssigneeRoleCode);
         Assert.True(after.ManagerApproved);
     }
 
@@ -204,7 +205,8 @@ public sealed class LEAVE_V1_LeaveServiceTests : IDisposable
         var after = await svc.VpDecisionAsync(c.Id, Vera, approve: true, comment: "fine", default);
 
         Assert.Equal(LEAVE_V1_CaseStatus.PendingHr, after.Status);
-        Assert.Equal(Henry, after.CurrentAssigneeUserId);
+        Assert.Null(after.CurrentAssigneeUserId);              // HR is a shared role queue
+        Assert.Equal("HR_MANAGER", after.CurrentAssigneeRoleCode);
     }
 
     [Fact]
@@ -398,7 +400,13 @@ public sealed class LEAVE_V1_LeaveServiceTests : IDisposable
     // ------------------------------------------------------------
 
     private static LEAVE_V1_LeaveService NewService(AppDbContext db, INotifyDispatcher? notify = null)
-        => new(new LEAVE_V1_CaseStore(db), new OrgChartReader(db), new StubClock(), NullLogger<LEAVE_V1_LeaveService>.Instance, notify ?? new NullNotifyDispatcher(), new TestActorAuthorizer(), new Bpm.Persistence.Common.Directory.PrincipalDirectory(db));
+        => new(new LEAVE_V1_CaseStore(db), new OrgChartReader(db), new StubClock(), NullLogger<LEAVE_V1_LeaveService>.Instance, notify ?? new NullNotifyDispatcher(),
+               new TestActorAuthorizer(new Dictionary<Guid, IReadOnlySet<string>>
+               {
+                   [Henry] = new HashSet<string> { "HR_MANAGER" },
+                   [Vera]  = new HashSet<string> { "VP" },
+               }),
+               new Bpm.Persistence.Common.Directory.PrincipalDirectory(db));
 
     /// <summary>No-op dispatcher for unit tests that don't care about notify output.</summary>
     private sealed class NullNotifyDispatcher : INotifyDispatcher

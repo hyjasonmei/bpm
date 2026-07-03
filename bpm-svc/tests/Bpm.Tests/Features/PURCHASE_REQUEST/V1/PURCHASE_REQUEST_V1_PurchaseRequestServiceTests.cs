@@ -158,8 +158,9 @@ public sealed class PURCHASE_REQUEST_V1_PurchaseRequestServiceTests : IDisposabl
         var after = await svc.ApproveByDeptHeadAsync(c.Id, Mike, "ok", default);
 
         Assert.Equal(PURCHASE_REQUEST_V1_CaseStatus.PendingFinance, after.Status);
-        Assert.Equal(Frank, after.FinanceUserId);
-        Assert.Equal(Frank, after.CurrentAssigneeUserId);
+        Assert.Null(after.FinanceUserId);                      // shared role queue — no single designated user
+        Assert.Null(after.CurrentAssigneeUserId);
+        Assert.Equal("FINANCE", after.CurrentAssigneeRoleCode);
         Assert.True(after.DeptHeadApproved);
     }
 
@@ -378,7 +379,11 @@ public sealed class PURCHASE_REQUEST_V1_PurchaseRequestServiceTests : IDisposabl
         return new PURCHASE_REQUEST_V1_PurchaseRequestService(
             store, org, directory, new StubClock(),
             NullLogger<PURCHASE_REQUEST_V1_PurchaseRequestService>.Instance,
-            notify ?? new NullNotifyDispatcher(), new TestActorAuthorizer());
+            notify ?? new NullNotifyDispatcher(),
+            new TestActorAuthorizer(new Dictionary<Guid, IReadOnlySet<string>>
+            {
+                [Frank] = new HashSet<string> { "FINANCE" },
+            }));
     }
 
     private static PURCHASE_REQUEST_V1_Invoice OneInvoice()

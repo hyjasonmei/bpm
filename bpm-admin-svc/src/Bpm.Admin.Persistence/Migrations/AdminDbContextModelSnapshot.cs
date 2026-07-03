@@ -131,6 +131,86 @@ namespace Bpm.Admin.Persistence.Migrations
                     b.ToTable("Admin_UserSessions", (string)null);
                 });
 
+            modelBuilder.Entity("Bpm.Admin.Domain.Datasets.Dataset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ColumnsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("Admin_Datasets", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Admin.Domain.Datasets.DatasetRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CellsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DatasetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DatasetId");
+
+                    b.HasIndex("DatasetId", "SortOrder");
+
+                    b.ToTable("Admin_DatasetRows", (string)null);
+                });
+
             modelBuilder.Entity("Bpm.Admin.Domain.Delegations.Delegation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -156,8 +236,14 @@ namespace Bpm.Admin.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("StartAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -167,6 +253,8 @@ namespace Bpm.Admin.Persistence.Migrations
                     b.HasIndex("DelegateToUserId");
 
                     b.HasIndex("DelegatorPrincipalId");
+
+                    b.HasIndex("DelegateToUserId", "Active", "Status");
 
                     b.HasIndex("DelegatorPrincipalId", "Active", "StartAt", "EndAt");
 

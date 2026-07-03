@@ -7,6 +7,17 @@ export interface MyDelegation {
   startAt: string
   endAt: string
   activeNow: boolean
+  status: 'Pending' | 'Accepted' | 'Declined'
+}
+
+/** A delegation designated TO me that I must accept or decline. */
+export interface PendingDelegation {
+  id: string
+  delegatorUserId: string
+  delegatorName: string | null
+  startAt: string
+  endAt: string
+  reason: string | null
 }
 
 export interface DelegationUser {
@@ -41,6 +52,20 @@ export async function setMyDelegation(delegateUserId: string, startAt: string, e
 export async function clearMyDelegation(): Promise<void> {
   const res = await apiFetch('/api/delegation/mine', { method: 'DELETE' })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
+}
+
+/** Delegations awaiting MY accept/decline (someone designated me). */
+export const getPendingDelegationsForMe = () =>
+  apiFetch('/api/delegation/pending-mine').then(r => jsonOrThrow<PendingDelegation[]>(r))
+
+export async function acceptDelegation(id: string): Promise<void> {
+  const res = await apiFetch(`/api/delegation/${id}/accept`, { method: 'POST' })
+  if (!res.ok) throw new Error((await res.text().catch(() => '')) || `HTTP ${res.status}`)
+}
+
+export async function declineDelegation(id: string): Promise<void> {
+  const res = await apiFetch(`/api/delegation/${id}/decline`, { method: 'POST' })
+  if (!res.ok) throw new Error((await res.text().catch(() => '')) || `HTTP ${res.status}`)
 }
 
 export const getActingFor = () => apiFetch('/api/delegation/acting-for').then(r => jsonOrThrow<string[]>(r))

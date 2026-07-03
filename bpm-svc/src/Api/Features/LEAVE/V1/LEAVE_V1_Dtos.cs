@@ -28,6 +28,7 @@ public sealed record LEAVE_V1_CaseResponse(
     string Status,
     Guid? CurrentAssigneeUserId,
     string? CurrentAssigneeDisplayName,
+    string? CurrentAssigneeRoleCode,
     LEAVE_V1_DecisionDto? ManagerDecision,
     LEAVE_V1_DecisionDto? VpDecision,
     LEAVE_V1_DecisionDto? HrArchive,
@@ -75,6 +76,7 @@ internal static class LEAVE_V1_DtoMapping
             Status: c.Status.ToString(),
             CurrentAssigneeUserId: c.CurrentAssigneeUserId,
             CurrentAssigneeDisplayName: c.CurrentAssigneeUserId is { } a ? displayNames.GetValueOrDefault(a) : null,
+            CurrentAssigneeRoleCode: c.CurrentAssigneeRoleCode,
             ManagerDecision: c.ManagerUserId is null ? null : new LEAVE_V1_DecisionDto(
                 UserId: c.ManagerUserId,
                 DisplayName: displayNames.GetValueOrDefault(c.ManagerUserId.Value),

@@ -1,8 +1,11 @@
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.OData;
 using Bpm.Admin.Api.Auth;
 using Bpm.Admin.Api.Common;
+using Bpm.Admin.Api.Odata;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Bpm.Admin.Application.Audit;
@@ -21,7 +24,15 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+// OData integration surface lives under /odata (curated org read/write models,
+// Basic-auth). Query options are enabled so an integrating system can $filter /
+// $select / $expand / page — SetMaxTop caps unbounded pulls. A batch handler
+// enables POST /odata/$batch so a customer can push many upserts in one request
+// (optionally wrapped in a transactional changeset).
+builder.Services.AddControllers()
+    .AddOData(opt => opt
+        .AddRouteComponents("odata", OrgEdmModel.Build(), new Microsoft.AspNetCore.OData.Batch.DefaultODataBatchHandler())
+        .Select().Filter().OrderBy().Count().Expand().SetMaxTop(1000));
 builder.Services.AddOpenApi();
 
 // ── Unify-JWT auth ──────────────────────────────────────────────────────────
@@ -59,7 +70,12 @@ builder.Services
             ClockSkew = TimeSpan.FromMinutes(1),
             RoleClaimType = "roles",
         };
-    });
+    })
+    // Dedicated Basic-auth scheme for the /odata integration surface. Only the
+    // OData controllers opt into it ([Authorize(AuthenticationSchemes=OdataBasic)]);
+    // it never affects the JWT-bearer admin API. Credential comes from config
+    // (OData:User / OData:Password → env OData__User / OData__Password).
+    .AddScheme<AuthenticationSchemeOptions, OdataBasicAuthHandler>(OdataBasicAuthHandler.SchemeName, null);
 // "SystemAdmin" policy gates destructive admin endpoints (e.g. the demo Reset).
 // We match the SYSTEM_ADMIN grant by ASSERTION over the raw claim values rather
 // than [Authorize(Roles=...)] / RequireClaim("roles", …): both of those returned
@@ -104,6 +120,18 @@ if (builder.Environment.IsDevelopment() && string.IsNullOrEmpty(builder.Configur
     builder.Configuration["Bpm:Chef:Token"] = "dev-chef-token";
 }
 
+// OData integration credential: dev fallback so a local session can curl /odata
+// with `-u odata:dev-odata-secret` without exporting env vars. Production MUST
+// set OData__User / OData__Password explicitly — the handler refuses all requests
+// when unset, so prod stays closed unless the operator provisions a credential.
+if (builder.Environment.IsDevelopment())
+{
+    if (string.IsNullOrEmpty(builder.Configuration["OData:User"]))
+        builder.Configuration["OData:User"] = "odata";
+    if (string.IsNullOrEmpty(builder.Configuration["OData:Password"]))
+        builder.Configuration["OData:Password"] = "dev-odata-secret";
+}
+
 // PR-K2: in-process MCP server. Tools are auto-discovered from the
 // API assembly via [McpServerToolType]. The HTTP transport piggybacks
 // on Kestrel — same port, same DI container. Chef Claude Code sessions
@@ -141,6 +169,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFlowLifecycleService, FlowLifecycleService>();
 builder.Services.AddScoped<IFlowChatService, FlowChatService>();
 builder.Services.AddScoped<IFlowGroupService, FlowGroupService>();
+builder.Services.AddScoped<Bpm.Admin.Application.Datasets.IDatasetService, Bpm.Admin.Persistence.Datasets.DatasetService>();
 builder.Services.AddScoped<IFeatureTablesService, FeatureTablesService>();
 builder.Services.AddScoped<IDeployConfigService, DeployConfigService>();
 builder.Services.AddScoped<IChefOrgQueryService, ChefOrgQueryService>();
@@ -227,7 +256,7 @@ using (var scope = app.Services.CreateScope())
                 ?? app.Configuration.GetConnectionString("Default")
                 ?? db.Database.GetDbConnection().ConnectionString;
             logger.LogInformation("Admin DB empty — seeding org graph (13 users / 6 depts / 14 roles)");
-            await Bpm.Admin.Persistence.Seed.Seeder.SeedOrgAsync(conn);
+            await Bpm.Admin.Persistence.Seed.Seeder.SeedOrgAsync(conn, app.Configuration["Database:Provider"]);
             logger.LogInformation("Admin seed complete. Demo password: {DemoPassword}", Bpm.Admin.Persistence.Seed.Seeder.DemoPassword);
         }
 
@@ -272,6 +301,34 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+// OData $batch: the outer /odata/$batch envelope isn't a controller action, so
+// the controllers' [Authorize(OdataBasic)] doesn't gate it — and the global
+// Bearer FallbackPolicy would otherwise reject it. Authenticate the envelope
+// explicitly with the OdataBasic scheme and set User; DefaultODataBatchHandler
+// propagates that principal to each sub-request, so the whole batch runs
+// authorized under the integration credential. Must precede UseODataBatching.
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Request.Path.StartsWithSegments("/odata/$batch"))
+    {
+        var result = await ctx.AuthenticateAsync(Bpm.Admin.Api.Odata.OdataBasicAuthHandler.SchemeName);
+        if (!result.Succeeded)
+        {
+            await ctx.ChallengeAsync(Bpm.Admin.Api.Odata.OdataBasicAuthHandler.SchemeName);
+            return;
+        }
+        ctx.User = result.Principal!;
+    }
+    await next();
+});
+
+// Must run before routing so the batch request is split into sub-requests.
+// Explicit UseRouting AFTER batching: minimal hosting otherwise auto-inserts
+// routing at the very start of the pipeline (before batching), which makes
+// batch sub-requests 404 because they never re-enter routing.
+app.UseODataBatching();
+app.UseRouting();
 
 app.UseCors("admin-ui");
 app.UseAuthentication();
@@ -392,6 +449,7 @@ app.MapPost("/api/spec-extract", async (HttpContext ctx, IAiBackend ai, Cancella
 - Every flow needs exactly one startEvent and at least one endEvent
 - Gateways must have ≥2 outgoing edges (with conditions on each)
 - Approval nodes are nodes where a human approves; userTask are nodes where someone fills a form
+- 並簽 / parallel approval: when the description says several people/departments approve CONCURRENTLY (e.g. ""法務跟財務要一起簽"", ""五個裡面三個簽就過"", 會簽), model it as a gateway fanning out to the N approval nodes AND a second gateway that converges (joins) them back — a fork gateway + a join gateway wrapping the parallel approval branches. Give the fork gateway id like gateway_review and the join gateway_review_join. In confidence_notes, state it is a 並簽/parallel gateway and how many must approve (all, or M of N) so the designer sets the join threshold.
 - ID convention: snake_case ASCII (start_1, task_apply, approval_manager, gateway_amount, end_1)
 - meta.flowCode UPPERCASE_SNAKE for class/table naming
 - meta.flowName 中文 (the customer's domain language)";

@@ -14,6 +14,7 @@ import { apiFetch, getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
 import { useDelegatedFor } from '@/lib/useDelegatedFor'
 import { FORMS } from '@/lib/workflow'
+import { roleLabel } from '@/lib/roleLabels'
 import type { CaseDetailProps } from '@/features/registry'
 import TEO_V1_BpmnXml from './TEO_V1.bpmn.xml?raw'
 import { zhStatus } from './TEO_V1_shared'
@@ -168,7 +169,7 @@ export function TEO_V1_CaseDetail({ caseId }: CaseDetailProps) {
                 </span>
               } />
               <Stat label="申請人" value={<span>{data.submitterDisplayName ?? '—'}</span>} />
-              <Stat label="目前指派給" value={<span>{data.currentAssigneeDisplayName ?? '—'}</span>} />
+              <Stat label="目前指派給" value={<span>{data.currentAssigneeDisplayName ?? (data.currentAssigneeRoleCode ? `待 ${roleLabel(data.currentAssigneeRoleCode)}` : '—')}</span>} />
               <Stat label="關聯差旅單" value={<span className="font-mono text-xs">{data.travelRequestNo}</span>} />
             </div>
             {data.roundCount > 1 && (

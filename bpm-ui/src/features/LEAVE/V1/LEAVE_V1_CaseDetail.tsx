@@ -15,6 +15,7 @@ import { apiFetch, getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
 import { useDelegatedFor } from '@/lib/useDelegatedFor'
 import { FORMS } from '@/lib/workflow'
+import { roleLabel } from '@/lib/roleLabels'
 import type { CaseDetailProps } from '@/features/registry'
 import LEAVE_V1_BpmnXml from './LEAVE_V1.bpmn.xml?raw'
 import type { LEAVE_V1_CaseResponse, LEAVE_V1_Status } from './LEAVE_V1_types'
@@ -198,7 +199,7 @@ export function LEAVE_V1_CaseDetail({ caseId }: CaseDetailProps) {
             <div className="grid grid-cols-2 gap-4 px-5 py-4 text-sm md:grid-cols-4">
               <Stat label="目前狀態" value={<StatusBadge kind={statusKind(data.status)} />} />
               <Stat label="申請人" value={<span>{data.submitterDisplayName ?? '—'}</span>} />
-              <Stat label="目前指派給" value={<span>{data.currentAssigneeDisplayName ?? '—'}</span>} />
+              <Stat label="目前指派給" value={<span>{data.currentAssigneeDisplayName ?? (data.currentAssigneeRoleCode ? `待 ${roleLabel(data.currentAssigneeRoleCode)}` : '—')}</span>} />
               <Stat label="送出時間" value={<span className="font-mono">{formatDate(data.submittedAt)}</span>} />
             </div>
           </SectionCard>

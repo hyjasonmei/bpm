@@ -26,6 +26,20 @@ public static class VENDOR_EXPENSE_V1_NotificationTemplates
         return new Rendered(subject, body);
     }
 
+    /// <summary>
+    /// Shared-role-queue assign — in_app only, fired to every holder of the
+    /// role a case is now pending on (procurement). The bundle declares no
+    /// on_assign email template, so this is an inbox-only nudge.
+    /// </summary>
+    public static Rendered RenderRoleAssign(string applicantName, string summary, string caseUrl)
+    {
+        var subject = $"【待審定】{applicantName} 的採購申請";
+        var body =
+            $"{summary}\n" +
+            $"前往審定：{caseUrl}";
+        return new Rendered(subject, body);
+    }
+
     /// <summary>notify_qs19 — fired to the submitter on any reject.</summary>
     public static Rendered RenderRejected(string rejectReason, string caseUrl)
     {

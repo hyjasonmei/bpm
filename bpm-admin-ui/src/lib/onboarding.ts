@@ -488,6 +488,10 @@ export interface Decision {
   id: string
   type: 'exclusive' | 'parallel' | 'inclusive'
   branches: DecisionBranch[]
+  /** For `type: 'parallel'` (並簽): how many branches must approve to pass the
+   *  join. Absent = all branches (N/N, 全簽/AND); 1 = 或簽/OR; M = 門檻 M/N.
+   *  chef feeds this to `IParallelApprovalService.OpenAsync(..., threshold)`. */
+  joinThreshold?: number
 }
 
 /* ── ActorRef DSL — mirrors spec_schema.md §2.10 (v1.1) ── */

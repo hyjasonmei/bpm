@@ -121,7 +121,7 @@ public class Flow : ISoftDeletable
 
     /// <summary>
     /// PR opened by the chef agent for this flow's cook branch (e.g.
-    /// "https://github.com/hyjasonmei/bpm/pull/12"). Null until the agent
+    /// "https://github.com/acme/bpm/pull/12"). Null until the agent
     /// opens one; environments without a remote never set it.
     /// </summary>
     public string? PrUrl { get; set; }

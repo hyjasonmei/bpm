@@ -20,13 +20,15 @@ public sealed class TEO_V1_InboxProvider(
             CaseId: c.Id, FlowCode: FlowCode, FlowVersion: FlowVersion,
             Title: $"差旅費用核銷 · {c.ExpenseItems.Count} 筆",
             Status: ZhStatus(c.Status),
+            Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
             SubmittedAt: c.SubmittedAt, LastActivityAt: c.LastActivityAt,
             DetailUrl: $"/cases/teo/{c.Id}")).ToList();
     }
 
     public async Task<IReadOnlyList<InboxRow>> GetPendingAsync(Guid userId, CancellationToken ct)
     {
-        var cases = await store.FindPendingAsync(userId, ct);
+        var myRoles = await directory.GetRoleCodesForUserAsync(userId, ct);
+        var cases = await store.FindPendingAsync(userId, myRoles, ct);
         if (cases.Count == 0) return Array.Empty<InboxRow>();
         var names = await directory.GetManyAsync(cases.Select(c => c.SubmitterUserId).Distinct().ToArray(), ct);
         return cases.Select(c =>
@@ -36,6 +38,7 @@ public sealed class TEO_V1_InboxProvider(
                 CaseId: c.Id, FlowCode: FlowCode, FlowVersion: FlowVersion,
                 Title: $"{who} 差旅費用核銷 · {c.ExpenseItems.Count} 筆",
                 Status: ZhStatus(c.Status),
+                Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
                 SubmittedAt: c.SubmittedAt, LastActivityAt: c.LastActivityAt,
                 DetailUrl: $"/cases/teo/{c.Id}");
         }).ToList();

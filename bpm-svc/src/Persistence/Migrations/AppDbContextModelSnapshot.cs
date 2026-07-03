@@ -882,6 +882,105 @@ namespace Bpm.Persistence.Migrations
                     b.ToTable("APE_V1_case", (string)null);
                 });
 
+            modelBuilder.Entity("Bpm.Domain.Features.COMMITTEE_REVIEW.V1.COMMITTEE_REVIEW_V1_Case", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateTime>("LastActivityAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SubmitterUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubmitterUserId");
+
+                    b.HasIndex("Status", "LastActivityAt");
+
+                    b.ToTable("COMMITTEE_REVIEW_V1_case", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Features.CONTRACT_REVIEW.V1.CONTRACT_REVIEW_V1_Case", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ContractFileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Counterparty")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateTime>("LastActivityAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SubmitterUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubmitterUserId");
+
+                    b.HasIndex("Status", "LastActivityAt");
+
+                    b.ToTable("CONTRACT_REVIEW_V1_case", (string)null);
+                });
+
             modelBuilder.Entity("Bpm.Domain.Features.EOB.V1.EOB_V1_Case", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1276,6 +1375,10 @@ namespace Bpm.Persistence.Migrations
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("CurrentAssigneeRoleCode")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
                     b.Property<Guid?>("CurrentAssigneeUserId")
                         .HasColumnType("uuid");
 
@@ -1349,6 +1452,8 @@ namespace Bpm.Persistence.Migrations
 
                     b.HasIndex("SubmitterUserId");
 
+                    b.HasIndex("CurrentAssigneeRoleCode", "LastActivityAt");
+
                     b.HasIndex("Status", "LastActivityAt");
 
                     b.ToTable("LEAVE_V1_leave_case", (string)null);
@@ -1362,6 +1467,10 @@ namespace Bpm.Persistence.Migrations
 
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CurrentAssigneeRoleCode")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
 
                     b.Property<Guid?>("CurrentAssigneeUserId")
                         .HasColumnType("uuid");
@@ -1423,6 +1532,8 @@ namespace Bpm.Persistence.Migrations
 
                     b.HasIndex("SubmitterUserId");
 
+                    b.HasIndex("CurrentAssigneeRoleCode", "LastActivityAt");
+
                     b.HasIndex("Status", "LastActivityAt");
 
                     b.ToTable("PURCHASE_REQUEST_V1_case", (string)null);
@@ -1436,6 +1547,10 @@ namespace Bpm.Persistence.Migrations
 
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CurrentAssigneeRoleCode")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
 
                     b.Property<Guid?>("CurrentAssigneeUserId")
                         .HasColumnType("uuid");
@@ -1496,6 +1611,8 @@ namespace Bpm.Persistence.Migrations
                     b.HasIndex("CurrentAssigneeUserId");
 
                     b.HasIndex("SubmitterUserId");
+
+                    b.HasIndex("CurrentAssigneeRoleCode", "LastActivityAt");
 
                     b.HasIndex("Status", "LastActivityAt");
 
@@ -1605,6 +1722,10 @@ namespace Bpm.Persistence.Migrations
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("CurrentAssigneeRoleCode")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
                     b.Property<Guid?>("CurrentAssigneeUserId")
                         .HasColumnType("uuid");
 
@@ -1680,6 +1801,8 @@ namespace Bpm.Persistence.Migrations
                     b.HasIndex("CurrentAssigneeUserId");
 
                     b.HasIndex("SubmitterUserId");
+
+                    b.HasIndex("CurrentAssigneeRoleCode", "LastActivityAt");
 
                     b.HasIndex("Status", "LastActivityAt");
 
@@ -2190,6 +2313,162 @@ namespace Bpm.Persistence.Migrations
                     b.ToTable("WFH_V6_case", (string)null);
                 });
 
+            modelBuilder.Entity("Bpm.Domain.Parallel.ParallelApprovalGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FlowCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("FlowVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("GatewayNodeId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("OpenedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Threshold")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalSlots")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FlowCode", "CaseId", "GatewayNodeId");
+
+                    b.ToTable("ParallelApprovalGroups", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Parallel.ParallelApprovalSlot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AssigneeRoleCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("AssigneeUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("Decision")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("DecisionAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DecisionByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("NodeId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("AssigneeRoleCode", "Decision");
+
+                    b.HasIndex("AssigneeUserId", "Decision");
+
+                    b.ToTable("ParallelApprovalSlots", (string)null);
+                });
+
+            modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedDataset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ColumnsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Admin_Datasets", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
+                });
+
+            modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedDatasetRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CellsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("DatasetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Admin_DatasetRows", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
+                });
+
             modelBuilder.Entity("Bpm.Persistence.SharedIdentity.SharedDelegation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2214,8 +2493,14 @@ namespace Bpm.Persistence.Migrations
                     b.Property<string>("Reason")
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("StartAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -2544,9 +2829,23 @@ namespace Bpm.Persistence.Migrations
                     b.Navigation("Instance");
                 });
 
+            modelBuilder.Entity("Bpm.Domain.Parallel.ParallelApprovalSlot", b =>
+                {
+                    b.HasOne("Bpm.Domain.Parallel.ParallelApprovalGroup", null)
+                        .WithMany("Slots")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Bpm.Domain.Entities.HrFlows.HrFlowInstance", b =>
                 {
                     b.Navigation("Actions");
+                });
+
+            modelBuilder.Entity("Bpm.Domain.Parallel.ParallelApprovalGroup", b =>
+                {
+                    b.Navigation("Slots");
                 });
 #pragma warning restore 612, 618
         }

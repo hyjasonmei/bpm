@@ -1,7 +1,7 @@
 # Role: add Code, make Name meaningful, fix the `admin` mismatch
 
 **Date:** 2026-06-04
-**Status:** Approved (Jason, Telegram "做") — SCREAMING_SNAKE Code, single-Chinese Name, fold in the admin fix.
+**Status:** Approved (開發者, Telegram "做") — SCREAMING_SNAKE Code, single-Chinese Name, fold in the admin fix.
 
 ## Problem
 

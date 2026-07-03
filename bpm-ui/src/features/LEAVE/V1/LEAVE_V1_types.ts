@@ -29,6 +29,7 @@ export interface LEAVE_V1_CaseResponse {
   status: LEAVE_V1_Status
   currentAssigneeUserId: string | null
   currentAssigneeDisplayName: string | null
+  currentAssigneeRoleCode?: string | null
   managerDecision: LEAVE_V1_DecisionDto | null
   vpDecision: LEAVE_V1_DecisionDto | null
   hrArchive: LEAVE_V1_DecisionDto | null

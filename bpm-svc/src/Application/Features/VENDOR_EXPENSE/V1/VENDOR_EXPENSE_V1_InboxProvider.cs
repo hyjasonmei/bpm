@@ -31,6 +31,7 @@ public sealed class VENDOR_EXPENSE_V1_InboxProvider(
             FlowVersion: FlowVersion,
             Title: TitleForOwner(c),
             Status: ZhStatus(c.Status),
+            Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
             SubmittedAt: c.SubmittedAt,
             LastActivityAt: c.LastActivityAt,
             DetailUrl: DetailUrl(c))).ToList();
@@ -38,7 +39,8 @@ public sealed class VENDOR_EXPENSE_V1_InboxProvider(
 
     public async Task<IReadOnlyList<InboxRow>> GetPendingAsync(Guid userId, CancellationToken ct)
     {
-        var cases = await store.FindPendingAsync(userId, ct);
+        var myRoles = await directory.GetRoleCodesForUserAsync(userId, ct);
+        var cases = await store.FindPendingAsync(userId, myRoles, ct);
         if (cases.Count == 0) return Array.Empty<InboxRow>();
 
         var submitterIds = cases.Select(c => c.SubmitterUserId).Distinct().ToArray();
@@ -53,6 +55,7 @@ public sealed class VENDOR_EXPENSE_V1_InboxProvider(
                 FlowVersion: FlowVersion,
                 Title: TitleForOther(who, c),
                 Status: ZhStatus(c.Status),
+                Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
                 SubmittedAt: c.SubmittedAt,
                 LastActivityAt: c.LastActivityAt,
                 DetailUrl: DetailUrl(c));

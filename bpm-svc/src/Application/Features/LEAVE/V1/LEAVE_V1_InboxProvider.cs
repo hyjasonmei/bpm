@@ -28,6 +28,7 @@ public sealed class LEAVE_V1_InboxProvider(
             FlowVersion: FlowVersion,
             Title: $"{c.LeaveType} {FormatDays(c.Days)} 天",
             Status: ZhStatus(c.Status),
+            Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
             SubmittedAt: c.SubmittedAt,
             LastActivityAt: c.LastActivityAt,
             DetailUrl: $"/cases/leave/{c.Id}")).ToList();
@@ -35,7 +36,8 @@ public sealed class LEAVE_V1_InboxProvider(
 
     public async Task<IReadOnlyList<InboxRow>> GetPendingAsync(Guid userId, CancellationToken ct)
     {
-        var cases = await store.FindPendingAsync(userId, ct);
+        var myRoles = await directory.GetRoleCodesForUserAsync(userId, ct);
+        var cases = await store.FindPendingAsync(userId, myRoles, ct);
         if (cases.Count == 0) return Array.Empty<InboxRow>();
 
         var submitterIds = cases.Select(c => c.SubmitterUserId).Distinct().ToArray();
@@ -50,6 +52,7 @@ public sealed class LEAVE_V1_InboxProvider(
                 FlowVersion: FlowVersion,
                 Title: $"{who} 申請 {c.LeaveType} {FormatDays(c.Days)} 天",
                 Status: ZhStatus(c.Status),
+                Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
                 SubmittedAt: c.SubmittedAt,
                 LastActivityAt: c.LastActivityAt,
                 DetailUrl: $"/cases/leave/{c.Id}");

@@ -19,13 +19,18 @@ public sealed class LEAVE_V1_CaseStore(AppDbContext db) : ILEAVE_V1_CaseStore
 
     // "Pending" = waiting on the assignee; LEAVE drops the three terminal
     // states (Completed / Rejected / Cancelled) out of every inbox.
-    public async Task<IReadOnlyList<LEAVE_V1_Case>> FindPendingAsync(Guid assigneeUserId, CancellationToken ct = default)
-        => await db.Set<LEAVE_V1_Case>().AsNoTracking()
-            .Where(c => c.CurrentAssigneeUserId == assigneeUserId
+    // Shared-role-queue: also matches cases pending on a role the user holds.
+    public async Task<IReadOnlyList<LEAVE_V1_Case>> FindPendingAsync(Guid assigneeUserId, IReadOnlySet<string> myRoleCodes, CancellationToken ct = default)
+    {
+        var roles = myRoleCodes.ToArray();
+        return await db.Set<LEAVE_V1_Case>().AsNoTracking()
+            .Where(c => (c.CurrentAssigneeUserId == assigneeUserId
+                         || (c.CurrentAssigneeRoleCode != null && roles.Contains(c.CurrentAssigneeRoleCode)))
                         && c.Status != LEAVE_V1_CaseStatus.Completed
                         && c.Status != LEAVE_V1_CaseStatus.Rejected
                         && c.Status != LEAVE_V1_CaseStatus.Cancelled)
             .OrderByDescending(c => c.LastActivityAt).ToListAsync(ct);
+    }
 
     public Task SaveChangesAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
 }

@@ -99,6 +99,18 @@ button:disabled,
   fill: #DCFCE7 !important;
   stroke: #16A34A !important;
 }
+/* 並簽: a rejected branch (red) and skipped/moot branches (grey, dashed). */
+.djs-element.bpm-rejected .djs-visual > :nth-child(1) {
+  fill: #FEE2E2 !important;
+  stroke: #DC2626 !important;
+  stroke-width: 3px !important;
+}
+.djs-element.bpm-skipped .djs-visual > :nth-child(1) {
+  fill: #F1F5F9 !important;
+  stroke: #CBD5E1 !important;
+  stroke-dasharray: 4 3 !important;
+  opacity: 0.7;
+}
 
 /* ── Print mode ──────────────────────────────────────────────────────────
    The case-detail "Print" button (components/CaseToolbar) just calls

@@ -40,6 +40,9 @@ public sealed class VENDOR_EXPENSE_V1_CaseConfiguration : IEntityTypeConfigurati
             .HasConversion(invoicesConverter)
             .Metadata.SetValueComparer(invoicesComparer);
 
+        b.Property(c => c.CurrentAssigneeRoleCode).HasMaxLength(60);
+        b.HasIndex(c => new { c.CurrentAssigneeRoleCode, c.LastActivityAt });
+
         b.HasIndex(c => c.SubmitterUserId);
         b.HasIndex(c => c.CurrentAssigneeUserId);
         b.HasIndex(c => new { c.Status, c.LastActivityAt });

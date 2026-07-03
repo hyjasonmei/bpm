@@ -81,8 +81,9 @@ public sealed class TEO_V1_TravelExpenseServiceTests : IDisposable
         var c = await svc.SubmitAsync(NewInput(), default);
         var after = await svc.ApproveByManagerAsync(c.Id, Mike, "ok", default);
         Assert.Equal(TEO_V1_CaseStatus.PendingFinance, after.Status);
-        Assert.Equal(Frank, after.FinanceUserId);
-        Assert.Equal(Frank, after.CurrentAssigneeUserId);
+        Assert.Null(after.FinanceUserId);                       // shared role queue — no single designated user
+        Assert.Null(after.CurrentAssigneeUserId);
+        Assert.Equal(TEO_V1_TravelExpenseService.FinanceRoleName, after.CurrentAssigneeRoleCode);
     }
 
     [Fact]
@@ -179,7 +180,11 @@ public sealed class TEO_V1_TravelExpenseServiceTests : IDisposable
 
     private static TEO_V1_TravelExpenseService NewService(AppDbContext db, INotifyDispatcher? notify = null)
         => new(new TEO_V1_CaseStore(db), new OrgChartReader(db), new PrincipalDirectory(db),
-               new StubClock(), NullLogger<TEO_V1_TravelExpenseService>.Instance, notify ?? new NullNotifyDispatcher(), new TestActorAuthorizer());
+               new StubClock(), NullLogger<TEO_V1_TravelExpenseService>.Instance, notify ?? new NullNotifyDispatcher(),
+               new TestActorAuthorizer(new Dictionary<Guid, IReadOnlySet<string>>
+               {
+                   [Frank] = new HashSet<string> { "FINANCE" },
+               }));
 
     private static TEO_V1_TravelExpenseService.SubmitInput NewInput()
         => new(Emily, "TW-TRQ-1", new[]

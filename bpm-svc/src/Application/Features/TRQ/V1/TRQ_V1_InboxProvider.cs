@@ -28,6 +28,7 @@ public sealed class TRQ_V1_InboxProvider(
             FlowVersion: FlowVersion,
             Title: TitleForOwner(c),
             Status: ZhStatus(c.Status),
+            Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
             SubmittedAt: c.SubmittedAt,
             LastActivityAt: c.LastActivityAt,
             DetailUrl: $"/cases/trq/{c.Id}")).ToList();
@@ -50,6 +51,7 @@ public sealed class TRQ_V1_InboxProvider(
                 FlowVersion: FlowVersion,
                 Title: TitleForOther(who, c),
                 Status: ZhStatus(c.Status),
+                Lifecycle: InboxLifecycle.FromStatusName(c.Status.ToString()),
                 SubmittedAt: c.SubmittedAt,
                 LastActivityAt: c.LastActivityAt,
                 DetailUrl: $"/cases/trq/{c.Id}");

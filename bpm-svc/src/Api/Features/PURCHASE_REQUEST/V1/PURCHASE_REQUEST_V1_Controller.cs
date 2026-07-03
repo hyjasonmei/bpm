@@ -95,7 +95,8 @@ public sealed class PURCHASE_REQUEST_V1_Controller(
     public async Task<IReadOnlyList<PURCHASE_REQUEST_V1_CaseRowResponse>> Pending(CancellationToken ct)
     {
         var userId = RequireUserId();
-        var cases = await store.FindPendingAsync(userId, ct);
+        var myRoles = await directory.GetRoleCodesForUserAsync(userId, ct);
+        var cases = await store.FindPendingAsync(userId, myRoles, ct);
         return await BuildRowsAsync(cases, ct);
     }
 

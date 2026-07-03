@@ -19,6 +19,9 @@ public sealed class LEAVE_V1_CaseConfiguration : IEntityTypeConfiguration<LEAVE_
         b.Property(c => c.VpComment).HasMaxLength(2000);
         b.Property(c => c.Status).HasConversion<int>();
 
+        b.Property(c => c.CurrentAssigneeRoleCode).HasMaxLength(60);
+        b.HasIndex(c => new { c.CurrentAssigneeRoleCode, c.LastActivityAt });
+
         b.HasIndex(c => c.SubmitterUserId);
         b.HasIndex(c => c.CurrentAssigneeUserId);
         b.HasIndex(c => new { c.Status, c.LastActivityAt });

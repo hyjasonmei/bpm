@@ -106,14 +106,12 @@ function greetingFor(persona: PersonaCode, authedFullName?: string | null) {
 
 /* ── Stat cards ─────────────────────────────────────────── */
 function StatCards({ persona, inboxCount, myCases }: { persona: PersonaCode; inboxCount: number; myCases: InboxRow[] }) {
-  // Per-flow status strings come from each feature's ITypedInboxProvider —
-  // not parsed structurally. The "Completed" / "Cancelled" / "Rejected"
-  // names matter only when a feature uses them. Add-real-reporting will
-  // replace these caller-scoped tallies with cross-user roll-ups.
-  const isOpen = (status: string) => !['Completed', 'Cancelled', 'Rejected'].includes(status)
-  const myActive = myCases.filter(c => isOpen(c.status)).length
-  const myCompleted = myCases.filter(c => c.status === 'Completed').length
-  const myCancelled = myCases.filter(c => c.status === 'Cancelled' || c.status === 'Rejected').length
+  // Count on the canonical `lifecycle` field (Open/Completed/Cancelled/Rejected)
+  // set structurally by each ITypedInboxProvider — NOT the localized `status`
+  // display text (e.g. "已核准"), which never equals "Completed".
+  const myActive = myCases.filter(c => c.lifecycle === 'Open').length
+  const myCompleted = myCases.filter(c => c.lifecycle === 'Completed').length
+  const myCancelled = myCases.filter(c => c.lifecycle === 'Cancelled' || c.lifecycle === 'Rejected').length
   const myTotal = myCases.length
 
   const cards: Array<{ title: string; value: number; tone: string; Icon: React.ComponentType<{ className?: string }>; sub?: string }> = persona === 'employee'
@@ -208,6 +206,7 @@ function PendingTable({ persona, rows, loading, error, navigate }: {
     manager:  'Pending My Approval',
     finance:  'FIN Review Queue',
     it:       'IT Spec Queue',
+    procurement: 'Procurement Queue',
     hr:       'HR Queue',
     admin:    'All Open Cases',
   }
@@ -461,7 +460,7 @@ function ActivityFeedPanel({ rows, loading }: { rows: InboxRow[]; loading: boole
           </p>
         )}
         {recent.map(r => {
-          const meta = ICON_FOR_ACTIVITY[statusToActivityKind(r.status)]
+          const meta = ICON_FOR_ACTIVITY[statusToActivityKind(r.lifecycle)]
           const formLabel = flowLabel(r.flowCode, r.flowVersion)
           return (
             <div key={r.caseId} className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-slate-50/60">
@@ -486,12 +485,10 @@ function ActivityFeedPanel({ rows, loading }: { rows: InboxRow[]; loading: boole
   )
 }
 
-function statusToActivityKind(status: string): keyof typeof ICON_FOR_ACTIVITY {
-  if (status === 'Completed') return 'approved'
-  if (status === 'Cancelled' || status === 'Rejected') return 'rejected'
-  if (status === 'Errored') return 'returned'
-  if (status.startsWith('Pending')) return 'submitted'
-  return 'created'
+function statusToActivityKind(lifecycle: string): keyof typeof ICON_FOR_ACTIVITY {
+  if (lifecycle === 'Completed') return 'approved'
+  if (lifecycle === 'Cancelled' || lifecycle === 'Rejected') return 'rejected'
+  return 'submitted'   // Open (or anything non-terminal)
 }
 
 function formatActivityTime(iso: string): string {

@@ -1,7 +1,7 @@
 # Sandbox Console (admin-ui) — Design
 
 **Date:** 2026-06-04
-**Status:** Approved (Jason, Telegram) — Option A + state reset
+**Status:** Approved (開發者, Telegram) — Option A + state reset
 **Owner:** lead (admin-svc / admin-ui / bpm-svc shared shell)
 
 ## Goal
@@ -125,7 +125,7 @@ addition; without it the minted token is dead weight.
 
 ## Out of scope
 
-- Webhook-redirect capture (Jason's list was 攔信 / persona / 時間快轉 + reset).
+- Webhook-redirect capture (開發者's list was 攔信 / persona / 時間快轉 + reset).
 - Multi-tenant scoping (per-customer deploy; "tenant" ≡ "global" here).
 - Real SMTP/email sink and real admin↔bpm auth bridge (POC deferrals).
 

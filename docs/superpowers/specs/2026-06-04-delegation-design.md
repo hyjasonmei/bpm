@@ -1,7 +1,7 @@
 # Delegation (代理人) — Design
 
 **Date:** 2026-06-04
-**Status:** Approved (Jason, Telegram) — Option A (full: delegate can actually act).
+**Status:** Approved (開發者, Telegram) — Option A (full: delegate can actually act).
 **Owner:** lead (bpm-svc + bpm-ui shared platform) + chef convention update.
 
 ## Goal

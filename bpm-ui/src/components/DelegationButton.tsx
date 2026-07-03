@@ -3,7 +3,8 @@ import { UserCheck, Loader2, X, Check } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import {
   getMyDelegation, setMyDelegation, clearMyDelegation, searchDelegationUsers,
-  type MyDelegation, type DelegationUser,
+  getPendingDelegationsForMe, acceptDelegation, declineDelegation,
+  type MyDelegation, type DelegationUser, type PendingDelegation,
 } from '@/lib/api/delegation'
 
 function todayStr(offsetDays = 0): string {
@@ -19,6 +20,7 @@ function todayStr(offsetDays = 0): string {
 export function DelegationButton() {
   const [open, setOpen] = useState(false)
   const [current, setCurrent] = useState<MyDelegation | null>(null)
+  const [incoming, setIncoming] = useState<PendingDelegation[]>([])
   const [results, setResults] = useState<DelegationUser[]>([])
   const [delegate, setDelegate] = useState('')
   const [delegateLabel, setDelegateLabel] = useState('')
@@ -34,9 +36,10 @@ export function DelegationButton() {
   useEffect(() => {
     if (!open) return
     setLoading(true); setErr(null)
-    getMyDelegation()
-      .then(cur => {
+    Promise.all([getMyDelegation(), getPendingDelegationsForMe().catch(() => [])])
+      .then(([cur, pend]) => {
         setCurrent(cur)
+        setIncoming(pend)
         if (cur) {
           setDelegate(cur.delegateUserId)
           setDelegateLabel(cur.delegateName ?? cur.delegateUserId)
@@ -47,8 +50,23 @@ export function DelegationButton() {
       .finally(() => setLoading(false))
   }, [open])
 
+  async function respond(id: string, accept: boolean) {
+    setBusy(true); setErr(null)
+    try {
+      if (accept) await acceptDelegation(id); else await declineDelegation(id)
+      setIncoming(await getPendingDelegationsForMe().catch(() => []))
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)) }
+    finally { setBusy(false) }
+  }
+
   // Server-side typeahead — query the directory (debounced) instead of loading
   // every user, so the picker scales to thousands of people.
+  // Lightweight badge: check for incoming pending designations on mount so the
+  // delegate sees the nudge without opening the panel.
+  useEffect(() => {
+    getPendingDelegationsForMe().then(setIncoming).catch(() => { /* silent */ })
+  }, [])
+
   useEffect(() => {
     const s = query.trim()
     if (s === '') { setResults([]); setSearching(false); return }
@@ -101,7 +119,9 @@ export function DelegationButton() {
       >
         <UserCheck className="h-4 w-4" />
         <span className="hidden md:inline">代理人</span>
-        {current?.activeNow && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
+        {incoming.length > 0
+          ? <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500 px-1 text-[10px] font-semibold text-white">{incoming.length}</span>
+          : current?.activeNow && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
       </button>
 
       {open && (
@@ -115,12 +135,43 @@ export function DelegationButton() {
             <div className="p-4 text-sm text-ink-faint"><Loader2 className="inline h-4 w-4 animate-spin" /> 載入中…</div>
           ) : (
             <div className="space-y-3 p-4">
+              {/* Incoming: someone designated ME — accept/decline */}
+              {incoming.length > 0 && (
+                <div className="space-y-2 rounded-md border border-blue-200 bg-blue-50 p-2.5">
+                  <p className="text-[11px] font-semibold text-blue-900">待你回應的代理指定</p>
+                  {incoming.map(d => (
+                    <div key={d.id} className="rounded border border-blue-100 bg-white px-2.5 py-1.5 text-xs">
+                      <div className="text-ink">
+                        <span className="font-semibold">{d.delegatorName ?? '某位同事'}</span> 指定你為代理人
+                        <br /><span className="text-ink-muted">{d.startAt.slice(0, 10)} ~ {d.endAt.slice(0, 10)}</span>
+                      </div>
+                      <div className="mt-1.5 flex gap-2">
+                        <button onClick={() => respond(d.id, true)} disabled={busy}
+                          className="inline-flex items-center gap-1 rounded bg-primary px-2 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:opacity-40">
+                          <Check className="h-3 w-3" /> 接受
+                        </button>
+                        <button onClick={() => respond(d.id, false)} disabled={busy}
+                          className="inline-flex items-center gap-1 rounded border border-rule px-2 py-1 text-[11px] text-ink-muted hover:bg-slate-50 disabled:opacity-40">
+                          <X className="h-3 w-3" /> 拒絕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {current && (
                 <div className={cn('flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs',
-                  current.activeNow ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-rule bg-slate-50 text-ink-muted')}>
+                  current.activeNow ? 'border-amber-200 bg-amber-50 text-amber-800'
+                    : current.status === 'Pending' ? 'border-blue-200 bg-blue-50 text-blue-800'
+                    : 'border-rule bg-slate-50 text-ink-muted')}>
                   <span>
                     目前代理人：<span className="font-semibold">{current.delegateName ?? '—'}</span>
-                    <br />{current.startAt.slice(0, 10)} ~ {current.endAt.slice(0, 10)} {current.activeNow ? '（生效中）' : '（未生效）'}
+                    <br />{current.startAt.slice(0, 10)} ~ {current.endAt.slice(0, 10)}{' '}
+                    {current.status === 'Pending' ? '（等待對方接受）'
+                      : current.activeNow ? '（生效中）'
+                      : current.status === 'Accepted' ? '（已接受・未到生效期）'
+                      : '（未生效）'}
                   </span>
                   <button onClick={clear} disabled={busy} className="shrink-0 text-rose-600 hover:underline">取消</button>
                 </div>

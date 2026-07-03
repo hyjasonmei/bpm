@@ -84,7 +84,7 @@ export async function validateExpression(
 /**
  * Tiny dictionary of common evaluator-error fragments → friendlier 中文.
  * Matched as substrings, case-sensitive. The unmatched fallback is the raw
- * evaluator string — Jason explicitly wants that as the safety net so we
+ * evaluator string — we explicitly keep that as the safety net so we
  * never hide a real parse/scope error behind a translation.
  */
 const ERROR_DICT: ReadonlyArray<readonly [pattern: string, zh: string]> = [
