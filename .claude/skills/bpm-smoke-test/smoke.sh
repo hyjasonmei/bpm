@@ -54,7 +54,10 @@ chk "bpm-svc up" 200 "$(P "$BPM/api/flow-codes")"
 chk "admin-svc up" 200 "$(P -H "Authorization: Bearer $TA" "$ADM/api/roles")"
 chk "admin JWT = codes" "PERSONA_SWITCH,SYSTEM_ADMIN" "$(echo "$TA" | roles)"
 chk "no empty role codes" 0 "$(curl -s -H "Authorization: Bearer $TA" "$ADM/api/roles" | python3 -c "import sys,json;print(sum(1 for r in json.load(sys.stdin) if not r.get('code')))")"
-chk "10 flows published" 10 "$(curl -s -H "Authorization: Bearer $TE" "$BPM/api/flow-registry" | python3 -c "import sys,json;print(len(set(x['flowCode'] for x in json.load(sys.stdin) if x['state']=='Published')))")"
+# every shipped runtime flow (flow-codes = deployed state machines) must be Published
+# in the registry. Dynamic so shipping a new flow doesn't need a harness edit.
+SHIPPED=$(curl -s "$BPM/api/flow-codes" | python3 -c "import sys,json;print(len(json.load(sys.stdin)))")
+chk "all $SHIPPED shipped flows published" "$SHIPPED" "$(curl -s -H "Authorization: Bearer $TE" "$BPM/api/flow-registry" | python3 -c "import sys,json;print(len(set(x['flowCode'] for x in json.load(sys.stdin) if x['state']=='Published')))")"
 echo "  ---- live versions: LEAVE v$(ver LEAVE) · TEO v$(ver TEO) · VENDOR_EXPENSE v$(ver VENDOR_EXPENSE) · PURCHASE_REQUEST v$(ver PURCHASE_REQUEST) ----"
 
 echo "### B. HAPPY — LEAVE short (manager -> HR_MANAGER dept-inherit -> Completed)"
@@ -150,7 +153,8 @@ chk "reseed 200" 200 "$(P -X POST -H "Authorization: Bearer $TA" "$ADM/api/admin
 # Register at the DEPLOYED runtime version (flow-codes reports the highest <CODE>_V<N>_Case
 # per flow) so reset re-publishes whatever's actually shipped — not a hardcoded v1.
 FLOWS=$(curl -s "$BPM/api/flow-codes" | python3 -c "import sys,json;d=json.load(sys.stdin);print(json.dumps({'flows':[{'flowCode':f['flowCode'],'displayName':f['displayName'],'version':f.get('version',1)} for f in d]}))")
-chk "register-shipped 10" 10 "$(J -X POST -H "Authorization: Bearer $TA" "$ADM/api/flows/register-shipped" -H 'Content-Type: application/json' -d "$FLOWS" | python3 -c "import sys,json;print(len(json.load(sys.stdin)['registered']))")"
+NSHIP=$(echo "$FLOWS" | python3 -c "import sys,json;print(len(json.load(sys.stdin)['flows']))")
+chk "register-shipped all $NSHIP" "$NSHIP" "$(J -X POST -H "Authorization: Bearer $TA" "$ADM/api/flows/register-shipped" -H 'Content-Type: application/json' -d "$FLOWS" | python3 -c "import sys,json;print(len(json.load(sys.stdin)['registered']))")"
 # re-login (sessions/identity were reseeded), re-resolve live versions, confirm a flow still runs end-to-end
 TE=$(login employee); TM=$(login manager); TH=$(login hr)
 load_flow_versions "$TE"; R_LEAVE=$(rt LEAVE leave)
