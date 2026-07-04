@@ -4,6 +4,7 @@ using Bpm.Application.Common.Abstractions;
 using Bpm.Application.Common.Behaviors;
 using Bpm.Application.Common.Services;
 using Bpm.Application.Features.APE.V1;
+using Bpm.Application.Features.COMMITTEE_REVIEW.V1;
 using Bpm.Application.Features.CONTRACT_REVIEW.V1;
 using Bpm.Application.Features.LEAVE.V1;
 using Bpm.Application.Features.EOB.V1;
@@ -109,6 +110,7 @@ public static class DependencyInjection
         services.AddScoped<TRQ_V1_TravelRequestService>();
         services.AddScoped<APE_V1_AdvancePaymentService>();
         services.AddScoped<CONTRACT_REVIEW_V1_Service>();
+        services.AddScoped<COMMITTEE_REVIEW_V1_Service>();
         services.AddScoped<TEO_V1_TravelExpenseService>();
         services.AddScoped<FAP_V1_PurchaseService>();
         services.AddScoped<FAD_V1_DisposalService>();
