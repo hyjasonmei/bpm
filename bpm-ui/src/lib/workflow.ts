@@ -35,7 +35,7 @@ export interface FormDef {
   initialActive: number
 }
 
-export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB' | 'RESIGN' | 'DEPTX' | 'PURCHASE_REQUEST' | 'VENDOR_EXPENSE' | 'FAP' | 'FAD' | 'EOB' | 'ETM' | 'WFH'
+export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB' | 'RESIGN' | 'DEPTX' | 'PURCHASE_REQUEST' | 'VENDOR_EXPENSE' | 'FAP' | 'FAD' | 'EOB' | 'ETM' | 'WFH' | 'CONTRACT_REVIEW'
 
 const STEP = (id: string, en: string, zh: string): Step => ({ id, en, zh })
 
@@ -273,6 +273,22 @@ export const FORMS: Record<FormCode, FormDef> = {
       STEP('closed', 'CLOSED', '結案'),
     ],
     ownerByStep: ['employee', 'manager', 'employee', null],
+    initialActive: 0,
+  },
+  CONTRACT_REVIEW: {
+    code: 'CONTRACT_REVIEW',
+    label: 'Contract Review',
+    zhLabel: '合約審查',
+    // Cooked state machine: apply → LEGAL+FINANCE 並簽 (both approve) → LEGAL_MANAGER
+    // 定案歸檔 → close. A reject at either the 並簽 or the archive step sends the case
+    // back to the applicant (revise → new 並簽 round) — the stepper returns to REVIEW.
+    steps: [
+      STEP('apply', 'APPLY', '送審'),
+      STEP('review', 'PARALLEL REVIEW', '法務+財務並簽'),
+      STEP('archive', 'ARCHIVE', '法務主管定案'),
+      STEP('close', 'CLOSE', '結案'),
+    ],
+    ownerByStep: ['employee', 'finance', 'manager', null],
     initialActive: 0,
   },
   WFH: {
