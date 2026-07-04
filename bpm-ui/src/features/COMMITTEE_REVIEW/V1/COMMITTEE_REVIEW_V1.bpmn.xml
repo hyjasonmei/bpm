@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="COMMITTEE_REVIEW_V1_defs"
+                  targetNamespace="http://flowcook.ai/bpmn/COMMITTEE_REVIEW/V1">
+  <bpmn:process id="COMMITTEE_REVIEW_V1" isExecutable="false">
+    <bpmn:startEvent id="start_1" name="開始">
+      <bpmn:outgoing>e1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="task_apply" name="申請人填寫審議案">
+      <bpmn:incoming>e1</bpmn:incoming>
+      <bpmn:outgoing>e2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:parallelGateway id="gateway_fork" name="並行送審（Fork）">
+      <bpmn:incoming>e2</bpmn:incoming>
+      <bpmn:incoming>e12</bpmn:incoming>
+      <bpmn:outgoing>e3</bpmn:outgoing>
+      <bpmn:outgoing>e4</bpmn:outgoing>
+      <bpmn:outgoing>e5</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:userTask id="approval_finance" name="財務委員審議">
+      <bpmn:incoming>e3</bpmn:incoming>
+      <bpmn:outgoing>e6</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="approval_procurement" name="採購委員審議">
+      <bpmn:incoming>e4</bpmn:incoming>
+      <bpmn:outgoing>e7</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="approval_it" name="資訊委員審議">
+      <bpmn:incoming>e5</bpmn:incoming>
+      <bpmn:outgoing>e8</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="gateway_threshold" name="門檻判斷（2/3）">
+      <bpmn:incoming>e6</bpmn:incoming>
+      <bpmn:incoming>e7</bpmn:incoming>
+      <bpmn:incoming>e8</bpmn:incoming>
+      <bpmn:outgoing>e9</bpmn:outgoing>
+      <bpmn:outgoing>e10</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="notify_return" name="通知申請人案件退回">
+      <bpmn:incoming>e9</bpmn:incoming>
+      <bpmn:outgoing>e11</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:userTask id="task_revise" name="申請人修改後重新送審">
+      <bpmn:incoming>e11</bpmn:incoming>
+      <bpmn:outgoing>e12</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="approval_ceo" name="執行長最終裁決">
+      <bpmn:incoming>e10</bpmn:incoming>
+      <bpmn:outgoing>e13</bpmn:outgoing>
+      <bpmn:outgoing>e14</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:task id="notify_approved" name="通知申請人案件核定">
+      <bpmn:incoming>e13</bpmn:incoming>
+      <bpmn:outgoing>e15</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="notify_rejected" name="通知申請人案件否決（終局）">
+      <bpmn:incoming>e14</bpmn:incoming>
+      <bpmn:outgoing>e16</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:endEvent id="end_approved" name="結案（核定）">
+      <bpmn:incoming>e15</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="end_rejected" name="結案（否決終局）">
+      <bpmn:incoming>e16</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="e1" sourceRef="start_1" targetRef="task_apply" />
+    <bpmn:sequenceFlow id="e2" sourceRef="task_apply" targetRef="gateway_fork" />
+    <bpmn:sequenceFlow id="e3" name="送財務委員" sourceRef="gateway_fork" targetRef="approval_finance" />
+    <bpmn:sequenceFlow id="e4" name="送採購委員" sourceRef="gateway_fork" targetRef="approval_procurement" />
+    <bpmn:sequenceFlow id="e5" name="送資訊委員" sourceRef="gateway_fork" targetRef="approval_it" />
+    <bpmn:sequenceFlow id="e6" sourceRef="approval_finance" targetRef="gateway_threshold" />
+    <bpmn:sequenceFlow id="e7" sourceRef="approval_procurement" targetRef="gateway_threshold" />
+    <bpmn:sequenceFlow id="e8" sourceRef="approval_it" targetRef="gateway_threshold" />
+    <bpmn:sequenceFlow id="e9" name="任一退回" sourceRef="gateway_threshold" targetRef="notify_return" />
+    <bpmn:sequenceFlow id="e10" name="≥2位核准" sourceRef="gateway_threshold" targetRef="approval_ceo" />
+    <bpmn:sequenceFlow id="e11" sourceRef="notify_return" targetRef="task_revise" />
+    <bpmn:sequenceFlow id="e12" name="重新送審" sourceRef="task_revise" targetRef="gateway_fork" />
+    <bpmn:sequenceFlow id="e13" name="核定" sourceRef="approval_ceo" targetRef="notify_approved" />
+    <bpmn:sequenceFlow id="e14" name="否決" sourceRef="approval_ceo" targetRef="notify_rejected" />
+    <bpmn:sequenceFlow id="e15" sourceRef="notify_approved" targetRef="end_approved" />
+    <bpmn:sequenceFlow id="e16" sourceRef="notify_rejected" targetRef="end_rejected" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="diagram">
+    <bpmndi:BPMNPlane id="plane" bpmnElement="COMMITTEE_REVIEW_V1">
+      <bpmndi:BPMNShape id="di_start_1" bpmnElement="start_1">
+        <dc:Bounds x="140" y="272" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="146" y="315" width="24" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_task_apply" bpmnElement="task_apply">
+        <dc:Bounds x="210" y="250" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_gateway_fork" bpmnElement="gateway_fork">
+        <dc:Bounds x="380" y="265" width="50" height="50" />
+        <bpmndi:BPMNLabel><dc:Bounds x="368" y="322" width="74" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_approval_finance" bpmnElement="approval_finance">
+        <dc:Bounds x="490" y="60" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_approval_procurement" bpmnElement="approval_procurement">
+        <dc:Bounds x="490" y="250" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_approval_it" bpmnElement="approval_it">
+        <dc:Bounds x="490" y="440" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_gateway_threshold" bpmnElement="gateway_threshold" isMarkerVisible="true">
+        <dc:Bounds x="680" y="265" width="50" height="50" />
+        <bpmndi:BPMNLabel><dc:Bounds x="666" y="322" width="80" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_approval_ceo" bpmnElement="approval_ceo">
+        <dc:Bounds x="800" y="60" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_notify_approved" bpmnElement="notify_approved">
+        <dc:Bounds x="980" y="60" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_notify_rejected" bpmnElement="notify_rejected">
+        <dc:Bounds x="980" y="180" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_notify_return" bpmnElement="notify_return">
+        <dc:Bounds x="800" y="440" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_task_revise" bpmnElement="task_revise">
+        <dc:Bounds x="970" y="440" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_end_approved" bpmnElement="end_approved">
+        <dc:Bounds x="1160" y="82" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="1146" y="125" width="66" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_end_rejected" bpmnElement="end_rejected">
+        <dc:Bounds x="1160" y="202" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="1140" y="245" width="78" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="di_e1" bpmnElement="e1">
+        <di:waypoint x="176" y="290" /><di:waypoint x="210" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e2" bpmnElement="e2">
+        <di:waypoint x="330" y="290" /><di:waypoint x="380" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e3" bpmnElement="e3">
+        <di:waypoint x="405" y="265" /><di:waypoint x="405" y="100" /><di:waypoint x="490" y="100" />
+        <bpmndi:BPMNLabel><dc:Bounds x="410" y="130" width="72" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e4" bpmnElement="e4">
+        <di:waypoint x="430" y="290" /><di:waypoint x="490" y="290" />
+        <bpmndi:BPMNLabel><dc:Bounds x="434" y="272" width="72" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e5" bpmnElement="e5">
+        <di:waypoint x="405" y="315" /><di:waypoint x="405" y="480" /><di:waypoint x="490" y="480" />
+        <bpmndi:BPMNLabel><dc:Bounds x="410" y="486" width="72" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e6" bpmnElement="e6">
+        <di:waypoint x="610" y="100" /><di:waypoint x="705" y="100" /><di:waypoint x="705" y="265" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e7" bpmnElement="e7">
+        <di:waypoint x="610" y="290" /><di:waypoint x="680" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e8" bpmnElement="e8">
+        <di:waypoint x="610" y="480" /><di:waypoint x="705" y="480" /><di:waypoint x="705" y="315" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e9" bpmnElement="e9">
+        <di:waypoint x="730" y="290" /><di:waypoint x="850" y="290" /><di:waypoint x="850" y="440" />
+        <bpmndi:BPMNLabel><dc:Bounds x="856" y="360" width="60" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e10" bpmnElement="e10">
+        <di:waypoint x="705" y="265" /><di:waypoint x="705" y="100" /><di:waypoint x="800" y="100" />
+        <bpmndi:BPMNLabel><dc:Bounds x="710" y="150" width="66" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e11" bpmnElement="e11">
+        <di:waypoint x="900" y="480" /><di:waypoint x="970" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e12" bpmnElement="e12">
+        <di:waypoint x="1030" y="440" /><di:waypoint x="1030" y="20" /><di:waypoint x="405" y="20" /><di:waypoint x="405" y="265" />
+        <bpmndi:BPMNLabel><dc:Bounds x="690" y="2" width="60" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e13" bpmnElement="e13">
+        <di:waypoint x="920" y="100" /><di:waypoint x="980" y="100" />
+        <bpmndi:BPMNLabel><dc:Bounds x="936" y="82" width="30" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e14" bpmnElement="e14">
+        <di:waypoint x="860" y="140" /><di:waypoint x="860" y="220" /><di:waypoint x="980" y="220" />
+        <bpmndi:BPMNLabel><dc:Bounds x="866" y="170" width="30" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e15" bpmnElement="e15">
+        <di:waypoint x="1080" y="100" /><di:waypoint x="1160" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_e16" bpmnElement="e16">
+        <di:waypoint x="1080" y="220" /><di:waypoint x="1160" y="220" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
