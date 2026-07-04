@@ -1,6 +1,8 @@
 ---
-title: 角色與設定（案例）
+title: 怎麼設定角色
 description: 以 demo 組織示範；客戶角色名稱不同，但操作一致。
+sidebar:
+  order: 2
 ---
 
 :::note

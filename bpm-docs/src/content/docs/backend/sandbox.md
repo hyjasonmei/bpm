@@ -2,7 +2,7 @@
 title: Sandbox 驗收
 description: 攔信、persona 切換、時間快轉、狀態重置 — 一個人跑完整套 UAT。
 sidebar:
-  order: 2
+  order: 4
 ---
 
 Sandbox 讓驗收「不用真的來」：不真的寄信、不真的等七天假期過完、不用叫十個同事各登一次入。

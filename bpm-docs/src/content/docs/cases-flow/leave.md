@@ -1,6 +1,8 @@
 ---
-title: 請假申請（案例）
+title: 請假申請：走一遍
 description: 一張請假單從送出到完成走一遍。
+sidebar:
+  order: 1
 ---
 
 以「請假申請 LEAVE」示範一條流程的完整旅程（其餘 10 隻預設流程結構類似）。
@@ -23,6 +25,4 @@ description: 一張請假單從送出到完成走一遍。
 
 ---
 
-預設 11 流程：請假申請、差旅申請、差旅費用核銷、遠距工作、採購申請、廠商採購請款、資產採購、資產處分、預支現金、新進員工報到、員工離職。
-
-（各流程逐一補頁。）
+其餘預設流程按群介紹：[差旅假勤](/cases-flow/travel-attendance/)、[採購與資產](/cases-flow/procurement-assets/)、[人事異動](/cases-flow/hr-changes/)。
