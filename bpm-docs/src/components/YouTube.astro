@@ -1,0 +1,26 @@
+---
+interface Props {
+  /** YouTube video id，例如 dQw4w9WgXcQ */
+  id: string
+  /** 無障礙標題 */
+  title?: string
+}
+const { id, title = '解說影片' } = Astro.props
+---
+<div class="yt-embed">
+  <iframe
+    src={`https://www.youtube-nocookie.com/embed/${id}`}
+    title={title}
+    loading="lazy"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowfullscreen
+  ></iframe>
+</div>
+<style>
+  .yt-embed { position: relative; aspect-ratio: 16 / 9; margin: 1.5rem 0; }
+  .yt-embed iframe {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    border: 0; border-radius: 0.5rem;
+  }
+</style>

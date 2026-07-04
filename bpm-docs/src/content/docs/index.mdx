@@ -1,0 +1,26 @@
+---
+title: flowcook 導入 / 使用手冊
+description: 內部導入與使用指引。導入中的客戶亦可參閱。
+template: splash
+hero:
+  tagline: 怎麼帶客戶導入、怎麼用 flowcook。內部優先，客戶想學也能看。
+  actions:
+    - text: 從「開始」讀起
+      link: /start/overview/
+      icon: right-arrow
+      variant: primary
+    - text: API 串接
+      link: /api/odata/
+      icon: external
+---
+
+import { CardGrid, Card } from '@astrojs/starlight/components'
+
+<CardGrid>
+  <Card title="前台功能" icon="laptop">員工/主管端：表單、收件匣、簽核、委任、通知、打卡、搜尋。</Card>
+  <Card title="後台功能" icon="setting">管理端：AI Kitchen、User & Role、資料集、Sandbox、稽核、Doctor、Site Setting。</Card>
+  <Card title="導入指南" icon="rocket">AI Kitchen → Sandbox 驗收 → 上線 checklist。</Card>
+  <Card title="使用案例（組織）" icon="user">預設角色與怎麼設定角色。</Card>
+  <Card title="使用案例（流程）" icon="open-book">預設 11 個流程走一遍。</Card>
+  <Card title="API 串接" icon="puzzle">OData 組織資料 / 自訂資料集整合。</Card>
+</CardGrid>
