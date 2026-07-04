@@ -1062,3 +1062,886 @@ body: |
   
   查看詳情：/cases/wfh/0909cbdc-5a2b-4ff5-8d59-362da369d53b
 
+---
+at: 2026-07-03T00:38:51.5578720Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: e39bfed3-a34c-4e20-aeae-1f262c871402
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: smoke
+  
+  請點此核准: /cases/leave/e39bfed3-a34c-4e20-aeae-1f262c871402
+
+---
+at: 2026-07-03T00:38:51.6838600Z
+source: LEAVE_V1.notify_role_assign
+channels: in_app
+recipients: Henry <henry@acme.example>; Iris <iris@acme.example>
+context:
+  caseId: e39bfed3-a34c-4e20-aeae-1f262c871402
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingHr
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: smoke
+  
+  請點此核准: /cases/leave/e39bfed3-a34c-4e20-aeae-1f262c871402
+
+---
+at: 2026-07-03T00:38:51.7429160Z
+source: LEAVE_V1.notify_complete
+channels: email
+recipients: Bob <bob@acme.example>
+context:
+  caseId: e39bfed3-a34c-4e20-aeae-1f262c871402
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: Completed
+subject: 您的請假已備案
+body: |
+  您於 2026-07-03 申請的 2 天 Annual 已完成備案。
+
+---
+at: 2026-07-03T00:38:51.7834200Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 42a59615-e59f-4d91-8ea7-9a647231366b
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 8 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-09-01 - 2026-09-10
+  事由: long
+  
+  請點此核准: /cases/leave/42a59615-e59f-4d91-8ea7-9a647231366b
+
+---
+at: 2026-07-03T00:38:51.8619250Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 42a59615-e59f-4d91-8ea7-9a647231366b
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingVp
+subject: 【請假待簽】Bob 申請 8 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-09-01 - 2026-09-10
+  事由: long
+  
+  請點此核准: /cases/leave/42a59615-e59f-4d91-8ea7-9a647231366b
+
+---
+at: 2026-07-03T00:38:51.9768320Z
+source: TEO_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 9a14fcc1-87c2-4fa7-abcb-d425d58746dd
+  flowCode: TEO
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】您的差旅費用核銷已送出
+body: |
+  您的差旅費用核銷已送出，等待主管核准中。
+  查看進度：/cases/teo/9a14fcc1-87c2-4fa7-abcb-d425d58746dd
+
+---
+at: 2026-07-03T00:38:51.9909130Z
+source: TEO_V1.notify_n_submit
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 9a14fcc1-87c2-4fa7-abcb-d425d58746dd
+  flowCode: TEO
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的差旅費用核銷
+body: |
+  申請人：Bob
+  摘要：差旅費用核銷 — 1 筆（TR-1）
+  
+  請點此核准：/cases/teo/9a14fcc1-87c2-4fa7-abcb-d425d58746dd
+
+---
+at: 2026-07-03T00:38:52.0655440Z
+source: TEO_V1.notify_n_submit
+channels: in_app
+recipients: Frank <frank@acme.example>; Grace <grace@acme.example>
+context:
+  caseId: 9a14fcc1-87c2-4fa7-abcb-d425d58746dd
+  flowCode: TEO
+  flowVersion: 1
+  stage: PendingFinance
+  round: 1
+subject: 【待簽】Bob 的差旅費用核銷
+body: |
+  申請人：Bob
+  摘要：差旅費用核銷 — 1 筆（TR-1）
+  
+  請點此核准：/cases/teo/9a14fcc1-87c2-4fa7-abcb-d425d58746dd
+
+---
+at: 2026-07-03T00:38:52.2483570Z
+source: VENDOR_EXPENSE_V1.notify_qkje
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 8af6d145-27e9-472a-9522-bc430572aa1e
+  flowCode: VENDOR_EXPENSE
+  flowVersion: 1
+  stage: PendingSupervisor
+  round: 1
+subject: 【已收到】您的申請已送出
+body: |
+  您的申請已送出，等待主管核准中。
+  查看進度：/cases/vendor_expense/8af6d145-27e9-472a-9522-bc430572aa1e
+
+---
+at: 2026-07-03T00:38:52.3200600Z
+source: VENDOR_EXPENSE_V1.notify_role_assign
+channels: in_app
+recipients: Grace <grace@acme.example>
+context:
+  caseId: 8af6d145-27e9-472a-9522-bc430572aa1e
+  flowCode: VENDOR_EXPENSE
+  flowVersion: 1
+  stage: PendingProcurement
+  round: 1
+subject: 【待審定】Bob 的採購申請
+body: |
+  V — 1 invoice
+  前往審定：/cases/vendor_expense/8af6d145-27e9-472a-9522-bc430572aa1e
+
+---
+at: 2026-07-03T00:38:52.4206390Z
+source: PURCHASE_REQUEST_V1.notify_ckqd
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 99285b54-4295-4d2d-93c0-4e6acda5406e
+  flowCode: PURCHASE_REQUEST
+  flowVersion: 1
+  stage: PendingDeptHead
+  round: 1
+subject: 【已收到】您的申請已送出
+body: |
+  您的申請已送出，等待主管核准中。
+  查看進度：/cases/purchase-request/99285b54-4295-4d2d-93c0-4e6acda5406e
+
+---
+at: 2026-07-03T00:38:52.4358450Z
+source: PURCHASE_REQUEST_V1.notify_crme
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 99285b54-4295-4d2d-93c0-4e6acda5406e
+  flowCode: PURCHASE_REQUEST
+  flowVersion: 1
+  stage: PendingDeptHead
+  round: 1
+subject: 【待簽】Bob 的申請
+body: |
+  申請人：Bob
+  摘要：採購申請 — 1 invoice
+  
+  請點此核准：/cases/purchase-request/99285b54-4295-4d2d-93c0-4e6acda5406e
+
+---
+at: 2026-07-03T00:38:52.5074740Z
+source: PURCHASE_REQUEST_V1.notify_crme
+channels: in_app
+recipients: Frank <frank@acme.example>; Grace <grace@acme.example>
+context:
+  caseId: 99285b54-4295-4d2d-93c0-4e6acda5406e
+  flowCode: PURCHASE_REQUEST
+  flowVersion: 1
+  stage: PendingFinance
+  round: 1
+subject: 【待簽】Bob 的申請
+body: |
+  申請人：Bob
+  摘要：採購申請 — 1 invoice
+  
+  請點此核准：/cases/purchase-request/99285b54-4295-4d2d-93c0-4e6acda5406e
+
+---
+at: 2026-07-03T00:38:53.4196270Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 871c38a4-f7a3-4cef-aebe-0d2d61d73cad
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: u
+  
+  請點此核准: /cases/leave/871c38a4-f7a3-4cef-aebe-0d2d61d73cad
+
+---
+at: 2026-07-03T00:38:53.5248110Z
+source: LEAVE_V1.notify_role_assign
+channels: in_app
+recipients: Henry <henry@acme.example>; Iris <iris@acme.example>
+context:
+  caseId: 871c38a4-f7a3-4cef-aebe-0d2d61d73cad
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingHr
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: u
+  
+  請點此核准: /cases/leave/871c38a4-f7a3-4cef-aebe-0d2d61d73cad
+
+---
+at: 2026-07-03T00:38:53.5692390Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: dfe7d40c-0450-43d6-bc36-b697c92327fe
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 1 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-05 - 2026-07-06
+  事由: r
+  
+  請點此核准: /cases/leave/dfe7d40c-0450-43d6-bc36-b697c92327fe
+
+---
+at: 2026-07-03T00:38:53.6918430Z
+source: VENDOR_EXPENSE_V1.notify_qkje
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: f0f42984-5513-4a6c-a729-e04489b735d8
+  flowCode: VENDOR_EXPENSE
+  flowVersion: 1
+  stage: PendingSupervisor
+  round: 1
+subject: 【已收到】您的申請已送出
+body: |
+  您的申請已送出，等待主管核准中。
+  查看進度：/cases/vendor_expense/f0f42984-5513-4a6c-a729-e04489b735d8
+
+---
+at: 2026-07-03T00:38:53.9551790Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 8f5a6433-285f-40d2-9126-a15a0d102adf
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: d
+  
+  請點此核准: /cases/leave/8f5a6433-285f-40d2-9126-a15a0d102adf
+
+---
+at: 2026-07-03T00:38:54.0608230Z
+source: delegation.designated
+channels: in_app
+recipients: Frank <frank@acme.example>
+context:
+  delegationId: 8175054e-7df5-4b13-a4be-e6edd31a80e4
+  kind: designated
+subject: 【待回應】Alice 指定你為代理人
+body: |
+  Alice 指定你於 2026-06-01 ~ 2026-12-31 期間代理其待辦。請至「代理人」設定接受或拒絕。
+
+---
+at: 2026-07-03T00:38:54.1813210Z
+source: delegation.accepted
+channels: in_app
+recipients: Alice <alice@acme.example>
+context:
+  delegationId: 8175054e-7df5-4b13-a4be-e6edd31a80e4
+  kind: accepted
+subject: 【代理人已接受】Frank 已接受你的代理指定
+body: |
+  Frank 已接受成為你的代理人（2026-06-01 ~ 2026-12-31），代理已生效。
+
+---
+at: 2026-07-03T00:38:54.2146150Z
+source: LEAVE_V1.notify_role_assign
+channels: in_app
+recipients: Henry <henry@acme.example>; Iris <iris@acme.example>
+context:
+  caseId: 8f5a6433-285f-40d2-9126-a15a0d102adf
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingHr
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: d
+  
+  請點此核准: /cases/leave/8f5a6433-285f-40d2-9126-a15a0d102adf
+
+---
+at: 2026-07-03T00:38:54.2723140Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 00a73668-0002-453e-b272-fd2dd1590206
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 1 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-03 - 2026-07-04
+  事由: d2
+  
+  請點此核准: /cases/leave/00a73668-0002-453e-b272-fd2dd1590206
+
+---
+at: 2026-07-03T00:38:56.9336580Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: c7e2ae33-1771-4a7d-ae7a-20f9cd67a250
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: post-reset
+  
+  請點此核准: /cases/leave/c7e2ae33-1771-4a7d-ae7a-20f9cd67a250
+
+---
+at: 2026-07-03T00:38:56.9855220Z
+source: LEAVE_V1.notify_role_assign
+channels: in_app
+recipients: Henry <henry@acme.example>; Iris <iris@acme.example>
+context:
+  caseId: c7e2ae33-1771-4a7d-ae7a-20f9cd67a250
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingHr
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: post-reset
+  
+  請點此核准: /cases/leave/c7e2ae33-1771-4a7d-ae7a-20f9cd67a250
+
+---
+at: 2026-07-03T00:38:57.0693180Z
+source: LEAVE_V1.notify_complete
+channels: email
+recipients: Bob <bob@acme.example>
+context:
+  caseId: c7e2ae33-1771-4a7d-ae7a-20f9cd67a250
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: Completed
+subject: 您的請假已備案
+body: |
+  您於 2026-07-03 申請的 2 天 Annual 已完成備案。
+
+---
+at: 2026-07-03T00:40:23.3059440Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 9615478d-ef7e-4396-b738-f454de89f391
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: smoke
+  
+  請點此核准: /cases/leave/9615478d-ef7e-4396-b738-f454de89f391
+
+---
+at: 2026-07-03T00:40:23.3647200Z
+source: LEAVE_V1.notify_role_assign
+channels: in_app
+recipients: Henry <henry@acme.example>; Iris <iris@acme.example>
+context:
+  caseId: 9615478d-ef7e-4396-b738-f454de89f391
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingHr
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: smoke
+  
+  請點此核准: /cases/leave/9615478d-ef7e-4396-b738-f454de89f391
+
+---
+at: 2026-07-03T00:40:23.4174970Z
+source: LEAVE_V1.notify_complete
+channels: email
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 9615478d-ef7e-4396-b738-f454de89f391
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: Completed
+subject: 您的請假已備案
+body: |
+  您於 2026-07-03 申請的 2 天 Annual 已完成備案。
+
+---
+at: 2026-07-03T00:40:23.4698440Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: c66eb19a-1590-4352-9e78-b03eea88c887
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 8 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-09-01 - 2026-09-10
+  事由: long
+  
+  請點此核准: /cases/leave/c66eb19a-1590-4352-9e78-b03eea88c887
+
+---
+at: 2026-07-03T00:40:23.5254630Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: c66eb19a-1590-4352-9e78-b03eea88c887
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingVp
+subject: 【請假待簽】Bob 申請 8 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-09-01 - 2026-09-10
+  事由: long
+  
+  請點此核准: /cases/leave/c66eb19a-1590-4352-9e78-b03eea88c887
+
+---
+at: 2026-07-03T00:40:23.5800650Z
+source: TEO_V1.notify_submitted
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: f1dad9bc-4a49-4ec0-af32-13a444a73fa5
+  flowCode: TEO
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【已收到】您的差旅費用核銷已送出
+body: |
+  您的差旅費用核銷已送出，等待主管核准中。
+  查看進度：/cases/teo/f1dad9bc-4a49-4ec0-af32-13a444a73fa5
+
+---
+at: 2026-07-03T00:40:23.5892080Z
+source: TEO_V1.notify_n_submit
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: f1dad9bc-4a49-4ec0-af32-13a444a73fa5
+  flowCode: TEO
+  flowVersion: 1
+  stage: PendingManager
+  round: 1
+subject: 【待簽】Bob 的差旅費用核銷
+body: |
+  申請人：Bob
+  摘要：差旅費用核銷 — 1 筆（TR-1）
+  
+  請點此核准：/cases/teo/f1dad9bc-4a49-4ec0-af32-13a444a73fa5
+
+---
+at: 2026-07-03T00:40:23.6397470Z
+source: TEO_V1.notify_n_submit
+channels: in_app
+recipients: Frank <frank@acme.example>; Grace <grace@acme.example>
+context:
+  caseId: f1dad9bc-4a49-4ec0-af32-13a444a73fa5
+  flowCode: TEO
+  flowVersion: 1
+  stage: PendingFinance
+  round: 1
+subject: 【待簽】Bob 的差旅費用核銷
+body: |
+  申請人：Bob
+  摘要：差旅費用核銷 — 1 筆（TR-1）
+  
+  請點此核准：/cases/teo/f1dad9bc-4a49-4ec0-af32-13a444a73fa5
+
+---
+at: 2026-07-03T00:40:23.7548570Z
+source: VENDOR_EXPENSE_V1.notify_qkje
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 4a1f68de-8c15-4c22-a4ea-6580ff49eaf7
+  flowCode: VENDOR_EXPENSE
+  flowVersion: 1
+  stage: PendingSupervisor
+  round: 1
+subject: 【已收到】您的申請已送出
+body: |
+  您的申請已送出，等待主管核准中。
+  查看進度：/cases/vendor_expense/4a1f68de-8c15-4c22-a4ea-6580ff49eaf7
+
+---
+at: 2026-07-03T00:40:23.8135750Z
+source: VENDOR_EXPENSE_V1.notify_role_assign
+channels: in_app
+recipients: Grace <grace@acme.example>
+context:
+  caseId: 4a1f68de-8c15-4c22-a4ea-6580ff49eaf7
+  flowCode: VENDOR_EXPENSE
+  flowVersion: 1
+  stage: PendingProcurement
+  round: 1
+subject: 【待審定】Bob 的採購申請
+body: |
+  V — 1 invoice
+  前往審定：/cases/vendor_expense/4a1f68de-8c15-4c22-a4ea-6580ff49eaf7
+
+---
+at: 2026-07-03T00:40:23.8715740Z
+source: PURCHASE_REQUEST_V1.notify_ckqd
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 9e104c14-2270-42a6-a90f-cfb37cdcebf1
+  flowCode: PURCHASE_REQUEST
+  flowVersion: 1
+  stage: PendingDeptHead
+  round: 1
+subject: 【已收到】您的申請已送出
+body: |
+  您的申請已送出，等待主管核准中。
+  查看進度：/cases/purchase-request/9e104c14-2270-42a6-a90f-cfb37cdcebf1
+
+---
+at: 2026-07-03T00:40:23.8816180Z
+source: PURCHASE_REQUEST_V1.notify_crme
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 9e104c14-2270-42a6-a90f-cfb37cdcebf1
+  flowCode: PURCHASE_REQUEST
+  flowVersion: 1
+  stage: PendingDeptHead
+  round: 1
+subject: 【待簽】Bob 的申請
+body: |
+  申請人：Bob
+  摘要：採購申請 — 1 invoice
+  
+  請點此核准：/cases/purchase-request/9e104c14-2270-42a6-a90f-cfb37cdcebf1
+
+---
+at: 2026-07-03T00:40:23.9322350Z
+source: PURCHASE_REQUEST_V1.notify_crme
+channels: in_app
+recipients: Frank <frank@acme.example>; Grace <grace@acme.example>
+context:
+  caseId: 9e104c14-2270-42a6-a90f-cfb37cdcebf1
+  flowCode: PURCHASE_REQUEST
+  flowVersion: 1
+  stage: PendingFinance
+  round: 1
+subject: 【待簽】Bob 的申請
+body: |
+  申請人：Bob
+  摘要：採購申請 — 1 invoice
+  
+  請點此核准：/cases/purchase-request/9e104c14-2270-42a6-a90f-cfb37cdcebf1
+
+---
+at: 2026-07-03T00:40:24.7793160Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 211db26b-095a-4fd9-9700-0134a6eab1b5
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: u
+  
+  請點此核准: /cases/leave/211db26b-095a-4fd9-9700-0134a6eab1b5
+
+---
+at: 2026-07-03T00:40:24.8768270Z
+source: LEAVE_V1.notify_role_assign
+channels: in_app
+recipients: Henry <henry@acme.example>; Iris <iris@acme.example>
+context:
+  caseId: 211db26b-095a-4fd9-9700-0134a6eab1b5
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingHr
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: u
+  
+  請點此核准: /cases/leave/211db26b-095a-4fd9-9700-0134a6eab1b5
+
+---
+at: 2026-07-03T00:40:24.9252110Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 2d8f1467-9edb-4a05-a587-9589c349600f
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 1 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-05 - 2026-07-06
+  事由: r
+  
+  請點此核准: /cases/leave/2d8f1467-9edb-4a05-a587-9589c349600f
+
+---
+at: 2026-07-03T00:40:25.0396260Z
+source: VENDOR_EXPENSE_V1.notify_qkje
+channels: email,in_app
+recipients: Bob <bob@acme.example>
+context:
+  caseId: 83c3c39a-f37f-483e-9beb-c6af682fe1c9
+  flowCode: VENDOR_EXPENSE
+  flowVersion: 1
+  stage: PendingSupervisor
+  round: 1
+subject: 【已收到】您的申請已送出
+body: |
+  您的申請已送出，等待主管核准中。
+  查看進度：/cases/vendor_expense/83c3c39a-f37f-483e-9beb-c6af682fe1c9
+
+---
+at: 2026-07-03T00:40:25.2744250Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 2914cb27-2a0a-4a90-a168-3488d433992a
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: d
+  
+  請點此核准: /cases/leave/2914cb27-2a0a-4a90-a168-3488d433992a
+
+---
+at: 2026-07-03T00:40:25.3453210Z
+source: delegation.designated
+channels: in_app
+recipients: Frank <frank@acme.example>
+context:
+  delegationId: 95fb9bfc-6888-4fc0-ae8e-65de60a47109
+  kind: designated
+subject: 【待回應】Alice 指定你為代理人
+body: |
+  Alice 指定你於 2026-06-01 ~ 2026-12-31 期間代理其待辦。請至「代理人」設定接受或拒絕。
+
+---
+at: 2026-07-03T00:40:25.4358700Z
+source: delegation.accepted
+channels: in_app
+recipients: Alice <alice@acme.example>
+context:
+  delegationId: 95fb9bfc-6888-4fc0-ae8e-65de60a47109
+  kind: accepted
+subject: 【代理人已接受】Frank 已接受你的代理指定
+body: |
+  Frank 已接受成為你的代理人（2026-06-01 ~ 2026-12-31），代理已生效。
+
+---
+at: 2026-07-03T00:40:25.4684300Z
+source: LEAVE_V1.notify_role_assign
+channels: in_app
+recipients: Henry <henry@acme.example>; Iris <iris@acme.example>
+context:
+  caseId: 2914cb27-2a0a-4a90-a168-3488d433992a
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingHr
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: d
+  
+  請點此核准: /cases/leave/2914cb27-2a0a-4a90-a168-3488d433992a
+
+---
+at: 2026-07-03T00:40:25.5297360Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: 43eeb54e-4d76-4884-9bfa-9781187061a1
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 1 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-03 - 2026-07-04
+  事由: d2
+  
+  請點此核准: /cases/leave/43eeb54e-4d76-4884-9bfa-9781187061a1
+
+---
+at: 2026-07-03T00:40:27.2672100Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: d0862008-8ad2-4fe2-968d-ea6b6d7b0c6a
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: post-reset
+  
+  請點此核准: /cases/leave/d0862008-8ad2-4fe2-968d-ea6b6d7b0c6a
+
+---
+at: 2026-07-03T00:40:27.3246190Z
+source: LEAVE_V1.notify_role_assign
+channels: in_app
+recipients: Henry <henry@acme.example>; Iris <iris@acme.example>
+context:
+  caseId: d0862008-8ad2-4fe2-968d-ea6b6d7b0c6a
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingHr
+subject: 【請假待簽】Bob 申請 2 天 Annual
+body: |
+  申請人: Bob
+  假別: Annual
+  期間: 2026-07-01 - 2026-07-02
+  事由: post-reset
+  
+  請點此核准: /cases/leave/d0862008-8ad2-4fe2-968d-ea6b6d7b0c6a
+
+---
+at: 2026-07-03T00:40:27.4097210Z
+source: LEAVE_V1.notify_complete
+channels: email
+recipients: Bob <bob@acme.example>
+context:
+  caseId: d0862008-8ad2-4fe2-968d-ea6b6d7b0c6a
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: Completed
+subject: 您的請假已備案
+body: |
+  您於 2026-07-03 申請的 2 天 Annual 已完成備案。
+
+---
+at: 2026-07-04T05:36:58.7595520Z
+source: LEAVE_V1.notify_assign_manager
+channels: email,in_app
+recipients: Alice <alice@acme.example>
+context:
+  caseId: fec5c45d-77fc-4701-92bf-3b4edd3414b5
+  flowCode: LEAVE
+  flowVersion: 1
+  stage: PendingManager
+subject: 【請假待簽】Bob 申請 3 天 特休
+body: |
+  申請人: Bob
+  假別: 特休
+  期間: 2026-07-13 - 2026-07-15
+  事由: 家庭旅遊 / Family trip
+  
+  請點此核准: /cases/leave/fec5c45d-77fc-4701-92bf-3b4edd3414b5
+
