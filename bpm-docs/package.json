@@ -1,0 +1,22 @@
+{
+  "name": "bpm-docs",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "flowcook 內部導入/使用手冊 — Astro + Starlight. Internal enablement docs; noindex, not linked from the public site.",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@astrojs/starlight": "^0.34.0",
+    "@fontsource-variable/noto-sans-tc": "^5.1.0",
+    "@fontsource/dm-sans": "^5.1.0",
+    "astro": "^5.6.0",
+    "sharp": "^0.33.5",
+    "typescript": "^5.7.0"
+  }
+}
