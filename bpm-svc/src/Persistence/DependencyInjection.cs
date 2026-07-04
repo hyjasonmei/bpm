@@ -193,8 +193,6 @@ public static class DependencyInjection
         services.AddScoped<IPURCHASE_REQUEST_V1_CaseStore, PURCHASE_REQUEST_V1_CaseStore>();
         services.AddScoped<ITRQ_V1_CaseStore, TRQ_V1_CaseStore>();
         services.AddScoped<IAPE_V1_CaseStore, APE_V1_CaseStore>();
-        services.AddScoped<Bpm.Application.Features.CONTRACT_REVIEW.V1.ICONTRACT_REVIEW_V1_CaseStore, Features.CONTRACT_REVIEW.V1.CONTRACT_REVIEW_V1_CaseStore>();
-        services.AddScoped<Bpm.Application.Features.COMMITTEE_REVIEW.V1.ICOMMITTEE_REVIEW_V1_CaseStore, Features.COMMITTEE_REVIEW.V1.COMMITTEE_REVIEW_V1_CaseStore>();
         services.AddScoped<ITEO_V1_CaseStore, TEO_V1_CaseStore>();
         services.AddScoped<IFAP_V1_CaseStore, FAP_V1_CaseStore>();
         services.AddScoped<IFAD_V1_CaseStore, FAD_V1_CaseStore>();
