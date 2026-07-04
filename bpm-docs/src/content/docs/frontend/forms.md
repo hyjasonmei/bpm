@@ -2,7 +2,7 @@
 title: 流程與表單
 description: 開新申請、填寫送出 — 從 Create 目錄到確認視窗。
 sidebar:
-  order: 2
+  order: 3
 ---
 
 開新申請有兩條路：首頁 **Quick Actions** 直接點，或上方 **Create** 進完整表單目錄。目錄只列「已上線（Published）」的流程，分組與排序由後台 AI Kitchen 的 launcher 設定控制。

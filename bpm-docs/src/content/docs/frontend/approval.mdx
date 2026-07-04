@@ -2,7 +2,7 @@
 title: 簽核（含並簽）
 description: 收件匣簽核、退回，以及並簽多人待簽的處理。
 sidebar:
-  order: 4
+  order: 5
 ---
 
 import YouTube from '../../../components/YouTube.astro'
@@ -19,11 +19,12 @@ import YouTube from '../../../components/YouTube.astro'
 
 ## 並簽（多人同關）
 
-並簽時多位審核者同時待簽，規則有兩種：
+並簽時多位審核者同時待簽，案件頁會出現**並簽面板**：政策標籤（「並簽 · 需全部核准」或「門檻 M/N」）、進度條，以及逐位審核者的狀態（待簽核 / 已核准 / 已退件 / 略過）。每位審核者對自己的格子做決定，互不代簽。
 
 - **全簽（AND）**：每位都要核准；任何一人退件 → 整關退回
-- **門檻（M/N）**：達門檻票數即通過，其餘待簽自動略過
-- 示範流程：`CONTRACT_REVIEW`（2/2 全簽）、`COMMITTEE_REVIEW`（2/3 門檻）
+- **門檻（M/N）**：達門檻票數即通過，其餘待簽自動**略過**
+- 示範流程：`CONTRACT_REVIEW`（全簽）、`COMMITTEE_REVIEW`（2/3 門檻）
+- **View BPMN** 流程圖會把並行分支同時標成進行中，一眼看懂案件同時在等誰
 
 <YouTube id="REPLACE_WITH_VIDEO_ID" title="簽核與並簽解說" />
 
