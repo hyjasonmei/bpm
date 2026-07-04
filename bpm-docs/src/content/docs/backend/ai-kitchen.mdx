@@ -1,13 +1,17 @@
 ---
 title: AI Kitchen
 description: 對談式設計流程，Prep → Cook → Serve 三階產出可運行的流程。
+sidebar:
+  order: 1
 ---
 
 import YouTube from '../../../components/YouTube.astro'
 
-AI Kitchen 是後台的流程設計工具，走三幕：
+AI Kitchen 是後台的流程設計中心。左側是已煮好的流程（Cooked flows）與狀態，右側 **Launcher preview** 直接預覽員工在前台 Create 頁看到的樣子——拖曳排序、換圖示，即改即見。
 
-<YouTube id="REPLACE_WITH_VIDEO_ID" title="AI Kitchen 三幕解說" />
+![AI Kitchen — Cooked flows 清單與 Launcher preview](../../../assets/screens/ai-kitchen.png)
+
+設計一條新流程走三幕：
 
 ## Prep（備料／設計）
 
@@ -19,7 +23,9 @@ AI 把 spec 煮成 per-flow 程式，產出 spec bundle。
 
 ## Serve（上菜／驗收部署）
 
-進 Sandbox 試吃驗收，通過後發布上線。
+進 [Sandbox](/backend/sandbox/) 試吃驗收，通過後 **Register / Publish** 上線——員工的 Quick Actions 立即看得到。
+
+<YouTube id="REPLACE_WITH_VIDEO_ID" title="AI Kitchen 三幕解說" />
 
 :::tip[影片先佔位]
 `REPLACE_WITH_VIDEO_ID` 換成實際 YouTube unlisted 影片 id 即可。
