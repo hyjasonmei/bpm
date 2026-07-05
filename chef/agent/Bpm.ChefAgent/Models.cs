@@ -37,6 +37,14 @@ public sealed record DeployEnvConfig(
 /// <summary>chef's workspace context (ChefWorkContextJson shape).</summary>
 public sealed record ChefWorkContext(string? Branch, string? Notes, DateTime? SetAt);
 
+/// <summary>Mirror of admin-svc's RegistryCodeDto — one live Admin_Flows row
+/// (non-archived, non-deleted) as seen by launcher resolution.</summary>
+public sealed record RegistryCodeRow(string FlowCode, int Version, string State, string DisplayName, DateTime UpdatedAt);
+
+/// <summary>Mirror of bpm-svc's /api/flow-codes item — a flow whose runtime
+/// code is actually deployed (highest <c>_V&lt;N&gt;_Case</c> per code).</summary>
+public sealed record DeployedFlowCode(string FlowCode, string DisplayName, int Version);
+
 /// <summary>What one poll decided to do for one environment.</summary>
 public sealed record CookPlan(ChefTask? CookTask, bool IsResume, List<ChefTask> MergeChecks)
 {

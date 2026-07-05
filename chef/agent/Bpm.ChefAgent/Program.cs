@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using Bpm.ChefAgent;
 
 // One-shot poll: launchd / Task Scheduler wakes this every 5 minutes. It does
@@ -82,6 +83,40 @@ foreach (var env in config.EnabledEnvironments)
             }
         }
     }
+
+    // Registry reconciliation: flows whose runtime code is deployed on this
+    // env's bpm-svc but that the registry doesn't cover — they entered the
+    // stack outside the AI Kitchen pipeline. Detection + notify ONLY (no
+    // auto-register): a human decides whether a hand-merged flow should be
+    // customer-visible, so a test/carrier flow can never auto-launch itself.
+    try
+    {
+        List<DeployEnvConfig> reconCfgs;
+        try { reconCfgs = await api.GetDeployConfigAsync(); } catch { reconCfgs = []; }
+        var reconCfg = reconCfgs.FirstOrDefault(c => string.Equals(c.EnvName, env.Name, StringComparison.OrdinalIgnoreCase));
+        if (reconCfg is { Enabled: true })
+        {
+            using var plainHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            // /api/flow-codes is anonymous by design (admin-ui reaches it the same way).
+            var deployed = await plainHttp.GetFromJsonAsync<List<DeployedFlowCode>>(
+                $"https://{reconCfg.BpmSvcApp}.azurewebsites.net/api/flow-codes") ?? [];
+            var registry = await api.GetRegistryCodesAsync();
+            var missing = RegistryReconciler.MissingRegistrations(deployed, registry);
+            var missingKey = string.Join(",", missing);
+            var lastSet = state.LastUnregisteredSet.TryGetValue(env.Name, out var s) ? s : "";
+            if (missing.Count > 0 &&
+                (missingKey != lastSet ||
+                 Cooldown.ShouldSend(now, Look(state.LastUnregisteredAlertAt, env.Name), TimeSpan.FromHours(6))))
+            {
+                await tg.SendAsync(
+                    $"📋 {env.Name}: {missing.Count} deployed flow(s) missing from the registry — {string.Join("、", missing)}. " +
+                    "Register via admin-ui「Register shipped」to make them live, or ignore if they are test carriers.");
+                state.LastUnregisteredAlertAt[env.Name] = now;
+            }
+            state.LastUnregisteredSet[env.Name] = missingKey;
+        }
+    }
+    catch (Exception ex) { Console.Error.WriteLine($"[recon-fail] {env.Name}: {ex.Message}"); }
 
     var plan = TaskPlanner.Plan(tasks);
     if (plan.CookTask is not { } cook) continue;

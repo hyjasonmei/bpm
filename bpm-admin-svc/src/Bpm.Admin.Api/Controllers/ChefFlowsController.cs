@@ -46,6 +46,23 @@ public sealed class ChefFlowsController : ControllerBase
         return Ok(await _deploy.ListAsync(ct));
     }
 
+    /// <summary>Chef-token read of every live registry row's (code, version,
+    /// state, displayName). Drives the agent's post-publish launcher-visibility
+    /// assertion and its deployed-but-unregistered detection — read-only, no
+    /// lifecycle side effects.</summary>
+    [HttpGet("registry-codes")]
+    public async Task<ActionResult<IReadOnlyList<RegistryCodeDto>>> RegistryCodes(CancellationToken ct)
+    {
+        if (!RequireChef()) return Forbid();
+        var rows = await _db.Flows.AsNoTracking()
+            .Where(f => f.ArchivedAt == null && f.DeletedAt == null)
+            .Select(f => new RegistryCodeDto(f.FlowCode, f.Version, f.State.ToString(), f.DisplayName, f.UpdatedAt))
+            .ToListAsync(ct);
+        return Ok(rows);
+    }
+
+    public sealed record RegistryCodeDto(string FlowCode, int Version, string State, string DisplayName, DateTime UpdatedAt);
+
     [HttpGet("{flowId:guid}")]
     public async Task<ActionResult<FlowDetailDto>> Get(Guid flowId, CancellationToken ct)
     {

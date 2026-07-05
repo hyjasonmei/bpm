@@ -20,6 +20,15 @@ public class FlowConfiguration : IEntityTypeConfiguration<Flow>
 
         builder.HasIndex(x => x.LineageId);
         builder.HasIndex(x => new { x.LineageId, x.Version }).IsUnique();
+        // One LIVE row per (code, version): retired/archived/deleted history is
+        // exempt so a retire→re-cook can coexist with its predecessor, but two
+        // rows both visible to launcher resolution can never share a version.
+        // Filter is raw SQL by EF design — double-quoted identifiers and the
+        // literal 7 (= FlowState.Retired) parse identically on SQLite and
+        // Postgres. Keep in sync with the FlowState enum if it is renumbered.
+        builder.HasIndex(x => new { x.FlowCode, x.Version })
+            .IsUnique()
+            .HasFilter("\"ArchivedAt\" IS NULL AND \"DeletedAt\" IS NULL AND \"State\" <> 7");
         builder.HasIndex(x => x.State);
         builder.HasIndex(x => x.UpdatedAt);
         builder.HasIndex(x => x.GroupId);

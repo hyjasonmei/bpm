@@ -17,6 +17,10 @@ public sealed class AgentState
     public string? DeployInFlightFlowId { get; set; }                          // single-flight: a deploy is mid-run (set→deploy→clear)
     public Dictionary<string, DateTime> LastDeployAttemptAt { get; set; } = new(); // flowId → last deploy attempt (RetryCooldown gate)
 
+    // ── Registry reconciliation ──────────────────────────────────────────────
+    public Dictionary<string, DateTime> LastUnregisteredAlertAt { get; set; } = new(); // env name → last "deployed but unregistered" ping
+    public Dictionary<string, string> LastUnregisteredSet { get; set; } = new();       // env name → set last alerted on (change → re-alert immediately)
+
     public static AgentState Load(string path)
     {
         if (!File.Exists(path)) return new AgentState();
