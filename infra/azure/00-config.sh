@@ -32,6 +32,7 @@ ADMIN_SVC_APP="${ADMIN_SVC_APP:-${ENV_PREFIX}-flowcook-admin-api}"  # bpm-admin-
 BPM_UI_SWA="${BPM_UI_SWA:-${ENV_PREFIX}-flowcook-ui}"
 ADMIN_UI_SWA="${ADMIN_UI_SWA:-${ENV_PREFIX}-flowcook-admin-ui}"
 WWW_SWA="${WWW_SWA:-${ENV_PREFIX}-flowcook-www}"
+DOCS_SWA="${DOCS_SWA:-${ENV_PREFIX}-flowcook-docs}"
 KV_NAME="${KV_NAME:-kv-${ENV_PREFIX}-flowcook}"                     # ≤24 chars, globally unique
 PG_NAME="${PG_NAME:-pg-${ENV_PREFIX}-flowcook}"                     # globally unique
 
@@ -100,6 +101,7 @@ ADMIN_SVC_PROJ="$REPO_ROOT/bpm-admin-svc/src/Bpm.Admin.Api/Bpm.Admin.Api.csproj"
 BPM_UI_DIR="$REPO_ROOT/bpm-ui"
 ADMIN_UI_DIR="$REPO_ROOT/bpm-admin-ui"
 WWW_DIR="$REPO_ROOT/bpm-www"
+DOCS_DIR="$REPO_ROOT/bpm-docs"
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 say()  { printf '\033[1;36m▸ %s\033[0m\n' "$*"; }

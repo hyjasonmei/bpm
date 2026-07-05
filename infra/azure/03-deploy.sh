@@ -75,6 +75,9 @@ deploy_swa "$ADMIN_UI_SWA" "$ADMIN_UI_DIR" "dist"
 
 deploy_swa "$WWW_SWA" "$WWW_DIR" "dist"
 
+# docs 站無後端呼叫 — 不需要任何 VITE_* build 環境變數。
+deploy_swa "$DOCS_SWA" "$DOCS_DIR" "dist"
+
 echo
 ok "Deploy complete."
 cat <<EOF

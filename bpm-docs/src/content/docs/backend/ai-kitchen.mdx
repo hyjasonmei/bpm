@@ -1,0 +1,48 @@
+---
+title: AI Kitchen
+description: 對談式設計流程，Prep → Cook → Serve 三階產出可運行的流程。
+sidebar:
+  order: 1
+---
+
+import YouTube from '../../../components/YouTube.astro'
+
+AI Kitchen 是後台的流程設計中心。左側是已煮好的流程（Cooked flows）與狀態，右側 **Launcher preview** 直接預覽員工在前台 Create 頁看到的樣子——拖曳排序、換圖示，即改即見。
+
+![AI Kitchen — Cooked flows 清單與 Launcher preview](../../../assets/screens/ai-kitchen.png)
+
+設計一條新流程：按 **Cook new flow** 給流程代碼與名稱，進入精靈，走三幕：
+
+## Prep（備料／設計）
+
+左邊跟 AI 對談、右邊即時看生成結果，精靈依序走七步：
+
+| 步驟 | 談什麼 |
+|---|---|
+| **Source** | 流程的來源材料 — 可上傳現有 BPMN / 流程圖片，AI 直接解析起頭 |
+| **Forms** | 表單欄位、驗證、條件必填 |
+| **Access** | 誰能發起這條流程 |
+| **Decisions** | 條件路由（金額門檻、天數規則⋯） |
+| **Approvers** | 每一關誰簽（主管/部門主管/角色），含並簽設定 |
+| **Notify** | 每一關的通知對象與信件內容 |
+| **Integrations** | 資料集、外部串接 |
+
+每步有檢核，全部通過才能 **Submit**（送交生成）。Prep 階段隨時可 **Download bundle** 拿 spec zip。
+
+## Cook（烹調／生成）
+
+AI 把 spec 煮成 per-flow 程式。Cook 分頁有進度對話串——生成過程有問題可以**開 issue** 退回處理，完成會附產出物清單。
+
+## Serve（上菜／驗收部署）
+
+驗收與上線的控制檯：**Approve**（規格核可）→ **Publish**（部署上線，可即時看進度、失敗可重試）。上線後員工的 Quick Actions 立即看得到；也可 **Unpublish** 下架。實際帶客戶驗收在 [Sandbox](/backend/sandbox/) 進行。
+
+## 流程的生命週期
+
+清單上的狀態徽章：`Draft → Submitted → Cooking → Committed → Approved → Published`（中途可 OnHold / Rejected；上線後可 **Retired** 退役）。常用管理動作在每列的選單裡：**Rename**（改顯示名）、**Clone as new version**（複製成 v+1 草稿——改規則走這條）、**Retire / Unretire**、指派 launcher 分組。
+
+<YouTube id="REPLACE_WITH_VIDEO_ID" title="AI Kitchen 三幕解說" />
+
+:::tip[影片先佔位]
+`REPLACE_WITH_VIDEO_ID` 換成實際 YouTube unlisted 影片 id 即可。
+:::

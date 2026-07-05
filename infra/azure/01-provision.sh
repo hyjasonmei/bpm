@@ -118,6 +118,7 @@ create_swa() {
 create_swa "$BPM_UI_SWA"
 create_swa "$ADMIN_UI_SWA"
 create_swa "$WWW_SWA"
+create_swa "$DOCS_SWA"
 
 # ── Optional: Azure Front Door for admin-ui same-origin routing ─────────────
 if [ "$ENABLE_FRONT_DOOR" = "true" ]; then
@@ -140,6 +141,7 @@ Resource summary (RG $RG):
   bpm-ui  (SWA) : https://$(az staticwebapp show -n "$BPM_UI_SWA" -g "$RG" --query defaultHostname -o tsv)
   admin-ui(SWA) : https://$(az staticwebapp show -n "$ADMIN_UI_SWA" -g "$RG" --query defaultHostname -o tsv)
   www     (SWA) : https://$(az staticwebapp show -n "$WWW_SWA" -g "$RG" --query defaultHostname -o tsv)
+  docs    (SWA) : https://$(az staticwebapp show -n "$DOCS_SWA" -g "$RG" --query defaultHostname -o tsv)
   Key Vault     : $KV_NAME
 
 Next: ./02-configure.sh   (app settings, Key Vault refs, CORS, migrations)
