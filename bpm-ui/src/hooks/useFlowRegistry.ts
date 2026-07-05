@@ -72,13 +72,28 @@ export function useFlowRegistry(): State {
   return state
 }
 
+/**
+ * Tie-break two rows of the same flowCode. Higher version wins; on the SAME
+ * version (a retired old cook + a re-published new cook can share
+ * code+version), Published wins, then the newer updatedAt. Without this a
+ * stale Retired row that happens to sort first shadows the live one —
+ * hiding the flow from the launcher and collapsing its label to the code.
+ */
+function preferEntry(a: FlowRegistryEntry, b: FlowRegistryEntry): FlowRegistryEntry {
+  if (a.version !== b.version) return b.version > a.version ? b : a
+  const aPub = a.state === 'Published'
+  const bPub = b.state === 'Published'
+  if (aPub !== bPub) return bPub ? b : a
+  return Date.parse(b.updatedAt) >= Date.parse(a.updatedAt) ? b : a
+}
+
 /** Latest non-deleted version per flowCode. Useful for the launcher. */
 export function latestPerCode(entries: FlowRegistryEntry[] | null): Map<string, FlowRegistryEntry> {
   const out = new Map<string, FlowRegistryEntry>()
   if (!entries) return out
   for (const e of entries) {
     const cur = out.get(e.flowCode)
-    if (!cur || e.version > cur.version) out.set(e.flowCode, e)
+    out.set(e.flowCode, cur ? preferEntry(cur, e) : e)
   }
   return out
 }
@@ -90,7 +105,12 @@ export function entryForVersion(
   version: number,
 ): FlowRegistryEntry | undefined {
   if (!entries) return undefined
-  return entries.find(e => e.flowCode === code && e.version === version)
+  let chosen: FlowRegistryEntry | undefined
+  for (const e of entries) {
+    if (e.flowCode !== code || e.version !== version) continue
+    chosen = chosen ? preferEntry(chosen, e) : e
+  }
+  return chosen
 }
 
 /**
@@ -110,11 +130,8 @@ export function resolveFlowLabel(
   let chosen: FlowRegistryEntry | undefined
   for (const e of entries) {
     if (e.flowCode !== code) continue
-    if (version != null) {
-      if (e.version === version) { chosen = e; break }
-    } else if (!chosen || e.version > chosen.version) {
-      chosen = e
-    }
+    if (version != null && e.version !== version) continue
+    chosen = chosen ? preferEntry(chosen, e) : e
   }
   return chosen?.displayName || fallback
 }
