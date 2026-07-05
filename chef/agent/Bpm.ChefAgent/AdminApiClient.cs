@@ -94,6 +94,16 @@ public sealed class AdminApiClient : IDisposable
         return await resp.Content.ReadFromJsonAsync<List<DeployEnvConfig>>(Json, ct) ?? [];
     }
 
+    /// <summary>Every live registry row's (code, version, state) — feeds the
+    /// post-publish launcher-visibility assertion and the deployed-but-
+    /// unregistered detection.</summary>
+    public async Task<List<RegistryCodeRow>> GetRegistryCodesAsync(CancellationToken ct = default)
+    {
+        var resp = await _http.GetAsync("api/chef/flows/registry-codes", ct);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<List<RegistryCodeRow>>(Json, ct) ?? [];
+    }
+
     /// <summary>Fetch the current state of one flow (post-cook outcome check).</summary>
     public async Task<string?> GetStateAsync(Guid flowId, CancellationToken ct = default)
     {

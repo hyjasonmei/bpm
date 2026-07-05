@@ -38,11 +38,21 @@ public class FlowLifecycleService : IFlowLifecycleService
             throw new FlowLifecycleException(
                 $"FlowCode '{code}' is already used by another active flow; pick a different code, or archive/retire that one first.");
 
+        // A retired/archived predecessor with the same code must not be
+        // shadowed by a fresh lineage restarting at V1 — two rows sharing
+        // (code, version) make the launcher's per-code resolution ambiguous.
+        // Continue the code's existing lineage at the next version instead.
+        var prior = await _db.Flows
+            .AsNoTracking()
+            .Where(f => f.FlowCode == code)
+            .OrderByDescending(f => f.Version)
+            .FirstOrDefaultAsync(ct);
+
         var row = new Flow
         {
             Id = Guid.NewGuid(),
-            LineageId = Guid.NewGuid(),
-            Version = 1,
+            LineageId = prior?.LineageId ?? Guid.NewGuid(),
+            Version = (prior?.Version ?? 0) + 1,
             State = FlowState.Draft,
             FlowCode = code,
             DisplayName = displayName.Trim(),
@@ -91,13 +101,57 @@ public class FlowLifecycleService : IFlowLifecycleService
                 continue;
             }
 
+            // A retired row already sitting at the deployed (code, version)
+            // must be revived, not duplicated — a second row with the same
+            // code+version would shadow launcher resolution (and violate the
+            // partial unique index).
+            var retiredSame = await _db.Flows
+                .Where(x => x.FlowCode == code && x.Version == deployedVersion &&
+                            x.ArchivedAt == null && x.DeletedAt == null && x.State == FlowState.Retired)
+                .OrderByDescending(x => x.UpdatedAt)
+                .FirstOrDefaultAsync(ct);
+            if (retiredSame is not null)
+            {
+                retiredSame.State = FlowState.Published;
+                retiredSame.MergedAt = DateTime.UtcNow;
+                if (!string.IsNullOrWhiteSpace(f.DisplayName)) retiredSame.DisplayName = f.DisplayName.Trim();
+                retiredSame.UpdatedAt = DateTime.UtcNow;
+                if (active is not null)
+                {
+                    // Same supersede rule as the create path below: the older
+                    // registered version steps aside for the deployed one.
+                    active.State = FlowState.Retired;
+                    active.UpdatedAt = DateTime.UtcNow;
+                }
+                await _db.SaveChangesAsync(ct);
+
+                await _audit.LogAsync(
+                    actionType: "flow_registered_shipped_revived",
+                    targetType: "flow",
+                    targetId: retiredSame.Id.ToString(),
+                    actorUserId: actorUserId,
+                    actorPrincipalId: null,
+                    before: new { retiredSame.Id, retiredSame.Version, State = FlowState.Retired.ToString() },
+                    after: new { retiredSame.Id, retiredSame.LineageId, retiredSame.Version, retiredSame.FlowCode, retiredSame.DisplayName, State = retiredSame.State.ToString() },
+                    ct: ct);
+
+                registered.Add(code);
+                continue;
+            }
+
             // Either a brand-new code (active is null) or a newer runtime
             // version has been deployed than what's registered. Either way the
             // new version goes straight to Published (the one-click bootstrap's
             // whole job — bypass the Draft → … → Committed cook lifecycle for
             // code-first flows) and, on an upgrade, the superseded row is
             // retired so the launcher's latest-per-code resolves to the new one.
-            var lineageId = active?.LineageId ?? Guid.NewGuid();
+            var lineageId = active?.LineageId
+                ?? await _db.Flows.AsNoTracking()
+                    .Where(x => x.FlowCode == code)
+                    .OrderByDescending(x => x.Version)
+                    .Select(x => (Guid?)x.LineageId)
+                    .FirstOrDefaultAsync(ct)
+                ?? Guid.NewGuid();
 
             var row = new Flow
             {

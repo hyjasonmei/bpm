@@ -20,13 +20,13 @@ public class FlowLifecycleTests
         return (new FlowLifecycleService(ctx, new AuditLogger(ctx)), ctx, connection);
     }
 
-    private static Flow SeedFlow(AdminDbContext ctx, string code, FlowState state, DateTime? archivedAt = null)
+    private static Flow SeedFlow(AdminDbContext ctx, string code, FlowState state, DateTime? archivedAt = null, int version = 1)
     {
         var row = new Flow
         {
             Id = Guid.NewGuid(),
             LineageId = Guid.NewGuid(),
-            Version = 1,
+            Version = version,
             State = state,
             FlowCode = code,
             DisplayName = code,
@@ -73,6 +73,42 @@ public class FlowLifecycleTests
             SeedFlow(ctx, "LEAVE", FlowState.Retired);
             var row = await svc.CreateDraftAsync("LEAVE", "Leave Request", null, null);
             Assert.Equal("LEAVE", row.FlowCode);
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
+    [Fact]
+    public async Task CreateDraft_Continues_Lineage_And_Bumps_Version_After_Retire()
+    {
+        var (svc, ctx, conn) = CreateService();
+        try
+        {
+            var retired = SeedFlow(ctx, "LEAVE", FlowState.Retired);
+            var row = await svc.CreateDraftAsync("LEAVE", "Leave Request", null, null);
+            // Same lineage, next version — never a second (code, version=1) row.
+            Assert.Equal(retired.LineageId, row.LineageId);
+            Assert.Equal(retired.Version + 1, row.Version);
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
+    [Fact]
+    public async Task RegisterShipped_Revives_Retired_Row_At_Same_Version()
+    {
+        var (svc, ctx, conn) = CreateService();
+        try
+        {
+            var retired = SeedFlow(ctx, "CONTRACT_REVIEW", FlowState.Retired);
+            var result = await svc.RegisterShippedAsync(
+                new[] { new ShippedFlowInput("CONTRACT_REVIEW", "合約審查", 1) }, null);
+
+            Assert.Contains("CONTRACT_REVIEW", result.Registered);
+            var rows = ctx.Flows.Where(f => f.FlowCode == "CONTRACT_REVIEW").ToList();
+            Assert.Single(rows); // revived in place, no shadow row
+            Assert.Equal(retired.Id, rows[0].Id);
+            Assert.Equal(FlowState.Published, rows[0].State);
+            Assert.Equal("合約審查", rows[0].DisplayName);
+            Assert.NotNull(rows[0].MergedAt);
         }
         finally { ctx.Dispose(); conn.Dispose(); }
     }
@@ -130,8 +166,11 @@ public class FlowLifecycleTests
         {
             // A genuinely different flow (new lineage) reusing an active code
             // must still be blocked — the fix must not weaken the real guard.
-            SeedFlow(ctx, "WFH", FlowState.Published);     // lineage A, live
-            var dup = SeedFlow(ctx, "WFH", FlowState.Draft); // lineage B, distinct flow
+            // Distinct versions: the (code, version) unique index forbids two
+            // live rows sharing a version, but the Submit clash guard is about
+            // the CODE regardless of version.
+            SeedFlow(ctx, "WFH", FlowState.Published);                  // lineage A, live
+            var dup = SeedFlow(ctx, "WFH", FlowState.Draft, version: 2); // lineage B, distinct flow
             var ex = await Assert.ThrowsAsync<FlowLifecycleException>(
                 () => svc.SubmitAsync(dup.Id, null));
             Assert.Contains("already used", ex.Message);
@@ -197,7 +236,7 @@ public class FlowLifecycleTests
         try
         {
             SeedFlow(ctx, "LEAVE", FlowState.Published);
-            var v2 = SeedFlow(ctx, "LEAVE", FlowState.Draft);
+            var v2 = SeedFlow(ctx, "LEAVE", FlowState.Draft, version: 2);
             await svc.SoftDeleteAsync(v2.Id, null);
 
             await Assert.ThrowsAsync<FlowLifecycleException>(

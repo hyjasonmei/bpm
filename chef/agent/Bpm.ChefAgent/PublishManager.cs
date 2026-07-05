@@ -86,7 +86,22 @@ public sealed class PublishManager
             if (reason is null)
             {
                 await MarkPublishedWithRetryAsync(api, task, ct);
-                await _tg.SendAsync($"✅ {task.FlowCode} v{task.Version} deployed + published ({cfg.EnvName}).", ct);
+
+                // Post-publish launcher-visibility assertion: Published in the
+                // DB is not the same as visible to employees — a stale same-
+                // version row (retire→re-cook) or any future resolution edge
+                // must fail the publish loudly instead of silently shipping an
+                // invisible flow.
+                var issue = await CheckVisibilityAsync(api, task, ct);
+                if (issue is not null)
+                {
+                    try { await api.MarkPublishFailedAsync(task.FlowId, issue, ct); }
+                    catch { /* best effort — flow may already sit in Published */ }
+                    await _tg.SendAsync($"🛑 {task.FlowCode} v{task.Version} deployed BUT failed the launcher visibility check ({cfg.EnvName}): {issue}", ct);
+                    return;
+                }
+
+                await _tg.SendAsync($"✅ {task.FlowCode} v{task.Version} deployed + published ({cfg.EnvName}) — launcher visibility verified.", ct);
             }
             else
             {
@@ -105,6 +120,24 @@ public sealed class PublishManager
         finally
         {
             _state.DeployInFlightFlowId = null;
+        }
+    }
+
+    /// <summary>Fetch the live registry rows and run the pure
+    /// <see cref="RegistryReconciler.VisibilityIssue"/> assertion. A transport
+    /// failure here must not fail an otherwise-good publish — report null and
+    /// leave detection to the next poll's reconciliation sweep.</summary>
+    private async Task<string?> CheckVisibilityAsync(AdminApiClient api, ChefTask task, CancellationToken ct)
+    {
+        try
+        {
+            var rows = await api.GetRegistryCodesAsync(ct);
+            return RegistryReconciler.VisibilityIssue(rows, task.FlowCode, task.Version);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[visibility-check-skip] {task.FlowCode}: {ex.Message}");
+            return null;
         }
     }
 
