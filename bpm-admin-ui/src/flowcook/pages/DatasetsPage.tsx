@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   useReactTable, getCoreRowModel, flexRender, type ColumnDef,
 } from '@tanstack/react-table'
-import { Plus, Trash2, Pencil, Check, X } from 'lucide-react'
+import { Plus, Trash2, Pencil, Check, X, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -10,11 +10,14 @@ import {
   listDatasets, listRows, addRow, updateRow, deleteRow,
   type DatasetDto, type DatasetRowDto,
 } from '@/flowcook/api/datasets'
+import { DatasetSchemaModal } from './datasets/DatasetSchemaModal'
 
 export default function DatasetsPage() {
   const [datasets, setDatasets] = useState<DatasetDto[]>([])
   const [selected, setSelected] = useState<DatasetDto | null>(null)
   const [rows, setRows] = useState<DatasetRowDto[]>([])
+  // Schema modal: closed | create | edit-the-selected-dataset.
+  const [schemaMode, setSchemaMode] = useState<'closed' | 'create' | 'edit'>('closed')
 
   // Row edit-mode: at most one row editable at a time. In-flight cell values live
   // in a ref (not state) so a keystroke neither re-renders the table nor rebuilds
@@ -134,7 +137,15 @@ export default function DatasetsPage() {
   return (
     <div className="grid grid-cols-12 gap-4 p-4">
       <aside className="col-span-3 space-y-1">
-        <h2 className="mb-2 text-sm font-semibold text-ink">資料集 / Datasets</h2>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-ink">資料集 / Datasets</h2>
+          <Button variant="outline" size="xs" onClick={() => setSchemaMode('create')} data-testid="add-dataset">
+            <Plus className="h-3.5 w-3.5" /> 新增
+          </Button>
+        </div>
+        {datasets.length === 0 && (
+          <p className="px-1 text-xs text-ink-faint">還沒有資料集 — 按「新增」建第一個。</p>
+        )}
         {datasets.map(d => (
           <button key={d.id} onClick={() => setSelected(d)} data-testid={`dataset-${d.key}`}
             className={`block w-full rounded px-3 py-2 text-left text-sm ${selected?.id === d.id ? 'bg-primary/10 text-ink' : 'text-ink-muted hover:bg-slate-50'}`}>
@@ -149,11 +160,20 @@ export default function DatasetsPage() {
         ) : (
           <>
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-ink">{selected.name}</h3>
-              <Button variant="primary" size="sm" onClick={newRow}
-                disabled={editingRowId !== null} data-testid="add-row">
-                <Plus className="h-4 w-4" /> 新增列
-              </Button>
+              <h3 className="text-sm font-semibold text-ink">
+                {selected.name}
+                {selected.description && <span className="ml-2 font-normal text-ink-faint">{selected.description}</span>}
+              </h3>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setSchemaMode('edit')}
+                  disabled={editingRowId !== null} data-testid="edit-schema">
+                  <Settings2 className="h-4 w-4" /> 編輯結構
+                </Button>
+                <Button variant="primary" size="sm" onClick={newRow}
+                  disabled={editingRowId !== null} data-testid="add-row">
+                  <Plus className="h-4 w-4" /> 新增列
+                </Button>
+              </div>
             </div>
             <table className="w-full border-collapse text-sm">
               <thead>
@@ -176,6 +196,23 @@ export default function DatasetsPage() {
           </>
         )}
       </section>
+
+      <DatasetSchemaModal
+        open={schemaMode !== 'closed'}
+        existing={schemaMode === 'edit' ? selected : null}
+        onClose={() => setSchemaMode('closed')}
+        onSaved={saved => {
+          setDatasets(ds => {
+            const idx = ds.findIndex(d => d.id === saved.id)
+            return idx >= 0 ? ds.map(d => (d.id === saved.id ? saved : d)) : [...ds, saved]
+          })
+          setSelected(saved)
+        }}
+        onDeleted={id => {
+          setDatasets(ds => ds.filter(d => d.id !== id))
+          setSelected(cur => (cur?.id === id ? null : cur))
+        }}
+      />
     </div>
   )
 }
