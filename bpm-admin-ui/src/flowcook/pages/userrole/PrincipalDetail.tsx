@@ -74,6 +74,10 @@ export function PrincipalDetail({
         )}
 
         {p.type === 0 && (
+          <ManagerEditor principal={p} principals={principals} principalNameById={principalNameById} refresh={refreshAll} />
+        )}
+
+        {p.type === 0 && (
           <EffectiveRolesView effective={effective} roleNameById={roleNameById} principalNameById={principalNameById} />
         )}
 
@@ -89,6 +93,10 @@ export function PrincipalDetail({
 
         {p.type === 1 && (
           <DeptParentEditor principal={p} principals={principals} principalNameById={principalNameById} refresh={refreshAll} />
+        )}
+
+        {p.type === 1 && (
+          <DeptHeadEditor principal={p} principals={principals} principalNameById={principalNameById} refresh={refreshAll} />
         )}
 
         {p.type === 2 && (
@@ -409,6 +417,96 @@ function DeptMembershipsEditor({
 }
 
 // ──────────────────────────────────────────────────────────────
+// Direct manager — for user principals
+// ──────────────────────────────────────────────────────────────
+
+function ManagerEditor({
+  principal: p, principals, principalNameById, refresh,
+}: { principal: Principal; principals: Principal[]; principalNameById: Record<string, string>; refresh: () => Promise<void> }) {
+  const [managerId, setManagerId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [working, setWorking] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await api<{ managerUserId: string | null } | null>(`/api/principals/${p.id}/manager`)
+        .catch(() => null)
+      setManagerId(data?.managerUserId ?? null)
+    } finally {
+      setLoading(false)
+    }
+  }, [p.id])
+
+  useEffect(() => { void load() }, [load])
+
+  async function set(managerUserId: string) {
+    setWorking(true)
+    try {
+      await api(`/api/principals/${p.id}/manager`, { method: 'PUT', json: { managerUserId } })
+      await load()
+      await refresh()
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Failed')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function clear() {
+    if (!window.confirm('Remove this user\'s manager?')) return
+    setWorking(true)
+    try {
+      await api(`/api/principals/${p.id}/manager`, { method: 'DELETE' })
+      await load()
+      await refresh()
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Failed')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  const excludeIds = new Set([p.id, ...(managerId ? [managerId] : [])])
+
+  return (
+    <Section title="Direct manager" hint={loading ? '…' : (managerId ? 'set' : 'not set')}>
+      <div className="flex items-center gap-2">
+        {managerId ? (
+          <div className="flex flex-1 items-center gap-2 rounded border border-rule bg-bg px-3 py-2">
+            <User className="h-3.5 w-3.5 text-primary" />
+            <span className="flex-1 truncate text-sm font-medium text-ink">
+              {principalNameById[managerId] ?? managerId}
+            </span>
+            <button
+              onClick={() => void clear()}
+              disabled={working}
+              title="Remove manager"
+              className="flex h-7 w-7 items-center justify-center rounded text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <p className="flex-1 rounded border border-dashed border-rule bg-bg/50 px-3 py-2 text-xs italic text-ink-muted">
+            No manager set — 「直屬主管」簽核步驟會走備援指派。
+          </p>
+        )}
+        <PrincipalPicker
+          principals={principals}
+          excludeIds={excludeIds}
+          acceptTypes={[0]}
+          onPick={(id) => void set(id)}
+          buttonLabel={managerId ? '↻ Change' : '+ Set manager'}
+          placeholder="Search user…"
+          align="right"
+        />
+      </div>
+    </Section>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────
 // Delegations — for user principals
 // ──────────────────────────────────────────────────────────────
 
@@ -696,6 +794,96 @@ function DeptParentEditor({
           onPick={(id) => void setParent(id)}
           buttonLabel={currentParent ? '↻ Change' : '+ Set parent'}
           placeholder="Search dept…"
+          align="right"
+        />
+      </div>
+    </Section>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────
+// Dept head — for dept principals
+// ──────────────────────────────────────────────────────────────
+
+function DeptHeadEditor({
+  principal: p, principals, principalNameById, refresh,
+}: { principal: Principal; principals: Principal[]; principalNameById: Record<string, string>; refresh: () => Promise<void> }) {
+  const [headId, setHeadId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [working, setWorking] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await api<{ headUserId: string | null } | null>(`/api/principals/${p.id}/head`)
+        .catch(() => null)
+      setHeadId(data?.headUserId ?? null)
+    } finally {
+      setLoading(false)
+    }
+  }, [p.id])
+
+  useEffect(() => { void load() }, [load])
+
+  async function set(headUserId: string) {
+    setWorking(true)
+    try {
+      await api(`/api/principals/${p.id}/head`, { method: 'PUT', json: { headUserId } })
+      await load()
+      await refresh()
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Failed')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function clear() {
+    if (!window.confirm('Remove this dept\'s head?')) return
+    setWorking(true)
+    try {
+      await api(`/api/principals/${p.id}/head`, { method: 'DELETE' })
+      await load()
+      await refresh()
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Failed')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  const excludeIds = new Set(headId ? [headId] : [])
+
+  return (
+    <Section title="Dept head" hint={loading ? '…' : (headId ? 'set' : 'not set')}>
+      <div className="flex items-center gap-2">
+        {headId ? (
+          <div className="flex flex-1 items-center gap-2 rounded border border-rule bg-bg px-3 py-2">
+            <User className="h-3.5 w-3.5 text-primary" />
+            <span className="flex-1 truncate text-sm font-medium text-ink">
+              {principalNameById[headId] ?? headId}
+            </span>
+            <button
+              onClick={() => void clear()}
+              disabled={working}
+              title="Remove head"
+              className="flex h-7 w-7 items-center justify-center rounded text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <p className="flex-1 rounded border border-dashed border-rule bg-bg/50 px-3 py-2 text-xs italic text-ink-muted">
+            No head set — 「部門主管」簽核步驟會走備援指派。
+          </p>
+        )}
+        <PrincipalPicker
+          principals={principals}
+          excludeIds={excludeIds}
+          acceptTypes={[0]}
+          onPick={(id) => void set(id)}
+          buttonLabel={headId ? '↻ Change' : '+ Set head'}
+          placeholder="Search user…"
           align="right"
         />
       </div>
