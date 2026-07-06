@@ -174,6 +174,8 @@ Content-Type: application/json
 | `MemberPrincipalId` | Guid | **複合 Key**：成員的 principal Id——可以是使用者、部門或另一個群組（巢狀） |
 | `MemberType` | string | 唯讀，系統依成員 principal 自動判定（`User` / `Dept` / `Group`） |
 
+成員語意：`User` 直接是群組成員；`Group` 為巢狀群組，其成員遞迴展開；`Dept` 表示**整個部門加入群組**——該部門的直屬成員都視為群組成員（掛在群組上的角色會套用到他們，簽核路由亦同）。
+
 ### 加入成員
 
 ```http

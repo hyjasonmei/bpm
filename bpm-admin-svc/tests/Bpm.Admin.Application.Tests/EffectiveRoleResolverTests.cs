@@ -170,6 +170,32 @@ public class EffectiveRoleResolverTests
     }
 
     [Fact]
+    public async Task Group_Containing_A_Dept_Reaches_That_Depts_Members()
+    {
+        // Twin of bpm-svc PrincipalDirectoryIncludeSubDeptsTests: a dept
+        // placed inside a group makes the dept's direct members group members.
+        var (ctx, conn) = CreateContext();
+        try
+        {
+            var user = AddPrincipal(ctx, PrincipalType.User, "Alice");
+            var dept = AddPrincipal(ctx, PrincipalType.Dept, "Backend");
+            var committee = AddPrincipal(ctx, PrincipalType.Group, "Committee");
+            ctx.UserDepts.Add(new UserDept { UserId = user, DeptId = dept });
+            ctx.GroupMembers.Add(new GroupMember { GroupId = committee, MemberPrincipalId = dept, MemberType = PrincipalType.Dept });
+            ctx.SaveChanges();
+            var role = AddRole(ctx, "Committee");
+            Assign(ctx, committee, role, inherit: true);
+
+            var resolver = new EffectiveRoleResolver(ctx);
+            var result = await resolver.GetEffectiveRolesAsync(user);
+
+            Assert.Single(result);
+            Assert.Equal(committee, result.First().SourcePrincipalId);
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
+    [Fact]
     public async Task Dept_Own_Dept_Inherit_Ignores_IncludeSubDepts_Flag()
     {
         // Direct (own-dept) inheritance needs only InheritToMembers.

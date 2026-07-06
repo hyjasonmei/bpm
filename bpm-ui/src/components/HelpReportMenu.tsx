@@ -6,6 +6,9 @@ import { Input, Textarea, Field, Select } from '@/components/ui/form'
 
 type IssueKind = 'bug' | 'feature' | 'question'
 
+// 導入/使用手冊（per-customer 部署可用 VITE_GUIDE_URL 覆寫）。
+const GUIDE_URL: string = import.meta.env.VITE_GUIDE_URL || 'https://guide.flowcook.ai'
+
 export function HelpReportMenu() {
   const [open, setOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
@@ -42,13 +45,16 @@ export function HelpReportMenu() {
           <div className="border-b border-rule px-4 py-2">
             <p className="text-sm font-semibold">Help</p>
           </div>
-          <button
-            onClick={() => { setOpen(false); window.alert('User Guide — placeholder') }}
+          <a
+            href={GUIDE_URL}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => setOpen(false)}
             className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-ink-muted hover:bg-slate-50 hover:text-ink"
           >
             <BookOpen className="h-4 w-4" />
-            User Guide
-          </button>
+            使用手冊 / User Guide
+          </a>
           <button
             onClick={() => { setOpen(false); setReportOpen(true) }}
             className="flex w-full items-center gap-2.5 border-t border-rule px-4 py-2.5 text-left text-sm text-ink-muted hover:bg-amber-50 hover:text-amber-800"

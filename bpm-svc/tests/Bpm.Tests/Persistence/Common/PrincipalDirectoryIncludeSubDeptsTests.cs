@@ -111,4 +111,25 @@ CREATE TABLE Admin_GroupMembers (GroupId TEXT NOT NULL, MemberPrincipalId TEXT N
         Assert.Contains(Bob, await dir.GetUsersInRoleAsync("LEGAL"));
         Assert.Contains("LEGAL", await dir.GetRoleCodesForUserAsync(Bob));
     }
+
+    [Fact]
+    public async Task Group_Containing_A_Dept_Reaches_That_Depts_Members()
+    {
+        // A dept placed inside a group makes the dept's direct members group
+        // members for role purposes — a committee group can hold whole depts.
+        var committee = Guid.Parse("00000000-0000-0000-0000-00000000c033");
+        await using (var db = new AppDbContext(_options))
+        {
+            var now = DateTime.UtcNow;
+            db.SharedPrincipals.Add(new SharedPrincipal { Id = committee, Type = SharedPrincipalType.Group, DisplayName = "Committee", Active = true, CreatedAt = now, UpdatedAt = now });
+            db.SharedGroupMembers.Add(new SharedGroupMember { GroupId = committee, MemberPrincipalId = ChildDept, MemberType = SharedPrincipalType.Dept });
+            db.SaveChanges();
+        }
+        Grant(committee, inherit: true, includeSubDepts: false);
+
+        await using var db2 = new AppDbContext(_options);
+        var dir = new PrincipalDirectory(db2);
+        Assert.Contains(Bob, await dir.GetUsersInRoleAsync("LEGAL"));
+        Assert.Contains("LEGAL", await dir.GetRoleCodesForUserAsync(Bob));
+    }
 }

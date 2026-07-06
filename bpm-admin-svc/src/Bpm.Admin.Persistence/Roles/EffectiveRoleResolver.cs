@@ -104,8 +104,17 @@ public class EffectiveRoleResolver : IEffectiveRoleResolver
     private async Task<HashSet<Guid>> WalkGroupAncestorsAsync(Guid userId, CancellationToken ct)
     {
         var visited = new HashSet<Guid>();
+        // Seed: groups holding the user directly, plus groups holding any of
+        // the user's DEPTS — mirrors bpm-svc's PrincipalDirectory so display
+        // and routing agree on dept-in-group membership.
+        var userDeptIds = await _db.UserDepts
+            .Where(ud => ud.UserId == userId)
+            .Select(ud => ud.DeptId)
+            .ToListAsync(ct);
         var seedGroups = await _db.GroupMembers
-            .Where(gm => gm.MemberPrincipalId == userId && gm.MemberType == PrincipalType.User)
+            .Where(gm =>
+                (gm.MemberPrincipalId == userId && gm.MemberType == PrincipalType.User) ||
+                (userDeptIds.Contains(gm.MemberPrincipalId) && gm.MemberType == PrincipalType.Dept))
             .Select(gm => gm.GroupId)
             .ToListAsync(ct);
 

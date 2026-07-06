@@ -199,8 +199,16 @@ public sealed class PrincipalDirectory(AppDbContext db) : IPrincipalDirectory
     private async Task<IReadOnlyCollection<Guid>> GroupsForUserAsync(Guid userId, CancellationToken ct)
     {
         var result = new HashSet<Guid>();
+        // Seed: groups holding the user directly, plus groups holding any of
+        // the user's DEPTS (a dept placed in a group makes its direct members
+        // group members — committee groups can hold whole departments).
+        var userDeptIds = await db.SharedUserDepts.AsNoTracking()
+            .Where(ud => ud.UserId == userId)
+            .Select(ud => ud.DeptId).ToListAsync(ct);
         var seed = await db.SharedGroupMembers.AsNoTracking()
-            .Where(m => m.MemberPrincipalId == userId && m.MemberType == SharedPrincipalType.User)
+            .Where(m =>
+                (m.MemberPrincipalId == userId && m.MemberType == SharedPrincipalType.User) ||
+                (userDeptIds.Contains(m.MemberPrincipalId) && m.MemberType == SharedPrincipalType.Dept))
             .Select(m => m.GroupId).ToListAsync(ct);
         var queue = new Queue<Guid>(seed);
         while (queue.Count > 0)
@@ -217,13 +225,16 @@ public sealed class PrincipalDirectory(AppDbContext db) : IPrincipalDirectory
 
     /// <summary>
     /// Flattens groups to their member user ids, following nested-group
-    /// membership transitively. Cycle-safe via a visited set.
+    /// membership transitively. A DEPT member contributes that dept's direct
+    /// members (committee groups can hold whole departments). Cycle-safe via
+    /// a visited set.
     /// </summary>
     private async Task<IReadOnlyCollection<Guid>> ExpandGroupsToUsersAsync(
         IReadOnlyCollection<Guid> groupIds, CancellationToken ct)
     {
         if (groupIds.Count == 0) return Array.Empty<Guid>();
         var users = new HashSet<Guid>();
+        var memberDeptIds = new HashSet<Guid>();
         var visited = new HashSet<Guid>();
         var queue = new Queue<Guid>(groupIds);
         while (queue.Count > 0)
@@ -238,7 +249,15 @@ public sealed class PrincipalDirectory(AppDbContext db) : IPrincipalDirectory
             {
                 if (m.MemberType == SharedPrincipalType.User) users.Add(m.MemberPrincipalId);
                 else if (m.MemberType == SharedPrincipalType.Group) queue.Enqueue(m.MemberPrincipalId);
+                else if (m.MemberType == SharedPrincipalType.Dept) memberDeptIds.Add(m.MemberPrincipalId);
             }
+        }
+        if (memberDeptIds.Count > 0)
+        {
+            var deptUsers = await db.SharedUserDepts.AsNoTracking()
+                .Where(ud => memberDeptIds.Contains(ud.DeptId))
+                .Select(ud => ud.UserId).ToListAsync(ct);
+            foreach (var u in deptUsers) users.Add(u);
         }
         return users;
     }
