@@ -25,6 +25,25 @@ public sealed class OrgDepartment
     public bool Active { get; set; }
 }
 
+/// A group (Principal of type Group), e.g. a cross-department committee.
+public sealed class OrgGroup
+{
+    public Guid Id { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public bool Active { get; set; }
+}
+
+/// A group member. Key = (GroupId, MemberPrincipalId). The member may be a
+/// user, a department, or another group (nesting is resolved transitively by
+/// role inheritance). MemberType is derived from the member principal — it is
+/// read-only on this surface.
+public sealed class OrgGroupMember
+{
+    public Guid GroupId { get; set; }
+    public Guid MemberPrincipalId { get; set; }
+    public string MemberType { get; set; } = string.Empty;
+}
+
 /// A role definition.
 public sealed class OrgRole
 {

@@ -207,6 +207,100 @@ public sealed class RolesController(AdminDbContext db, IAuditLogger audit) : ODa
 }
 
 [Authorize(AuthenticationSchemes = OdataBasicAuthHandler.SchemeName)]
+public sealed class GroupsController(AdminDbContext db, IAuditLogger audit) : ODataController
+{
+    private IQueryable<OrgGroup> Query() => db.Principals.AsNoTracking()
+        .Where(p => p.Type == PrincipalType.Group && p.DeletedAt == null)
+        .Select(p => new OrgGroup { Id = p.Id, DisplayName = p.DisplayName, Active = p.Active });
+
+    [EnableQuery] public IQueryable<OrgGroup> Get() => Query();
+    [EnableQuery] public SingleResult<OrgGroup> Get([FromRoute] Guid key) => SingleResult.Create(Query().Where(g => g.Id == key));
+
+    public async Task<IActionResult> Post([FromBody] OrgGroup model, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(model.DisplayName)) return BadRequest("DisplayName is required.");
+        var p = new Principal { Type = PrincipalType.Group, DisplayName = model.DisplayName.Trim(), Active = true };
+        db.Principals.Add(p);
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync("created", "principal", p.Id.ToString(), null, null, after: new { p.DisplayName, kind = "group" }, ct: ct);
+        model.Id = p.Id; model.Active = p.Active;
+        return Created(model);
+    }
+
+    public async Task<IActionResult> Patch([FromRoute] Guid key, [FromBody] Delta<OrgGroup> delta, CancellationToken ct)
+    {
+        var p = await db.Principals.FirstOrDefaultAsync(x => x.Id == key && x.Type == PrincipalType.Group && x.DeletedAt == null, ct);
+        if (p is null) return NotFound();
+        if (delta.TryGetPropertyValue(nameof(OrgGroup.DisplayName), out var dn) && dn is string s && !string.IsNullOrWhiteSpace(s)) p.DisplayName = s.Trim();
+        if (delta.TryGetPropertyValue(nameof(OrgGroup.Active), out var ac) && ac is bool b) p.Active = b;
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync("updated", "principal", p.Id.ToString(), null, null, after: new { p.DisplayName, p.Active }, ct: ct);
+        return Updated(new OrgGroup { Id = p.Id, DisplayName = p.DisplayName, Active = p.Active });
+    }
+
+    public async Task<IActionResult> Delete([FromRoute] Guid key, CancellationToken ct)
+    {
+        var p = await db.Principals.FirstOrDefaultAsync(x => x.Id == key && x.Type == PrincipalType.Group && x.DeletedAt == null, ct);
+        if (p is null) return NotFound();
+        p.DeletedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync("deleted", "principal", p.Id.ToString(), null, null, ct: ct);
+        return NoContent();
+    }
+}
+
+[Authorize(AuthenticationSchemes = OdataBasicAuthHandler.SchemeName)]
+public sealed class GroupMembersController(AdminDbContext db, IAuditLogger audit) : ODataController
+{
+    private IQueryable<OrgGroupMember> Query() => db.GroupMembers.AsNoTracking()
+        .Select(gm => new OrgGroupMember { GroupId = gm.GroupId, MemberPrincipalId = gm.MemberPrincipalId, MemberType = gm.MemberType.ToString() });
+
+    [EnableQuery] public IQueryable<OrgGroupMember> Get() => Query();
+
+    [EnableQuery]
+    public SingleResult<OrgGroupMember> Get([FromRoute] Guid keyGroupId, [FromRoute] Guid keyMemberPrincipalId)
+        => SingleResult.Create(Query().Where(m => m.GroupId == keyGroupId && m.MemberPrincipalId == keyMemberPrincipalId));
+
+    public async Task<IActionResult> Post([FromBody] OrgGroupMember model, CancellationToken ct)
+    {
+        if (model.GroupId == model.MemberPrincipalId) return BadRequest("A group cannot contain itself.");
+        var group = await db.Principals.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == model.GroupId && p.Type == PrincipalType.Group && p.DeletedAt == null, ct);
+        if (group is null) return BadRequest("Group not found.");
+        var member = await db.Principals.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == model.MemberPrincipalId && p.DeletedAt == null, ct);
+        if (member is null) return BadRequest("Member principal not found.");
+
+        var upsert = Request.Query.TryGetValue("upsert", out var uv) && uv == "true";
+        var existing = await db.GroupMembers.AsNoTracking()
+            .FirstOrDefaultAsync(gm => gm.GroupId == model.GroupId && gm.MemberPrincipalId == model.MemberPrincipalId, ct);
+        if (existing is not null)
+        {
+            // ?upsert=true → re-asserting an existing member is a no-op success (idempotent).
+            if (!upsert) return BadRequest("Group member already exists.");
+            return Updated(new OrgGroupMember { GroupId = existing.GroupId, MemberPrincipalId = existing.MemberPrincipalId, MemberType = existing.MemberType.ToString() });
+        }
+
+        db.GroupMembers.Add(new GroupMember { GroupId = model.GroupId, MemberPrincipalId = model.MemberPrincipalId, MemberType = member.Type });
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync("created", "group_member", $"{model.GroupId}:{model.MemberPrincipalId}", null, null,
+            after: new { model.GroupId, model.MemberPrincipalId, MemberType = member.Type.ToString() }, ct: ct);
+        model.MemberType = member.Type.ToString();
+        return Created(model);
+    }
+
+    public async Task<IActionResult> Delete([FromRoute] Guid keyGroupId, [FromRoute] Guid keyMemberPrincipalId, CancellationToken ct)
+    {
+        var gm = await db.GroupMembers.FirstOrDefaultAsync(x => x.GroupId == keyGroupId && x.MemberPrincipalId == keyMemberPrincipalId, ct);
+        if (gm is null) return NotFound();
+        db.GroupMembers.Remove(gm);
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync("deleted", "group_member", $"{keyGroupId}:{keyMemberPrincipalId}", null, null, ct: ct);
+        return NoContent();
+    }
+}
+
+[Authorize(AuthenticationSchemes = OdataBasicAuthHandler.SchemeName)]
 public sealed class MembershipsController(AdminDbContext db, IAuditLogger audit) : ODataController
 {
     private IQueryable<OrgMembership> Query() => db.PrincipalRoles.AsNoTracking()

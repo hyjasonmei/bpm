@@ -20,6 +20,13 @@ public static class OrgEdmModel
         var depts = b.EntitySet<OrgDepartment>("Departments");
         depts.EntityType.HasKey(d => d.Id);
 
+        var groups = b.EntitySet<OrgGroup>("Groups");
+        groups.EntityType.HasKey(g => g.Id);
+
+        var groupMembers = b.EntitySet<OrgGroupMember>("GroupMembers");
+        groupMembers.EntityType.HasKey(m => m.GroupId);
+        groupMembers.EntityType.HasKey(m => m.MemberPrincipalId);
+
         var roles = b.EntitySet<OrgRole>("Roles");
         roles.EntityType.HasKey(r => r.Id);
 
