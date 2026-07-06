@@ -16,7 +16,8 @@
   #lightbox {
     position: fixed;
     inset: 0;
-    z-index: 100;
+    /* Above Starlight's navbar/sidebar/search stack. */
+    z-index: 9999;
     display: none;
     align-items: center;
     justify-content: center;
@@ -77,6 +78,12 @@
   const lbImg = document.getElementById('lightbox-img') as HTMLImageElement | null
   const lbCaption = document.getElementById('lightbox-caption')
   if (overlay && lbImg && lbCaption) {
+    // The component renders inside Starlight's footer, whose ancestors create
+    // a containing block — position:fixed there anchors to that box instead of
+    // the viewport (overlay sat under the navbar/ToC and off-centre). Re-parent
+    // to <body> so the overlay really covers the viewport.
+    document.body.appendChild(overlay)
+
     let hideTimer: ReturnType<typeof setTimeout> | undefined
 
     const open = (src: string, alt: string) => {
