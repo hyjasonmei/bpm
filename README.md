@@ -7,9 +7,9 @@
 1. **AI Kitchen onboarding** — wizard + AI 對話 + 即時生成的問卷，產出 spec bundle (zip)
 2. **無痛上線驗收** — 完善 sandbox：mail capture、webhook redirect、persona switch、time advance、state reset，一個驗收員就能跑完整 UAT
 
-詳細產品定位、五大專案邊界、Codegen 模式（model B）、SharedIdentity 模型、DB conventions 全在 [`CLAUDE.md`](./CLAUDE.md)。
+詳細產品定位、六大專案邊界、Codegen 模式（model B）、SharedIdentity 模型、DB conventions 全在 [`CLAUDE.md`](./CLAUDE.md)。
 
-## 五大專案
+## 六大專案
 
 | 層 | 資料夾 | 角色 |
 |---|---|---|
@@ -17,6 +17,7 @@
 | **CHEF（codegen）** | `.claude/skills/` + `chef/skill/` + `lead/skill/` | AI codegen workflow — chef 把 spec.json 翻成 per-flow 程式；lead 維護共用 primitive |
 | **BPM** | `bpm-svc/` + `bpm-ui/` | 客戶端 runtime：表單、unified inbox、案件詳情、簽核 |
 | **Product Website** | `bpm-www/` | 對外行銷站（Astro + Tailwind） |
+| **Guide Docs** | `bpm-docs/` | 客戶導入/使用手冊（Astro + Starlight）→ <https://guide.flowcook.ai> |
 
 `syncer/` 規劃已取消 — admin ↔ bpm 改走單一 DB source（unify-user-store 系列完成）。
 
@@ -245,7 +246,7 @@ Reference cook：**LEAVE V1**（testbed 在 `leave-test-N` 系列分支，目前
 
 ## 文件
 
-- [CLAUDE.md](./CLAUDE.md) — 專案背景、五大專案邊界、Codegen 模式、SharedIdentity、DB conventions
+- [CLAUDE.md](./CLAUDE.md) — 專案背景、六大專案邊界、Codegen 模式、SharedIdentity、DB conventions
 - [chef/skill/SKILL.md](./chef/skill/SKILL.md) — chef agent
 - [lead/skill/SKILL.md](./lead/skill/SKILL.md) — lead agent
 - [bpm-www/README.md](./bpm-www/README.md) — 行銷站
