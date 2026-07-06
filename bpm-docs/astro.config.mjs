@@ -13,6 +13,8 @@ export default defineConfig({
         { tag: 'meta', attrs: { name: 'robots', content: 'noindex, nofollow' } },
       ],
       customCss: ['./src/styles/custom.css'],
+      // Footer override = default footer + 全站圖片 lightbox（點圖放大）。
+      components: { Footer: './src/components/Footer.astro' },
       pagination: true,
       // 七章結構（權威版見 spec 的 Content Structure）。多數章用 autogenerate；
       // 「開始」用 items 明確排序。前台/後台各自成第一階。

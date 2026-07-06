@@ -1,0 +1,112 @@
+---
+// Global image lightbox, ported from bpm-www. Every image inside the
+// rendered Markdown (.sl-markdown-content img) becomes click-to-enlarge;
+// caption comes from the image's alt text. Mounted site-wide via the
+// Footer component override in astro.config.mjs.
+---
+<div id="lightbox" role="dialog" aria-modal="true" aria-label="放大檢視">
+  <button type="button" data-close aria-label="關閉">&times;</button>
+  <figure>
+    <img id="lightbox-img" src="" alt="" />
+    <figcaption id="lightbox-caption"></figcaption>
+  </figure>
+</div>
+
+<style>
+  #lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: rgb(0 0 0 / 0.85);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  #lightbox.lb-show { display: flex; }
+  #lightbox.lb-open { opacity: 1; }
+  #lightbox figure {
+    margin: 0;
+    display: flex;
+    max-height: 100%;
+    max-width: 100%;
+    flex-direction: column;
+    align-items: center;
+  }
+  #lightbox-img {
+    max-height: 88vh;
+    max-width: 94vw;
+    border-radius: 0.5rem;
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5);
+    cursor: zoom-out;
+  }
+  #lightbox-caption {
+    margin-top: 0.75rem;
+    padding: 0 1rem;
+    text-align: center;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    color: rgb(255 255 255 / 0.65);
+  }
+  #lightbox [data-close] {
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    display: flex;
+    height: 2.5rem;
+    width: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 1px solid rgb(255 255 255 / 0.2);
+    background: rgb(255 255 255 / 0.1);
+    font-size: 1.5rem;
+    line-height: 1;
+    color: white;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  #lightbox [data-close]:hover { background: rgb(255 255 255 / 0.2); }
+</style>
+
+<script>
+  const overlay = document.getElementById('lightbox')
+  const lbImg = document.getElementById('lightbox-img') as HTMLImageElement | null
+  const lbCaption = document.getElementById('lightbox-caption')
+  if (overlay && lbImg && lbCaption) {
+    let hideTimer: ReturnType<typeof setTimeout> | undefined
+
+    const open = (src: string, alt: string) => {
+      clearTimeout(hideTimer)
+      lbImg.src = src
+      lbImg.alt = alt
+      lbCaption.textContent = alt || ''
+      overlay.classList.add('lb-show')
+      requestAnimationFrame(() => overlay.classList.add('lb-open'))
+      document.body.style.overflow = 'hidden'
+    }
+
+    const close = () => {
+      overlay.classList.remove('lb-open')
+      document.body.style.overflow = ''
+      hideTimer = setTimeout(() => {
+        overlay.classList.remove('lb-show')
+        lbImg.src = ''
+      }, 200)
+    }
+
+    document.querySelectorAll<HTMLImageElement>('.sl-markdown-content img').forEach((img) => {
+      img.style.cursor = 'zoom-in'
+      img.addEventListener('click', () => open(img.currentSrc || img.src, img.alt))
+    })
+
+    // Click anywhere on the overlay (backdrop, image, or ×) closes it.
+    overlay.addEventListener('click', close)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && overlay.classList.contains('lb-show')) close()
+    })
+  }
+</script>

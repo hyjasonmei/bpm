@@ -1,0 +1,9 @@
+---
+// Starlight component override: default footer + the site-wide image
+// lightbox (a Starlight-sanctioned spot to mount a global widget on
+// every page without touching each Markdown file).
+import Default from '@astrojs/starlight/components/Footer.astro'
+import Lightbox from './Lightbox.astro'
+---
+<Default><slot /></Default>
+<Lightbox />
