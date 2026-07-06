@@ -148,7 +148,7 @@ function RoleAssignments({
     try {
       await api(`/api/principals/${p.id}/roles`, {
         method: 'POST',
-        json: { roleId, inheritToMembers: p.type !== 0 },
+        json: { roleId, inheritToMembers: p.type !== 0, includeSubDepts: false },
       })
       await load()
       await refresh()
@@ -170,9 +170,24 @@ function RoleAssignments({
 
   async function toggleInherit(row: PrincipalRole) {
     try {
+      const inherit = !row.inheritToMembers
       await api(`/api/principals/${p.id}/roles`, {
         method: 'POST',
-        json: { roleId: row.roleId, inheritToMembers: !row.inheritToMembers },
+        // Turning inherit off makes 包含子部門 meaningless — clear it too.
+        json: { roleId: row.roleId, inheritToMembers: inherit, includeSubDepts: inherit && row.includeSubDepts },
+      })
+      await load()
+      await refresh()
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Failed')
+    }
+  }
+
+  async function toggleSubDepts(row: PrincipalRole) {
+    try {
+      await api(`/api/principals/${p.id}/roles`, {
+        method: 'POST',
+        json: { roleId: row.roleId, inheritToMembers: row.inheritToMembers, includeSubDepts: !row.includeSubDepts },
       })
       await load()
       await refresh()
@@ -205,6 +220,13 @@ function RoleAssignments({
                 checked={row.inheritToMembers}
                 onClick={() => void toggleInherit(row)}
                 label="inherit to members"
+              />
+            )}
+            {p.type === 1 && row.inheritToMembers && (
+              <CheckPill
+                checked={row.includeSubDepts}
+                onClick={() => void toggleSubDepts(row)}
+                label="包含子部門"
               />
             )}
             <button

@@ -60,5 +60,7 @@ public sealed class OrgMembership
     public Guid PrincipalId { get; set; }
     public Guid RoleId { get; set; }
     public bool InheritToMembers { get; set; }
+    /// Dept principals only: also reach members of every descendant dept.
+    public bool IncludeSubDepts { get; set; }
     public DateTime AssignedAt { get; set; }
 }

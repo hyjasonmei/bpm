@@ -10,6 +10,15 @@ public class SharedPrincipalRole
     public Guid PrincipalId { get; set; }
     public Guid RoleId { get; set; }
     public bool InheritToMembers { get; set; }
+
+    /// <summary>
+    /// Dept principals only, and only with InheritToMembers: the role also
+    /// reaches members of every DESCENDANT dept. Mirrors admin's
+    /// PrincipalRole.IncludeSubDepts — routing here and the admin
+    /// effective-role display must agree on this flag.
+    /// </summary>
+    public bool IncludeSubDepts { get; set; }
+
     public DateTime AssignedAt { get; set; }
     public Guid? AssignedByUserId { get; set; }
 }

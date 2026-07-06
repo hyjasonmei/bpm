@@ -432,9 +432,14 @@ CREATE TABLE Admin_PrincipalRoles (
     PrincipalId TEXT NOT NULL,
     RoleId TEXT NOT NULL,
     InheritToMembers INTEGER NOT NULL,
+    IncludeSubDepts INTEGER NOT NULL DEFAULT 0,
     AssignedAt TEXT NOT NULL,
     AssignedByUserId TEXT NULL,
     PRIMARY KEY (PrincipalId, RoleId)
+);
+CREATE TABLE Admin_DeptParents (
+    DeptId TEXT NOT NULL PRIMARY KEY,
+    ParentDeptId TEXT NULL
 );
 CREATE TABLE Admin_UserManagers (
     UserId TEXT NOT NULL PRIMARY KEY,

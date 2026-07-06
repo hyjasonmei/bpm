@@ -6,4 +6,4 @@ public record CreateRoleRequest(string Code, string Name, string? Description, b
 
 public record UpdateRoleRequest(string Name, string? Description);
 
-public record AssignRoleRequest(Guid RoleId, bool InheritToMembers);
+public record AssignRoleRequest(Guid RoleId, bool InheritToMembers, bool IncludeSubDepts = false);

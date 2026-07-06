@@ -54,16 +54,24 @@ public sealed class PrincipalDirectory(AppDbContext db) : IPrincipalDirectory
             from pr in db.SharedPrincipalRoles.AsNoTracking()
             join p in db.SharedPrincipals.AsNoTracking() on pr.PrincipalId equals p.Id
             where pr.RoleId == roleId && p.DeletedAt == null
-            select new { p.Id, p.Type, pr.InheritToMembers }).ToListAsync(ct);
+            select new { p.Id, p.Type, pr.InheritToMembers, pr.IncludeSubDepts }).ToListAsync(ct);
         if (grants.Count == 0) return Array.Empty<Guid>();
 
         var candidates = new HashSet<Guid>();
         foreach (var g in grants.Where(g => g.Type == SharedPrincipalType.User))
             candidates.Add(g.Id);
 
+        // Dept grants reach the dept's direct members; with IncludeSubDepts the
+        // grant additionally covers every DESCENDANT dept's members. Same flag
+        // semantics as admin's EffectiveRoleResolver — keep in lockstep.
         var deptIds = grants
             .Where(g => g.Type == SharedPrincipalType.Dept && g.InheritToMembers)
+            .Select(g => g.Id).ToHashSet();
+        var subtreeRoots = grants
+            .Where(g => g.Type == SharedPrincipalType.Dept && g.InheritToMembers && g.IncludeSubDepts)
             .Select(g => g.Id).ToList();
+        foreach (var d in await ExpandDeptDescendantsAsync(subtreeRoots, ct))
+            deptIds.Add(d);
         if (deptIds.Count > 0)
         {
             var deptUsers = await db.SharedUserDepts.AsNoTracking()
@@ -95,10 +103,14 @@ public sealed class PrincipalDirectory(AppDbContext db) : IPrincipalDirectory
     {
         // Grants covering this user: their own id (direct), their depts, and every
         // group they belong to (transitively). Dept/group grants count only when
-        // InheritToMembers; direct user grants always count.
+        // InheritToMembers; direct user grants always count. A grant on an
+        // ANCESTOR dept counts only when it opted into IncludeSubDepts — same
+        // rule as GetUsersInRoleAsync and admin's EffectiveRoleResolver.
         var deptIds = await db.SharedUserDepts.AsNoTracking()
             .Where(ud => ud.UserId == userId)
             .Select(ud => ud.DeptId).ToListAsync(ct);
+        var ancestorDeptIds = (await WalkDeptAncestorsAsync(deptIds, ct))
+            .Where(id => !deptIds.Contains(id)).ToList();
 
         var groupIds = await GroupsForUserAsync(userId, ct);
 
@@ -124,7 +136,60 @@ public sealed class PrincipalDirectory(AppDbContext db) : IPrincipalDirectory
             foreach (var c in inherited) codes.Add(c);
         }
 
+        // ancestor-dept grants: only those that opted into IncludeSubDepts
+        if (ancestorDeptIds.Count > 0)
+        {
+            var subtree = await (
+                from pr in db.SharedPrincipalRoles.AsNoTracking()
+                join r in db.SharedRoles.AsNoTracking() on pr.RoleId equals r.Id
+                where ancestorDeptIds.Contains(pr.PrincipalId) && pr.InheritToMembers && pr.IncludeSubDepts
+                select r.Code).ToListAsync(ct);
+            foreach (var c in subtree) codes.Add(c);
+        }
+
         return codes;
+    }
+
+    /// <summary>Every descendant dept of the given roots (children, grand-
+    /// children, …) via DeptParents. Cycle-safe; roots not included.</summary>
+    private async Task<IReadOnlyCollection<Guid>> ExpandDeptDescendantsAsync(
+        IReadOnlyCollection<Guid> rootDeptIds, CancellationToken ct)
+    {
+        if (rootDeptIds.Count == 0) return Array.Empty<Guid>();
+        var result = new HashSet<Guid>();
+        var visited = new HashSet<Guid>(rootDeptIds);
+        var queue = new Queue<Guid>(rootDeptIds);
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            var children = await db.SharedDeptParents.AsNoTracking()
+                .Where(dp => dp.ParentDeptId == current)
+                .Select(dp => dp.DeptId).ToListAsync(ct);
+            foreach (var c in children)
+            {
+                if (visited.Add(c)) { result.Add(c); queue.Enqueue(c); }
+            }
+        }
+        return result;
+    }
+
+    /// <summary>The given depts plus every ancestor (parent, grand-parent, …)
+    /// via DeptParents. Cycle-safe.</summary>
+    private async Task<IReadOnlyCollection<Guid>> WalkDeptAncestorsAsync(
+        IReadOnlyCollection<Guid> deptIds, CancellationToken ct)
+    {
+        var all = new HashSet<Guid>(deptIds);
+        var queue = new Queue<Guid>(deptIds);
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            var parent = await db.SharedDeptParents.AsNoTracking()
+                .Where(dp => dp.DeptId == current)
+                .Select(dp => dp.ParentDeptId)
+                .FirstOrDefaultAsync(ct);
+            if (parent.HasValue && all.Add(parent.Value)) queue.Enqueue(parent.Value);
+        }
+        return all;
     }
 
     /// <summary>

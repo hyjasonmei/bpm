@@ -36,16 +36,25 @@ public class EffectiveRoleResolver : IEffectiveRoleResolver
             result.Add(new EffectiveRole(r.RoleId, r.PrincipalId, ViaInherit: false));
         }
 
-        // Layer 2: dept tree
-        var deptIds = await WalkDeptAncestorsAsync(userId, ct);
-        if (deptIds.Count > 0)
+        // Layer 2: depts. A role on one of the user's OWN depts inherits with
+        // just InheritToMembers; a role on an ANCESTOR dept reaches this user
+        // only when the assignment also opted into IncludeSubDepts. Same rule
+        // as bpm-svc's routing (PrincipalDirectory) — keep the two in lockstep
+        // or the admin UI shows people the launcher can't route to.
+        var directDeptIds = await _db.UserDepts
+            .Where(ud => ud.UserId == userId)
+            .Select(ud => ud.DeptId)
+            .ToListAsync(ct);
+        var allDeptIds = await WalkDeptAncestorsAsync(directDeptIds, ct);
+        if (allDeptIds.Count > 0)
         {
             var deptRoles = await _db.PrincipalRoles
-                .Where(pr => deptIds.Contains(pr.PrincipalId) && pr.InheritToMembers)
-                .Select(pr => new { pr.RoleId, pr.PrincipalId })
+                .Where(pr => allDeptIds.Contains(pr.PrincipalId) && pr.InheritToMembers)
+                .Select(pr => new { pr.RoleId, pr.PrincipalId, pr.IncludeSubDepts })
                 .ToListAsync(ct);
             foreach (var r in deptRoles)
             {
+                if (!directDeptIds.Contains(r.PrincipalId) && !r.IncludeSubDepts) continue;
                 result.Add(new EffectiveRole(r.RoleId, r.PrincipalId, ViaInherit: true));
             }
         }
@@ -67,13 +76,8 @@ public class EffectiveRoleResolver : IEffectiveRoleResolver
         return result;
     }
 
-    private async Task<HashSet<Guid>> WalkDeptAncestorsAsync(Guid userId, CancellationToken ct)
+    private async Task<HashSet<Guid>> WalkDeptAncestorsAsync(IReadOnlyCollection<Guid> immediateDepts, CancellationToken ct)
     {
-        var immediateDepts = await _db.UserDepts
-            .Where(ud => ud.UserId == userId)
-            .Select(ud => ud.DeptId)
-            .ToListAsync(ct);
-
         var all = new HashSet<Guid>(immediateDepts);
         var frontier = new Queue<Guid>(immediateDepts);
 
