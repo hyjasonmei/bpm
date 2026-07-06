@@ -40,6 +40,7 @@ public class PrincipalRolesController : ControllerBase
         if (existing is not null)
         {
             existing.InheritToMembers = req.InheritToMembers;
+            existing.IncludeSubDepts = req.IncludeSubDepts;
         }
         else
         {
@@ -48,6 +49,7 @@ public class PrincipalRolesController : ControllerBase
                 PrincipalId = principalId,
                 RoleId = req.RoleId,
                 InheritToMembers = req.InheritToMembers,
+                IncludeSubDepts = req.IncludeSubDepts,
             });
         }
         await _db.SaveChangesAsync(ct);
@@ -58,7 +60,7 @@ public class PrincipalRolesController : ControllerBase
             targetId: $"{principalId}/{req.RoleId}",
             actorUserId: null,
             actorPrincipalId: null,
-            after: new { principalId, req.RoleId, req.InheritToMembers },
+            after: new { principalId, req.RoleId, req.InheritToMembers, req.IncludeSubDepts },
             ct: ct);
 
         return NoContent();

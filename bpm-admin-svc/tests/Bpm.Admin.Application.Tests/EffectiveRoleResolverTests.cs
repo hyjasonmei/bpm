@@ -40,13 +40,14 @@ public class EffectiveRoleResolverTests
         return r.Id;
     }
 
-    private static void Assign(AdminDbContext ctx, Guid principalId, Guid roleId, bool inherit)
+    private static void Assign(AdminDbContext ctx, Guid principalId, Guid roleId, bool inherit, bool includeSubDepts = false)
     {
         ctx.PrincipalRoles.Add(new PrincipalRole
         {
             PrincipalId = principalId,
             RoleId = roleId,
             InheritToMembers = inherit,
+            IncludeSubDepts = includeSubDepts,
         });
         ctx.SaveChanges();
     }
@@ -120,8 +121,10 @@ public class EffectiveRoleResolverTests
     }
 
     [Fact]
-    public async Task Dept_Ancestor_Inherit_Reaches_User()
+    public async Task Dept_Ancestor_Without_IncludeSubDepts_Does_Not_Reach_User()
     {
+        // A role on an ANCESTOR dept must not leak down unless the assignment
+        // explicitly opted into IncludeSubDepts — matches bpm-svc routing.
         var (ctx, conn) = CreateContext();
         try
         {
@@ -137,8 +140,53 @@ public class EffectiveRoleResolverTests
             var resolver = new EffectiveRoleResolver(ctx);
             var result = await resolver.GetEffectiveRolesAsync(user);
 
+            Assert.Empty(result);
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Dept_Ancestor_With_IncludeSubDepts_Reaches_User()
+    {
+        var (ctx, conn) = CreateContext();
+        try
+        {
+            var user = AddPrincipal(ctx, PrincipalType.User, "Alice");
+            var dept = AddPrincipal(ctx, PrincipalType.Dept, "Backend");
+            var parentDept = AddPrincipal(ctx, PrincipalType.Dept, "Engineering");
+            ctx.UserDepts.Add(new UserDept { UserId = user, DeptId = dept });
+            ctx.DeptParents.Add(new DeptParent { DeptId = dept, ParentDeptId = parentDept });
+            ctx.SaveChanges();
+            var role = AddRole(ctx, "Approver");
+            Assign(ctx, parentDept, role, inherit: true, includeSubDepts: true);
+
+            var resolver = new EffectiveRoleResolver(ctx);
+            var result = await resolver.GetEffectiveRolesAsync(user);
+
             Assert.Single(result);
             Assert.Equal(parentDept, result.First().SourcePrincipalId);
+        }
+        finally { ctx.Dispose(); conn.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Dept_Own_Dept_Inherit_Ignores_IncludeSubDepts_Flag()
+    {
+        // Direct (own-dept) inheritance needs only InheritToMembers.
+        var (ctx, conn) = CreateContext();
+        try
+        {
+            var user = AddPrincipal(ctx, PrincipalType.User, "Alice");
+            var dept = AddPrincipal(ctx, PrincipalType.Dept, "Backend");
+            ctx.UserDepts.Add(new UserDept { UserId = user, DeptId = dept });
+            ctx.SaveChanges();
+            var role = AddRole(ctx, "Approver");
+            Assign(ctx, dept, role, inherit: true, includeSubDepts: false);
+
+            var resolver = new EffectiveRoleResolver(ctx);
+            var result = await resolver.GetEffectiveRolesAsync(user);
+
+            Assert.Single(result);
         }
         finally { ctx.Dispose(); conn.Dispose(); }
     }

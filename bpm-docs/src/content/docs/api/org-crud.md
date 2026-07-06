@@ -253,6 +253,7 @@ Content-Type: application/json
 | `PrincipalId` | Guid | **複合 Key**：使用者 / 部門 / 群組的 Id |
 | `RoleId` | Guid | **複合 Key**：角色 Id |
 | `InheritToMembers` | bool | 掛在部門/群組時，成員是否自動繼承此角色 |
+| `IncludeSubDepts` | bool | 僅部門有意義：連同**所有子孫部門**的成員一起繼承（預設 false = 只及直接成員） |
 | `AssignedAt` | DateTime | 指派時間（系統填，request 不用給） |
 
 ### 指派
@@ -261,7 +262,7 @@ Content-Type: application/json
 POST /odata/Memberships?upsert=true
 Content-Type: application/json
 
-{ "PrincipalId": "c6e84f6a-…", "RoleId": "68fe7c39-…", "InheritToMembers": false }
+{ "PrincipalId": "c6e84f6a-…", "RoleId": "68fe7c39-…", "InheritToMembers": false, "IncludeSubDepts": false }
 ```
 
 回應 `201 Created`：
@@ -272,11 +273,12 @@ Content-Type: application/json
   "PrincipalId": "c6e84f6a-…",
   "RoleId": "68fe7c39-…",
   "InheritToMembers": false,
+  "IncludeSubDepts": false,
   "AssignedAt": "2026-07-06T06:20:00Z"
 }
 ```
 
-帶 `?upsert=true` 時重複指派＝no-op 成功（冪等）；不帶時回 `400`：`"Membership already exists."`
+帶 `?upsert=true` 時重複指派會**更新兩個 flag**（冪等）；不帶時回 `400`：`"Membership already exists."`
 
 ### 移除指派
 

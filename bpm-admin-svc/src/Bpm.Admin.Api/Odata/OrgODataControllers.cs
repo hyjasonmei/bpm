@@ -304,7 +304,7 @@ public sealed class GroupMembersController(AdminDbContext db, IAuditLogger audit
 public sealed class MembershipsController(AdminDbContext db, IAuditLogger audit) : ODataController
 {
     private IQueryable<OrgMembership> Query() => db.PrincipalRoles.AsNoTracking()
-        .Select(pr => new OrgMembership { PrincipalId = pr.PrincipalId, RoleId = pr.RoleId, InheritToMembers = pr.InheritToMembers, AssignedAt = pr.AssignedAt });
+        .Select(pr => new OrgMembership { PrincipalId = pr.PrincipalId, RoleId = pr.RoleId, InheritToMembers = pr.InheritToMembers, IncludeSubDepts = pr.IncludeSubDepts, AssignedAt = pr.AssignedAt });
 
     [EnableQuery] public IQueryable<OrgMembership> Get() => Query();
 
@@ -320,11 +320,15 @@ public sealed class MembershipsController(AdminDbContext db, IAuditLogger audit)
         var existing = await db.PrincipalRoles.FirstOrDefaultAsync(pr => pr.PrincipalId == model.PrincipalId && pr.RoleId == model.RoleId, ct);
         if (existing is not null)
         {
-            // ?upsert=true → re-asserting an existing membership is a no-op success (idempotent).
+            // ?upsert=true → re-asserting an existing membership updates its
+            // flags (idempotent for the same payload).
             if (!upsert) return BadRequest("Membership already exists.");
-            return Updated(new OrgMembership { PrincipalId = existing.PrincipalId, RoleId = existing.RoleId, InheritToMembers = existing.InheritToMembers, AssignedAt = existing.AssignedAt });
+            existing.InheritToMembers = model.InheritToMembers;
+            existing.IncludeSubDepts = model.IncludeSubDepts;
+            await db.SaveChangesAsync(ct);
+            return Updated(new OrgMembership { PrincipalId = existing.PrincipalId, RoleId = existing.RoleId, InheritToMembers = existing.InheritToMembers, IncludeSubDepts = existing.IncludeSubDepts, AssignedAt = existing.AssignedAt });
         }
-        db.PrincipalRoles.Add(new PrincipalRole { PrincipalId = model.PrincipalId, RoleId = model.RoleId, InheritToMembers = model.InheritToMembers, AssignedAt = DateTime.UtcNow });
+        db.PrincipalRoles.Add(new PrincipalRole { PrincipalId = model.PrincipalId, RoleId = model.RoleId, InheritToMembers = model.InheritToMembers, IncludeSubDepts = model.IncludeSubDepts, AssignedAt = DateTime.UtcNow });
         await db.SaveChangesAsync(ct);
         await audit.LogAsync("created", "principal_role", $"{model.PrincipalId}:{model.RoleId}", null, null, after: new { model.PrincipalId, model.RoleId }, ct: ct);
         model.AssignedAt = DateTime.UtcNow;

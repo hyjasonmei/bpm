@@ -22,6 +22,8 @@ export interface PrincipalRole {
   principalId: string
   roleId: string
   inheritToMembers: boolean
+  /** Dept principals only: the role also reaches every descendant dept's members. */
+  includeSubDepts: boolean
   assignedAt: string
   assignedByUserId: string | null
 }
