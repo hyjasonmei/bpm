@@ -16,10 +16,14 @@ sidebar:
 
 ## 匯入順序
 
-1. **部門**（含部門主管）
-2. **使用者**（email 為 key；掛主部門、設直屬主管）
+1. **角色**（upsert by Code）與**部門**
+2. **使用者**（email 為 key，upsert 冪等）
 3. **角色指派**（role code 對應：貴公司的「課長」對應到流程裡的哪個角色？）
 4. 設定初始密碼（bound action `SetPassword`）或走 SSO
+
+:::note
+部門歸屬、直屬主管、部門主管、群組目前不在 OData 上（見[組織資料 CRUD](/api/org-crud/)的說明）——這幾項在後台 [User & Role](/backend/user-role/) 維護，或導入期由 flowcook 顧問協助批次建立。
+:::
 
 ## 角色對應
 

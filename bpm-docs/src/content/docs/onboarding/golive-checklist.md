@@ -23,6 +23,7 @@ sidebar:
 - [ ] 白牌品牌設定完成（系統名稱 / Logo / Favicon）
 - [ ] email 寄送網域驗證完成（SPF/DKIM）
 - [ ] dev 登入已關（`BPM_AUTH_MODE=prod`），persona 切換不出現
+- [ ] 機密盤點就緒（Key Vault / 秘密管理）：AI 金鑰、資料庫密碼、JWT secret、OData 整合帳號密碼、SMTP 憑證——都不落在程式與設定檔裡
 
 ## 人
 
