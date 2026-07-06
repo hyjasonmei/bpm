@@ -26,7 +26,7 @@ flowcook 的發行商為 **諮優系資訊科技有限公司**（Tsuyoshi Tech�
 
 合規（FDA / 21 CFR Part 11）賣點降級為「不主打」。
 
-## 五大專案
+## 六大專案
 
 | 層 | 資料夾 | 角色 |
 |---|---|---|
@@ -34,8 +34,17 @@ flowcook 的發行商為 **諮優系資訊科技有限公司**（Tsuyoshi Tech�
 | **CHEF（codegen pipeline）** | `.claude/skills/{chef-codegen,lead-codegen,openspec-*}` + `chef/skill/` + `lead/skill/` | AI codegen workflow — chef 把 spec.json 翻成 per-flow 程式；lead 維護共用 primitive |
 | **BPM** | `bpm-svc/` + `bpm-ui/` | 客戶端 runtime：表單 / unified inbox / 案件詳情 / 簽核；斷約後可獨立運轉 |
 | **Product Website** | `bpm-www/` | 對外行銷站（Astro + Tailwind） |
+| **Guide Docs** | `bpm-docs/` | 客戶導入/使用手冊（Astro + Starlight）→ <https://guide.flowcook.ai>（noindex、不從官網連） |
 
 部署模型：per-customer，無 multi-tenant；每客戶各一套堆疊。原本規劃的 `syncer/` 已取消 — admin ↔ bpm 改走單一 DB source（unify-user-store 系列已完成）。
+
+### ⚠️ 功能/設計改動必同步 bpm-docs
+
+`bpm-docs/` 是**客戶看得到的手冊**——功能行為、API 屬性、UI 操作、流程規則有任何改動時，對應的手冊頁**必須一起改**，過時的手冊＝誤導客戶。守則：
+
+- 手冊視角＝**對貴公司（客戶）說話**：沒有「我們 vs 客戶」、沒有內部話術（賣點/暖場/帶客戶）；第三方只有導入期的「flowcook 顧問」
+- API 文件的 request/response 範例要**打真 API 驗過**再寫（狀態碼、屬性大小寫）
+- 改完重佈：`cd bpm-docs && npm run build`，然後 `swa deploy ./dist --deployment-token $(az staticwebapp secrets list -n poc-flowcook-docs -g rg-poc --query properties.apiKey -o tsv) --env production`
 
 ## 技術棧
 
