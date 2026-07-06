@@ -132,6 +132,80 @@ Departments 的 POST **沒有 upsert**（部門名稱不保證唯一）——同
 
 ---
 
+## Groups `/odata/Groups`
+
+跨部門編組（例：審議委員會）。模式與 Departments 相同。
+
+| 屬性 | 型別 | 說明 |
+|---|---|---|
+| `Id` | Guid | **Key** |
+| `DisplayName` | string | **必填** |
+| `Active` | bool | 啟用狀態 |
+
+### 建立
+
+```http
+POST /odata/Groups
+Content-Type: application/json
+
+{ "DisplayName": "採購審議委員會" }
+```
+
+回應 `201 Created`：
+
+```json
+{
+  "@odata.context": "https://<admin-svc>/odata/$metadata#Groups/$entity",
+  "Id": "019f3653-…",
+  "DisplayName": "採購審議委員會",
+  "Active": true
+}
+```
+
+`PATCH /odata/Groups({id})`（可改 `DisplayName`、`Active`）→ `204`；`DELETE` → `204`（軟刪除）。POST 無 upsert（同 Departments 的注意事項）。
+
+---
+
+## GroupMembers `/odata/GroupMembers` — 群組成員
+
+| 屬性 | 型別 | 說明 |
+|---|---|---|
+| `GroupId` | Guid | **複合 Key**：群組 Id |
+| `MemberPrincipalId` | Guid | **複合 Key**：成員的 principal Id——可以是使用者、部門或另一個群組（巢狀） |
+| `MemberType` | string | 唯讀，系統依成員 principal 自動判定（`User` / `Dept` / `Group`） |
+
+### 加入成員
+
+```http
+POST /odata/GroupMembers?upsert=true
+Content-Type: application/json
+
+{ "GroupId": "019f3653-…", "MemberPrincipalId": "c6e84f6a-…" }
+```
+
+回應 `201 Created`：
+
+```json
+{
+  "@odata.context": "https://<admin-svc>/odata/$metadata#GroupMembers/$entity",
+  "GroupId": "019f3653-…",
+  "MemberPrincipalId": "c6e84f6a-…",
+  "MemberType": "User"
+}
+```
+
+帶 `?upsert=true` 時重複加入＝no-op 成功（回 `204`）；群組不可加入自己（回 `400`）。
+
+### 移除成員
+
+```http
+DELETE /odata/GroupMembers(GroupId=019f3653-…,MemberPrincipalId=c6e84f6a-…)
+```
+
+回應 `204 No Content`。
+
+---
+
 ## Roles `/odata/Roles`
 
 | 屬性 | 型別 | 說明 |
@@ -218,7 +292,6 @@ DELETE /odata/Memberships(PrincipalId=c6e84f6a-…,RoleId=68fe7c39-…)
 
 以下幾項**尚未開放** OData 端點，導入期由後台 [User & Role](/backend/user-role/) 維護，或由 flowcook 顧問協助批次建立：
 
-- **群組（Groups）**：建立群組與群組成員
 - **部門歸屬**（使用者 ↔ 部門、主部門）
 - **直屬主管 / 部門主管**（簽核路由的 manager / dept-head 解析來源）
 - **部門階層**（上層部門）
@@ -227,6 +300,6 @@ DELETE /odata/Memberships(PrincipalId=c6e84f6a-…,RoleId=68fe7c39-…)
 
 ## 同步排程建議
 
-1. 先推 **Roles**（upsert by Code）→ 再推 **Users**（upsert by Email）→ 最後 **Memberships**
+1. 先推 **Roles**（upsert by Code）與 **Departments / Groups** → 再推 **Users**（upsert by Email）→ 最後 **Memberships / GroupMembers**
 2. 大批量用 [$batch](/api/batch/) 包裝；失敗筆修正後整批重推（upsert 冪等，重跑無害）
 3. 推完跑一次 [Doctor](/backend/doctor/) 驗證沒有無人角色
