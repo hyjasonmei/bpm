@@ -5,20 +5,20 @@ sidebar:
   order: 7
 ---
 
-flowcook 是 **per-customer 部署**：每個客戶一套獨立堆疊（前台、後台、API、DB），沒有 multi-tenant 共用。差別只在這套跑在誰的機器上。
+flowcook 是 **per-customer 部署**：每家公司一套獨立堆疊（前台、後台、API、DB），沒有 multi-tenant 共用。差別只在這套跑在誰的機器上。
 
-| | **我們代管** | **客戶自 host** |
+| | **flowcook 代管** | **自 host** |
 |---|---|---|
-| 基礎設施 | 我們的雲（Azure） | 客戶的雲 / 機房 |
-| 維運、升級、備份 | 我們 | 客戶 IT（我們提供部署包與指引） |
-| AI 用量（Anthropic API） | 我們代墊再請款 | 客戶自備 API key 或由我們代墊 |
-| 資料主權 | 資料在我們管理的訂閱內，可簽處理協議 | 完全在客戶邊界內 |
+| 基礎設施 | flowcook 管理的雲（Azure） | 貴公司的雲 / 機房 |
+| 維運、升級、備份 | flowcook | 貴公司 IT（flowcook 提供部署包與指引） |
+| AI 用量（Anthropic API） | flowcook 代墊再請款 | 自備 API key，或由 flowcook 代墊 |
+| 資料主權 | 資料在 flowcook 管理的訂閱內，可簽處理協議 | 完全在貴公司邊界內 |
 | 適合 | 沒有雲維運能量的中小企業 | 有 IT 部門、資安要求高 |
 
 ## 共同點
 
 - 功能完全相同——同一套產品，不是閹割版
-- 斷約後客戶端 runtime（前台 + bpm API）可獨立運轉，已上線流程不受影響
+- 合約結束後，員工端 runtime（前台 + bpm API）可獨立運轉，已上線流程不受影響
 - 微軟生態整合（Entra ID / AD）兩種模式都支援
 
 商務條件（首年導入費、年度續約、顧問點數）依合約，不在本手冊展開。

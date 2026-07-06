@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-demo 組織 **Acme Corp**：13 個使用者、6 個部門、1 個群組（Security Committee）、14 個角色。導入對談與 Sandbox 驗收都拿這套當舞台。
+內建 demo 組織 **Acme Corp**：13 個使用者、6 個部門、1 個群組（Security Committee）、14 個角色。導入對談與 Sandbox 驗收都拿這套當舞台。
 
 ## 常用人物
 

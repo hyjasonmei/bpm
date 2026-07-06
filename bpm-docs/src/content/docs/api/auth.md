@@ -23,5 +23,5 @@ curl -u "$INTEGRATION_USER:$INTEGRATION_PASS" \
 ## 實務建議
 
 - 每個對接系統**各開一個整合帳號**（HR 同步一個、採購一個）——出事好追、好停用
-- 憑證放客戶 iPaaS 的秘密管理（Key Vault / connection credential），不要寫死在 flow 定義裡
+- 憑證放貴公司 iPaaS 的秘密管理（Key Vault / connection credential），不要寫死在 flow 定義裡
 - 整合帳號的操作同樣進 [Audit](/backend/audit/)

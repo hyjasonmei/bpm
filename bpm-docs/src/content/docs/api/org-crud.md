@@ -31,7 +31,7 @@ curl -u "$USER:$PASS" -X POST \
 
 ## 設定密碼
 
-Bound action **`SetPassword`** 對單一使用者設初始密碼（走 SSO 的客戶用不到）。
+Bound action **`SetPassword`** 對單一使用者設初始密碼（走 SSO 的話用不到）。
 
 ## 匯入順序與驗證
 

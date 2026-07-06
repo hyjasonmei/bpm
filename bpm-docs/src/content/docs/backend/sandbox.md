@@ -22,4 +22,4 @@ Sandbox 讓驗收「不用真的來」：不真的寄信、不真的等七天假
 時間快轉 / persona / 全部清空需要先開 **全域 sandbox**；逐流程攔信可單獨開。上線後全域關閉，一切回到真實行為。
 :::
 
-導入時怎麼用 Sandbox 帶客戶驗收，見[導入 Playbook](/onboarding/playbook/)。
+導入時的驗收怎麼跑，見 [Sandbox UAT](/onboarding/sandbox-uat/)。

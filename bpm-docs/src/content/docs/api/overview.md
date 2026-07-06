@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-flowcook 用 **OData** 做系統整合：標準協議，Power Automate、Azure Data Factory 等 iPaaS 都有現成 connector，客戶 IT 不用學私有 API。
+flowcook 用 **OData** 做系統整合：標準協議，Power Automate、Azure Data Factory 等 iPaaS 都有現成 connector，貴公司 IT 不用學私有 API。
 
 ## 兩組端點
 
