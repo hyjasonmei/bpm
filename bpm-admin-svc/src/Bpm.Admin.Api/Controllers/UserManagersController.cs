@@ -37,6 +37,8 @@ public class UserManagersController : ControllerBase
     {
         if (req.ManagerUserId == userId)
             return BadRequest("A user cannot be their own manager.");
+        if (!await _db.Principals.AnyAsync(p => p.Id == userId && p.Type == PrincipalType.User && p.DeletedAt == null, ct))
+            return NotFound();
         if (!await _db.Principals.AnyAsync(p => p.Id == req.ManagerUserId && p.Type == PrincipalType.User && p.DeletedAt == null, ct))
             return BadRequest("Manager user not found.");
 
