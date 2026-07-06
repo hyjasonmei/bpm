@@ -1,16 +1,16 @@
 ---
 title: 組織資料 CRUD
-description: Users / Departments / Roles / Memberships 完整屬性型別與 request / response 範例。
+description: 使用者、部門（歸屬・階層・主管）、群組、角色與指派的完整屬性型別與 request / response 範例。
 sidebar:
   order: 3
 ---
 
-組織資料的整合端點，HR 系統同步的主戰場。四個 entity set 都掛在 `/odata` 下，[Basic auth](/api/auth/) 認證；權威 schema 可直接抓 `GET /odata/$metadata`（CSDL）。
+組織資料的整合端點，HR 系統同步的主戰場。十個 entity set 都掛在 `/odata` 下，[Basic auth](/api/auth/) 認證；權威 schema 可直接抓 `GET /odata/$metadata`（CSDL）。
 
 通則：
 
 - 屬性名稱為 **PascalCase**（與 $metadata、回應一致）
-- 所有刪除都是**軟刪除**（保留歷史簽核紀錄），回 `204 No Content`
+- 使用者 / 部門 / 群組的刪除是**軟刪除**（保留歷史簽核紀錄）；角色刪除會**連同其所有指派**一起清除；關聯資料列（歸屬、主管、階層、群組成員、角色指派）的刪除是移除該筆關聯。皆回 `204 No Content`
 - 每一筆寫入都會記入[稽核](/backend/audit/)
 - 列表查詢支援 `$filter` / `$select` / `$orderby` / `$top` / `$count`
 
@@ -292,18 +292,184 @@ DELETE /odata/Memberships(PrincipalId=c6e84f6a-…,RoleId=68fe7c39-…)
 
 ---
 
-## 目前不在 OData 上的組織資料
+## UserDepartments `/odata/UserDepartments` — 部門歸屬
 
-以下幾項**尚未開放** OData 端點，導入期由後台 [User & Role](/backend/user-role/) 維護，或由 flowcook 顧問協助批次建立：
+:::note
+「使用者屬於哪個部門」在這裡維護。一位使用者可以同時屬於多個部門，但**最多一個主部門**（`IsPrimary`）——主部門決定「部門主管」類簽核步驟找誰。
+:::
 
-- **部門歸屬**（使用者 ↔ 部門、主部門）
-- **直屬主管 / 部門主管**（簽核路由的 manager / dept-head 解析來源）
-- **部門階層**（上層部門）
+| 屬性 | 型別 | 說明 |
+|---|---|---|
+| `UserId` | Guid | **複合 Key**：使用者 Id |
+| `DeptId` | Guid | **複合 Key**：部門 Id |
+| `IsPrimary` | bool | 是否為主部門。設 `true` 時系統自動把該使用者其他部門的主部門標記取消（一人恆一主部門） |
 
-需要自動同步這幾項的話，請與 flowcook 討論。
+### 加入部門 / 更新主部門
+
+```http
+POST /odata/UserDepartments?upsert=true
+Content-Type: application/json
+
+{ "UserId": "c6e84f6a-…", "DeptId": "eca2fd8e-…", "IsPrimary": true }
+```
+
+回應 `201 Created`：
+
+```json
+{
+  "@odata.context": "https://<admin-svc>/odata/$metadata#UserDepartments/$entity",
+  "UserId": "c6e84f6a-…",
+  "DeptId": "eca2fd8e-…",
+  "IsPrimary": true
+}
+```
+
+帶 `?upsert=true` 時，已存在的歸屬會**更新 `IsPrimary`**（回 `204`，冪等）；不帶時重複回 `400`：`"User is already in this department."`
+
+### 移出部門
+
+```http
+DELETE /odata/UserDepartments(DeptId=eca2fd8e-…,UserId=c6e84f6a-…)
+```
+
+回應 `204 No Content`。
+
+:::caution
+複合 Key 的網址**順序固定為 `(DeptId=…,UserId=…)`**（依 $metadata 的 Key 順序）；寫成 `(UserId=…,DeptId=…)` 會比對不到路由。
+:::
+
+---
+
+## Managers `/odata/Managers` — 直屬主管
+
+:::note
+「直屬主管」簽核步驟（例如請假單的主管核准）從這裡解析。每位使用者最多一位主管；沒有資料列＝沒有主管（匯報線頂端）。
+:::
+
+| 屬性 | 型別 | 說明 |
+|---|---|---|
+| `UserId` | Guid | **Key**：使用者 Id |
+| `ManagerUserId` | Guid | 直屬主管的使用者 Id（不可是自己；不可造成匯報循環） |
+| `AssignedAt` | DateTime | 指派時間（系統填，request 不用給） |
+
+### 設定 / 更換主管
+
+```http
+POST /odata/Managers?upsert=true
+Content-Type: application/json
+
+{ "UserId": "c6e84f6a-…", "ManagerUserId": "d804cbde-…" }
+```
+
+回應 `201 Created`（已有主管時 `?upsert=true` 會**更換**，回 `204`）：
+
+```json
+{
+  "@odata.context": "https://<admin-svc>/odata/$metadata#Managers/$entity",
+  "UserId": "c6e84f6a-…",
+  "ManagerUserId": "d804cbde-…",
+  "AssignedAt": "2026-07-06T09:51:17Z"
+}
+```
+
+防呆：自己當自己主管回 `400`；指派會沿主管鏈往上檢查，**形成循環**（A 的主管是 B、B 的主管又是 A）回 `400`：`"Assignment would create a reporting cycle."`
+
+### 移除主管
+
+```http
+DELETE /odata/Managers(c6e84f6a-…)
+```
+
+回應 `204 No Content`。
+
+---
+
+## DepartmentHeads `/odata/DepartmentHeads` — 部門主管
+
+:::note
+「部門主管」簽核步驟從這裡解析：先取送單人的**主部門**，再查該部門的 head。每個部門最多一位主管；沒有資料列＝未設定（流程會走備援指派規則）。
+:::
+
+| 屬性 | 型別 | 說明 |
+|---|---|---|
+| `DeptId` | Guid | **Key**：部門 Id |
+| `HeadUserId` | Guid | 部門主管的使用者 Id |
+| `AssignedAt` | DateTime | 指派時間（系統填，request 不用給） |
+
+### 設定 / 更換部門主管
+
+```http
+POST /odata/DepartmentHeads?upsert=true
+Content-Type: application/json
+
+{ "DeptId": "eca2fd8e-…", "HeadUserId": "d804cbde-…" }
+```
+
+回應 `201 Created`（已有主管時 `?upsert=true` 會**更換**，回 `204`）：
+
+```json
+{
+  "@odata.context": "https://<admin-svc>/odata/$metadata#DepartmentHeads/$entity",
+  "DeptId": "eca2fd8e-…",
+  "HeadUserId": "d804cbde-…",
+  "AssignedAt": "2026-07-06T09:51:17Z"
+}
+```
+
+### 移除部門主管
+
+```http
+DELETE /odata/DepartmentHeads(eca2fd8e-…)
+```
+
+回應 `204 No Content`。
+
+---
+
+## DepartmentParents `/odata/DepartmentParents` — 部門階層
+
+:::note
+部門樹在這裡維護。每個部門最多一個上層部門；沒有資料列＝頂層部門。角色指派的 `IncludeSubDepts`（含子部門）就是沿這棵樹展開的。
+:::
+
+| 屬性 | 型別 | 說明 |
+|---|---|---|
+| `DeptId` | Guid | **Key**：部門 Id |
+| `ParentDeptId` | Guid（可空） | 上層部門 Id（不可是自己；不可造成循環） |
+
+### 設定 / 搬移上層部門
+
+```http
+POST /odata/DepartmentParents?upsert=true
+Content-Type: application/json
+
+{ "DeptId": "eca2fd8e-…", "ParentDeptId": "a0249e4d-…" }
+```
+
+回應 `201 Created`（已有上層時 `?upsert=true` 會**搬移**，回 `204`）：
+
+```json
+{
+  "@odata.context": "https://<admin-svc>/odata/$metadata#DepartmentParents/$entity",
+  "DeptId": "eca2fd8e-…",
+  "ParentDeptId": "a0249e4d-…"
+}
+```
+
+防呆：自己當自己上層回 `400`；指派會沿樹往上檢查，**形成循環**回 `400`：`"Assignment would create a cycle in the department tree."`
+
+### 移除上層（變頂層部門）
+
+```http
+DELETE /odata/DepartmentParents(eca2fd8e-…)
+```
+
+回應 `204 No Content`。
+
+---
 
 ## 同步排程建議
 
-1. 先推 **Roles**（upsert by Code）與 **Departments / Groups** → 再推 **Users**（upsert by Email）→ 最後 **Memberships / GroupMembers**
+1. 先推 **Roles**（upsert by Code）與 **Departments / Groups** → 再推 **Users**（upsert by Email）→ 接著 **UserDepartments / DepartmentParents / Managers / DepartmentHeads** → 最後 **Memberships / GroupMembers**
 2. 大批量用 [$batch](/api/batch/) 包裝；失敗筆修正後整批重推（upsert 冪等，重跑無害）
 3. 推完跑一次 [Doctor](/backend/doctor/) 驗證沒有無人角色

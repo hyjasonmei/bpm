@@ -11,7 +11,7 @@ flowcook 用 **OData** 做系統整合：標準協議，Power Automate、Azure D
 
 | 端點 | 做什麼 | 詳見 |
 |---|---|---|
-| `/odata/*` | **組織資料**：Users / Departments / Roles / Memberships 的讀寫 | [組織資料 CRUD](/api/org-crud/) |
+| `/odata/*` | **組織資料**：使用者 / 部門（歸屬・階層・主管）/ 群組 / 角色與指派 的讀寫 | [組織資料 CRUD](/api/org-crud/) |
 | `/odata-ds/*` | **自訂資料集**：表單參考資料的動態表，讀取與推送 | [自訂資料集動態表](/api/datasets/) |
 
 ## 典型串接情境

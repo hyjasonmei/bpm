@@ -64,3 +64,40 @@ public sealed class OrgMembership
     public bool IncludeSubDepts { get; set; }
     public DateTime AssignedAt { get; set; }
 }
+
+/// A user's department membership. Key = (UserId, DeptId) — a user may sit in
+/// several departments. At most one row per user is primary; the primary dept
+/// drives dept-head approval routing.
+public sealed class OrgUserDepartment
+{
+    public Guid UserId { get; set; }
+    public Guid DeptId { get; set; }
+    public bool IsPrimary { get; set; }
+}
+
+/// A user's direct manager. Key = UserId — at most one manager per user;
+/// absence means the user has no manager (top of the reporting line).
+public sealed class OrgManager
+{
+    public Guid UserId { get; set; }
+    public Guid ManagerUserId { get; set; }
+    public DateTime AssignedAt { get; set; }
+}
+
+/// A department's head. Key = DeptId — at most one head per department;
+/// absence means no head is set (dept-head approval steps then fall back per
+/// the flow's actor fallback chain).
+public sealed class OrgDepartmentHead
+{
+    public Guid DeptId { get; set; }
+    public Guid HeadUserId { get; set; }
+    public DateTime AssignedAt { get; set; }
+}
+
+/// A department's place in the tree. Key = DeptId; no row (or a null parent)
+/// means the department is a root.
+public sealed class OrgDepartmentParent
+{
+    public Guid DeptId { get; set; }
+    public Guid? ParentDeptId { get; set; }
+}

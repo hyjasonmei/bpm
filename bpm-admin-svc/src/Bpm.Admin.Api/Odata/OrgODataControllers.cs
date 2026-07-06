@@ -301,6 +301,233 @@ public sealed class GroupMembersController(AdminDbContext db, IAuditLogger audit
 }
 
 [Authorize(AuthenticationSchemes = OdataBasicAuthHandler.SchemeName)]
+public sealed class UserDepartmentsController(AdminDbContext db, IAuditLogger audit) : ODataController
+{
+    private IQueryable<OrgUserDepartment> Query() => db.UserDepts.AsNoTracking()
+        .Select(ud => new OrgUserDepartment { UserId = ud.UserId, DeptId = ud.DeptId, IsPrimary = ud.IsPrimary });
+
+    [EnableQuery] public IQueryable<OrgUserDepartment> Get() => Query();
+
+    [EnableQuery]
+    public SingleResult<OrgUserDepartment> Get([FromRoute] Guid keyUserId, [FromRoute] Guid keyDeptId)
+        => SingleResult.Create(Query().Where(ud => ud.UserId == keyUserId && ud.DeptId == keyDeptId));
+
+    public async Task<IActionResult> Post([FromBody] OrgUserDepartment model, CancellationToken ct)
+    {
+        if (!await db.Principals.AnyAsync(p => p.Id == model.UserId && p.Type == PrincipalType.User && p.DeletedAt == null, ct))
+            return BadRequest("User not found.");
+        if (!await db.Principals.AnyAsync(p => p.Id == model.DeptId && p.Type == PrincipalType.Dept && p.DeletedAt == null, ct))
+            return BadRequest("Department not found.");
+
+        var upsert = Request.Query.TryGetValue("upsert", out var uv) && uv == "true";
+        var existing = await db.UserDepts.FirstOrDefaultAsync(x => x.UserId == model.UserId && x.DeptId == model.DeptId, ct);
+        if (existing is not null && !upsert) return BadRequest("User is already in this department.");
+
+        // A user has at most one primary dept (it drives dept-head routing) —
+        // asserting a new primary demotes the others, same as the admin UI.
+        if (model.IsPrimary)
+        {
+            var otherPrimaries = await db.UserDepts.Where(x => x.UserId == model.UserId && x.DeptId != model.DeptId && x.IsPrimary).ToListAsync(ct);
+            foreach (var op in otherPrimaries) op.IsPrimary = false;
+        }
+
+        if (existing is not null)
+        {
+            existing.IsPrimary = model.IsPrimary;
+            await db.SaveChangesAsync(ct);
+            await audit.LogAsync("upserted", "user_dept", $"{model.UserId}:{model.DeptId}", null, null, after: new { model.UserId, model.DeptId, model.IsPrimary }, ct: ct);
+            return Updated(new OrgUserDepartment { UserId = existing.UserId, DeptId = existing.DeptId, IsPrimary = existing.IsPrimary });
+        }
+
+        db.UserDepts.Add(new UserDept { UserId = model.UserId, DeptId = model.DeptId, IsPrimary = model.IsPrimary });
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync("created", "user_dept", $"{model.UserId}:{model.DeptId}", null, null, after: new { model.UserId, model.DeptId, model.IsPrimary }, ct: ct);
+        return Created(model);
+    }
+
+    public async Task<IActionResult> Delete([FromRoute] Guid keyUserId, [FromRoute] Guid keyDeptId, CancellationToken ct)
+    {
+        var ud = await db.UserDepts.FirstOrDefaultAsync(x => x.UserId == keyUserId && x.DeptId == keyDeptId, ct);
+        if (ud is null) return NotFound();
+        db.UserDepts.Remove(ud);
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync("deleted", "user_dept", $"{keyUserId}:{keyDeptId}", null, null, ct: ct);
+        return NoContent();
+    }
+}
+
+[Authorize(AuthenticationSchemes = OdataBasicAuthHandler.SchemeName)]
+public sealed class ManagersController(AdminDbContext db, IAuditLogger audit) : ODataController
+{
+    private IQueryable<OrgManager> Query() => db.UserManagers.AsNoTracking()
+        .Select(m => new OrgManager { UserId = m.UserId, ManagerUserId = m.ManagerUserId, AssignedAt = m.AssignedAt });
+
+    [EnableQuery] public IQueryable<OrgManager> Get() => Query();
+
+    [EnableQuery]
+    public SingleResult<OrgManager> Get([FromRoute] Guid key) => SingleResult.Create(Query().Where(m => m.UserId == key));
+
+    public async Task<IActionResult> Post([FromBody] OrgManager model, CancellationToken ct)
+    {
+        if (model.UserId == model.ManagerUserId) return BadRequest("A user cannot be their own manager.");
+        if (!await db.Principals.AnyAsync(p => p.Id == model.UserId && p.Type == PrincipalType.User && p.DeletedAt == null, ct))
+            return BadRequest("User not found.");
+        if (!await db.Principals.AnyAsync(p => p.Id == model.ManagerUserId && p.Type == PrincipalType.User && p.DeletedAt == null, ct))
+            return BadRequest("Manager user not found.");
+
+        // Walk up the proposed manager's chain — reaching UserId again would
+        // close a reporting loop and hang manager-chain approval resolution.
+        var cursor = model.ManagerUserId;
+        var hops = 0;
+        while (hops++ < 100)
+        {
+            var up = await db.UserManagers.AsNoTracking().Where(m => m.UserId == cursor).Select(m => (Guid?)m.ManagerUserId).FirstOrDefaultAsync(ct);
+            if (up is null) break;
+            if (up == model.UserId) return BadRequest("Assignment would create a reporting cycle.");
+            cursor = up.Value;
+        }
+
+        var upsert = Request.Query.TryGetValue("upsert", out var uv) && uv == "true";
+        var existing = await db.UserManagers.FirstOrDefaultAsync(x => x.UserId == model.UserId, ct);
+        if (existing is not null)
+        {
+            if (!upsert) return BadRequest("User already has a manager.");
+            existing.ManagerUserId = model.ManagerUserId;
+            existing.AssignedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            await audit.LogAsync("upserted", "user_manager", model.UserId.ToString(), null, null, after: new { model.UserId, model.ManagerUserId }, ct: ct);
+            return Updated(new OrgManager { UserId = existing.UserId, ManagerUserId = existing.ManagerUserId, AssignedAt = existing.AssignedAt });
+        }
+
+        db.UserManagers.Add(new UserManager { UserId = model.UserId, ManagerUserId = model.ManagerUserId, AssignedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync("created", "user_manager", model.UserId.ToString(), null, null, after: new { model.UserId, model.ManagerUserId }, ct: ct);
+        model.AssignedAt = DateTime.UtcNow;
+        return Created(model);
+    }
+
+    public async Task<IActionResult> Delete([FromRoute] Guid key, CancellationToken ct)
+    {
+        var m = await db.UserManagers.FirstOrDefaultAsync(x => x.UserId == key, ct);
+        if (m is null) return NotFound();
+        db.UserManagers.Remove(m);
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync("deleted", "user_manager", key.ToString(), null, null, ct: ct);
+        return NoContent();
+    }
+}
+
+[Authorize(AuthenticationSchemes = OdataBasicAuthHandler.SchemeName)]
+public sealed class DepartmentHeadsController(AdminDbContext db, IAuditLogger audit) : ODataController
+{
+    private IQueryable<OrgDepartmentHead> Query() => db.DeptHeads.AsNoTracking()
+        .Select(h => new OrgDepartmentHead { DeptId = h.DeptId, HeadUserId = h.HeadUserId, AssignedAt = h.AssignedAt });
+
+    [EnableQuery] public IQueryable<OrgDepartmentHead> Get() => Query();
+
+    [EnableQuery]
+    public SingleResult<OrgDepartmentHead> Get([FromRoute] Guid key) => SingleResult.Create(Query().Where(h => h.DeptId == key));
+
+    public async Task<IActionResult> Post([FromBody] OrgDepartmentHead model, CancellationToken ct)
+    {
+        if (!await db.Principals.AnyAsync(p => p.Id == model.DeptId && p.Type == PrincipalType.Dept && p.DeletedAt == null, ct))
+            return BadRequest("Department not found.");
+        if (!await db.Principals.AnyAsync(p => p.Id == model.HeadUserId && p.Type == PrincipalType.User && p.DeletedAt == null, ct))
+            return BadRequest("Head user not found.");
+
+        var upsert = Request.Query.TryGetValue("upsert", out var uv) && uv == "true";
+        var existing = await db.DeptHeads.FirstOrDefaultAsync(x => x.DeptId == model.DeptId, ct);
+        if (existing is not null)
+        {
+            if (!upsert) return BadRequest("Department already has a head.");
+            existing.HeadUserId = model.HeadUserId;
+            existing.AssignedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            await audit.LogAsync("upserted", "dept_head", model.DeptId.ToString(), null, null, after: new { model.DeptId, model.HeadUserId }, ct: ct);
+            return Updated(new OrgDepartmentHead { DeptId = existing.DeptId, HeadUserId = existing.HeadUserId, AssignedAt = existing.AssignedAt });
+        }
+
+        db.DeptHeads.Add(new DeptHead { DeptId = model.DeptId, HeadUserId = model.HeadUserId, AssignedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync("created", "dept_head", model.DeptId.ToString(), null, null, after: new { model.DeptId, model.HeadUserId }, ct: ct);
+        model.AssignedAt = DateTime.UtcNow;
+        return Created(model);
+    }
+
+    public async Task<IActionResult> Delete([FromRoute] Guid key, CancellationToken ct)
+    {
+        var h = await db.DeptHeads.FirstOrDefaultAsync(x => x.DeptId == key, ct);
+        if (h is null) return NotFound();
+        db.DeptHeads.Remove(h);
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync("deleted", "dept_head", key.ToString(), null, null, ct: ct);
+        return NoContent();
+    }
+}
+
+[Authorize(AuthenticationSchemes = OdataBasicAuthHandler.SchemeName)]
+public sealed class DepartmentParentsController(AdminDbContext db, IAuditLogger audit) : ODataController
+{
+    private IQueryable<OrgDepartmentParent> Query() => db.DeptParents.AsNoTracking()
+        .Select(dp => new OrgDepartmentParent { DeptId = dp.DeptId, ParentDeptId = dp.ParentDeptId });
+
+    [EnableQuery] public IQueryable<OrgDepartmentParent> Get() => Query();
+
+    [EnableQuery]
+    public SingleResult<OrgDepartmentParent> Get([FromRoute] Guid key) => SingleResult.Create(Query().Where(dp => dp.DeptId == key));
+
+    public async Task<IActionResult> Post([FromBody] OrgDepartmentParent model, CancellationToken ct)
+    {
+        if (model.ParentDeptId == model.DeptId) return BadRequest("A department cannot be its own parent.");
+        if (!await db.Principals.AnyAsync(p => p.Id == model.DeptId && p.Type == PrincipalType.Dept && p.DeletedAt == null, ct))
+            return BadRequest("Department not found.");
+        if (model.ParentDeptId is { } parentId)
+        {
+            if (!await db.Principals.AnyAsync(p => p.Id == parentId && p.Type == PrincipalType.Dept && p.DeletedAt == null, ct))
+                return BadRequest("Parent department not found.");
+
+            // Walk up from the proposed parent — reaching DeptId again would
+            // close a loop in the dept tree and break subtree role expansion.
+            var cursor = parentId;
+            var hops = 0;
+            while (hops++ < 100)
+            {
+                var up = await db.DeptParents.AsNoTracking().Where(dp => dp.DeptId == cursor).Select(dp => dp.ParentDeptId).FirstOrDefaultAsync(ct);
+                if (up is null) break;
+                if (up == model.DeptId) return BadRequest("Assignment would create a cycle in the department tree.");
+                cursor = up.Value;
+            }
+        }
+
+        var upsert = Request.Query.TryGetValue("upsert", out var uv) && uv == "true";
+        var existing = await db.DeptParents.FirstOrDefaultAsync(x => x.DeptId == model.DeptId, ct);
+        if (existing is not null)
+        {
+            if (!upsert) return BadRequest("Department already has a parent entry.");
+            existing.ParentDeptId = model.ParentDeptId;
+            await db.SaveChangesAsync(ct);
+            await audit.LogAsync("upserted", "dept_parent", model.DeptId.ToString(), null, null, after: new { model.DeptId, model.ParentDeptId }, ct: ct);
+            return Updated(new OrgDepartmentParent { DeptId = existing.DeptId, ParentDeptId = existing.ParentDeptId });
+        }
+
+        db.DeptParents.Add(new DeptParent { DeptId = model.DeptId, ParentDeptId = model.ParentDeptId });
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync("created", "dept_parent", model.DeptId.ToString(), null, null, after: new { model.DeptId, model.ParentDeptId }, ct: ct);
+        return Created(model);
+    }
+
+    public async Task<IActionResult> Delete([FromRoute] Guid key, CancellationToken ct)
+    {
+        var dp = await db.DeptParents.FirstOrDefaultAsync(x => x.DeptId == key, ct);
+        if (dp is null) return NotFound();
+        db.DeptParents.Remove(dp);                           // dept becomes a root
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync("deleted", "dept_parent", key.ToString(), null, null, ct: ct);
+        return NoContent();
+    }
+}
+
+[Authorize(AuthenticationSchemes = OdataBasicAuthHandler.SchemeName)]
 public sealed class MembershipsController(AdminDbContext db, IAuditLogger audit) : ODataController
 {
     private IQueryable<OrgMembership> Query() => db.PrincipalRoles.AsNoTracking()

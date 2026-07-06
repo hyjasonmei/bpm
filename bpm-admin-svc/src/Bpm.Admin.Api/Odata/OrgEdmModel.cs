@@ -34,6 +34,23 @@ public static class OrgEdmModel
         memberships.EntityType.HasKey(m => m.PrincipalId);
         memberships.EntityType.HasKey(m => m.RoleId);
 
+        var userDepts = b.EntitySet<OrgUserDepartment>("UserDepartments");
+        // The convention builder alphabetizes composite keys to (DeptId,
+        // UserId) no matter how they're declared, and keyed-URL matching is
+        // order-sensitive — clients must write (DeptId=…,UserId=…). The other
+        // two composite sets (GroupMembers, Memberships) don't hit this
+        // because their natural order happens to be alphabetical already.
+        userDepts.EntityType.HasKey(ud => new { ud.UserId, ud.DeptId });
+
+        var managers = b.EntitySet<OrgManager>("Managers");
+        managers.EntityType.HasKey(m => m.UserId);
+
+        var deptHeads = b.EntitySet<OrgDepartmentHead>("DepartmentHeads");
+        deptHeads.EntityType.HasKey(h => h.DeptId);
+
+        var deptParents = b.EntitySet<OrgDepartmentParent>("DepartmentParents");
+        deptParents.EntityType.HasKey(p => p.DeptId);
+
         return b.GetEdmModel();
     }
 }
