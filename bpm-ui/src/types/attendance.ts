@@ -33,3 +33,31 @@ export interface DailySummaryDto {
   workHours: number
   punchCount: number
 }
+
+// ── corrections (補打卡) — mirrors IAttendanceCorrectionService DTOs ──
+
+export const CorrectionStatus = { Pending: 1, Approved: 2, Rejected: 3 } as const
+export type CorrectionStatusValue = typeof CorrectionStatus[keyof typeof CorrectionStatus]
+
+export interface CorrectionDto {
+  id: string
+  userId: string
+  userName: string
+  date: string
+  punchType: PunchTypeValue
+  requestedPunchAt: string
+  reason: string
+  status: CorrectionStatusValue
+  submittedAt: string
+  deciderUserId: string | null
+  deciderName: string | null
+  decidedAt: string | null
+  decisionNote: string | null
+}
+
+export interface SubmitCorrectionRequest {
+  date: string          // YYYY-MM-DD
+  punchType: PunchTypeValue
+  time: string          // HH:mm (tenant-local)
+  reason: string
+}

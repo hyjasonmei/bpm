@@ -125,6 +125,8 @@ export function resolveFlowLabel(
   code: string,
   version?: number,
 ): string {
+  // Platform (non-chef) inbox sources — never in the admin registry.
+  if (code === 'ATTENDANCE_CORRECTION') return '補打卡'
   const fallback = FORMS[code as FormCode]?.zhLabel ?? code
   if (!entries) return fallback
   let chosen: FlowRegistryEntry | undefined

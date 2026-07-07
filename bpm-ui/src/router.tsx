@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate, Outlet, useNavigate, useParams } from 'r
 import { AppLayout } from '@/components/AppLayout'
 import { CaseToolbar } from '@/components/CaseToolbar'
 import { Attendance } from '@/screens/Attendance'
+import { AttendanceCorrectionReview } from '@/screens/AttendanceCorrectionReview'
 import { CreateIndex } from '@/screens/CreateIndex'
 import { Home } from '@/screens/Home'
 import { Search } from '@/screens/Search'
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
       { path: 'create', element: <CreateIndex /> },
       { path: 'search', element: <Search /> },
       { path: 'attendance', element: <Attendance /> },
+      { path: 'attendance/corrections/:id', element: <AttendanceCorrectionReview /> },
       // Version-qualified case detail (e.g. /cases/wfh/v1/<id>) — a historical
       // case opens ITS version's detail component. The bare 2-segment form is
       // kept for back-compat (old links / current-version cases) and resolves

@@ -33,6 +33,36 @@ public sealed class AttendanceController(IAttendanceService service) : Controlle
     public async Task<IReadOnlyList<DailySummaryDto>> History([FromQuery] int days = 30, CancellationToken ct = default)
         => await service.GetHistoryAsync(RequireUserId(), days, ct);
 
+    // ── corrections (補打卡) ──────────────────────────────────────
+
+    [HttpPost("corrections")]
+    public async Task<IActionResult> SubmitCorrection(
+        [FromServices] IAttendanceCorrectionService corrections,
+        [FromBody] SubmitCorrectionRequest req, CancellationToken ct)
+    {
+        var dto = await corrections.SubmitAsync(RequireUserId(), req, ct);
+        return Created($"/api/attendance/corrections/{dto.Id}", dto);
+    }
+
+    [HttpGet("corrections/mine")]
+    public async Task<IReadOnlyList<CorrectionDto>> MyCorrections(
+        [FromServices] IAttendanceCorrectionService corrections, CancellationToken ct)
+        => await corrections.MineAsync(RequireUserId(), ct);
+
+    [HttpGet("corrections/{id:guid}")]
+    public async Task<ActionResult<CorrectionDto>> GetCorrection(
+        [FromServices] IAttendanceCorrectionService corrections, Guid id, CancellationToken ct)
+    {
+        var dto = await corrections.FindAsync(id, ct);
+        return dto is null ? NotFound() : dto;
+    }
+
+    [HttpPost("corrections/{id:guid}/decision")]
+    public async Task<CorrectionDto> DecideCorrection(
+        [FromServices] IAttendanceCorrectionService corrections,
+        Guid id, [FromBody] DecideCorrectionRequest req, CancellationToken ct)
+        => await corrections.DecideAsync(RequireUserId(), id, req, ct);
+
     private Guid RequireUserId()
     {
         var raw = User?.FindFirst("sub")?.Value

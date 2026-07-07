@@ -15,6 +15,18 @@ export interface InboxRow {
   detailUrl: string
 }
 
+/**
+ * Where an inbox row opens. Chef-cooked rows use the canonical versioned
+ * case route; platform rows (e.g. attendance corrections) carry their own
+ * detailUrl outside /cases and must NOT be rewritten into one.
+ */
+export function inboxRowUrl(r: InboxRow): string {
+  if (r.detailUrl && !r.detailUrl.startsWith('/cases')) return r.detailUrl
+  return r.flowVersion != null
+    ? `/cases/${r.flowCode.toLowerCase()}/v${r.flowVersion}/${r.caseId}`
+    : `/cases/${r.flowCode.toLowerCase()}/${r.caseId}`
+}
+
 interface State {
   data: InboxRow[] | null
   loading: boolean

@@ -27,6 +27,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<HrFlowAction> HrFlowActions => Set<HrFlowAction>();
 
     public DbSet<AttendancePunch> AttendancePunches => Set<AttendancePunch>();
+    public DbSet<AttendanceCorrection> AttendanceCorrections => Set<AttendanceCorrection>();
+
+    public DbSet<Bpm.Domain.Entities.Support.SupportIssue> SupportIssues => Set<Bpm.Domain.Entities.Support.SupportIssue>();
 
     public DbSet<ImpersonationSession> ImpersonationSessions => Set<ImpersonationSession>();
 

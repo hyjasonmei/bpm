@@ -3,24 +3,32 @@ import { Clock, Loader2, FileEdit, LogIn, LogOut, RotateCcw } from 'lucide-react
 
 import { SectionCard, SectionTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { checkIn, checkOut, getHistory, getToday } from '@/lib/api/attendance'
-import { TodayState, type DailySummaryDto, type TodayStatusDto } from '@/types/attendance'
+import { Modal } from '@/components/ui/Modal'
+import { Input, Textarea, Field, Select } from '@/components/ui/form'
+import { checkIn, checkOut, getHistory, getMyCorrections, getToday, submitCorrection } from '@/lib/api/attendance'
+import {
+  CorrectionStatus, PunchType, TodayState,
+  type CorrectionDto, type DailySummaryDto, type PunchTypeValue, type TodayStatusDto,
+} from '@/types/attendance'
 
 export function Attendance() {
   const [today, setToday] = useState<TodayStatusDto | null>(null)
   const [history, setHistory] = useState<DailySummaryDto[]>([])
+  const [corrections, setCorrections] = useState<CorrectionDto[]>([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [correctionOpen, setCorrectionOpen] = useState(false)
 
   const fireToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2400) }
 
   async function refresh() {
     setErr(null)
     try {
-      const [t, h] = await Promise.all([getToday(), getHistory(30)])
+      const [t, h, c] = await Promise.all([getToday(), getHistory(30), getMyCorrections()])
       setToday(t)
       setHistory(h)
+      setCorrections(c)
     } catch (e) {
       setErr((e as Error).message)
     }
@@ -66,7 +74,7 @@ export function Attendance() {
           <h1 className="text-xl font-bold text-ink">Attendance / 打卡</h1>
           <p className="text-[11px] uppercase tracking-wider text-ink-muted">Daily check-in / check-out · Tenant TZ: Asia/Taipei</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => alert('Request Correction — placeholder. Separate change pending.')}>
+        <Button variant="outline" size="sm" onClick={() => setCorrectionOpen(true)}>
           <FileEdit className="h-3.5 w-3.5" />
           Request Correction / 申請補打卡
         </Button>
@@ -97,6 +105,46 @@ export function Attendance() {
           <div className="px-5 py-6 text-sm text-ink-muted">Loading…</div>
         )}
       </SectionCard>
+
+      <SectionCard>
+        <SectionTitle>Correction Requests / 我的補卡申請</SectionTitle>
+        {corrections.length === 0 ? (
+          <div className="px-5 py-4 text-sm text-ink-muted">No correction requests. 忘了打卡時從右上角「申請補打卡」送出，主管核准後紀錄自動補上。</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-rule bg-slate-50 text-[11px] uppercase tracking-wider text-ink-muted">
+                <tr>
+                  <th className="px-4 py-2 text-left">Date / 日期</th>
+                  <th className="px-4 py-2 text-left">Type</th>
+                  <th className="px-4 py-2 text-left">Time / 補卡時間</th>
+                  <th className="px-4 py-2 text-left">Reason / 事由</th>
+                  <th className="px-4 py-2 text-left">Status / 狀態</th>
+                  <th className="px-4 py-2 text-left">Reviewer / 審核</th>
+                </tr>
+              </thead>
+              <tbody>
+                {corrections.map(c => (
+                  <tr key={c.id} className="border-b border-rule last:border-b-0">
+                    <td className="px-4 py-2 font-mono">{c.date}</td>
+                    <td className="px-4 py-2">{c.punchType === PunchType.In ? '上班卡' : '下班卡'}</td>
+                    <td className="px-4 py-2 font-mono">{formatTime(c.requestedPunchAt)}</td>
+                    <td className="max-w-[280px] truncate px-4 py-2" title={c.reason}>{c.reason}</td>
+                    <td className="px-4 py-2"><CorrectionChip status={c.status} /></td>
+                    <td className="px-4 py-2 text-ink-muted">{c.deciderName ?? '—'}{c.decisionNote ? `（${c.decisionNote}）` : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionCard>
+
+      <CorrectionDialog
+        open={correctionOpen}
+        onClose={() => setCorrectionOpen(false)}
+        onSubmitted={async () => { setCorrectionOpen(false); fireToast('補卡申請已送出，等待主管核准。'); await refresh() }}
+      />
 
       <SectionCard>
         <SectionTitle>History / 近 30 天紀錄</SectionTitle>
@@ -130,6 +178,81 @@ export function Attendance() {
         )}
       </SectionCard>
     </div>
+  )
+}
+
+function CorrectionChip({ status }: { status: number }) {
+  const map: Record<number, { label: string; cls: string }> = {
+    [CorrectionStatus.Pending]:  { label: '待主管核准', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+    [CorrectionStatus.Approved]: { label: '已核准補卡', cls: 'bg-green-50 text-green-700 border-green-200' },
+    [CorrectionStatus.Rejected]: { label: '已駁回', cls: 'bg-red-50 text-red-700 border-red-200' },
+  }
+  const m = map[status] ?? { label: String(status), cls: 'bg-slate-50 text-ink border-slate-200' }
+  return <span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] ${m.cls}`}>{m.label}</span>
+}
+
+function CorrectionDialog({ open, onClose, onSubmitted }: { open: boolean; onClose: () => void; onSubmitted: () => Promise<void> }) {
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [punchType, setPunchType] = useState<PunchTypeValue>(PunchType.In)
+  const [time, setTime] = useState('09:00')
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) {
+      setDate(new Date().toISOString().slice(0, 10)); setPunchType(PunchType.In); setTime('09:00'); setReason(''); setSaving(false); setError(null)
+    }
+  }, [open])
+
+  async function save() {
+    if (!reason.trim()) { setError('補卡事由為必填'); return }
+    setSaving(true)
+    setError(null)
+    try {
+      await submitCorrection({ date, punchType, time, reason: reason.trim() })
+      await onSubmitted()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} ariaLabelledBy="correction-title">
+      <div className="space-y-3 p-4">
+        <div className="flex items-center gap-2">
+          <FileEdit className="h-4 w-4 text-primary" />
+          <h2 id="correction-title" className="text-sm font-semibold text-ink">申請補打卡 / Request Correction</h2>
+        </div>
+        <p className="text-xs text-ink-muted">送出後由你的直屬主管審核，核准後系統自動補上該筆打卡紀錄。</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="日期 / Date" required>
+            <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+          </Field>
+          <Field label="卡別 / Type" required>
+            <Select value={String(punchType)} onChange={e => setPunchType(Number(e.target.value) as PunchTypeValue)}>
+              <option value={PunchType.In}>上班卡 / Check-in</option>
+              <option value={PunchType.Out}>下班卡 / Check-out</option>
+            </Select>
+          </Field>
+        </div>
+        <Field label="時間 / Time" required hint="以台北時區填寫實際上下班時間">
+          <Input type="time" value={time} onChange={e => setTime(e.target.value)} />
+        </Field>
+        <Field label="事由 / Reason" required>
+          <Textarea rows={3} value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. 早上外出拜訪客戶，直接到客戶端未打卡" />
+        </Field>
+        {error && <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
+        <div className="flex justify-end gap-2 border-t border-rule pt-3">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button variant="primary" size="sm" onClick={save} disabled={saving || !reason.trim()}>
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            送出申請
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

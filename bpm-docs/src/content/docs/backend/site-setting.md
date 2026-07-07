@@ -2,7 +2,7 @@
 title: Site Setting
 description: 白牌品牌、流程分組、功能表、部署與重置。
 sidebar:
-  order: 7
+  order: 9
 ---
 
 Site Setting 是站台層級的全域設定，五個分頁：

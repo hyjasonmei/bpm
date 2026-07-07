@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   Activity,
+  Inbox,
   ArrowLeft,
   BarChart3,
   ChefHat,
@@ -25,8 +26,9 @@ import { AuditPage } from '@/flowcook/pages/AuditPage'
 import { SandboxPage } from '@/flowcook/pages/SandboxPage'
 import { DoctorPage } from '@/flowcook/pages/DoctorPage'
 import DatasetsPage from '@/flowcook/pages/DatasetsPage'
+import { IssuesPage } from '@/flowcook/pages/IssuesPage'
 
-export type FlowcookPage = 'ai-kitchen' | 'user-role' | 'datasets' | 'sandbox' | 'audit' | 'reports' | 'doctor' | 'site-setting'
+export type FlowcookPage = 'ai-kitchen' | 'user-role' | 'datasets' | 'sandbox' | 'audit' | 'reports' | 'doctor' | 'issues' | 'site-setting'
 
 interface NavEntry {
   id: FlowcookPage
@@ -44,6 +46,7 @@ const NAV: NavEntry[] = [
   { id: 'audit',        path: '/audit',        label: 'Audit',        hint: 'history',      icon: Activity },
   { id: 'reports',      path: '/reports',      label: 'Reports',      hint: 'analytics',    icon: BarChart3 },
   { id: 'doctor',       path: '/doctor',       label: 'Doctor',       hint: 'health',       icon: Stethoscope },
+  { id: 'issues',       path: '/issues',       label: '問題回報 / Issues', hint: 'user reports', icon: Inbox },
   { id: 'site-setting', path: '/site-setting', label: 'Site Setting', hint: 'globals',      icon: Settings },
 ]
 
@@ -192,6 +195,7 @@ export function AppShell({ onShowLegacy }: AppShellProps) {
             <Route path="/audit" element={<AuditPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/doctor" element={<DoctorPage />} />
+            <Route path="/issues" element={<IssuesPage />} />
             <Route path="/site-setting/*" element={<SiteSettingPage />} />
             <Route path="*" element={<Navigate to="/ai-kitchen" replace />} />
           </Routes>

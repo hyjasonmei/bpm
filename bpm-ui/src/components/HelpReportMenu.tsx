@@ -3,6 +3,7 @@ import { HelpCircle, Bug, BookOpen, MessageSquare, X, Loader2, Check } from 'luc
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea, Field, Select } from '@/components/ui/form'
+import { submitIssue } from '@/lib/api/support'
 
 type IssueKind = 'bug' | 'feature' | 'question'
 
@@ -83,26 +84,35 @@ function ReportIssueModal({ open, onClose }: { open: boolean; onClose: () => voi
   const [contact, setContact] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) {
-      setTitle(''); setDescription(''); setContact(''); setKind('bug'); setBusy(false); setDone(false)
+      setTitle(''); setDescription(''); setContact(''); setKind('bug'); setBusy(false); setDone(false); setError(null)
     }
   }, [open])
 
   if (!open) return null
 
-  async function fakeSubmit() {
+  async function submit() {
     if (!title.trim() || !description.trim()) return
     setBusy(true)
-    // Pretend to ship to engineers — just a delay so the spinner shows.
-    await new Promise(r => setTimeout(r, 700))
-    // In real implementation this would POST to /api/support/issues with
-    // current screen kind, JWT identity, persona, browser/UA snapshot, etc.
-    console.info('[issue-report] would dispatch:', { kind, title, description, contact })
-    setBusy(false)
-    setDone(true)
-    setTimeout(() => onClose(), 1400)
+    setError(null)
+    try {
+      await submitIssue({
+        kind,
+        title: title.trim(),
+        description: description.trim(),
+        contact: contact.trim() || null,
+        page: window.location.pathname,
+      })
+      setDone(true)
+      setTimeout(() => onClose(), 1400)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to send')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -144,9 +154,10 @@ function ReportIssueModal({ open, onClose }: { open: boolean; onClose: () => voi
             <p className="text-[10px] text-ink-faint">
               We'll attach: current page, your account, browser version. No screenshots — paste in the description if relevant.
             </p>
+            {error && <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
             <div className="flex justify-end gap-2 border-t border-rule pt-3">
               <Button variant="outline" size="sm" onClick={onClose} disabled={busy}>Cancel</Button>
-              <Button variant="primary" size="sm" onClick={fakeSubmit} disabled={busy || !title.trim() || !description.trim()}>
+              <Button variant="primary" size="sm" onClick={submit} disabled={busy || !title.trim() || !description.trim()}>
                 {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Send to engineering
               </Button>

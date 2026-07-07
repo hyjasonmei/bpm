@@ -24,3 +24,10 @@ sidebar:
 - **簽核**：Pending My Action → Open → 案件詳情底部的核准/退件，見[簽核（含並簽）](/frontend/approval/)
 - **開新申請**：Quick Actions 點流程，或上方 **Create** 進完整表單目錄
 - **找舊案**：上方 **Search** 依關鍵字 / 流程 / 狀態查詢
+
+## 求助與回報
+
+頂欄的 **?（Help）** 選單：
+
+- **使用手冊 / User Guide** — 開啟本手冊
+- **Report an issue** — 遇到問題直接在系統內回報（bug / 功能建議 / 使用問題）。送出時會自動附上所在頁面與瀏覽器版本，管理員在後台的「問題回報 / Issues」頁追蹤處理進度

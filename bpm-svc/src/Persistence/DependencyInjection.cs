@@ -117,6 +117,8 @@ public static class DependencyInjection
         // next drop-tables migration so existing seed data doesn't
         // need a destructive migration today.
         services.AddScoped<IAttendanceService, AttendanceService>();
+        services.AddScoped<Bpm.Application.Attendance.IAttendanceCorrectionService, Attendance.AttendanceCorrectionService>();
+        services.AddScoped<Bpm.Application.Support.ISupportIssueService, Support.SupportIssueService>();
         services.AddScoped<IImpersonationService, ImpersonationService>();
         services.AddScoped<ISandboxService, SandboxService>();
         services.AddScoped<ISandboxClockService, SandboxClockService>();

@@ -13,7 +13,7 @@ import { getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
 import { FORMS, type FormCode } from '@/lib/workflow'
 import { formRegistry } from '@/features/registry'
-import { useInboxMine, useInboxPending, type InboxRow } from '@/hooks/useUnifiedInbox'
+import { inboxRowUrl, useInboxMine, useInboxPending, type InboxRow } from '@/hooks/useUnifiedInbox'
 import { useFlowRegistry, entryForVersion, useFlowLabel } from '@/hooks/useFlowRegistry'
 import { resolveLauncherIcon } from '@/lib/launcherIcons'
 import { routes } from '@/router'
@@ -247,7 +247,7 @@ function PendingTable({ persona, rows, loading, error, navigate }: {
                     <Button
                       variant="primary"
                       size="xs"
-                      onClick={() => navigate(routes.caseDetail(r.flowCode, r.caseId, r.flowVersion))}
+                      onClick={() => navigate(inboxRowUrl(r))}
                     >
                       Open
                     </Button>
@@ -292,7 +292,7 @@ function MyCasesTable({ rows, loading, error, navigate }: { rows: InboxRow[]; lo
               return (
                 <tr
                   key={r.caseId}
-                  onClick={() => navigate(routes.caseDetail(r.flowCode, r.caseId, r.flowVersion))}
+                  onClick={() => navigate(inboxRowUrl(r))}
                   className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/60"
                 >
                   <Td><span className="font-mono text-[11px] text-ink">{r.caseId.slice(0, 8)}</span></Td>
