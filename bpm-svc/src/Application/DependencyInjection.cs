@@ -11,6 +11,7 @@ using Bpm.Application.Features.EOB.V1;
 using Bpm.Application.Features.FAD.V1;
 using Bpm.Application.Features.FAP.V1;
 using Bpm.Application.Features.PURCHASE_REQUEST.V1;
+using Bpm.Application.Features.OVERTIME.V1;
 using Bpm.Application.Features.ETM.V1;
 using Bpm.Application.Features.TEO.V1;
 using Bpm.Application.Features.TRQ.V1;
@@ -107,6 +108,7 @@ public static class DependencyInjection
         // Chef-cooked feature services living in the Application layer.
         services.AddScoped<LEAVE_V1_LeaveService>();
         services.AddScoped<PURCHASE_REQUEST_V1_PurchaseRequestService>();
+        services.AddScoped<OVERTIME_V1_OvertimeService>();
         services.AddScoped<TRQ_V1_TravelRequestService>();
         services.AddScoped<APE_V1_AdvancePaymentService>();
         services.AddScoped<CONTRACT_REVIEW_V1_Service>();

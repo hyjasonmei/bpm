@@ -12,6 +12,7 @@ using Bpm.Application.Features.EOB.V1;
 using Bpm.Application.Features.FAD.V1;
 using Bpm.Application.Features.FAP.V1;
 using Bpm.Application.Features.PURCHASE_REQUEST.V1;
+using Bpm.Application.Features.OVERTIME.V1;
 using Bpm.Application.Features.ETM.V1;
 using Bpm.Application.Features.TEO.V1;
 using Bpm.Application.Features.TRQ.V1;
@@ -43,6 +44,7 @@ using Bpm.Persistence.Features.ETM.V1;
 using Bpm.Persistence.Features.FAD.V1;
 using Bpm.Persistence.Features.FAP.V1;
 using Bpm.Persistence.Features.PURCHASE_REQUEST.V1;
+using Bpm.Persistence.Features.OVERTIME.V1;
 using Bpm.Persistence.Features.TEO.V1;
 using Bpm.Persistence.Features.TRQ.V1;
 using Bpm.Persistence.Features.VENDOR_EXPENSE.V1;
@@ -197,6 +199,7 @@ public static class DependencyInjection
         // and the EF impl in Persistence/Features/<CODE>/V<N>/, then wires
         // the binding here so DI can hand the impl to Application services.
         services.AddScoped<IPURCHASE_REQUEST_V1_CaseStore, PURCHASE_REQUEST_V1_CaseStore>();
+        services.AddScoped<IOVERTIME_V1_CaseStore, OVERTIME_V1_CaseStore>();
         services.AddScoped<ITRQ_V1_CaseStore, TRQ_V1_CaseStore>();
         services.AddScoped<IAPE_V1_CaseStore, APE_V1_CaseStore>();
         services.AddScoped<ICONTRACT_REVIEW_V1_CaseStore, CONTRACT_REVIEW_V1_CaseStore>();
