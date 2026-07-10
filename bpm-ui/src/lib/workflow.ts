@@ -35,7 +35,7 @@ export interface FormDef {
   initialActive: number
 }
 
-export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB' | 'RESIGN' | 'DEPTX' | 'PURCHASE_REQUEST' | 'VENDOR_EXPENSE' | 'FAP' | 'FAD' | 'EOB' | 'ETM' | 'WFH' | 'CONTRACT_REVIEW' | 'COMMITTEE_REVIEW'
+export type FormCode = 'LEAVE' | 'GEE' | 'GEV' | 'APE' | 'TRQ' | 'TEO' | 'HWP' | 'ITPR' | 'EXTOB' | 'RESIGN' | 'DEPTX' | 'PURCHASE_REQUEST' | 'VENDOR_EXPENSE' | 'FAP' | 'FAD' | 'EOB' | 'ETM' | 'WFH' | 'CONTRACT_REVIEW' | 'COMMITTEE_REVIEW' | 'OVERTIME'
 
 const STEP = (id: string, en: string, zh: string): Step => ({ id, en, zh })
 
@@ -321,6 +321,22 @@ export const FORMS: Record<FormCode, FormDef> = {
       STEP('closed', 'CLOSED', '結案'),
     ],
     ownerByStep: ['employee', 'manager', 'manager', null],
+    initialActive: 0,
+  },
+  OVERTIME: {
+    code: 'OVERTIME',
+    label: 'Overtime Request',
+    zhLabel: '加班申請',
+    // Cooked state machine: apply → 直屬主管審核 → (gateway 單月累計時數>20) 人資複核 →
+    // close. The HR step only runs when the month's cumulative overtime exceeds
+    // 20h; ≤20h cases complete at the manager step (stepper skips to CLOSE).
+    steps: [
+      STEP('apply', 'APPLY', '提出申請'),
+      STEP('manager_approve', 'MANAGER APPROVE', '主管審核'),
+      STEP('hr_review', 'HR REVIEW', '人資複核'),
+      STEP('closed', 'CLOSED', '結案'),
+    ],
+    ownerByStep: ['employee', 'manager', 'hr', null],
     initialActive: 0,
   },
 }

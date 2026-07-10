@@ -4,7 +4,7 @@ export type StatusKind =
   | 'draft' | 'pending' | 'approved' | 'fin_review' | 'it_spec_review' | 'returned' | 'closed' | 'rejected' | 'cancelled'
   // Per-stage kinds so a flow's mid-chain "pending" state shows its real stage
   // name (not a borrowed FIN Review / IT Spec Review label).
-  | 'setup' | 'handover' | 'confirm' | 'verification' | 'procurement' | 'sign' | 'hr_record'
+  | 'setup' | 'handover' | 'confirm' | 'verification' | 'procurement' | 'sign' | 'hr_record' | 'hr_review'
 
 const STATUS = {
   draft:           { bg: 'bg-slate-100',  fg: 'text-slate-600',  border: 'border-slate-200', en: 'Draft',          zh: '草稿' },
@@ -23,6 +23,7 @@ const STATUS = {
   procurement:     { bg: 'bg-violet-50',  fg: 'text-violet-700', border: 'border-violet-200',en: 'Procurement',    zh: '採購審定' },
   sign:            { bg: 'bg-cyan-50',    fg: 'text-cyan-700',   border: 'border-cyan-200',  en: 'Sign',           zh: '簽核' },
   hr_record:       { bg: 'bg-violet-50',  fg: 'text-violet-700', border: 'border-violet-200',en: 'HR Record',      zh: '人資登錄' },
+  hr_review:       { bg: 'bg-violet-50',  fg: 'text-violet-700', border: 'border-violet-200',en: 'HR Review',      zh: '人資複核' },
 } as const
 
 export function StatusBadge({ kind, className, withZh = false }: { kind: StatusKind; className?: string; withZh?: boolean }) {
