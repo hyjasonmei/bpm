@@ -99,7 +99,7 @@ function FeatureCaseDetailRoute() {
           cribs the same header from LEAVE V1). pointer-events-none lets
           clicks fall through to the detail (incl. View BPMN) everywhere
           except the toolbar itself. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 hidden md:block">
         <div className="mx-auto flex max-w-screen-lg justify-end pl-6 pr-[156px] pt-[30px]">
           <CaseToolbar />
         </div>

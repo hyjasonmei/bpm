@@ -7,6 +7,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
+import { CaseCard, CaseCardList } from '@/components/ui/case-card'
 import { TypeChip } from '@/components/ui/badge'
 import { PERSONAS, type PersonaCode } from '@/lib/role'
 import { getJwt } from '@/lib/apiFetch'
@@ -45,7 +46,7 @@ export function Home({ persona }: HomeProps) {
   return (
     <div className="space-y-4">
       {/* Greeting */}
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-lg font-bold text-ink">
             {greetingFor(persona, currentDisplayName())}
@@ -64,8 +65,8 @@ export function Home({ persona }: HomeProps) {
       {/* Stat cards */}
       <StatCards persona={persona} inboxCount={inbox.data?.length ?? 0} myCases={myCases.data ?? []} />
 
-      {/* Two-column grid */}
-      <div className="grid grid-cols-[1fr_320px] gap-4">
+      {/* Two-column grid — single column below md, inbox first */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_320px]">
         <div className="min-w-0 space-y-4">
           <PendingTable persona={persona} rows={inbox.data ?? []} loading={inbox.loading} error={inbox.error} navigate={navigate} />
           <MyCasesTable rows={myCases.data ?? []} loading={myCases.loading} error={myCases.error} navigate={navigate} />
@@ -157,7 +158,7 @@ function StatCards({ persona, inboxCount, myCases }: { persona: PersonaCode; inb
     ]
 
   return (
-    <div className="grid grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       {cards.map(card => <StatCard key={card.title} {...card} />)}
     </div>
   )
@@ -215,7 +216,35 @@ function PendingTable({ persona, rows, loading, error, navigate }: {
       <SectionTitle right={<span className="text-xs text-ink-muted">{rows.length} task{rows.length === 1 ? '' : 's'}</span>}>
         {titlePerPersona[persona]}
       </SectionTitle>
-      <div className="overflow-x-auto">
+
+      {/* Mobile cards — same rows + navigate handler as the table below */}
+      <CaseCardList
+        className="p-3 md:hidden"
+        state={
+          loading && rows.length === 0 ? 'Loading inbox…'
+          : error && rows.length === 0 ? `Inbox load failed: ${error.message}`
+          : rows.length === 0 ? '✨ Inbox zero. No pending action right now.'
+          : null
+        }
+      >
+        {rows.map(r => (
+          <CaseCard
+            key={r.caseId}
+            onClick={() => navigate(inboxRowUrl(r))}
+            top={<>
+              <TypeChip type={flowLabel(r.flowCode, r.flowVersion)} />
+              <span className="text-xs text-ink-muted">{r.status}</span>
+            </>}
+            title={r.title}
+            meta={<>
+              <span>{r.caseId.slice(0, 8)}</span>
+              <span>{humanAgo(r.submittedAt)}</span>
+            </>}
+          />
+        ))}
+      </CaseCardList>
+
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full text-sm">
           <thead className="bg-slate-50">
             <tr className="border-b border-rule">
@@ -235,11 +264,10 @@ function PendingTable({ persona, rows, loading, error, navigate }: {
             ) : rows.length === 0 ? (
               <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-ink-faint">✨ Inbox zero. No pending action right now.</td></tr>
             ) : rows.map(r => {
-              const formCode = isFormCode(r.flowCode) ? r.flowCode : null
               return (
                 <tr key={r.caseId} className="border-b border-slate-100 hover:bg-slate-50/60 transition-colors">
                   <Td><span className="font-mono text-[11px] text-ink-muted">{r.caseId.slice(0, 8)}</span></Td>
-                  <Td><div className="flex items-center gap-2">{formCode && <TypeChip type={formCode} />}<span className="text-xs text-ink-muted truncate">{flowLabel(r.flowCode, r.flowVersion)}</span></div></Td>
+                  <Td><TypeChip type={flowLabel(r.flowCode, r.flowVersion)} /></Td>
                   <Td className="text-xs text-ink-muted truncate">{r.title}</Td>
                   <Td className="font-mono text-[11px] text-ink-muted">{humanAgo(r.submittedAt)}</Td>
                   <Td><span className="text-xs text-ink-muted">{r.status}</span></Td>
@@ -263,12 +291,42 @@ function PendingTable({ persona, rows, loading, error, navigate }: {
 }
 
 function MyCasesTable({ rows, loading, error, navigate }: { rows: InboxRow[]; loading: boolean; error: Error | null; navigate: ReturnType<typeof useNavigate> }) {
+  const flowLabel = useFlowLabel()
   return (
     <SectionCard>
       <SectionTitle right={<span className="text-xs text-ink-muted">{rows.length} case{rows.length === 1 ? '' : 's'}</span>}>
         My Recent Cases
       </SectionTitle>
-      <div className="overflow-x-auto">
+
+      {/* Mobile cards — same rows + navigate handler as the table below */}
+      <CaseCardList
+        className="p-3 md:hidden"
+        state={
+          loading && rows.length === 0 ? 'Loading cases…'
+          : error && rows.length === 0 ? `Cases load failed: ${error.message}`
+          : rows.length === 0 ? 'No cases yet — start one from Quick Actions.'
+          : null
+        }
+      >
+        {rows.slice(0, 8).map(r => (
+          <CaseCard
+            key={r.caseId}
+            onClick={() => navigate(inboxRowUrl(r))}
+            top={<>
+              <TypeChip type={flowLabel(r.flowCode, r.flowVersion)} />
+              <span className="text-xs text-ink-muted">{r.status}</span>
+            </>}
+            title={r.title}
+            meta={<>
+              <span>{r.caseId.slice(0, 8)}</span>
+              <span>Started {formatDate(r.submittedAt)}</span>
+              <span>{humanAgo(r.lastActivityAt)}</span>
+            </>}
+          />
+        ))}
+      </CaseCardList>
+
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full text-sm">
           <thead className="bg-slate-50">
             <tr className="border-b border-rule">
@@ -288,7 +346,6 @@ function MyCasesTable({ rows, loading, error, navigate }: { rows: InboxRow[]; lo
             ) : rows.length === 0 ? (
               <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-ink-faint">No cases yet — start one from Quick Actions.</td></tr>
             ) : rows.slice(0, 8).map(r => {
-              const formCode = isFormCode(r.flowCode) ? r.flowCode : null
               return (
                 <tr
                   key={r.caseId}
@@ -296,7 +353,7 @@ function MyCasesTable({ rows, loading, error, navigate }: { rows: InboxRow[]; lo
                   className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/60"
                 >
                   <Td><span className="font-mono text-[11px] text-ink">{r.caseId.slice(0, 8)}</span></Td>
-                  <Td>{formCode ? <TypeChip type={formCode} /> : <span className="text-xs">{r.flowCode}</span>}</Td>
+                  <Td><TypeChip type={flowLabel(r.flowCode, r.flowVersion)} /></Td>
                   <Td className="text-xs text-ink-muted truncate">{r.title}</Td>
                   <Td><span className="text-xs text-ink-muted">{r.status}</span></Td>
                   <Td className="font-mono text-xs text-ink-muted">{formatDate(r.submittedAt)}</Td>
@@ -521,11 +578,6 @@ function Td({ children, right, className }: { children: React.ReactNode; right?:
       className,
     )}>{children}</td>
   )
-}
-
-const FORM_CODES: ReadonlyArray<FormCode> = ['LEAVE', 'GEE', 'GEV', 'APE', 'TRQ', 'TEO', 'HWP', 'ITPR', 'EXTOB', 'RESIGN', 'DEPTX']
-function isFormCode(s: string): s is FormCode {
-  return (FORM_CODES as readonly string[]).includes(s)
 }
 
 function formatDate(iso: string): string {

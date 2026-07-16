@@ -102,16 +102,20 @@ export function ActionFooter({ actions, hint, className }: ActionFooterProps) {
             className,
           )}
         >
-          <div className="mx-auto flex max-w-screen-2xl items-center gap-3 px-4 py-3">
-            <div className="min-w-0 flex-1 text-xs text-ink-muted">
-              {hint}
-            </div>
+          <div className="mx-auto flex max-w-screen-2xl flex-col gap-2 px-4 py-3 md:flex-row md:items-center md:gap-3">
+            {hint && (
+              <div className="min-w-0 text-xs text-ink-muted md:flex-1">
+                {hint}
+              </div>
+            )}
+            {!hint && <div className="hidden min-w-0 md:block md:flex-1" />}
             <div className="flex flex-wrap items-center justify-end gap-2">
               {actions.map(a => (
                 <Button
                   key={a.id}
                   variant={a.variant ?? 'primary'}
                   size="md"
+                  className="h-11 flex-1 md:h-9 md:flex-initial"
                   disabled={a.disabled || a.pending}
                   title={a.title}
                   onClick={() => onButton(a)}
