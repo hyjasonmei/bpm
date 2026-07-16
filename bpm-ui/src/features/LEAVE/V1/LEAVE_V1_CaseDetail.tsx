@@ -35,13 +35,25 @@ export function LEAVE_V1_CaseDetail({ caseId }: CaseDetailProps) {
   const [actionPending, setActionPending] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [bpmnOpen, setBpmnOpen] = useState(false)
+  // Whether this case is in the viewer's server-computed "pending on me" set.
+  // Role-queue steps (VP fallback / HR archive) assign a role code with NO
+  // assignee user id, so the userId equality check below can never match —
+  // the /pending set is the server truth for those (inheritance-aware).
+  const [canActOnCase, setCanActOnCase] = useState(false)
 
   const load = useCallback(async () => {
     try {
-      const res = await apiFetch(`/api/leave/v1/${caseId}`)
+      const [res, pendingRes] = await Promise.all([
+        apiFetch(`/api/leave/v1/${caseId}`),
+        apiFetch(`/api/leave/v1/pending`),
+      ])
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const body = (await res.json()) as LEAVE_V1_CaseResponse
       setData(body)
+      if (pendingRes.ok) {
+        const rows = (await pendingRes.json()) as { id: string }[]
+        setCanActOnCase(rows.some(r => r.id === caseId))
+      }
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -61,10 +73,13 @@ export function LEAVE_V1_CaseDetail({ caseId }: CaseDetailProps) {
   }, [])
 
   const delegatedFor = useDelegatedFor()
-  // The viewer may act on the case if they are the current assignee OR an active
-  // delegate of the current assignee (delegation-aware — see useDelegatedFor).
-  const isCurrentAssignee = !!data && !!viewerUserId && !!data.currentAssigneeUserId &&
-    (data.currentAssigneeUserId === viewerUserId || delegatedFor.includes(data.currentAssigneeUserId))
+  // The viewer may act on the case if they are the current assignee, an active
+  // delegate of the current assignee (the /pending set is not delegate-expanded,
+  // so the explicit check stays), OR the case is in their server-computed
+  // pending set — which is what grants role-queue steps (VP fallback / HR).
+  const isCurrentAssignee = (!!data && !!viewerUserId && !!data.currentAssigneeUserId &&
+    (data.currentAssigneeUserId === viewerUserId || delegatedFor.includes(data.currentAssigneeUserId)))
+    || canActOnCase
   const isSubmitter       = !!data && !!viewerUserId && data.submitterUserId === viewerUserId
   const trail = useMemo(() => (data ? deriveTrail(data.status) : null), [data])
 

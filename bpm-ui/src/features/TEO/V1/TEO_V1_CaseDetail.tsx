@@ -32,11 +32,24 @@ export function TEO_V1_CaseDetail({ caseId }: CaseDetailProps) {
   const [bpmnOpen, setBpmnOpen] = useState(false)
   const [approvalComment, setApprovalComment] = useState('')
 
+  // Whether this case is in the viewer's server-computed "pending on me" set.
+  // The finance step is a shared role queue (role code, no assignee user id),
+  // so the userId equality check below can never match there — the /pending
+  // set is the server truth for role-queue steps (inheritance-aware).
+  const [canActOnCase, setCanActOnCase] = useState(false)
+
   const load = useCallback(async () => {
     try {
-      const res = await apiFetch(`/api/teo/v1/${caseId}`)
+      const [res, pendingRes] = await Promise.all([
+        apiFetch(`/api/teo/v1/${caseId}`),
+        apiFetch(`/api/teo/v1/pending`),
+      ])
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setData((await res.json()) as TEO_V1_CaseResponse)
+      if (pendingRes.ok) {
+        const rows = (await pendingRes.json()) as { id: string }[]
+        setCanActOnCase(rows.some(r => r.id === caseId))
+      }
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -52,10 +65,13 @@ export function TEO_V1_CaseDetail({ caseId }: CaseDetailProps) {
   }, [])
 
   const delegatedFor = useDelegatedFor()
-  // The viewer may act on the case if they are the current assignee OR an active
-  // delegate of the current assignee (delegation-aware — see useDelegatedFor).
-  const isCurrentAssignee = !!data && !!viewerUserId && !!data.currentAssigneeUserId &&
-    (data.currentAssigneeUserId === viewerUserId || delegatedFor.includes(data.currentAssigneeUserId))
+  // The viewer may act on the case if they are the current assignee, an active
+  // delegate of the current assignee (the /pending set is not delegate-expanded,
+  // so the explicit check stays), OR the case is in their server-computed
+  // pending set — which is what grants the role-queue finance step.
+  const isCurrentAssignee = (!!data && !!viewerUserId && !!data.currentAssigneeUserId &&
+    (data.currentAssigneeUserId === viewerUserId || delegatedFor.includes(data.currentAssigneeUserId)))
+    || canActOnCase
   const isSubmitter       = !!data && !!viewerUserId && data.submitterUserId === viewerUserId
   const trail = useMemo(() => (data ? deriveTrail(data.status) : null), [data])
 
