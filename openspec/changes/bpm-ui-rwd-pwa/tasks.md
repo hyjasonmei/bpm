@@ -38,4 +38,4 @@
 
 - [x] 6.1 各 phase 獨立 commit 於 feat/rwd-pwa(bc07834 / 501498d / 1e93540),交 Jason 以 GitKraken push
 - [x] 6.2 部署(手動 build 帶 VITE_BPM_SVC_URL=https://poc-flowcook-api.azurewebsites.net,swa deploy)後線上驗證:SW activated、manifest 200(補 mimeTypes 後為 application/manifest+json)、390px 動線 bob 送 LEAVE → alice 核准 OK。autoUpdate 已於 18ab1e3 重佈時雲端實測通過(開著的分頁重新導航即拿到新 bundle)。剩實機 A2HS = Jason 手機實測項。發現兩個既有問題:①雲端 BPM_AUTH_MODE 仍是 dev(demo 後未關,待 Jason 決定)②role-queue 步驟 CaseDetail 不可動作 — 已診斷為 UI userId-only gating bug,修於 18ab1e3(LEAVE/PURCHASE_REQUEST/TEO/VENDOR_EXPENSE 改 OVERTIME 的 pending-set pattern),本機+雲端各結掉一筆卡住的測試案驗證,chef conventions.md 的 UI gating 規則同步更新(在工作樹,隨前 session 批次 commit)
-- [ ] 6.3 Jason 手機實測反饋 → 收件匣卡片欄位取捨與間距微調
+- [x] 6.3 Jason 手機實測反饋 → 已完成三輪修正(通知面板切版、CaseDetail 標題擠壓、表單/簽核時序手機單欄、margin 統一到首頁基準),2026-07-17 Jason 確認「目前正常」。Azure 與 dev mode 因後續 demo 需求維持現狀(Jason 拍板)
