@@ -21,10 +21,10 @@
 
 ## 4. Phase 2 — 次要頁表格(responsive-tables)
 
-- [ ] 4.1 Search:結果表格 `<md` 改卡片(標題/流程/狀態/日期),搜尋條件區單欄堆疊
-- [ ] 4.2 Attendance:補登記錄與每日彙總 `<md` 改卡片或精簡欄位,補登審核可點入
-- [ ] 4.3 CreateIndex 與剩餘頁面掃一遍窄螢幕呈現,補漏
-- [ ] 4.4 行動驗證:390px 完成搜尋→進案件、出勤頁→進補登審核;確認卡片/表格筆數與排序一致
+- [x] 4.1 Search:結果表格 `<md` 改卡片(標題/流程/狀態/日期),搜尋條件區單欄堆疊(filters grid 的 col-span-3 改 md:,修掉單欄下撐爆 grid 的 bug)
+- [x] 4.2 Attendance:補登記錄與每日彙總 `<md` 改卡片、今日 tiles 單欄堆疊;桌面表格不變
+- [x] 4.3 CreateIndex(已有 grid-cols-2 md:grid-cols-3)與 AttendanceCorrectionReview(2 欄 read fields 手機可讀)掃過無需改
+- [x] 4.4 行動驗證:390px 搜尋結果卡片點入案件 OK、Attendance 無溢出;卡片與表格共用同一 rows(pageRows/corrections/history)與 handler,僅 presentation 分支
 
 ## 5. Phase 3 — PWA shell(pwa-shell)
 
