@@ -73,11 +73,17 @@ export async function flowToBpmnXml(draft: DraftSpec): Promise<string> {
     layoutOptions: {
       'elk.algorithm': 'layered',
       'elk.direction': 'RIGHT',
+      // GREEDY (default) cycle breaking may reverse forward edges on flows
+      // with send-back loops, putting the start event mid-diagram.
+      // DEPTH_FIRST walks from the start, keeping the happy path left→right.
+      // (Kept in lockstep with bpm-ui/src/lib/bpmnAutoLayout.ts.)
+      'elk.layered.cycleBreaking.strategy': 'DEPTH_FIRST',
       'elk.layered.spacing.nodeNodeBetweenLayers': '70',
       'elk.spacing.nodeNode': '40',
       'elk.layered.spacing.edgeNodeBetweenLayers': '30',
       'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
       'elk.edgeRouting': 'ORTHOGONAL',
+      'elk.spacing.edgeNode': '25',
       'elk.spacing.edgeLabel': '8',
       'elk.spacing.labelLabel': '8',
       'elk.spacing.labelNode': '8',
@@ -92,6 +98,11 @@ export async function flowToBpmnXml(draft: DraftSpec): Promise<string> {
       labels: (n.type === 'gateway' && n.label)
         ? [{ text: n.label, width: estimateLabelWidth(n.label), height: LABEL_HEIGHT }]
         : [],
+      // Without an explicit placement ELK leaves gateway labels at (0,0) —
+      // drawn on top of the diamond. Reserve space below the shape instead.
+      layoutOptions: n.type === 'gateway'
+        ? { 'elk.nodeLabels.placement': 'OUTSIDE V_BOTTOM H_CENTER' }
+        : undefined,
     })),
     edges: edges.map(e => ({
       id: e.id,

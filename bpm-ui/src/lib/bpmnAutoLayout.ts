@@ -93,6 +93,12 @@ export async function autoLayoutBpmnXml(xml: string): Promise<string> {
       layoutOptions: {
         'elk.algorithm': 'layered',
         'elk.direction': 'RIGHT',
+        // Default GREEDY cycle breaking may reverse *forward* edges when a
+        // flow has send-back loops (e.g. PURCHASE_REQUEST's two 退回 edges),
+        // scattering the start event into the middle of the diagram.
+        // DEPTH_FIRST walks from the start event, so the happy path always
+        // reads left→right and only true back edges get reversed.
+        'elk.layered.cycleBreaking.strategy': 'DEPTH_FIRST',
         'elk.layered.spacing.nodeNodeBetweenLayers': '70',
         'elk.spacing.nodeNode': '45',
         'elk.layered.spacing.edgeNodeBetweenLayers': '30',
