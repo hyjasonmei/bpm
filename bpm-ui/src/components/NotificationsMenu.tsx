@@ -99,7 +99,9 @@ export function NotificationsMenu(_props: Props) {
         )}
       </button>
       {open && (
-        <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-96 origin-top-right overflow-hidden rounded-lg border border-rule bg-card text-ink shadow-2xl">
+        // <md: fixed panel spanning the viewport (the 384px flyout clipped
+        // off-screen when anchored to the bell); md+: original flyout.
+        <div className="fixed inset-x-2 top-14 z-30 origin-top overflow-hidden rounded-lg border border-rule bg-card text-ink shadow-2xl md:absolute md:inset-x-auto md:right-0 md:top-[calc(100%+6px)] md:w-96 md:origin-top-right">
           <div className="flex items-center justify-between border-b border-rule px-4 py-2.5">
             <p className="text-sm font-semibold">通知 / Notifications</p>
             {unread > 0 && (
