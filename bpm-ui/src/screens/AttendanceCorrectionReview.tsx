@@ -56,10 +56,10 @@ export function AttendanceCorrectionReview() {
     }
   }
 
-  if (loading) return <div className="mx-auto max-w-screen-md px-4 py-10 text-sm text-ink-muted">Loading…</div>
+  if (loading) return <div className="mx-auto max-w-screen-md py-10 md:px-4 text-sm text-ink-muted">Loading…</div>
   if (error || !data) {
     return (
-      <div className="mx-auto max-w-screen-md px-4 py-10">
+      <div className="mx-auto max-w-screen-md py-10 md:px-4">
         <SectionCard>
           <div className="space-y-3 px-5 py-6">
             <p className="text-sm text-danger">載入失敗：{error ?? 'not found'}</p>
@@ -105,7 +105,7 @@ export function AttendanceCorrectionReview() {
   ] : []
 
   return (
-    <div className="mx-auto max-w-screen-md space-y-4 px-4 py-6 pb-24">
+    <div className="mx-auto max-w-screen-md space-y-4 pb-24 md:px-4 md:pt-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold text-ink">

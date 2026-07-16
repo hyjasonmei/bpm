@@ -66,7 +66,7 @@ export function CreateIndex() {
   const total = sections.reduce((n, s) => n + s.items.length, 0)
 
   return (
-    <div className="mx-auto max-w-screen-lg space-y-6 p-6">
+    <div className="mx-auto max-w-screen-lg space-y-6 md:p-6">
       <div>
         <h1 className="text-2xl font-bold text-ink">Create a new case</h1>
         <p className="mt-1 text-sm text-ink-muted">Pick a form to start a new process instance.</p>
