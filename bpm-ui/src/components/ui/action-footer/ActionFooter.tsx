@@ -98,7 +98,9 @@ export function ActionFooter({ actions, hint, className }: ActionFooterProps) {
       {createPortal(
         <div
           className={cn(
-            'no-print fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-card/95 shadow-[0_-4px_12px_-8px_rgba(15,23,42,0.18)] backdrop-blur',
+            // pb-[env(safe-area-inset-bottom)]: clear the iOS home indicator
+            // in standalone PWA mode (0 everywhere else).
+            'no-print fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-card/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_12px_-8px_rgba(15,23,42,0.18)] backdrop-blur',
             className,
           )}
         >

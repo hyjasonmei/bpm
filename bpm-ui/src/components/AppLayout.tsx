@@ -40,7 +40,10 @@ export function AppLayout({ persona, setPersona, authedFullName = null, authPend
       <ImpersonationBanner />
       <ActingForBanner />
       {/* ── Header ────────────────────────────────────────── */}
-      <header className="no-print sticky top-0 z-40 bg-header text-white shadow-md">
+      {/* pt-[env(safe-area-inset-top)]: in standalone PWA mode the page paints
+          under the status bar (viewport-fit=cover); the header supplies the
+          dark backdrop and pushes its content below the inset. 0 elsewhere. */}
+      <header className="no-print sticky top-0 z-40 bg-header pt-[env(safe-area-inset-top)] text-white shadow-md">
         <div className="mx-auto flex h-12 max-w-screen-2xl items-center gap-2 px-4">
           {/* Mobile hamburger */}
           <button
