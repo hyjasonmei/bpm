@@ -6,6 +6,7 @@ import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
 import { Input, Select, FieldLabel } from '@/components/ui/form'
 import { SectionCard, SectionTitle } from '@/components/ui/card'
+import { CaseCard, CaseCardList } from '@/components/ui/case-card'
 import { TypeChip } from '@/components/ui/badge'
 import { inboxRowUrl, useInboxMine, useInboxPending, type InboxRow } from '@/hooks/useUnifiedInbox'
 import { useFlowLabel } from '@/hooks/useFlowRegistry'
@@ -144,8 +145,8 @@ export function Search() {
           <button onClick={clearAll} className="text-xs text-blue-600 hover:underline">Clear all</button>
         </div>
         {filtersOpen && (<>
-        <div className="grid grid-cols-3 gap-4 p-5">
-          <div className="col-span-3">
+        <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-3">
+          <div className="md:col-span-3">
             <FieldLabel>Keyword</FieldLabel>
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
@@ -156,7 +157,7 @@ export function Search() {
             <FieldLabel>Case ID prefix</FieldLabel>
             <Input placeholder="e.g. 5b3a8e2c" value={caseId} onChange={e => setCaseId(e.target.value)} />
           </div>
-          <div className="grid grid-cols-2 gap-2 col-span-2">
+          <div className="grid grid-cols-2 gap-2 md:col-span-2">
             <div>
               <FieldLabel>Submitted from</FieldLabel>
               <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
@@ -167,7 +168,7 @@ export function Search() {
             </div>
           </div>
           {availableTypes.length > 0 && (
-            <div className="col-span-3">
+            <div className="md:col-span-3">
               <FieldLabel>Form Types</FieldLabel>
               <div className="flex flex-wrap gap-1.5">
                 {availableTypes.map(t => (
@@ -183,7 +184,7 @@ export function Search() {
             </div>
           )}
           {availableStatuses.length > 0 && (
-            <div className="col-span-3">
+            <div className="md:col-span-3">
               <FieldLabel>Statuses</FieldLabel>
               <div className="flex flex-wrap gap-1.5">
                 {availableStatuses.map(s => (
@@ -215,7 +216,36 @@ export function Search() {
         }>
           Results
         </SectionTitle>
-        <div className="overflow-x-auto">
+
+        {/* Mobile cards — same pageRows + navigate handler as the table below */}
+        <CaseCardList
+          className="p-3 md:hidden"
+          state={
+            loading && results.length === 0 ? 'Loading cases…'
+            : error && results.length === 0 ? `Search failed: ${error.message}`
+            : pageRows.length === 0 ? 'No matches.'
+            : null
+          }
+        >
+          {pageRows.map(c => (
+            <CaseCard
+              key={c.caseId}
+              onClick={() => navigate(inboxRowUrl(c))}
+              top={<>
+                <TypeChip type={flowLabel(c.flowCode, c.flowVersion)} />
+                <span className="text-xs text-ink-muted">{c.status}</span>
+              </>}
+              title={c.title}
+              meta={<>
+                <span>{c.caseId.slice(0, 8)}</span>
+                <span>{formatDate(c.submittedAt)}</span>
+                <span>活動 {formatDate(c.lastActivityAt)}</span>
+              </>}
+            />
+          ))}
+        </CaseCardList>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead className="bg-slate-50">
               <tr className="border-b border-rule">
@@ -239,12 +269,7 @@ export function Search() {
                   onClick={() => navigate(inboxRowUrl(c))}
                   className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/60">
                   <Td><span className="font-mono text-[12px] font-semibold text-ink">{c.caseId.slice(0, 8)}</span></Td>
-                  <Td>
-                    <div className="flex items-center gap-2">
-                      <TypeChip type={c.flowCode} />
-                      <span className="text-xs text-ink-muted truncate">{flowLabel(c.flowCode, c.flowVersion)}</span>
-                    </div>
-                  </Td>
+                  <Td><TypeChip type={flowLabel(c.flowCode, c.flowVersion)} /></Td>
                   <Td className="text-xs text-ink-muted truncate max-w-xs">{c.title}</Td>
                   <Td className="font-mono text-xs">{formatDate(c.submittedAt)}</Td>
                   <Td className="font-mono text-xs">{formatDate(c.lastActivityAt)}</Td>
@@ -256,7 +281,7 @@ export function Search() {
         </div>
 
         {/* Paginator */}
-        <div className="flex items-center justify-between gap-3 border-t border-rule px-4 py-3 text-xs text-ink-muted">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule px-4 py-3 text-xs text-ink-muted">
           <div className="inline-flex items-center gap-2">
             <span>Rows per page</span>
             <Select className="h-7 w-20" value={pageSize.toString()} onChange={e => { setPageSize(Number(e.target.value)); setPage(0) }}>
@@ -333,7 +358,7 @@ export function SearchModal({ open, onClose }: { open: boolean; onClose: () => v
             <button key={c.caseId} onClick={() => openCase(c)}
               className="flex w-full items-center justify-between gap-3 border-b border-slate-50 px-4 py-2.5 text-left hover:bg-blue-50/40">
               <div className="flex min-w-0 items-center gap-3">
-                <TypeChip type={c.flowCode} />
+                <TypeChip type={flowLabel(c.flowCode, c.flowVersion)} />
                 <div className="min-w-0">
                   <p className="truncate text-[13px] text-ink">{c.title}</p>
                   <p className="font-mono text-[11px] text-ink-muted">{c.caseId.slice(0, 8)} · {flowLabel(c.flowCode, c.flowVersion)}</p>

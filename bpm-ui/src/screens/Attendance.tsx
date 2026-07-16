@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Clock, Loader2, FileEdit, LogIn, LogOut, RotateCcw } from 'lucide-react'
 
 import { SectionCard, SectionTitle } from '@/components/ui/card'
+import { CaseCard, CaseCardList } from '@/components/ui/case-card'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/Modal'
 import { Input, Textarea, Field, Select } from '@/components/ui/form'
@@ -69,7 +70,7 @@ export function Attendance() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-xl font-bold text-ink">Attendance / 打卡</h1>
           <p className="text-[11px] uppercase tracking-wider text-ink-muted">Daily check-in / check-out · Tenant TZ: Asia/Taipei</p>
@@ -86,7 +87,7 @@ export function Attendance() {
         </SectionTitle>
         {today ? (
           <div className="space-y-4 p-5">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
               <StatusTile label="Status / 狀態" value={statusLabel(today.status)} tone={statusTone(today.status)} />
               <StatusTile label="Work hours / 累計工時" value={`${today.workHours.toFixed(2)} hr`} tone={today.inProgress ? 'amber' : 'blue'} note={today.inProgress ? 'in progress…' : undefined} />
               <StatusTile label="Punches today / 今日打卡次數" value={String(today.punches.length)} tone="slate" />
@@ -110,8 +111,27 @@ export function Attendance() {
         <SectionTitle>Correction Requests / 我的補卡申請</SectionTitle>
         {corrections.length === 0 ? (
           <div className="px-5 py-4 text-sm text-ink-muted">No correction requests. 忘了打卡時從右上角「申請補打卡」送出，主管核准後紀錄自動補上。</div>
-        ) : (
-          <div className="overflow-x-auto">
+        ) : (<>
+          {/* Mobile cards — same rows as the table below */}
+          <CaseCardList className="p-3 md:hidden">
+            {corrections.map(c => (
+              <CaseCard
+                key={c.id}
+                top={<>
+                  <span className="text-xs font-medium text-ink">{c.punchType === PunchType.In ? '上班卡' : '下班卡'}</span>
+                  <CorrectionChip status={c.status} />
+                </>}
+                title={c.reason}
+                meta={<>
+                  <span>{c.date}</span>
+                  <span>{formatTime(c.requestedPunchAt)}</span>
+                  {c.deciderName && <span>審核 {c.deciderName}{c.decisionNote ? `（${c.decisionNote}）` : ''}</span>}
+                </>}
+              />
+            ))}
+          </CaseCardList>
+
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead className="border-b border-rule bg-slate-50 text-[11px] uppercase tracking-wider text-ink-muted">
                 <tr>
@@ -137,7 +157,7 @@ export function Attendance() {
               </tbody>
             </table>
           </div>
-        )}
+        </>)}
       </SectionCard>
 
       <CorrectionDialog
@@ -150,8 +170,24 @@ export function Attendance() {
         <SectionTitle>History / 近 30 天紀錄</SectionTitle>
         {history.length === 0 ? (
           <div className="px-5 py-6 text-sm text-ink-muted">No punches in the last 30 days.</div>
-        ) : (
-          <div className="overflow-x-auto">
+        ) : (<>
+          {/* Mobile cards — same rows as the table below */}
+          <CaseCardList className="p-3 md:hidden">
+            {history.map(d => (
+              <CaseCard
+                key={d.date}
+                title={<span className="font-mono">{d.date}</span>}
+                meta={<>
+                  <span>In {d.firstIn ? formatTime(d.firstIn) : '—'}</span>
+                  <span>Out {d.lastOut ? formatTime(d.lastOut) : '—'}</span>
+                  <span>{d.workHours.toFixed(2)} hr</span>
+                  <span>{d.punchCount} punches</span>
+                </>}
+              />
+            ))}
+          </CaseCardList>
+
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead className="border-b border-rule bg-slate-50 text-[11px] uppercase tracking-wider text-ink-muted">
                 <tr>
@@ -175,7 +211,7 @@ export function Attendance() {
               </tbody>
             </table>
           </div>
-        )}
+        </>)}
       </SectionCard>
     </div>
   )
