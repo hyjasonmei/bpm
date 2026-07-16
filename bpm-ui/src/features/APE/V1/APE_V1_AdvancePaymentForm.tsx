@@ -143,35 +143,35 @@ export function APE_V1_AdvancePaymentForm({ persona, mode = 'create', onSubmitte
         {loading ? (
           <div className="px-5 py-10 text-center text-sm text-ink-muted">載入中…</div>
         ) : (
-          <div className="grid grid-cols-12 gap-3 px-5 py-4">
-            <Field label="預計領款日 / Expect to Receive" required className="col-span-6">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 px-5 py-4">
+            <Field label="預計領款日 / Expect to Receive" required className="md:col-span-6">
               <div className="relative">
                 <Input type="date" value={form.expectReceiveDate} onChange={e => patch({ expectReceiveDate: e.target.value })} disabled={pending} />
                 <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
               </div>
             </Field>
-            <Field label="沖還日 / Deduct / Return Date" required className="col-span-6">
+            <Field label="沖還日 / Deduct / Return Date" required className="md:col-span-6">
               <div className="relative">
                 <Input type="date" value={form.deductReturnDate} onChange={e => patch({ deductReturnDate: e.target.value })} disabled={pending} />
                 <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
               </div>
             </Field>
 
-            <Field label="費用部門 / Charge Department" required className="col-span-6">
+            <Field label="費用部門 / Charge Department" required className="md:col-span-6">
               <Input value={form.chargeDepartment} onChange={e => patch({ chargeDepartment: e.target.value })} disabled={pending} placeholder="e.g. Backend" />
             </Field>
-            <Field label="轉嫁海外 / Recharge Outside" className="col-span-6">
+            <Field label="轉嫁海外 / Recharge Outside" className="md:col-span-6">
               <Select value={form.rechargeOutside ?? ''} onChange={e => patch({ rechargeOutside: e.target.value })} disabled={pending}>
                 {YESNO_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </Select>
             </Field>
 
-            <Field label="幣別 / Currency" required className="col-span-3">
+            <Field label="幣別 / Currency" required className="md:col-span-3">
               <Select value={form.currency} onChange={e => patch({ currency: e.target.value })} disabled={pending}>
                 {ccyOptions.map(o => <option key={o} value={o}>{o}</option>)}
               </Select>
             </Field>
-            <Field label="金額 / Amount" required className="col-span-9">
+            <Field label="金額 / Amount" required className="md:col-span-9">
               <div className="flex gap-1.5">
                 <span className="flex h-8 items-center whitespace-nowrap rounded-md border border-rule bg-slate-50 px-2.5 text-sm text-ink-muted">
                   {form.currency || '—'}
@@ -185,12 +185,12 @@ export function APE_V1_AdvancePaymentForm({ persona, mode = 'create', onSubmitte
               )}
             </Field>
 
-            <Field label="說明 / Description" required className="col-span-12">
+            <Field label="說明 / Description" required className="md:col-span-12">
               <Textarea rows={3} value={form.description} onChange={e => patch({ description: e.target.value })} disabled={pending} placeholder="預支用途說明" />
             </Field>
 
             {Number.isFinite(amountNum) && amountNum > 0 && (
-              <div className="col-span-12 flex flex-wrap items-center justify-end gap-x-6 gap-y-1 rounded-md border border-rule bg-slate-50 px-4 py-3">
+              <div className="md:col-span-12 flex flex-wrap items-center justify-end gap-x-6 gap-y-1 rounded-md border border-rule bg-slate-50 px-4 py-3">
                 <span className="text-sm font-semibold text-ink">合計 / Total</span>
                 <span className="font-mono text-base font-bold text-ink">
                   {form.currency ? `${form.currency} ` : ''}{fmtMoney(amountNum)}

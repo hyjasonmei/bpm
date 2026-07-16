@@ -293,14 +293,14 @@ function TimelineRow({ label, actor, state, at, comment }: {
     : state === 'current' ? <span className="block h-3 w-3 rounded-full bg-amber-400" />
     : <span className="block h-3 w-3 rounded-full bg-slate-200" />
   return (
-    <li className="grid grid-cols-[24px_180px_1fr_180px] items-start gap-3 px-5 py-3">
+    <li className="grid grid-cols-[24px_1fr_auto] items-start gap-x-3 gap-y-1 px-5 py-3 md:grid-cols-[24px_180px_1fr_180px] md:gap-3">
       <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center">{dot}</span>
       <span className="text-sm font-medium text-ink">{label}</span>
-      <div className="text-sm text-ink-muted">
+      <div className="col-span-2 col-start-2 text-sm text-ink-muted md:col-span-1 md:col-start-auto">
         <div>{actor}</div>
         {comment && <div className="mt-1 italic text-ink-faint">「{comment}」</div>}
       </div>
-      <span className="text-right font-mono text-[11px] text-ink-faint">{at ? formatDate(at) : '—'}</span>
+      <span className="col-start-3 row-start-1 text-right font-mono text-[11px] text-ink-faint md:col-start-auto md:row-start-auto">{at ? formatDate(at) : '—'}</span>
     </li>
   )
 }

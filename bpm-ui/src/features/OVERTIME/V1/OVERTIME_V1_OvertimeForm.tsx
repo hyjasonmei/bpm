@@ -99,28 +99,28 @@ export function OVERTIME_V1_OvertimeForm({ persona, mode = 'create', onSubmitted
             當月累計加班時數超過 20 小時者將再交由人資複核。
           </InfoBanner>
         </div>
-        <div className="grid grid-cols-12 gap-3 px-5 py-4">
-          <Field label="加班日期 / Overtime Date" required className="col-span-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 px-5 py-4">
+          <Field label="加班日期 / Overtime Date" required className="md:col-span-6">
             <div className="relative">
               <Input type="date" value={form.overtimeDate} onChange={e => patch({ overtimeDate: e.target.value })} disabled={pending} />
               <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
             </div>
           </Field>
-          <Field label="預估時數 / Estimated Hours" className="col-span-6">
+          <Field label="預估時數 / Estimated Hours" className="md:col-span-6">
             <div className="flex gap-1.5">
               <Input type="number" min="0" step="0.5" className="text-right font-mono" value={form.estimatedHours} onChange={e => patch({ estimatedHours: e.target.value })} disabled={pending} placeholder="0" />
               <span className="flex h-8 items-center whitespace-nowrap rounded-md border border-rule bg-slate-50 px-2.5 text-sm text-ink-muted">小時</span>
             </div>
           </Field>
 
-          <Field label="開始時間 / Start Time" className="col-span-6">
+          <Field label="開始時間 / Start Time" className="md:col-span-6">
             <Input type="time" value={form.startTime} onChange={e => patch({ startTime: e.target.value })} disabled={pending} />
           </Field>
-          <Field label="結束時間 / End Time" className="col-span-6">
+          <Field label="結束時間 / End Time" className="md:col-span-6">
             <Input type="time" value={form.endTime} onChange={e => patch({ endTime: e.target.value })} disabled={pending} />
           </Field>
 
-          <Field label="加班事由 / Reason" required className="col-span-12">
+          <Field label="加班事由 / Reason" required className="md:col-span-12">
             <Textarea rows={3} value={form.overtimeReason} onChange={e => patch({ overtimeReason: e.target.value })} disabled={pending} placeholder="請說明加班原因與工作內容" />
           </Field>
         </div>

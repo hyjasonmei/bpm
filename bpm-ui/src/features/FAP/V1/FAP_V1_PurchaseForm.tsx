@@ -129,25 +129,25 @@ export function FAP_V1_PurchaseForm({ persona, mode = 'create', onSubmitted }: F
 
       <SectionCard>
         <SectionTitle>請購資訊 / Request Info</SectionTitle>
-        <div className="grid grid-cols-12 gap-3 px-5 py-4">
-          <Field label="收貨地點 / Shipping Location" required className="col-span-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 px-5 py-4">
+          <Field label="收貨地點 / Shipping Location" required className="md:col-span-6">
             <Input value={shippingLocation} onChange={e => setShippingLocation(e.target.value)} disabled={pending} placeholder="Taipei office" />
           </Field>
-          <Field label="費用歸屬 / Charge To" required className="col-span-6">
+          <Field label="費用歸屬 / Charge To" required className="md:col-span-6">
             <Input value={chargeTo} onChange={e => setChargeTo(e.target.value)} disabled={pending} placeholder="TWT.1746G" />
           </Field>
-          <Field label="用途 / Purpose" required className="col-span-4">
+          <Field label="用途 / Purpose" required className="md:col-span-4">
             <Select value={purpose} onChange={e => setPurpose(e.target.value)} disabled={pending}>
               {PURPOSE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
             </Select>
           </Field>
-          <Field label="期望日 / Expected Date" className="col-span-4">
+          <Field label="期望日 / Expected Date" className="md:col-span-4">
             <div className="relative">
               <Input type="date" value={expectedDate} onChange={e => setExpectedDate(e.target.value)} disabled={pending} />
               <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
             </div>
           </Field>
-          <Field label="備註 / Note" className="col-span-12">
+          <Field label="備註 / Note" className="md:col-span-12">
             <Textarea rows={2} value={note} onChange={e => setNote(e.target.value)} disabled={pending} />
           </Field>
         </div>
@@ -217,8 +217,8 @@ function PurchaseItemCard({
       </div>
 
       {/* Field grid */}
-      <div className="grid grid-cols-12 gap-3 bg-card p-4">
-        <Field label="品項 / 規格 Item / Spec" required className="col-span-9">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 bg-card p-4">
+        <Field label="品項 / 規格 Item / Spec" required className="md:col-span-9">
           <Input
             value={value.itemSpec ?? ''}
             onChange={e => onChange({ itemSpec: e.target.value })}
@@ -226,7 +226,7 @@ function PurchaseItemCard({
             placeholder="e.g. Lenovo ThinkPad X250"
           />
         </Field>
-        <Field label="數量 / Qty" required className="col-span-3">
+        <Field label="數量 / Qty" required className="md:col-span-3">
           <Input
             type="number"
             min="1"

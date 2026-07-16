@@ -201,18 +201,18 @@ function ItemCard({ index, value, disabled, canRemove, onChange, onAdd, onClone,
 
       {/* Field grid + GEV-style row-action gutter (Add / Clone / Delete) */}
       <div className="flex">
-        <div className="grid min-w-0 flex-1 grid-cols-12 gap-3 bg-card p-4">
-        <Field label="日期 / Date" required className="col-span-6">
+        <div className="grid min-w-0 flex-1 grid-cols-1 md:grid-cols-12 gap-3 bg-card p-4">
+        <Field label="日期 / Date" required className="md:col-span-6">
           <div className="relative">
             <Input type="date" value={value.date} onChange={e => onChange({ date: e.target.value })} disabled={disabled} />
             <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
           </div>
         </Field>
-        <Field label="國家 / Country" className="col-span-6">
+        <Field label="國家 / Country" className="md:col-span-6">
           <Input value={value.country ?? ''} onChange={e => onChange({ country: e.target.value })} disabled={disabled} />
         </Field>
 
-        <Field label="金額 / Amount" className="col-span-6">
+        <Field label="金額 / Amount" className="md:col-span-6">
           <div className="flex gap-1.5">
             <span className="flex h-8 items-center whitespace-nowrap rounded-md border border-rule bg-slate-50 px-2.5 text-sm text-ink-muted">
               原幣
@@ -231,7 +231,7 @@ function ItemCard({ index, value, disabled, canRemove, onChange, onAdd, onClone,
             <div className="mt-1 text-right font-mono text-xs text-ink-faint">{fmtMoney(amt)}</div>
           )}
         </Field>
-        <Field label="本幣金額 / Amount (LCY)" className="col-span-6">
+        <Field label="本幣金額 / Amount (LCY)" className="md:col-span-6">
           <div className="flex gap-1.5">
             <span className="flex h-8 items-center whitespace-nowrap rounded-md border border-rule bg-slate-50 px-2.5 text-sm text-ink-muted">
               NTD
@@ -251,7 +251,7 @@ function ItemCard({ index, value, disabled, canRemove, onChange, onAdd, onClone,
           )}
         </Field>
 
-        <Field label="說明 / Description" className="col-span-12">
+        <Field label="說明 / Description" className="md:col-span-12">
           <Textarea rows={2} value={value.description ?? ''} onChange={e => onChange({ description: e.target.value })} disabled={disabled} />
         </Field>
         </div>

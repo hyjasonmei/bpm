@@ -139,11 +139,11 @@ export function CONTRACT_REVIEW_V1_Form({ persona, onSubmitted }: FormComponentP
         {loading ? (
           <div className="px-5 py-10 text-center text-sm text-ink-muted">載入中…</div>
         ) : (
-          <div className="grid grid-cols-12 gap-3 px-5 py-4">
-            <Field label="對方公司名稱 / Counterparty" required className="col-span-6">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 px-5 py-4">
+            <Field label="對方公司名稱 / Counterparty" required className="md:col-span-6">
               <Input value={form.counterpartyName} onChange={e => patch({ counterpartyName: e.target.value })} disabled={pending} placeholder="例：ACME Corp" />
             </Field>
-            <Field label="合約金額（NTD） / Amount" required className="col-span-6">
+            <Field label="合約金額（NTD） / Amount" required className="md:col-span-6">
               <div className="flex gap-1.5">
                 <span className="flex h-8 items-center whitespace-nowrap rounded-md border border-rule bg-slate-50 px-2.5 text-sm text-ink-muted">NT$</span>
                 <Input type="number" min="0" step="1" className="text-right font-mono" value={form.amount} onChange={e => patch({ amount: e.target.value })} disabled={pending} placeholder="0" />
@@ -153,17 +153,17 @@ export function CONTRACT_REVIEW_V1_Form({ persona, onSubmitted }: FormComponentP
               )}
             </Field>
 
-            <Field label="合約標的說明 / Contract Subject" required className="col-span-12">
+            <Field label="合約標的說明 / Contract Subject" required className="md:col-span-12">
               <Textarea rows={2} value={form.contractSubject} onChange={e => patch({ contractSubject: e.target.value })} disabled={pending} placeholder="簡述合約標的、範圍與重點條款" />
             </Field>
 
-            <Field label="合約起日 / Start" required className="col-span-6" hint="迄日不能早於起日">
+            <Field label="合約起日 / Start" required className="md:col-span-6" hint="迄日不能早於起日">
               <div className="relative">
                 <Input type="date" value={form.periodStart} onChange={e => patch({ periodStart: e.target.value })} disabled={pending} />
                 <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
               </div>
             </Field>
-            <Field label="合約迄日 / End" required className="col-span-6"
+            <Field label="合約迄日 / End" required className="md:col-span-6"
               error={form.periodStart && form.periodEnd && form.periodEnd < form.periodStart ? '迄日不能早於起日' : null}>
               <div className="relative">
                 <Input type="date" value={form.periodEnd} min={form.periodStart || undefined} onChange={e => patch({ periodEnd: e.target.value })} disabled={pending} />
@@ -171,7 +171,7 @@ export function CONTRACT_REVIEW_V1_Form({ persona, onSubmitted }: FormComponentP
               </div>
             </Field>
 
-            <Field label="合約草稿檔案 / Draft File" required className="col-span-12" hint="僅接受 PDF / Word（.pdf, .doc, .docx）">
+            <Field label="合約草稿檔案 / Draft File" required className="md:col-span-12" hint="僅接受 PDF / Word（.pdf, .doc, .docx）">
               <FilePicker
                 value={form.draftFile}
                 onChange={f => patch({ draftFile: f })}
@@ -181,12 +181,12 @@ export function CONTRACT_REVIEW_V1_Form({ persona, onSubmitted }: FormComponentP
               />
             </Field>
 
-            <Field label="備註 / Remarks" className="col-span-12">
+            <Field label="備註 / Remarks" className="md:col-span-12">
               <Textarea rows={2} value={form.remarks} onChange={e => patch({ remarks: e.target.value })} disabled={pending} placeholder="其他補充說明（選填）" />
             </Field>
 
             {isResubmit && (
-              <Field label="修改說明 / Revision Note" required className="col-span-12" hint="說明本次修改了哪些內容，會通知審查人">
+              <Field label="修改說明 / Revision Note" required className="md:col-span-12" hint="說明本次修改了哪些內容，會通知審查人">
                 <Textarea rows={2} value={form.revisionNote} onChange={e => patch({ revisionNote: e.target.value })} disabled={pending} placeholder="例：已依法務意見修正責任條款，並補上用印頁" />
               </Field>
             )}

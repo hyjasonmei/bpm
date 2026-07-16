@@ -114,11 +114,11 @@ export function ETM_V1_TerminationForm({ persona, mode = 'create', onSubmitted }
 
       <SectionCard>
         <SectionTitle>員工資訊 / Employee</SectionTitle>
-        <div className="grid grid-cols-12 gap-3 px-5 py-4">
-          <Field label="員工姓名 / Employee Name" required className="col-span-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 px-5 py-4">
+          <Field label="員工姓名 / Employee Name" required className="md:col-span-6">
             <Input value={f.employeeName} onChange={e => patch({ employeeName: e.target.value })} disabled={pending} placeholder="e.g. 王小明" />
           </Field>
-          <Field label="員工編號 / Employee ID" required className="col-span-6">
+          <Field label="員工編號 / Employee ID" required className="md:col-span-6">
             <Input value={f.employeeId} onChange={e => patch({ employeeId: e.target.value })} disabled={pending} placeholder="EMP-001" />
           </Field>
         </div>
@@ -126,19 +126,19 @@ export function ETM_V1_TerminationForm({ persona, mode = 'create', onSubmitted }
 
       <SectionCard>
         <SectionTitle>離職資訊 / Separation</SectionTitle>
-        <div className="grid grid-cols-12 gap-3 px-5 py-4">
-          <Field label="最後工作日 / Last Working Date" required className="col-span-6" hint="員工最後一個實際工作日">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 px-5 py-4">
+          <Field label="最後工作日 / Last Working Date" required className="md:col-span-6" hint="員工最後一個實際工作日">
             <div className="relative">
               <Input type="date" value={f.lastWorkingDate} onChange={e => patch({ lastWorkingDate: e.target.value })} disabled={pending} />
               <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
             </div>
           </Field>
-          <Field label="離職原因 / Reason" required className="col-span-3">
+          <Field label="離職原因 / Reason" required className="md:col-span-3">
             <Select value={f.reason} onChange={e => patch({ reason: e.target.value })} disabled={pending}>
               {REASON_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
             </Select>
           </Field>
-          <Field label="提供離職證明 / Certificate" className="col-span-3" hint="是否開立離職證明">
+          <Field label="提供離職證明 / Certificate" className="md:col-span-3" hint="是否開立離職證明">
             <Select value={f.provideCertificate} onChange={e => patch({ provideCertificate: e.target.value })} disabled={pending}>
               {YESNO_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
             </Select>

@@ -159,8 +159,8 @@ export function TRQ_V1_TravelRequestForm({ persona, mode = 'create', onSubmitted
                 <span className="ml-auto text-xs text-slate-300">{form.travelType}</span>
               </div>
 
-              <div className="grid grid-cols-12 gap-3 bg-card p-4">
-                <Field label="出發地 / Departure City" required className="col-span-6">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 bg-card p-4">
+                <Field label="出發地 / Departure City" required className="md:col-span-6">
                   <div className="flex gap-1.5">
                     <span className="flex h-8 items-center whitespace-nowrap rounded-md border border-rule bg-slate-50 px-2.5 text-ink-faint">
                       <MapPin className="h-3.5 w-3.5" />
@@ -168,7 +168,7 @@ export function TRQ_V1_TravelRequestForm({ persona, mode = 'create', onSubmitted
                     <Input value={form.departureCity} onChange={e => patch({ departureCity: e.target.value })} disabled={pending} placeholder="Taipei" />
                   </div>
                 </Field>
-                <Field label="目的地 / Destination City" required className="col-span-6">
+                <Field label="目的地 / Destination City" required className="md:col-span-6">
                   <div className="flex gap-1.5">
                     <span className="flex h-8 items-center whitespace-nowrap rounded-md border border-rule bg-slate-50 px-2.5 text-ink-faint">
                       <MapPin className="h-3.5 w-3.5" />
@@ -178,7 +178,7 @@ export function TRQ_V1_TravelRequestForm({ persona, mode = 'create', onSubmitted
                 </Field>
 
                 {/* Date range — depart → return as a single grouped row. */}
-                <div className="col-span-12 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
+                <div className="md:col-span-12 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
                   <Field label="出發日 / Depart Date" required>
                     <div className="relative">
                       <Input type="date" value={form.departDate} onChange={e => patch({ departDate: e.target.value })} disabled={pending} />
@@ -194,16 +194,16 @@ export function TRQ_V1_TravelRequestForm({ persona, mode = 'create', onSubmitted
                   </Field>
                 </div>
 
-                <Field label="差旅類型 / Travel Type" required className="col-span-6">
+                <Field label="差旅類型 / Travel Type" required className="md:col-span-6">
                   <Select value={form.travelType} onChange={e => patch({ travelType: e.target.value })} disabled={pending}>
                     {TRAVEL_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                   </Select>
                 </Field>
-                <Field label="費用歸屬 / Charge To" required className="col-span-6">
+                <Field label="費用歸屬 / Charge To" required className="md:col-span-6">
                   <Input value={form.chargeTo} onChange={e => patch({ chargeTo: e.target.value })} disabled={pending} placeholder="e.g. HQ-IT" />
                 </Field>
 
-                <Field label="出差目的 / Travel Purpose" required className="col-span-12">
+                <Field label="出差目的 / Travel Purpose" required className="md:col-span-12">
                   <Textarea
                     rows={3}
                     value={form.travelPurpose}
@@ -220,16 +220,16 @@ export function TRQ_V1_TravelRequestForm({ persona, mode = 'create', onSubmitted
 
       <SectionCard>
         <SectionTitle>旅客資訊 / Traveller</SectionTitle>
-        <div className="grid grid-cols-12 gap-3 px-5 py-4">
-          <Field label="護照姓名 / Passport Name" className="col-span-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 px-5 py-4">
+          <Field label="護照姓名 / Passport Name" className="md:col-span-6">
             <Input value={form.passportName ?? ''} onChange={e => patch({ passportName: e.target.value })} disabled={pending} />
           </Field>
-          <Field label="座位偏好 / Seat Preference" className="col-span-3">
+          <Field label="座位偏好 / Seat Preference" className="md:col-span-3">
             <Select value={form.seatPreference ?? ''} onChange={e => patch({ seatPreference: e.target.value })} disabled={pending}>
               {SEAT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
             </Select>
           </Field>
-          <Field label="需接送 / Pickup" className="col-span-3">
+          <Field label="需接送 / Pickup" className="md:col-span-3">
             <Select value={form.pickupRequired ?? ''} onChange={e => patch({ pickupRequired: e.target.value })} disabled={pending}>
               {PICKUP_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
             </Select>

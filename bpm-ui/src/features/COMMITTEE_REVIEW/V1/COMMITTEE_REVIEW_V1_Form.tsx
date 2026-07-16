@@ -142,18 +142,18 @@ export function COMMITTEE_REVIEW_V1_Form({ persona, onSubmitted }: FormComponent
         {loading ? (
           <div className="px-5 py-10 text-center text-sm text-ink-muted">載入中…</div>
         ) : (
-          <div className="grid grid-cols-12 gap-3 px-5 py-4">
-            <Field label="案由標題 / Case Title" required className="col-span-8">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 px-5 py-4">
+            <Field label="案由標題 / Case Title" required className="md:col-span-8">
               <Input value={form.caseTitle} onChange={e => patch({ caseTitle: e.target.value })} disabled={pending} placeholder="例：新一代 ERP 系統採購案" />
             </Field>
-            <Field label="審議類別 / Category" required className="col-span-4">
+            <Field label="審議類別 / Category" required className="md:col-span-4">
               <Select value={form.reviewCategory} onChange={e => patch({ reviewCategory: e.target.value })} disabled={pending}>
                 <option value="">請選擇</option>
                 {CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </Select>
             </Field>
 
-            <Field label="申請金額（NTD） / Amount" required className="col-span-6">
+            <Field label="申請金額（NTD） / Amount" required className="md:col-span-6">
               <div className="flex gap-1.5">
                 <span className="flex h-8 items-center whitespace-nowrap rounded-md border border-rule bg-slate-50 px-2.5 text-sm text-ink-muted">NT$</span>
                 <Input type="number" min="0" step="1" className="text-right font-mono" value={form.applyAmount} onChange={e => patch({ applyAmount: e.target.value })} disabled={pending} placeholder="0" />
@@ -163,17 +163,17 @@ export function COMMITTEE_REVIEW_V1_Form({ persona, onSubmitted }: FormComponent
               )}
             </Field>
 
-            <Field label="效益說明 / Benefit" required className="col-span-12">
+            <Field label="效益說明 / Benefit" required className="md:col-span-12">
               <Textarea rows={2} value={form.benefitDescription} onChange={e => patch({ benefitDescription: e.target.value })} disabled={pending} placeholder="簡述本案預期效益、必要性與重點" />
             </Field>
 
-            <Field label="預計執行起日 / Start" required className="col-span-6" hint="迄日不能早於起日">
+            <Field label="預計執行起日 / Start" required className="md:col-span-6" hint="迄日不能早於起日">
               <div className="relative">
                 <Input type="date" value={form.execStart} onChange={e => patch({ execStart: e.target.value })} disabled={pending} />
                 <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
               </div>
             </Field>
-            <Field label="預計執行迄日 / End" required className="col-span-6"
+            <Field label="預計執行迄日 / End" required className="md:col-span-6"
               error={form.execStart && form.execEnd && form.execEnd < form.execStart ? '迄日不能早於起日' : null}>
               <div className="relative">
                 <Input type="date" value={form.execEnd} min={form.execStart || undefined} onChange={e => patch({ execEnd: e.target.value })} disabled={pending} />
@@ -181,7 +181,7 @@ export function COMMITTEE_REVIEW_V1_Form({ persona, onSubmitted }: FormComponent
               </div>
             </Field>
 
-            <Field label="附件 / Attachment" required className="col-span-12" hint="請上傳審議相關文件（PDF / Word / Excel）">
+            <Field label="附件 / Attachment" required className="md:col-span-12" hint="請上傳審議相關文件（PDF / Word / Excel）">
               <FilePicker
                 value={form.attachment}
                 onChange={f => patch({ attachment: f })}
@@ -191,12 +191,12 @@ export function COMMITTEE_REVIEW_V1_Form({ persona, onSubmitted }: FormComponent
               />
             </Field>
 
-            <Field label="備註 / Remarks" className="col-span-12">
+            <Field label="備註 / Remarks" className="md:col-span-12">
               <Textarea rows={2} value={form.remarks} onChange={e => patch({ remarks: e.target.value })} disabled={pending} placeholder="其他補充說明（選填）" />
             </Field>
 
             {isResubmit && (
-              <Field label="修改說明 / Revision Note" required className="col-span-12" hint="說明本次修改了哪些內容，會通知委員">
+              <Field label="修改說明 / Revision Note" required className="md:col-span-12" hint="說明本次修改了哪些內容，會通知委員">
                 <Textarea rows={2} value={form.revisionNote} onChange={e => patch({ revisionNote: e.target.value })} disabled={pending} placeholder="例：已依委員意見補充效益量化數據並調整金額" />
               </Field>
             )}
