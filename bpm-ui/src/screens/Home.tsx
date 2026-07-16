@@ -182,10 +182,12 @@ function StatCard({ title, value, tone, Icon, sub }: { title: string; value: num
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted truncate">{title}</div>
+        {/* Mobile (2×2 grid): let the title wrap and drop the sub line —
+            truncated "MY PENDING A…" told the user nothing. md+: original. */}
+        <div className="text-[11px] font-semibold uppercase leading-tight tracking-wider text-ink-muted md:truncate md:leading-normal">{title}</div>
         <div className="flex items-baseline gap-1.5">
           <span className="text-2xl font-bold tabular text-ink">{value}</span>
-          {sub && <span className="text-[10.5px] text-ink-faint truncate">{sub}</span>}
+          {sub && <span className="hidden text-[10.5px] text-ink-faint md:inline md:truncate">{sub}</span>}
         </div>
       </div>
     </div>

@@ -30,6 +30,12 @@ export default defineConfig({
           { src: '/icon-maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
           { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
+        // Long-press the installed icon → jump straight into the two most
+        // common flows (Android launcher / desktop taskbar).
+        shortcuts: [
+          { name: '新申請 / New case', short_name: '新申請', url: '/create', icons: [{ src: '/icon-192.png', sizes: '192x192' }] },
+          { name: '收件匣 / Inbox', short_name: '收件匣', url: '/', icons: [{ src: '/icon-192.png', sizes: '192x192' }] },
+        ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
