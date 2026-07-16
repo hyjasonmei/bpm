@@ -105,21 +105,21 @@ export function LEAVE_V1_LeaveForm({ persona, mode = 'create', onSubmitted }: Fo
       <SectionCard>
         <SectionTitle>請假資訊 / Leave Detail</SectionTitle>
 
-        <div className="grid grid-cols-12 gap-4 px-5 py-4">
-          <Field label="假別 / Leave Type" required className="col-span-12 sm:col-span-4">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 px-5 py-4">
+          <Field label="假別 / Leave Type" required className="md:col-span-12 sm:md:col-span-4">
             <Select value={leaveType} onChange={e => setLeaveType(e.target.value)} disabled={pending}>
               {LEAVE_TYPES.map(t => <option key={t} value={t}>{LEAVE_TYPE_LABELS[t] ?? t}</option>)}
             </Select>
           </Field>
 
           {/* Start / end form a tidy date-range pair. */}
-          <Field label="起 / Start date" required className="col-span-6 sm:col-span-4">
+          <Field label="起 / Start date" required className="md:col-span-6 sm:md:col-span-4">
             <div className="relative">
               <Input type="date" value={start} onChange={e => setStart(e.target.value)} disabled={pending} />
               <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
             </div>
           </Field>
-          <Field label="迄 / End date" required className="col-span-6 sm:col-span-4">
+          <Field label="迄 / End date" required className="md:col-span-6 sm:md:col-span-4">
             <div className="relative">
               <Input type="date" value={end} onChange={e => setEnd(e.target.value)} disabled={pending} />
               <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
@@ -147,8 +147,8 @@ export function LEAVE_V1_LeaveForm({ persona, mode = 'create', onSubmitted }: Fo
 
       <SectionCard>
         <SectionTitle>事由與證明 / Reason & Documents</SectionTitle>
-        <div className="grid grid-cols-12 gap-4 px-5 py-4">
-          <Field label="事由 / Reason" required hint="中英文皆可" className="col-span-12 md:col-span-7">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 px-5 py-4">
+          <Field label="事由 / Reason" required hint="中英文皆可" className="md:col-span-7">
             <Textarea
               rows={4}
               value={reason}
@@ -160,7 +160,7 @@ export function LEAVE_V1_LeaveForm({ persona, mode = 'create', onSubmitted }: Fo
           <Field
             label={`證明文件 / Supporting Documents${requiresCert ? ' *' : ' (選填)'}`}
             hint={requiresCert ? `${leaveType}必填，請上傳 PDF / JPG / PNG` : '視假別而定（病假 / 公假需附）'}
-            className="col-span-12 md:col-span-5"
+            className="md:col-span-5"
           >
             <FilePicker
               value={cert}

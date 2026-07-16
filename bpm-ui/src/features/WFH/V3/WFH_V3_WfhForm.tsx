@@ -141,26 +141,26 @@ export function WFH_V3_WfhForm({ persona, mode = 'create', onSubmitted }: FormCo
         {loading ? (
           <div className="px-5 py-10 text-center text-sm text-ink-muted">載入中…</div>
         ) : (
-          <div className="grid grid-cols-12 gap-4 px-5 py-4">
-            <Field label="申請人 / Applicant" className="col-span-12 sm:col-span-6">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 px-5 py-4">
+            <Field label="申請人 / Applicant" className="md:col-span-12 sm:md:col-span-6">
               <div className="flex h-8 items-center rounded-md border border-rule bg-slate-50 px-2.5 text-sm text-ink-muted">
                 {ownerLabel((persona as PersonaCode) ?? null)}（您本人）
               </div>
             </Field>
-            <Field label="申請日期 / Application Date" required className="col-span-12 sm:col-span-6">
+            <Field label="申請日期 / Application Date" required className="md:col-span-12 sm:md:col-span-6">
               <div className="relative">
                 <Input type="date" value={applyDate} onChange={e => setApplyDate(e.target.value)} disabled={pending} />
                 <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
               </div>
             </Field>
 
-            <Field label="居家辦公起 / Start date" required className="col-span-6">
+            <Field label="居家辦公起 / Start date" required className="md:col-span-6">
               <div className="relative">
                 <Input type="date" value={start} onChange={e => setStart(e.target.value)} disabled={pending} />
                 <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
               </div>
             </Field>
-            <Field label="居家辦公迄 / End date" required className="col-span-6">
+            <Field label="居家辦公迄 / End date" required className="md:col-span-6">
               <div className="relative">
                 <Input type="date" value={end} onChange={e => setEnd(e.target.value)} disabled={pending} />
                 <CalendarIcon className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" />
@@ -186,8 +186,8 @@ export function WFH_V3_WfhForm({ persona, mode = 'create', onSubmitted }: FormCo
 
       <SectionCard>
         <SectionTitle>原因與附件 / Reason & Attachment</SectionTitle>
-        <div className="grid grid-cols-12 gap-4 px-5 py-4">
-          <Field label="申請原因 / Reason" required hint="中英文皆可" className="col-span-12 md:col-span-7">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 px-5 py-4">
+          <Field label="申請原因 / Reason" required hint="中英文皆可" className="md:col-span-7">
             <Textarea
               rows={4}
               value={reason}
@@ -196,7 +196,7 @@ export function WFH_V3_WfhForm({ persona, mode = 'create', onSubmitted }: FormCo
               disabled={pending}
             />
           </Field>
-          <Field label="附件 / Attachment (選填)" hint="可附證明文件 PDF / JPG / PNG" className="col-span-12 md:col-span-5">
+          <Field label="附件 / Attachment (選填)" hint="可附證明文件 PDF / JPG / PNG" className="md:col-span-5">
             <FilePicker
               value={attachment}
               onChange={setAttachment}

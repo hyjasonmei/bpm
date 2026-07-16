@@ -288,15 +288,15 @@ function InvoiceCard({
 
       {/* Field grid + GEV-style row-action gutter (Add / Clone / Delete) */}
       <div className="flex">
-        <div className="grid min-w-0 flex-1 grid-cols-12 gap-3 bg-card p-4">
-        <Field label="Invoice No" className="col-span-6">
+        <div className="grid min-w-0 flex-1 grid-cols-1 md:grid-cols-12 gap-3 bg-card p-4">
+        <Field label="Invoice No" className="md:col-span-6">
           <Input
             value={value.invoiceNo ?? ''}
             onChange={e => onChange({ invoiceNo: e.target.value })}
             disabled={disabled}
           />
         </Field>
-        <Field label="Invoice Date" required className="col-span-6">
+        <Field label="Invoice Date" required className="md:col-span-6">
           <div className="relative">
             <Input
               type="date"
@@ -308,14 +308,14 @@ function InvoiceCard({
           </div>
         </Field>
 
-        <Field label="Charge To" className="col-span-6">
+        <Field label="Charge To" className="md:col-span-6">
           <Input
             value={value.chargeTo ?? ''}
             onChange={e => onChange({ chargeTo: e.target.value })}
             disabled={disabled}
           />
         </Field>
-        <Field label="Project" className="col-span-6">
+        <Field label="Project" className="md:col-span-6">
           <Input
             value={value.project ?? ''}
             onChange={e => onChange({ project: e.target.value })}
@@ -323,14 +323,14 @@ function InvoiceCard({
           />
         </Field>
 
-        <Field label="Category" className="col-span-6">
+        <Field label="Category" className="md:col-span-6">
           <Input
             value={value.category ?? ''}
             onChange={e => onChange({ category: e.target.value })}
             disabled={disabled}
           />
         </Field>
-        <Field label="Amount" className="col-span-6">
+        <Field label="Amount" className="md:col-span-6">
           <div className="flex gap-1.5">
             <span className="flex h-8 items-center whitespace-nowrap rounded-md border border-rule bg-slate-50 px-2.5 text-sm text-ink-muted">
               {value.currency || '—'}
@@ -352,7 +352,7 @@ function InvoiceCard({
           )}
         </Field>
 
-        <Field label="Description" className="col-span-12">
+        <Field label="Description" className="md:col-span-12">
           <Textarea
             rows={2}
             value={value.description ?? ''}
@@ -361,7 +361,7 @@ function InvoiceCard({
           />
         </Field>
 
-        <Field label="Attachment" className="col-span-6">
+        <Field label="Attachment" className="md:col-span-6">
           <FilePicker
             value={attachment}
             onChange={meta => onChange({ attachmentFileId: meta?.id ?? null })}

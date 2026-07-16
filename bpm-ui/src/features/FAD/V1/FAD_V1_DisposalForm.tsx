@@ -110,19 +110,19 @@ export function FAD_V1_DisposalForm({ persona, mode = 'create', onSubmitted }: F
                 <span className="min-w-[84px] font-semibold">處分資產 / Asset</span>
                 <span className="ml-auto text-xs text-slate-300">單筆資產處分</span>
               </div>
-              <div className="grid grid-cols-12 gap-3 bg-card p-4">
-                <Field label="報廢原因 / Disposal Reason" required className="col-span-12 sm:col-span-4">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 bg-card p-4">
+                <Field label="報廢原因 / Disposal Reason" required className="md:col-span-12 sm:md:col-span-4">
                   <Select value={disposalReason} onChange={e => setDisposalReason(e.target.value)} disabled={pending}>
                     {reasonOptions.map(o => <option key={o} value={o}>{o}</option>)}
                   </Select>
                 </Field>
-                <Field label="資產編號 / Asset ID" required className="col-span-12 sm:col-span-4">
+                <Field label="資產編號 / Asset ID" required className="md:col-span-12 sm:md:col-span-4">
                   <Input value={assetId} onChange={e => setAssetId(e.target.value)} disabled={pending} placeholder="ASSET-001" className="font-mono" />
                 </Field>
-                <Field label="資產名稱 / Asset Name" required className="col-span-12 sm:col-span-4">
+                <Field label="資產名稱 / Asset Name" required className="md:col-span-12 sm:md:col-span-4">
                   <Input value={assetName} onChange={e => setAssetName(e.target.value)} disabled={pending} placeholder="Old Laptop" />
                 </Field>
-                <Field label="說明 / Description" hint="補充資產狀態 / 報廢背景（選填）" className="col-span-12">
+                <Field label="說明 / Description" hint="補充資產狀態 / 報廢背景（選填）" className="md:col-span-12">
                   <Textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} disabled={pending} placeholder="e.g. 螢幕破裂無法開機，已無維修價值。" />
                 </Field>
               </div>
