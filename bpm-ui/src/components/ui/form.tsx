@@ -8,7 +8,9 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
     <input
       ref={ref}
       className={cn(
-        'flex h-8 w-full rounded-md border border-rule bg-card px-3 text-sm text-ink',
+        // h-11 + text-base below md: 44px touch target and ≥16px font so iOS
+        // Safari doesn't auto-zoom on focus; md: restores the desktop metrics.
+        'flex h-11 w-full rounded-md border border-rule bg-card px-3 text-base text-ink md:h-8 md:text-sm',
         'placeholder:text-ink-faint',
         'focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary',
         'disabled:bg-slate-50 disabled:text-ink-muted',
@@ -26,7 +28,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
     <textarea
       ref={ref}
       className={cn(
-        'flex w-full rounded-md border border-rule bg-card px-3 py-2 text-sm text-ink',
+        'flex min-h-[44px] w-full rounded-md border border-rule bg-card px-3 py-2 text-base text-ink md:min-h-0 md:text-sm',
         'placeholder:text-ink-faint',
         'focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary',
         'resize-none',
@@ -45,7 +47,7 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
       <select
         ref={ref}
         className={cn(
-          'flex h-8 w-full appearance-none rounded-md border border-rule bg-card pl-3 pr-7 text-sm text-ink',
+          'flex h-11 w-full appearance-none rounded-md border border-rule bg-card pl-3 pr-7 text-base text-ink md:h-8 md:text-sm',
           'focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary',
           'disabled:bg-slate-50',
           className,
@@ -54,7 +56,7 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
       >
         {children}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-faint" strokeWidth={2} />
+      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" strokeWidth={2} />
     </div>
   ),
 )

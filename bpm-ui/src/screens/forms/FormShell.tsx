@@ -44,9 +44,11 @@ export function FormShell({
     <div className="space-y-4 pb-24">
       {/* Stepper bar — sits below the global header's form sub-header */}
       <SectionCard className="!p-0">
-        <div className="flex items-center justify-between border-b border-rule bg-slate-50 px-4 py-2">
-          <Stepper steps={def.steps} activeStep={activeStep} withZh />
-          <Button variant="outline" size="xs" onClick={() => setBpmnOpen(true)}>
+        <div className="flex items-center justify-between gap-2 border-b border-rule bg-slate-50 px-4 py-2">
+          <div className="min-w-0">
+            <Stepper steps={def.steps} activeStep={activeStep} withZh />
+          </div>
+          <Button variant="outline" size="xs" className="shrink-0" onClick={() => setBpmnOpen(true)}>
             <WorkflowIcon className="h-3 w-3" /> View BPMN
           </Button>
         </div>
@@ -98,7 +100,7 @@ function DefaultInfoRow({ persona }: { persona: PersonaCode }) {
   const dept = me?.departmentCode ?? fallback.dept
   return (
     <SectionCard className="mt-4">
-      <div className="grid grid-cols-2 divide-x divide-rule">
+      <div className="grid grid-cols-1 divide-y divide-rule md:grid-cols-2 md:divide-x md:divide-y-0">
         <div className="grid grid-cols-[110px_1fr] gap-x-4 gap-y-1 p-3 text-sm">
           <span className="text-ink-muted">Requestor</span>
           <span className="font-medium text-ink">{name}</span>
