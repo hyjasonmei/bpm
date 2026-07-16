@@ -54,7 +54,7 @@ export function Attendance() {
 
   if (err && !today) {
     return (
-      <div className="mx-auto max-w-screen-xl px-4 py-6">
+      <div className="mx-auto max-w-screen-xl md:px-4 md:py-6">
         <SectionCard>
           <div className="px-5 py-4 text-sm text-danger">Failed to load attendance: {err}</div>
         </SectionCard>
@@ -63,7 +63,7 @@ export function Attendance() {
   }
 
   return (
-    <div className="mx-auto max-w-screen-xl space-y-4 px-4 py-6">
+    <div className="mx-auto max-w-screen-xl space-y-4 md:px-4 md:py-6">
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 rounded-lg bg-slate-800 px-4 py-2.5 text-sm text-white shadow-2xl">
           {toast}

@@ -150,7 +150,7 @@ export function OVERTIME_V1_CaseDetail({ caseId }: CaseDetailProps) {
   const fmtHours = (n: number | null) => `${n ?? 0} 小時`
 
   return (
-    <div className="mx-auto max-w-screen-lg space-y-4 p-6 pb-24">
+    <div className="mx-auto max-w-screen-lg space-y-4 pb-24 md:px-6 md:pt-6">
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" size="sm" onClick={() => navigate('/')}>
           <ArrowLeft className="h-3.5 w-3.5" /> 返回
