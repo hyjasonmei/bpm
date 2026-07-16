@@ -78,7 +78,13 @@ export function BpmnView({
 
       try {
         if (bpmnXml) {
-          await viewer.importXML(bpmnXml)
+          // Shipped DI is hand-authored per cook and frequently has edges /
+          // labels crossing shapes — regenerate the geometry with ELK. Falls
+          // back to the original XML on anything it can't handle.
+          const { autoLayoutBpmnXml } = await import('@/lib/bpmnAutoLayout')
+          const layouted = await autoLayoutBpmnXml(bpmnXml)
+          if (cancelled) return
+          await viewer.importXML(layouted)
           const canvas = viewer.get<BpmnCanvas>('canvas')
           sizeAndFit(canvas, containerRef.current)
           for (const id of completedNodes ?? []) canvas.addMarker(id, 'bpm-completed')
