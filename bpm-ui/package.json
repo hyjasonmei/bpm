@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "validate:bpmn": "node scripts/validate-bpmn.mjs",
-    "prebuild": "node scripts/validate-bpmn.mjs",
+    "validate:bpmn": "node scripts/validate-bpmn.mjs && node scripts/check-bpmn-layout.mjs",
+    "prebuild": "node scripts/validate-bpmn.mjs && node scripts/check-bpmn-layout.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
