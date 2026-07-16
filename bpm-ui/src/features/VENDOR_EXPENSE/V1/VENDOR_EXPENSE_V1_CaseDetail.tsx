@@ -146,11 +146,11 @@ export function VENDOR_EXPENSE_V1_CaseDetail({ caseId }: CaseDetailProps) {
 
   return (
     <div className="mx-auto max-w-screen-lg space-y-4 p-6 pb-24">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" size="sm" onClick={() => navigate('/')}>
           <ArrowLeft className="h-3.5 w-3.5" /> 返回
         </Button>
-        <div className="min-w-0">
+        <div className="order-last w-full min-w-0 md:order-none md:w-auto md:flex-1">
           <h1 className="truncate text-lg font-bold text-ink">
             廠商採購請款案件 <span className="ml-2 text-base font-medium text-ink-muted">· VENDOR_EXPENSE V1</span>
           </h1>
