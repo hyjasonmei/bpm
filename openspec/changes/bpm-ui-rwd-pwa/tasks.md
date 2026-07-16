@@ -28,14 +28,14 @@
 
 ## 5. Phase 3 — PWA shell(pwa-shell)
 
-- [ ] 5.1 從 favicon.svg 產 192/512 PNG icons(含 maskable)與 apple-touch-icon,放 public/
-- [ ] 5.2 導入 vite-plugin-pwa:`registerType: 'autoUpdate'`、generateSW、manifest(standalone、theme/background color 用既有 token)、navigateFallback `/index.html`、排除 API pattern、Google Fonts stale-while-revalidate、`devOptions.enabled: false`
-- [ ] 5.3 index.html 補 theme-color meta + apple-touch-icon link
-- [ ] 5.4 本機 `vite build && vite preview` 驗證:installability 無錯、斷網重開 shell 可載入、API 請求不經 SW 快取(Network 面板確認)、深連結 reload 正常
-- [ ] 5.5 確認 staticwebapp.config.json 與 SW precache/navigateFallback 不衝突(sw.js、workbox-*.js、manifest.webmanifest 不被 fallback 攔截)
+- [x] 5.1 從 favicon.svg 產 192/512 PNG icons(含 maskable)與 apple-touch-icon,放 public/(用 Chrome canvas 轉檔;maskable 白底 62% 安全區)
+- [x] 5.2 導入 vite-plugin-pwa:`registerType: 'autoUpdate'`、generateSW、manifest(standalone、theme #1e293b / bg #f8fafc)、navigateFallback `/index.html`、API 不設 runtime cache(跨 origin 直通)、Google Fonts stale-while-revalidate、`devOptions.enabled: false`
+- [x] 5.3 index.html 補 theme-color meta + apple-touch-icon link
+- [x] 5.4 本機 build + preview(port 5175,CORS 白名單內)驗證:SW activated、manifest 200、斷網重開 shell 完整渲染且 API 顯示 Failed to fetch(證明 network-only)、深連結 /attendance reload 正常、cache storage 僅 precache + google-fonts;autoUpdate 的「新版部署生效」留待 6.2 雲端實測
+- [x] 5.5 staticwebapp.config.json:exclude 清單補 `webmanifest` 副檔名(否則 manifest.webmanifest 會被 SWA rewrite 成 index.html);sw.js/workbox-*.js 走既有 `/*.js` exclude
 
 ## 6. 部署與驗收
 
-- [ ] 6.1 各 phase 獨立 commit(Phase 1 / 2 / 3),交 Jason 以 GitKraken push
+- [x] 6.1 各 phase 獨立 commit 於 feat/rwd-pwa(bc07834 / 501498d / 1e93540),交 Jason 以 GitKraken push
 - [ ] 6.2 部署(手動 build 帶 VITE_BPM_SVC_URL)後線上驗證:手機實機安裝 A2HS、核心簽核動線、版本更新生效(bump 一版確認 autoUpdate)
 - [ ] 6.3 Jason 手機實測反饋 → 收件匣卡片欄位取捨與間距微調
