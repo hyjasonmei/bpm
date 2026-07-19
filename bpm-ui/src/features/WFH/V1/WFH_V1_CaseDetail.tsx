@@ -14,6 +14,7 @@ import { AuthedFileLink } from '@/components/ui/FilePicker'
 import { apiFetch, getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
 import { useDelegatedFor } from '@/lib/useDelegatedFor'
+import { useCaseTransfer } from '@/components/CaseTransfer'
 import { FORMS } from '@/lib/workflow'
 import type { CaseDetailProps } from '@/features/registry'
 import WFH_V1_BpmnXml from './WFH_V1.bpmn.xml?raw'
@@ -60,6 +61,16 @@ export function WFH_V1_CaseDetail({ caseId }: CaseDetailProps) {
   }, [])
 
   const delegatedFor = useDelegatedFor()
+  const transfer = useCaseTransfer({
+    flowCode: 'WFH',
+    caseId,
+    isOpen: !!data,
+    currentAssigneeUserId: data?.currentAssigneeUserId ?? null,
+    currentAssigneeRoleCode: null,
+    viewerUserId,
+    delegatedFor,
+    onTransferred: load,
+  })
   const isCurrentAssignee = !!data && !!viewerUserId && !!data.currentAssigneeUserId &&
     (data.currentAssigneeUserId === viewerUserId || delegatedFor.includes(data.currentAssigneeUserId))
   const isSubmitter = !!data && !!viewerUserId && data.submitterUserId === viewerUserId
@@ -260,7 +271,8 @@ export function WFH_V1_CaseDetail({ caseId }: CaseDetailProps) {
         currentNode={trail?.current}
       />
 
-      <ActionFooter hint={footerHint} actions={footerActions} />
+      <ActionFooter hint={footerHint} actions={transfer.action ? [...footerActions, transfer.action] : footerActions} />
+      {transfer.modal}
     </div>
   )
 }
