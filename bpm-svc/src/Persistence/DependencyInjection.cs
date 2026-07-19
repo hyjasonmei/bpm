@@ -129,6 +129,7 @@ public static class DependencyInjection
         services.AddScoped<IMailboxService, MailboxService>();
         services.AddScoped<IFlowSandboxConfigService, FlowSandboxConfigService>();
         services.AddScoped<Bpm.Application.Doctor.IDoctorService, Bpm.Persistence.Doctor.DoctorService>();
+        services.AddScoped<Bpm.Application.Transfer.ICaseTransferService, Bpm.Persistence.Transfer.CaseTransferService>();
         services.AddScoped<IRoleAdminService, RoleAdminService>();
 
         // Real delegation lookup over Admin_Delegations (replaces the no-op stub).
