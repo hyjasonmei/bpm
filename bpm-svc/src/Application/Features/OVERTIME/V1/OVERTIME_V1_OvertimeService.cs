@@ -138,7 +138,7 @@ public sealed class OVERTIME_V1_OvertimeService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != OVERTIME_V1_CaseStatus.PendingManager)
             throw new ConflictException($"case is in status {c.Status}, expected PendingManager");
-        if (c.ManagerUserId is not { } manager || !await auth.CanActAsync(manager, actorUserId, ct))
+        if (c.CurrentAssigneeUserId is not { } manager || !await auth.CanActAsync(manager, actorUserId, ct))
             throw new ForbiddenException("only the assigned manager (or their active delegate) may act on this case");
 
         var now = clock.UtcNow;

@@ -89,7 +89,7 @@ public sealed class LEAVE_V1_LeaveService(
 
         if (c.Status != LEAVE_V1_CaseStatus.PendingManager)
             throw new ConflictException($"case is in status {c.Status}, expected PendingManager");
-        if (c.ManagerUserId is not { } mgr || !await auth.CanActAsync(mgr, actorUserId, ct))
+        if (c.CurrentAssigneeUserId is not { } mgr || !await auth.CanActAsync(mgr, actorUserId, ct))
             throw new ForbiddenException("only the assigned manager (or their active delegate) may act on this case");
 
         c.ManagerApproved = approve;

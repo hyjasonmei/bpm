@@ -169,7 +169,7 @@ public sealed class PURCHASE_REQUEST_V1_PurchaseRequestService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != PURCHASE_REQUEST_V1_CaseStatus.PendingDeptHead)
             throw new ConflictException($"case is in status {c.Status}, expected PendingDeptHead");
-        if (c.DeptHeadUserId is not { } deptHead || !await auth.CanActAsync(deptHead, actorUserId, ct))
+        if (c.CurrentAssigneeUserId is not { } deptHead || !await auth.CanActAsync(deptHead, actorUserId, ct))
             throw new ForbiddenException("only the assigned department head (or their active delegate) may act on this case");
 
         c.DeptHeadApproved = approve;
