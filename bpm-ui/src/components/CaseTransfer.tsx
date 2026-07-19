@@ -50,7 +50,9 @@ export function useCaseTransfer(args: UseCaseTransferArgs): {
 
   return useMemo(() => {
     const action: ActionFooterItem | null = canTransfer
-      ? { id: 'transfer', label: '轉簽', variant: 'outline', onClick: () => setOpen(true) }
+      // confirm:false — the button only opens the transfer modal, which is
+      // itself the styled confirm step (per the ActionFooter product rule).
+      ? { id: 'transfer', label: '轉簽', variant: 'outline', confirm: false, onClick: () => setOpen(true) }
       : null
     const modal = open ? (
       <TransferModal
