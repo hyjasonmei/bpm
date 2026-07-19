@@ -344,7 +344,7 @@ export function PURCHASE_REQUEST_V1_CaseDetail({ caseId }: CaseDetailProps) {
         currentNode={trail?.current}
       />
 
-      <ActionFooter hint={footerHint} actions={transfer.action ? [...footerActions, transfer.action] : footerActions} />
+      <ActionFooter hint={footerHint} actions={transfer.action ? [transfer.action, ...footerActions] : footerActions} />
       {transfer.modal}
     </div>
   )
