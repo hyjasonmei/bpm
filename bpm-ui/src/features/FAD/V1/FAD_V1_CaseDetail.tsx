@@ -14,6 +14,7 @@ import { AuthedFileLink } from '@/components/ui/FilePicker'
 import { apiFetch, getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
 import { useDelegatedFor } from '@/lib/useDelegatedFor'
+import { useCaseTransfer } from '@/components/CaseTransfer'
 import { FORMS } from '@/lib/workflow'
 import type { CaseDetailProps } from '@/features/registry'
 import FAD_V1_BpmnXml from './FAD_V1.bpmn.xml?raw'
@@ -50,6 +51,16 @@ export function FAD_V1_CaseDetail({ caseId }: CaseDetailProps) {
   }, [])
 
   const delegatedFor = useDelegatedFor()
+  const transfer = useCaseTransfer({
+    flowCode: 'FAD',
+    caseId,
+    isOpen: !!data,
+    currentAssigneeUserId: data?.currentAssigneeUserId ?? null,
+    currentAssigneeRoleCode: null,
+    viewerUserId,
+    delegatedFor,
+    onTransferred: load,
+  })
   // The viewer may act on the case if they are the current assignee OR an active
   // delegate of the current assignee (delegation-aware — see useDelegatedFor).
   const isCurrentAssignee = !!data && !!viewerUserId && !!data.currentAssigneeUserId &&
@@ -231,7 +242,8 @@ export function FAD_V1_CaseDetail({ caseId }: CaseDetailProps) {
         currentNode={trail?.current}
       />
 
-      <ActionFooter hint={footerHint} actions={footerActions} />
+      <ActionFooter hint={footerHint} actions={transfer.action ? [transfer.action, ...footerActions] : footerActions} />
+      {transfer.modal}
     </div>
   )
 }

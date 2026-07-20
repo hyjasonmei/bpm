@@ -174,7 +174,7 @@ public sealed class WFH_V3_WfhService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != WFH_V3_CaseStatus.PendingManager)
             throw new ConflictException($"case is in status {c.Status}, expected PendingManager");
-        if (c.ManagerUserId is not { } mgr || !await auth.CanActAsync(mgr, actorUserId, ct))
+        if (c.CurrentAssigneeUserId is not { } mgr || !await auth.CanActAsync(mgr, actorUserId, ct))
             throw new ForbiddenException("only the assigned manager (or their active delegate) may act on this case");
 
         c.ManagerApproved = approve;
@@ -227,7 +227,7 @@ public sealed class WFH_V3_WfhService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != WFH_V3_CaseStatus.PendingSenior)
             throw new ConflictException($"case is in status {c.Status}, expected PendingSenior");
-        if (c.SeniorUserId is not { } senior || !await auth.CanActAsync(senior, actorUserId, ct))
+        if (c.CurrentAssigneeUserId is not { } senior || !await auth.CanActAsync(senior, actorUserId, ct))
             throw new ForbiddenException("only the assigned senior approver (or their active delegate) may act on this case");
 
         c.SeniorApproved = approve;

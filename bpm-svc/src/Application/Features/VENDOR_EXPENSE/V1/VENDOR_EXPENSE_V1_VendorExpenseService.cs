@@ -193,7 +193,7 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != VENDOR_EXPENSE_V1_CaseStatus.PendingSupervisor)
             throw new ConflictException($"case is in status {c.Status}, expected PendingSupervisor");
-        if (c.SupervisorUserId is not { } supervisor || !await auth.CanActAsync(supervisor, actorUserId, ct))
+        if (c.CurrentAssigneeUserId is not { } supervisor || !await auth.CanActAsync(supervisor, actorUserId, ct))
             throw new ForbiddenException("only the assigned supervisor (or their active delegate) may act on this case");
 
         c.SupervisorApproved = approve;
@@ -281,7 +281,7 @@ public sealed class VENDOR_EXPENSE_V1_VendorExpenseService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != VENDOR_EXPENSE_V1_CaseStatus.PendingSign)
             throw new ConflictException($"case is in status {c.Status}, expected PendingSign");
-        if (c.SignUserId is not { } signer || !await auth.CanActAsync(signer, actorUserId, ct))
+        if (c.CurrentAssigneeUserId is not { } signer || !await auth.CanActAsync(signer, actorUserId, ct))
             throw new ForbiddenException("only the assigned signer (or their active delegate) may act on this case");
 
         c.SignApproved = approve;

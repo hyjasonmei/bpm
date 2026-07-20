@@ -168,7 +168,8 @@ Lead-maintained — chef imports, never reinvents.
 | API fetch (UI) | `@/lib/apiFetch` (+ `BPM_SVC_URL`, `getJwt`) | Wraps fetch with the JWT |
 | JWT decode | `@/lib/jwt` (`decodeJwt`) | Read `sub` to identify the current viewer in CaseDetail |
 | Auth (backend) | `BpmControllerBase.RequireUserId()` | JWT `sub` claim |
-| Decision authorization | `Bpm.Application.Common.Authorization.IActorAuthorizer.CanActAsync(requiredUserId, caller, ct)` | **Required for every approval/assignee step.** Gate decisions with `if (c.XUserId is not { } x \|\| !await auth.CanActAsync(x, actorUserId, ct)) throw new ForbiddenException(...)` — NOT a raw `if (c.XUserId != caller)`. `CanActAsync` returns true for the assignee **or their active delegate**, so delegation (代理人) is honored. Submitter-only gates (withdraw/resubmit/cancel) stay strict (`c.SubmitterUserId != caller`). On the UI side, gate decision buttons with `assignee === viewer \|\| useDelegatedFor().includes(assignee)` (hook `@/lib/useDelegatedFor`), never a bare `=== viewer`. |
+| Decision authorization | `Bpm.Application.Common.Authorization.IActorAuthorizer.CanActAsync` | **Required for every approval/assignee step, and always against the CURRENT assignee — never a per-stage column.** Personal stage: `if (c.CurrentAssigneeUserId is not { } x \|\| !await auth.CanActAsync(x, actorUserId, ct)) throw new ForbiddenException(...)`. Role-queue stage (entity has `CurrentAssigneeRoleCode`): `if (!await auth.CanActAsync(c.CurrentAssigneeUserId, c.CurrentAssigneeRoleCode, actorUserId, ct)) …`. Guarding on `c.ManagerUserId` etc. breaks case transfer (轉簽) and Doctor reassign — the reassigned actor would be denied. `CanActAsync` returns true for the assignee **or their active delegate**, so delegation (代理人) is honored. Submitter-only gates (withdraw/resubmit/cancel) stay strict (`c.SubmitterUserId != caller`). On the UI side, gate decision buttons with `assignee === viewer \|\| useDelegatedFor().includes(assignee)` (hook `@/lib/useDelegatedFor`), never a bare `=== viewer`. |
+| **Case transfer (轉簽)** | `@/components/CaseTransfer` (`useCaseTransfer`) | Shared end-user transfer: validation / audit (`CaseTransferLogs`) / notify all live in lead's `CaseTransferService` — chef writes **zero** per-flow transfer code. See §"Case transfer (轉簽)". |
 | **Parallel approval (並簽)** | `Bpm.Application.Parallel.IParallelApprovalService` | **The only way to cook a parallel gateway** (concurrent multi-approver step). Do NOT hand-roll per-approver columns or a fork/join engine. `OpenAsync(flowCode, ver, caseId, gatewayNodeId, slots, threshold)` opens the group + one Pending slot per branch; `DecideAsync(slotId, actor, approve, comment)` records + recomputes (returns `DecisionResult.GroupStatus`: `Open`/`Approved`/`Rejected`); `GetAsync(caseId, gatewayNodeId)` for display; `FindPendingForUserAsync(flowCode, userId, roleCodes)` → `PendingSlot[]` (carries `CaseId`) for the inbox. Threshold = N/N (全簽/AND) or M/N (門檻); any single reject → group Rejected + rest Skipped. **Reference cook: `CONTRACT_REVIEW` V1.** See §"Parallel gateway (並簽)". |
 | Parallel checklist (UI) | `@/components/ParallelApprovalPanel` + `BpmnView` `currentNodes[]`/`rejectedNodes`/`skippedNodes` | Case-detail 並簽 checklist + multi-node BPMN highlight. |
 | Logging | `ILogger<T>` | Diagnostic only — real delivery goes through `INotifyDispatcher` |
@@ -196,6 +197,41 @@ no entry needed. Anything more complex:
 When the spec uses a construct that isn't here yet, **stop and ask
 The operator** — lead ships the primitive (or extends this table) before
 chef ships.
+
+## Case transfer (轉簽)
+
+Every flow gets transfer for free from the lead primitive
+(`CaseTransferService` + `/api/case-transfer/*`). Chef only keeps three
+invariants:
+
+1. **Guards read the current assignee** — see the Decision-authorization
+   row above. Never authorize against a per-stage column.
+2. **Every transition maintains `CurrentAssigneeUserId`** (personal
+   stage: the assignee; role-queue stage: null + set
+   `CurrentAssigneeRoleCode`; terminal states: null both). This is what
+   the transfer service mutates and the inbox reads.
+3. **CaseDetail wires the shared hook** (after `useDelegatedFor()`):
+
+   ```tsx
+   const transfer = useCaseTransfer({
+     flowCode: '<CODE>',
+     caseId,
+     isOpen: !!data,
+     currentAssigneeUserId: data?.currentAssigneeUserId ?? null,
+     currentAssigneeRoleCode: data?.currentAssigneeRoleCode ?? null, // null if entity has no role queue
+     viewerUserId,
+     delegatedFor,
+     onTransferred: load,
+   })
+   // <ActionFooter … actions={transfer.action ? [...footerActions, transfer.action] : footerActions} />
+   // sibling: {transfer.modal}
+   ```
+
+   The button renders only on personal stages where the viewer (or
+   their delegate) is the current assignee; role-queue stages never
+   show it (the whole queue can already act). Validation / audit trail
+   (`CaseTransferLogs`) / notifications are all server-side — chef
+   writes zero per-flow transfer code.
 
 ## Parallel gateway (並簽)
 

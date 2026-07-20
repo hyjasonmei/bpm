@@ -133,7 +133,7 @@ public sealed class FAD_V1_DisposalService(
         var c = await LoadAsync(caseId, ct);
         if (c.Status != FAD_V1_CaseStatus.PendingManager)
             throw new ConflictException($"case is in status {c.Status}, expected PendingManager");
-        if (c.ManagerUserId is not { } mgr || !await auth.CanActAsync(mgr, actorUserId, ct))
+        if (c.CurrentAssigneeUserId is not { } mgr || !await auth.CanActAsync(mgr, actorUserId, ct))
             throw new ForbiddenException("only the assigned judge (or their active delegate) may act on this case");
 
         c.ManagerApproved = approve; c.ManagerComment = comment; c.ManagerDecisionAt = clock.UtcNow; c.LastActivityAt = clock.UtcNow;

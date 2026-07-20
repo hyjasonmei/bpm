@@ -14,6 +14,7 @@ import { AuthedFileLink } from '@/components/ui/FilePicker'
 import { apiFetch, getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
 import { useDelegatedFor } from '@/lib/useDelegatedFor'
+import { useCaseTransfer } from '@/components/CaseTransfer'
 import { FORMS } from '@/lib/workflow'
 import { roleLabel } from '@/lib/roleLabels'
 import type { CaseDetailProps } from '@/features/registry'
@@ -73,6 +74,16 @@ export function LEAVE_V1_CaseDetail({ caseId }: CaseDetailProps) {
   }, [])
 
   const delegatedFor = useDelegatedFor()
+  const transfer = useCaseTransfer({
+    flowCode: 'LEAVE',
+    caseId,
+    isOpen: !!data,
+    currentAssigneeUserId: data?.currentAssigneeUserId ?? null,
+    currentAssigneeRoleCode: data?.currentAssigneeRoleCode ?? null,
+    viewerUserId,
+    delegatedFor,
+    onTransferred: load,
+  })
   // The viewer may act on the case if they are the current assignee, an active
   // delegate of the current assignee (the /pending set is not delegate-expanded,
   // so the explicit check stays), OR the case is in their server-computed
@@ -305,7 +316,8 @@ export function LEAVE_V1_CaseDetail({ caseId }: CaseDetailProps) {
         currentNode={trail?.current}
       />
 
-      <ActionFooter hint={footerHint} actions={footerActions} />
+      <ActionFooter hint={footerHint} actions={transfer.action ? [transfer.action, ...footerActions] : footerActions} />
+      {transfer.modal}
     </div>
   )
 }

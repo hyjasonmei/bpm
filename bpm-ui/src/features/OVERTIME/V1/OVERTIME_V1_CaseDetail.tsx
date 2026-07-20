@@ -13,6 +13,7 @@ import { BpmnView } from '@/components/BpmnView'
 import { apiFetch, getJwt } from '@/lib/apiFetch'
 import { decodeJwt } from '@/lib/jwt'
 import { useDelegatedFor } from '@/lib/useDelegatedFor'
+import { useCaseTransfer } from '@/components/CaseTransfer'
 import { roleLabel } from '@/lib/roleLabels'
 import { FORMS } from '@/lib/workflow'
 import type { CaseDetailProps } from '@/features/registry'
@@ -70,6 +71,16 @@ export function OVERTIME_V1_CaseDetail({ caseId }: CaseDetailProps) {
   }, [])
 
   const delegatedFor = useDelegatedFor()
+  const transfer = useCaseTransfer({
+    flowCode: 'OVERTIME',
+    caseId,
+    isOpen: !!data,
+    currentAssigneeUserId: data?.currentAssigneeUserId ?? null,
+    currentAssigneeRoleCode: data?.currentAssigneeRoleCode ?? null,
+    viewerUserId,
+    delegatedFor,
+    onTransferred: load,
+  })
   // Manager step is assigned to a specific user; the viewer may act if they ARE
   // that user or an active delegate of them (delegation-aware — the /pending set
   // is not delegate-expanded, so keep this explicit check for delegates).
@@ -288,7 +299,8 @@ export function OVERTIME_V1_CaseDetail({ caseId }: CaseDetailProps) {
         currentNode={trail?.current}
       />
 
-      <ActionFooter hint={footerHint} actions={footerActions} />
+      <ActionFooter hint={footerHint} actions={transfer.action ? [transfer.action, ...footerActions] : footerActions} />
+      {transfer.modal}
     </div>
   )
 }
