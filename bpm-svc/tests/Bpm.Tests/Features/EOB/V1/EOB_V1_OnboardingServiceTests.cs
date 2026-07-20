@@ -117,6 +117,21 @@ public sealed class EOB_V1_OnboardingServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Setup_by_wrong_user_is_forbidden()
+    {
+        // Regression cover for the guard normalization: the setup stage is
+        // guarded on CurrentAssigneeUserId (= the submitter Emily). Mike, the
+        // approving manager, is not the assigned coordinator — deny him. The
+        // guard runs before task validation, so empty tasks still surface 403.
+        await using var db = new AppDbContext(_options);
+        var svc = NewService(db);
+        var c = await svc.SubmitAsync(NewInput(), default);
+        await svc.ApproveByManagerAsync(c.Id, Mike, null, default);
+        await Assert.ThrowsAsync<ForbiddenException>(async () =>
+            await svc.CompleteSetupAsync(c.Id, Mike, Array.Empty<EOB_V1_SetupTask>(), default));
+    }
+
+    [Fact]
     public async Task Setup_empty_rejects()
     {
         await using var db = new AppDbContext(_options);

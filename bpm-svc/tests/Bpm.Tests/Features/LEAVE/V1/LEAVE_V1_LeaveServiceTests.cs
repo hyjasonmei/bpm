@@ -222,6 +222,83 @@ public sealed class LEAVE_V1_LeaveServiceTests : IDisposable
         Assert.Equal(LEAVE_V1_CaseStatus.Rejected, after.Status);
     }
 
+    // ------------------------------------------------------------
+    // VP role:VP fallback queue — the CurrentAssigneeRoleCode-guarded path.
+    // Regression cover for the 2026-07-20 guard normalization: with no dept
+    // head, the VP stage becomes a shared role queue (CurrentAssigneeUserId
+    // null, CurrentAssigneeRoleCode "VP"); the guard must admit a VP holder
+    // and deny a non-holder.
+    // ------------------------------------------------------------
+
+    [Fact]
+    public async Task VpApprove_via_role_queue_when_no_dept_head()
+    {
+        await using (var seed = new AppDbContext(_options))
+            await seed.Database.ExecuteSqlRawAsync("DELETE FROM Admin_DeptHeads");
+
+        await using var db = new AppDbContext(_options);
+        var svc = NewService(db);
+        var c = await svc.SubmitAsync(new(Bob, "事假",
+            new DateOnly(2026, 6, 1), new DateOnly(2026, 6, 10), "long trip", null), default);
+        var routed = await svc.ManagerDecisionAsync(c.Id, Alice, approve: true, comment: null, default);
+
+        // No dept head → VP stage is a shared role queue, not a single user.
+        Assert.Equal(LEAVE_V1_CaseStatus.PendingVp, routed.Status);
+        Assert.Null(routed.CurrentAssigneeUserId);
+        Assert.Equal("VP", routed.CurrentAssigneeRoleCode);
+
+        // Vera holds role:VP → the role-queue guard admits her.
+        var after = await svc.VpDecisionAsync(c.Id, Vera, approve: true, comment: "ok", default);
+        Assert.Equal(LEAVE_V1_CaseStatus.PendingHr, after.Status);
+        Assert.Equal("HR_MANAGER", after.CurrentAssigneeRoleCode);
+    }
+
+    [Fact]
+    public async Task VpDecision_by_non_VP_in_role_queue_is_forbidden()
+    {
+        await using (var seed = new AppDbContext(_options))
+            await seed.Database.ExecuteSqlRawAsync("DELETE FROM Admin_DeptHeads");
+
+        await using var db = new AppDbContext(_options);
+        var svc = NewService(db);
+        var c = await svc.SubmitAsync(new(Bob, "事假",
+            new DateOnly(2026, 6, 1), new DateOnly(2026, 6, 10), "long trip", null), default);
+        await svc.ManagerDecisionAsync(c.Id, Alice, approve: true, comment: null, default);
+
+        // Bob holds no VP role → role-queue guard denies him.
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            svc.VpDecisionAsync(c.Id, Bob, approve: true, comment: null, default));
+    }
+
+    [Fact]
+    public async Task VpDecision_by_wrong_user_dept_head_path_is_forbidden()
+    {
+        // Dept head present → VP stage is the single user Vera; a different
+        // real actor (Henry, HR) must be denied on the user-guarded path.
+        await using var db = new AppDbContext(_options);
+        var svc = NewService(db);
+        var c = await svc.SubmitAsync(new(Bob, "事假",
+            new DateOnly(2026, 6, 1), new DateOnly(2026, 6, 10), "long trip", null), default);
+        var routed = await svc.ManagerDecisionAsync(c.Id, Alice, approve: true, comment: null, default);
+        Assert.Equal(Vera, routed.CurrentAssigneeUserId);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            svc.VpDecisionAsync(c.Id, Henry, approve: true, comment: null, default));
+    }
+
+    [Fact]
+    public async Task Cancel_by_non_submitter_is_forbidden()
+    {
+        await using var db = new AppDbContext(_options);
+        var svc = NewService(db);
+        var c = await svc.SubmitAsync(new(Bob, "特休",
+            new DateOnly(2026, 5, 11), new DateOnly(2026, 5, 13), "trip", null), default);
+
+        // Alice is Bob's manager, not the submitter — she cannot withdraw it.
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            svc.CancelAsync(c.Id, Alice, default));
+    }
+
     [Fact]
     public async Task HrArchive_completes_case()
     {

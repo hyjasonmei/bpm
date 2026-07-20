@@ -143,6 +143,20 @@ public sealed class TEO_V1_TravelExpenseServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Finance_decision_by_non_finance_is_forbidden()
+    {
+        // Regression cover for the 2026-07-20 guard normalization: the finance
+        // stage is a role queue (CurrentAssigneeRoleCode = FINANCE). Mike is the
+        // manager, not a FINANCE holder — the role-queue guard must deny him.
+        await using var db = new AppDbContext(_options);
+        var svc = NewService(db);
+        var c = await svc.SubmitAsync(NewInput(), default);
+        await svc.ApproveByManagerAsync(c.Id, Mike, null, default);
+        await Assert.ThrowsAsync<ForbiddenException>(async () =>
+            await svc.ApproveByFinanceAsync(c.Id, Mike, null, default));
+    }
+
+    [Fact]
     public async Task Resubmit_starts_round_2()
     {
         await using var db = new AppDbContext(_options);

@@ -112,6 +112,20 @@ public sealed class FAD_V1_DisposalServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Confirm_by_wrong_user_is_forbidden()
+    {
+        // Regression cover for the guard normalization: the confirm stage is
+        // guarded on CurrentAssigneeUserId (= the submitter Emily). Mike is the
+        // manager who judged it, not the assigned confirmer — he must be denied.
+        await using var db = new AppDbContext(_options);
+        var svc = NewService(db);
+        var c = await svc.SubmitAsync(NewInput(), default);
+        await svc.ApproveByManagerAsync(c.Id, Mike, null, default);
+        await Assert.ThrowsAsync<ForbiddenException>(async () =>
+            await svc.CompleteConfirmAsync(c.Id, Mike, "失效", null, default));
+    }
+
+    [Fact]
     public async Task Confirm_without_result_rejects()
     {
         await using var db = new AppDbContext(_options);

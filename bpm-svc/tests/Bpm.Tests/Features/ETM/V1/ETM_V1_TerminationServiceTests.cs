@@ -120,6 +120,22 @@ public sealed class ETM_V1_TerminationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Handover_by_wrong_user_is_forbidden()
+    {
+        // Regression cover for the guard normalization: the handover stage is
+        // guarded on CurrentAssigneeUserId (= the submitter Emily). Mike, the
+        // approving manager, is not the assigned coordinator — deny him. The
+        // guard runs before item validation, so empty items still surface 403.
+        await using var db = new AppDbContext(_options);
+        var svc = NewService(db);
+        var c = await svc.SubmitAsync(NewInput(), default);
+        await svc.ApproveByManagerAsync(c.Id, Mike, null, default);
+        await Assert.ThrowsAsync<ForbiddenException>(async () =>
+            await svc.CompleteHandoverAsync(c.Id, Mike,
+                new ETM_V1_TerminationService.HandoverInput("No", Array.Empty<ETM_V1_ReturnItem>()), default));
+    }
+
+    [Fact]
     public async Task Handover_empty_items_rejects()
     {
         await using var db = new AppDbContext(_options);

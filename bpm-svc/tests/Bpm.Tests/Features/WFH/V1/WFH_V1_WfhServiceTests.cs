@@ -127,6 +127,34 @@ public sealed class WFH_V1_WfhServiceTests : IDisposable
         Assert.True(after.ManagerApproved);
     }
 
+    // V1's gateway uses a STRICT `days > 7` (V2–V6 use `>=`), so the exact
+    // boundary differs: 7 days completes at manager, 8 days routes to senior.
+    // This is the odd-one-out edge that only V1 leaves untested.
+
+    [Fact]
+    public async Task Manager_approve_at_threshold_seven_completes()
+    {
+        await using var db = new AppDbContext(_options);
+        var svc = NewService(db);
+        var c = await svc.SubmitAsync(ShortRequest() with { EndDate = new DateOnly(2026, 7, 7) }, default);
+        Assert.Equal(7, c.Days);
+        var done = await svc.ApproveByManagerAsync(c.Id, Mike, "ok", default);
+        Assert.Equal(WFH_V1_CaseStatus.Completed, done.Status);   // 7 > 7 is false → no senior
+        Assert.Null(done.SeniorUserId);
+    }
+
+    [Fact]
+    public async Task Manager_approve_just_above_threshold_routes_to_senior()
+    {
+        await using var db = new AppDbContext(_options);
+        var svc = NewService(db);
+        var c = await svc.SubmitAsync(ShortRequest() with { EndDate = new DateOnly(2026, 7, 8) }, default);
+        Assert.Equal(8, c.Days);
+        var after = await svc.ApproveByManagerAsync(c.Id, Mike, "ok", default);
+        Assert.Equal(WFH_V1_CaseStatus.PendingSenior, after.Status);  // 8 > 7 → senior
+        Assert.Equal(Vera, after.CurrentAssigneeUserId);
+    }
+
     [Fact]
     public async Task Manager_reject_returns_to_submitter()
     {
