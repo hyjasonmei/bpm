@@ -29,3 +29,6 @@ bpm-admin-ui/dist/
 chef/agent/chef-agent.json
 chef/agent/**/bin/
 chef/agent/**/obj/
+
+# runtime notification capture log (dev artifact)
+bpm-svc/src/Api/var/
