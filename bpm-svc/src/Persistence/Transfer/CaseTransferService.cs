@@ -6,6 +6,7 @@ using Bpm.Application.Transfer;
 using Bpm.Domain.Entities.Transfer;
 using Bpm.Persistence.SharedIdentity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Bpm.Persistence.Transfer;
 
@@ -22,7 +23,8 @@ public sealed class CaseTransferService(
     AppDbContext db,
     IActorAuthorizer auth,
     IClock clock,
-    INotifyDispatcher notify) : ICaseTransferService
+    INotifyDispatcher notify,
+    ILogger<CaseTransferService> logger) : ICaseTransferService
 {
     private static readonly Regex CaseTypeRe = new(@"^(?<code>.+)_V(?<ver>\d+)_Case$", RegexOptions.Compiled);
 
@@ -104,7 +106,18 @@ public sealed class CaseTransferService(
         });
         await db.SaveChangesAsync(ct);
 
-        await NotifyAsync(t, caseId, entity, current, target, actorUserId, reason.Trim(), ct);
+        // The transfer is already committed; a notification failure must not
+        // surface as a 500 (the caller would retry a done transfer). Best-effort.
+        try
+        {
+            await NotifyAsync(t, caseId, entity, current, target, actorUserId, reason.Trim(), ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Transfer of {Flow} case {CaseId} committed but notification failed",
+                t.Code, caseId);
+        }
         return new TransferResult(true);
     }
 

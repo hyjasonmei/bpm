@@ -90,17 +90,24 @@ function TransferModal({
   const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => {
+    let stale = false
     const t = setTimeout(async () => {
       setSearching(true)
       try {
-        setResults(await searchTransferCandidates(query))
+        const hits = await searchTransferCandidates(query)
+        // Ignore a slow response whose query has since changed, so it can't
+        // overwrite a newer query's results.
+        if (!stale) setResults(hits)
       } catch {
-        setResults([])
+        if (!stale) setResults([])
       } finally {
-        setSearching(false)
+        if (!stale) setSearching(false)
       }
     }, 300)
-    return () => clearTimeout(t)
+    return () => {
+      stale = true
+      clearTimeout(t)
+    }
   }, [query])
 
   const submit = async () => {

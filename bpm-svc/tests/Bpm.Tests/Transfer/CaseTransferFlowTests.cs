@@ -112,7 +112,7 @@ CREATE TABLE Admin_DeptHeads (
         Assert.Equal(Mike, c.CurrentAssigneeUserId);
 
         // 2. Mike transfers to Carol
-        var transfer = new CaseTransferService(db, new TestActorAuthorizer(), new StubClock(), new NullNotify());
+        var transfer = new CaseTransferService(db, new TestActorAuthorizer(), new StubClock(), new NullNotify(), NullLogger<CaseTransferService>.Instance);
         var r = await transfer.TransferAsync("OVERTIME", c.Id, Mike, Carol, "出差請 Carol 代審", default);
         Assert.True(r.Ok);
 
@@ -120,9 +120,10 @@ CREATE TABLE Admin_DeptHeads (
         await Assert.ThrowsAsync<ForbiddenException>(
             () => flow.ApproveByManagerAsync(c.Id, Mike, "should fail", default));
 
-        // 4. New assignee's decision drives the case forward (3h < HR gate → completes)
+        // 4. New assignee's decision drives the case forward. 3h is under the
+        //    monthly HR gate and this is the only case → deterministically Completed.
         var done = await flow.ApproveByManagerAsync(c.Id, Carol, "OK", default);
-        Assert.True(done.Status is OVERTIME_V1_CaseStatus.Completed or OVERTIME_V1_CaseStatus.PendingHr);
+        Assert.Equal(OVERTIME_V1_CaseStatus.Completed, done.Status);
         Assert.True(done.ManagerApproved);
 
         // 5. Exactly one audit row

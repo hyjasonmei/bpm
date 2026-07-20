@@ -7,6 +7,7 @@ using Bpm.Persistence.Transfer;
 using Bpm.Tests.Common;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Bpm.Tests.Transfer;
@@ -97,7 +98,8 @@ CREATE TABLE Admin_Principals (
     }
 
     private static CaseTransferService NewService(AppDbContext db, CaptureNotify? sink = null)
-        => new(db, new TestActorAuthorizer(), new StubClock(), sink ?? new CaptureNotify());
+        => new(db, new TestActorAuthorizer(), new StubClock(), sink ?? new CaptureNotify(),
+            NullLogger<CaseTransferService>.Instance);
 
     // ── validation rules (spec order) ────────────────────────────────────────
 
