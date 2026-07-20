@@ -21,6 +21,7 @@ pass=0; fail=0
 ok(){ echo "  PASS $1"; pass=$((pass+1)); }
 no(){ echo "  FAIL $1"; fail=$((fail+1)); }
 chk(){ if [ "$2" = "$3" ]; then ok "[$3] $1"; else no "exp $2 got $3 — $1"; fi; }
+has(){ echo ",$1," | grep -q ",$2,"; }                     # has "$csv" TOKEN
 P(){ curl -s -o /dev/null -w '%{http_code}' "$@"; }       # -> status code
 J(){ curl -s "$@"; }                                       # -> body
 login(){ J -X POST "$BPM/api/dev/login" -H 'Content-Type: application/json' -d "{\"personaCode\":\"$1\"}" \
@@ -52,12 +53,21 @@ R_VENDOR=$(rt VENDOR_EXPENSE vendor-expense); R_PR=$(rt PURCHASE_REQUEST purchas
 echo "### A. health + identity"
 chk "bpm-svc up" 200 "$(P "$BPM/api/flow-codes")"
 chk "admin-svc up" 200 "$(P -H "Authorization: Bearer $TA" "$ADM/api/roles")"
-chk "admin JWT = codes" "PERSONA_SWITCH,SYSTEM_ADMIN" "$(echo "$TA" | roles)"
+# admin JWT must carry SCREAMING_SNAKE role *codes* (not Names). Subset check —
+# assert the admin's required codes are present, tolerant of extra seed grants
+# (e.g. Jack also holds CEO for COMMITTEE_REVIEW).
+AR="$(echo "$TA" | roles)"
+if has "$AR" SYSTEM_ADMIN && has "$AR" PERSONA_SWITCH; then ok "[$AR] admin JWT carries SYSTEM_ADMIN+PERSONA_SWITCH codes"; else no "admin JWT missing a required code — got $AR"; fi
 chk "no empty role codes" 0 "$(curl -s -H "Authorization: Bearer $TA" "$ADM/api/roles" | python3 -c "import sys,json;print(sum(1 for r in json.load(sys.stdin) if not r.get('code')))")"
-# every shipped runtime flow (flow-codes = deployed state machines) must be Published
-# in the registry. Dynamic so shipping a new flow doesn't need a harness edit.
-SHIPPED=$(curl -s "$BPM/api/flow-codes" | python3 -c "import sys,json;print(len(json.load(sys.stdin)))")
-chk "all $SHIPPED shipped flows published" "$SHIPPED" "$(curl -s -H "Authorization: Bearer $TE" "$BPM/api/flow-registry" | python3 -c "import sys,json;print(len(set(x['flowCode'] for x in json.load(sys.stdin) if x['state']=='Published')))")"
+# Every shipped runtime flow (flow-codes = deployed state machines) must be
+# Published in the registry — EXCEPT intentionally-unpublished test/demo flows
+# (cooked as codegen regression carriers, not exposed to users). Fails only on a
+# *production* flow that got orphaned (deployed but not published).
+TEST_FLOWS="REIMBURSEMENT"
+SHIPPED_CODES=$(curl -s "$BPM/api/flow-codes" | python3 -c "import sys,json;print(' '.join(sorted(x['flowCode'] for x in json.load(sys.stdin))))")
+PUB_CODES=$(curl -s -H "Authorization: Bearer $TE" "$BPM/api/flow-registry" | python3 -c "import sys,json;print(' '.join(sorted(set(x['flowCode'] for x in json.load(sys.stdin) if x['state']=='Published'))))")
+OFFENDERS=$(python3 -c "import sys;s='$SHIPPED_CODES'.split();p=set('$PUB_CODES'.split());t=set('$TEST_FLOWS'.split());print(','.join(c for c in s if c not in p and c not in t))")
+if [ -z "$OFFENDERS" ]; then ok "all shipped flows published (test-only unpublished: $TEST_FLOWS)"; else no "production flow shipped but NOT published: $OFFENDERS"; fi
 echo "  ---- live versions: LEAVE v$(ver LEAVE) · TEO v$(ver TEO) · VENDOR_EXPENSE v$(ver VENDOR_EXPENSE) · PURCHASE_REQUEST v$(ver PURCHASE_REQUEST) ----"
 
 echo "### B. HAPPY — LEAVE short (manager -> HR_MANAGER dept-inherit -> Completed)"
