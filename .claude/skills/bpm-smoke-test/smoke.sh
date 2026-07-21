@@ -60,14 +60,16 @@ AR="$(echo "$TA" | roles)"
 if has "$AR" SYSTEM_ADMIN && has "$AR" PERSONA_SWITCH; then ok "[$AR] admin JWT carries SYSTEM_ADMIN+PERSONA_SWITCH codes"; else no "admin JWT missing a required code — got $AR"; fi
 chk "no empty role codes" 0 "$(curl -s -H "Authorization: Bearer $TA" "$ADM/api/roles" | python3 -c "import sys,json;print(sum(1 for r in json.load(sys.stdin) if not r.get('code')))")"
 # Every shipped runtime flow (flow-codes = deployed state machines) must be
-# Published in the registry — EXCEPT intentionally-unpublished test/demo flows
-# (cooked as codegen regression carriers, not exposed to users). Fails only on a
-# *production* flow that got orphaned (deployed but not published).
-TEST_FLOWS="REIMBURSEMENT"
+# Published in the registry — EXCEPT intentionally-unpublished flows. Fails only
+# on a *production* flow that got orphaned (deployed but not published).
+# Allowlist (deliberately not exposed to users):
+#   REIMBURSEMENT — codegen regression carrier (test flow)
+#   OVERTIME      — demo/guide-video flow, kept unpublished by product decision
+TEST_FLOWS="REIMBURSEMENT OVERTIME"
 SHIPPED_CODES=$(curl -s "$BPM/api/flow-codes" | python3 -c "import sys,json;print(' '.join(sorted(x['flowCode'] for x in json.load(sys.stdin))))")
 PUB_CODES=$(curl -s -H "Authorization: Bearer $TE" "$BPM/api/flow-registry" | python3 -c "import sys,json;print(' '.join(sorted(set(x['flowCode'] for x in json.load(sys.stdin) if x['state']=='Published'))))")
 OFFENDERS=$(python3 -c "import sys;s='$SHIPPED_CODES'.split();p=set('$PUB_CODES'.split());t=set('$TEST_FLOWS'.split());print(','.join(c for c in s if c not in p and c not in t))")
-if [ -z "$OFFENDERS" ]; then ok "all shipped flows published (test-only unpublished: $TEST_FLOWS)"; else no "production flow shipped but NOT published: $OFFENDERS"; fi
+if [ -z "$OFFENDERS" ]; then ok "all shipped flows published (intentionally unpublished: $TEST_FLOWS)"; else no "production flow shipped but NOT published: $OFFENDERS"; fi
 echo "  ---- live versions: LEAVE v$(ver LEAVE) · TEO v$(ver TEO) · VENDOR_EXPENSE v$(ver VENDOR_EXPENSE) · PURCHASE_REQUEST v$(ver PURCHASE_REQUEST) ----"
 
 echo "### B. HAPPY — LEAVE short (manager -> HR_MANAGER dept-inherit -> Completed)"
