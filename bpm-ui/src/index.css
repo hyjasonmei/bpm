@@ -113,16 +113,50 @@ button:disabled,
 }
 
 /* ── Print mode ──────────────────────────────────────────────────────────
-   The case-detail "Print" button (components/CaseToolbar) just calls
-   window.print(); these rules strip the app chrome so the printed page is
-   the case content only. Anything tagged `no-print` — the top nav header,
-   the case toolbar, fixed action bars — is hidden. Per-flow CaseDetail
-   components stay untouched (chef code), they just inherit this. */
+   The case-detail printer icon (components/CaseToolbar) calls
+   window.print(); everything below turns the screen page into a file-able
+   case sheet.
+   Design: docs/superpowers/specs/2026-08-06-case-print-design.md
+
+   Deliberately global rather than per-flow: the 19 chef-cooked CaseDetail
+   components are feature code, so this shared layer has to cover all of
+   them at once without editing any of them. */
+
+/* Document head / foot injected by components/CasePrintChrome —
+   invisible on screen, revealed on paper. */
+.print-only { display: none; }
+
 @media print {
+  .print-only { display: block !important; }
+
   .no-print,
   [data-no-print] {
     display: none !important;
   }
+
+  /* Interactive chrome never belongs on paper. One blanket rule kills the
+     per-flow "返回" / "View BPMN" buttons and the decision textareas
+     without touching any chef feature code. Anything that must survive
+     opts in with `data-print-keep`. */
+  button:not([data-print-keep]),
+  input:not([data-print-keep]),
+  textarea:not([data-print-keep]),
+  select:not([data-print-keep]) {
+    display: none !important;
+  }
+
+  /* Attachment links are <button> (they JWT-fetch a blob, so they cannot
+     be a plain <a href>). Keep them, flattened to text — the paper record
+     must still show that the case carries an attachment. */
+  [data-print-keep] {
+    display: inline !important;
+    border: 0 !important;
+    background: none !important;
+    padding: 0 !important;
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+
   html, body, #root {
     height: auto !important;
     background: #fff !important;
@@ -131,6 +165,9 @@ button:disabled,
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+
+  @page { margin: 12mm; }
+
   /* Drop the screen layout's padding / width cap + entry animation so the
      content uses the full printable page. `main` is the AppLayout content
      slot that hosts the case detail. */
@@ -141,4 +178,22 @@ button:disabled,
   .fade-in {
     animation: none !important;
   }
+  /* That bottom spacer only exists to clear the sticky ActionFooter, which
+     is itself `no-print`. Scoped to `.print-doc` (the wrapper
+     CasePrintChrome puts around the case detail) so these loose
+     element-level rules can't leak onto anything else printed later. */
+  .print-doc .pb-24 { padding-bottom: 0 !important; }
+
+  /* Flat print frame, and keep a card whole on one page. `print-block` /
+     `print-title` are stamped by components/ui/card.tsx. */
+  .print-block {
+    box-shadow: none !important;
+    border-color: #d4d4d8 !important;
+    break-inside: avoid;
+  }
+  .print-title { break-after: avoid; }
+  .print-doc h1 { break-after: avoid; }
+  /* Approval-timeline rows are per-flow markup, so key off the element:
+     keeps a row's label / actor / comment / timestamp together. */
+  .print-doc li { break-inside: avoid; }
 }
