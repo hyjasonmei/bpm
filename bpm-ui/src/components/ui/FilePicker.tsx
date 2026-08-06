@@ -223,7 +223,10 @@ export function AuthedFileLink({
   }
 
   return (
-    <button type="button" onClick={open} disabled={busy} className={className}>
+    // data-print-keep: the shared print layer hides every <button>; this one
+    // carries the "案件有附件" fact, so it survives and renders as plain
+    // text on paper (see the @media print block in index.css).
+    <button type="button" data-print-keep onClick={open} disabled={busy} className={className}>
       {busy ? '開啟中…' : failed ? '開啟失敗，再試一次' : children}
     </button>
   )

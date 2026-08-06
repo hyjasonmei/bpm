@@ -608,6 +608,29 @@ Approved [reviewed] → Published [live in this env]; chef code never
 touches this — lead owns the lifecycle + launcher gate.) Backed by a
 single cached `useFlowRegistry` fetch.
 
+### 列印友善（Print）
+
+案件詳情頁是可以被列印歸檔的（案件頁右上角印表機 icon →
+`window.print()`）。列印規則由 lead 的共用層一次處理
+（`bpm-ui/src/index.css` 的 `@media print` ＋
+`components/CasePrintChrome` 注入的文件頁首／頁尾），chef **不需要
+也不應該**自己寫 `@media print`。要配合的只有四條：
+
+1. **互動元件不用特別標記** —— 共用層已把所有 `button` / `input` /
+   `textarea` / `select` 藏起來，所以「返回」「View BPMN」「簽核意見
+   輸入框」不會印在紙上。
+2. **紙上要出現的內容，不可以只存在於 modal / tooltip / 摺疊區。**
+   業務欄位、簽核時序、決策意見都要在頁面主體直接可見。
+3. **區塊一律用 `SectionCard` 包**（`@/components/ui/card`）——
+   它帶著 `print-block`，自動有「不被切在兩頁中間」的保護。
+4. **不該印的區塊掛 `no-print`**（例如純提示性的 banner）。
+
+唯讀狀態不要用 disabled `<input>` / `<checkbox>` 呈現——那些在列印時
+會整個消失。已決定的值直接渲染成文字（例：`是` / `否`）。
+
+有跨流程的共用列印需求（例如紙上要多一塊制式欄位），回報 lead 加進
+共用層，不要在 feature 資料夾裡自己寫。
+
 ## BPMN passthrough
 
 Every chef-cooked feature MUST plumb the **bundle's canonical
