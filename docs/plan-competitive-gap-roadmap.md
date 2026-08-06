@@ -34,7 +34,9 @@
 ### 確認缺（本計畫的工作項）
 
 1. 轉簽（end-user；Doctor reassign 是管理員補救，非簽核人自助）
-2. 批次簽核（user 面無 batch/bulk）
+   — **已完成**（2026-07-19，已 merge main）
+2. ~~批次簽核（user 面無 batch/bulk）~~ — **2026-08-06 TG 決議不做**，
+   見 §4
 3. 加簽（前 / 後 / 平行皆無）
 4. 核決權限集中設定（threshold 常數散在 8+ 個 flow service，
    如 `LEAVE_V1_LeaveService.DaysGateThreshold`）
@@ -62,13 +64,9 @@
   含選人器——Doctor candidates 端點的 picker 可重用）
 - chef conventions 補一段，讓新 cook 的流程自帶轉簽
 
-### 2.2 批次簽核 — 中
+### 2.2 批次簽核 — **不做**（2026-08-06 TG 決議）
 
-- inbox 已是統一 pending 清單；加多選 + 批次核准
-- 後端：batch dispatcher registry（仿 16 個 inbox provider 的
-  registry 模式），逐流程 fan-out 到各自 decision service，
-  部分失敗要逐筆回報（不能整批 all-or-nothing）
-- UI：inbox 勾選列 + 批次動作 bar + 結果 summary modal
+移到 §4。原規劃內容留在 git 歷史（`b5c8ed7` 之前的版本），要復活再取回。
 
 ### 2.3 核決權限 dataset — 中
 
@@ -117,6 +115,7 @@
 | 項目 | 理由 |
 |---|---|
 | 保留（顯式擱置標記） | 「先不簽」天然支援，無價值 |
+| **批次簽核** | 2026-08-06 TG 決議拿掉（原 §2.2） |
 | 前 / 後加簽 | 平行加簽先上（§2.4），看反饋 |
 | 多語系 | 目標市場台灣；隨 SSO 波評估 |
 | HCM / EIP / BI / RPA 生態 | 不打這場；BPM 核心 + AI cook 是主軸 |
