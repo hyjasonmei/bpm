@@ -79,10 +79,14 @@
 （chef 元件自己 fetch），要拿只能爬 DOM。而且各 flow 的
 「狀態 / Status」卡本來就會印出來，重複無益 —— 故不放。
 
-**瀏覽器限制（已知並接受）**：Chrome 列印時頁首只會出現在第一頁，
-無法每頁重複（除非把整份文件包成 `<table>` 用 `thead` 重複，太 hack）。
-頁碼交給列印對話框內建的頁首／頁尾。這是方案 A 的天花板，
-方案 B（專用列印路由）可以解掉。
+**每頁重複的頁首／頁尾**（2026-08-06 修訂，原本誤判為做不到）：
+瀏覽器本來就會把 table 的 `thead` / `tfoot` 印在**每一頁**，而
+`display: table-header-group` / `table-footer-group` 讓一個普通 div
+取得同樣行為——**不需要**改成 `<table>` 標籤，螢幕 DOM 也不動。
+所以 `@media print` 裡把 `.print-doc` 設成 `display: table`，
+header → `table-header-group`、案件本體 → `table-row-group`、
+footer → `table-footer-group`。頁碼仍交給列印對話框內建的頁首頁尾
+（CSS 沒有跨瀏覽器可用的頁碼變數）。
 
 ### 3. 列印樣式層（`index.css`）
 

@@ -129,6 +129,20 @@ button:disabled,
 @media print {
   .print-only { display: block !important; }
 
+  /* Running head / foot on EVERY page, not just the first.
+     Browsers repeat a table's thead / tfoot on each printed page, and the
+     table display types give a plain div that same behaviour — so no
+     <table> markup is needed and the screen DOM stays untouched.
+     `.print-doc` is CasePrintChrome's wrapper: header → header-group,
+     the case body → row-group, footer → footer-group. */
+  .print-doc {
+    display: table !important;
+    width: 100% !important;
+  }
+  .print-doc > header.print-only { display: table-header-group !important; }
+  .print-doc > footer.print-only { display: table-footer-group !important; }
+  .print-doc > div { display: table-row-group !important; }
+
   .no-print,
   [data-no-print] {
     display: none !important;
