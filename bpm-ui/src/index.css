@@ -145,6 +145,15 @@ button:disabled,
     display: none !important;
   }
 
+  /* Hiding the controls alone leaves the "您的決定 / Your decision" card as
+     an empty titled frame. Any card holding a form control IS an action
+     block (every flow gates those on `isCurrentAssignee`), never case data
+     — so drop the whole card. This is why chef conventions forbid showing
+     read-only values through disabled inputs. */
+  .print-doc .print-block:has(textarea, input, select) {
+    display: none !important;
+  }
+
   /* Attachment links are <button> (they JWT-fetch a blob, so they cannot
      be a plain <a href>). Keep them, flattened to text — the paper record
      must still show that the case carries an attachment. */
@@ -161,6 +170,8 @@ button:disabled,
     height: auto !important;
     background: #fff !important;
   }
+  /* AppLayout's outer shell paints the app background; paper is white. */
+  .bg-bg { background: #fff !important; }
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -183,6 +194,11 @@ button:disabled,
      CasePrintChrome puts around the case detail) so these loose
      element-level rules can't leak onto anything else printed later. */
   .print-doc .pb-24 { padding-bottom: 0 !important; }
+  /* Every flow's detail centres itself in a `max-w-screen-lg` column for
+     reading on a wide monitor. On paper the printable width is already
+     set by @page, so drop the cap — otherwise the document head / foot
+     run full-bleed while the case body sits in a narrow centred column. */
+  .print-doc .max-w-screen-lg { max-width: none !important; }
 
   /* Flat print frame, and keep a card whole on one page. `print-block` /
      `print-title` are stamped by components/ui/card.tsx. */

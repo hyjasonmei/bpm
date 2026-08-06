@@ -1,9 +1,10 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 
+import { useFlowLabel } from '@/hooks/useFlowRegistry'
 import { getJwt } from '@/lib/apiFetch'
 import { useBranding } from '@/lib/branding'
 import { decodeJwt } from '@/lib/jwt'
-import { FORMS, type FormCode } from '@/lib/workflow'
+import { type FormCode } from '@/lib/workflow'
 
 interface Props {
   flowCode: FormCode
@@ -32,7 +33,11 @@ interface Props {
 export function CasePrintChrome({ flowCode, flowVersion, caseId, children }: Props) {
   const branding = useBranding()
   const systemName = branding.systemName ?? 'BPM System'
-  const flowLabel = FORMS[flowCode]?.zhLabel ?? flowCode
+  // Admin's flow registry is the single source of truth for a flow's display
+  // name (FORMS is only its compile-time fallback, and some of its zhLabels
+  // are stale — VENDOR_EXPENSE reads "採購申請" there). Pass the case's own
+  // version so a historical case prints the name it was filed under.
+  const flowLabel = useFlowLabel()(flowCode, flowVersion)
   const printedBy = viewerName()
   const stamps = useRef<(HTMLSpanElement | null)[]>([])
 
