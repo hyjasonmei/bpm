@@ -48,6 +48,7 @@
 | `bpm-ui/src/components/CasePrintChrome.tsx` | **新增** — 只在列印出現的文件頭尾 |
 | `bpm-ui/src/components/ui/FilePicker.tsx` | `AuthedFileLink` 加 `data-print-keep` |
 | `chef/skill/conventions.md` | 補「列印友善」規範段落 |
+| `bpm-docs/.../frontend/inbox.md` | 客戶手冊同步（根 CLAUDE.md 硬規定） |
 
 後端不動。
 
@@ -115,8 +116,10 @@
 - 卡片：`box-shadow: none`，邊框改細灰線（`#d4d4d8` 1px）
 - `SectionTitle` 的 `bg-slate-50` 保留（`print-color-adjust: exact` 既有），
   灰階印表機仍可讀
-- 去掉外層 `pb-24` 留白（`main > * { padding-bottom: 0 }` 針對列印）
-- base font-size 略縮（`13px`）讓單頁塞得下一般案件
+- 去掉外層 `pb-24` 留白（`.print-doc .pb-24 { padding-bottom: 0 }`）
+- **字級收斂：預設不做。** Tailwind 對每個元素都下了明確字級，改
+  `body` font-size 無效；真的塞不下再對 `.print-doc` 下 `zoom: 0.92`，
+  以視覺驗收結果決定（YAGNI）
 - `Stepper` **保留**：紙上看得出案子走到哪一關是有價值的
 
 ### 4. chef conventions 補的規範
@@ -140,6 +143,8 @@
 3. 檢查項：無按鈕、無空白輸入框、頁首頁尾正確、卡片不跨頁斷裂、
    附件欄仍顯示文字
 4. 截圖回報
+5. `bpm-docs` 的 `frontend/inbox.md`「小工具」段補上「印出來會長怎樣」，
+   `npm run build` 過（根 CLAUDE.md：功能改動必同步客戶手冊）
 
 ## 後續（方案 B，另案）
 
