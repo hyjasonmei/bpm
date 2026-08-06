@@ -53,30 +53,38 @@ export function CasePrintChrome({ flowCode, flowVersion, caseId, children }: Pro
 
   return (
     <div className="print-doc">
-      <header className="print-only mb-4 border-b-2 border-ink pb-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-2">
-            {branding.logoDataUri && (
-              <img src={branding.logoDataUri} alt="" className="h-8 w-auto max-w-[140px] object-contain" />
-            )}
-            <span className="text-sm font-semibold text-ink">{systemName}</span>
+      {/* The head / foot become table-header-group / table-footer-group in
+          print so they repeat on every page — and those display types drop
+          the element's own margin and padding. All spacing therefore lives
+          on the inner div, which is a normal block inside the group. */}
+      <header className="print-only">
+        <div className="mb-5 border-b-2 border-ink pb-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-2">
+              {branding.logoDataUri && (
+                <img src={branding.logoDataUri} alt="" className="h-8 w-auto max-w-[140px] object-contain" />
+              )}
+              <span className="text-sm font-semibold text-ink">{systemName}</span>
+            </div>
+            <div className="text-right">
+              <h1 className="text-lg font-bold text-ink">{flowLabel} 案件單</h1>
+              <p className="font-mono text-[11px] text-ink-muted">{flowCode} V{flowVersion}</p>
+            </div>
           </div>
-          <div className="text-right">
-            <h1 className="text-lg font-bold text-ink">{flowLabel} 案件單</h1>
-            <p className="font-mono text-[11px] text-ink-muted">{flowCode} V{flowVersion}</p>
-          </div>
+          <p className="mt-2 text-[11px] text-ink-muted">
+            案號 <span className="font-mono">{caseId}</span>
+            {' · '}列印時間 <span ref={el => { stamps.current[0] = el }} />
+            {' · '}列印人 {printedBy}
+          </p>
         </div>
-        <p className="mt-2 text-[11px] text-ink-muted">
-          案號 <span className="font-mono">{caseId}</span>
-          {' · '}列印時間 <span ref={el => { stamps.current[0] = el }} />
-          {' · '}列印人 {printedBy}
-        </p>
       </header>
 
       {children}
 
-      <footer className="print-only mt-4 border-t border-rule pt-2 text-[10px] text-ink-muted">
-        本文件由 {systemName} 於 <span ref={el => { stamps.current[1] = el }} /> 由 {printedBy} 列印
+      <footer className="print-only">
+        <div className="mt-5 border-t border-rule pt-2 text-[10px] text-ink-muted">
+          本文件由 {systemName} 於 <span ref={el => { stamps.current[1] = el }} /> 由 {printedBy} 列印
+        </div>
       </footer>
     </div>
   )

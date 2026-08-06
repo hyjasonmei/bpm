@@ -208,11 +208,26 @@ button:disabled,
      CasePrintChrome puts around the case detail) so these loose
      element-level rules can't leak onto anything else printed later. */
   .print-doc .pb-24 { padding-bottom: 0 !important; }
-  /* Every flow's detail centres itself in a `max-w-screen-lg` column for
-     reading on a wide monitor. On paper the printable width is already
-     set by @page, so drop the cap — otherwise the document head / foot
-     run full-bleed while the case body sits in a narrow centred column. */
-  .print-doc .max-w-screen-lg { max-width: none !important; }
+  /* Every flow's detail centres itself in a `max-w-screen-lg` column with
+     its own `md:px-6` / `md:pt-6` gutter, for reading on a wide monitor.
+     On paper the margin is @page's job, so drop the cap AND the gutter —
+     otherwise the case body sits inset from the document head / foot and
+     the left edges don't line up. */
+  .print-doc .max-w-screen-lg {
+    max-width: none !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-top: 0 !important;
+  }
+
+  /* Every flow opens with the same screen title row — back button, <h1>,
+     case id, View BPMN — and CasePrintChrome's head already carries the
+     flow name and the case id. Drop the row so the sheet doesn't print
+     both twice. `:has(h1)` keeps it fail-safe: a flow shaped differently
+     simply keeps its own header instead of losing content. */
+  .print-doc .max-w-screen-lg > div:first-child:has(h1) {
+    display: none !important;
+  }
 
   /* Flat print frame, and keep a card whole on one page. `print-block` /
      `print-title` are stamped by components/ui/card.tsx. */
