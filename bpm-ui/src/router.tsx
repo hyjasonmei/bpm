@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
 
 import { AppLayout } from '@/components/AppLayout'
+import { CasePrintChrome } from '@/components/CasePrintChrome'
 import { CaseToolbar } from '@/components/CaseToolbar'
 import { Attendance } from '@/screens/Attendance'
 import { AttendanceCorrectionReview } from '@/screens/AttendanceCorrectionReview'
@@ -90,22 +91,31 @@ function FeatureCaseDetailRoute() {
   }
   const Detail = manifest.detailComponent
   return (
-    <div className="relative">
-      {/* Copy-link + Print overlaid onto the per-flow header row, just left
-          of its "View BPMN" button. Overlaid (not in normal flow) so chef's
-          CaseDetail is untouched; the container mirrors the detail's
-          `max-w-screen-lg` + `p-6` so the right edge lines up, and the
-          ~132px right offset clears the View BPMN button + gap (every flow
-          cribs the same header from LEAVE V1). pointer-events-none lets
-          clicks fall through to the detail (incl. View BPMN) everywhere
-          except the toolbar itself. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 hidden md:block">
-        <div className="mx-auto flex max-w-screen-lg justify-end pl-6 pr-[156px] pt-[30px]">
-          <CaseToolbar />
+    // CasePrintChrome adds the print-only document head / foot around every
+    // flow's detail, so the printed sheet carries branding + case id +
+    // print stamp without any chef feature code being touched.
+    <CasePrintChrome
+      flowCode={normalizedCode as FormCode}
+      flowVersion={manifest.version}
+      caseId={caseId}
+    >
+      <div className="relative">
+        {/* Copy-link + Print overlaid onto the per-flow header row, just left
+            of its "View BPMN" button. Overlaid (not in normal flow) so chef's
+            CaseDetail is untouched; the container mirrors the detail's
+            `max-w-screen-lg` + `p-6` so the right edge lines up, and the
+            ~132px right offset clears the View BPMN button + gap (every flow
+            cribs the same header from LEAVE V1). pointer-events-none lets
+            clicks fall through to the detail (incl. View BPMN) everywhere
+            except the toolbar itself. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 hidden md:block">
+          <div className="mx-auto flex max-w-screen-lg justify-end pl-6 pr-[156px] pt-[30px]">
+            <CaseToolbar />
+          </div>
         </div>
+        <Detail caseId={caseId} persona={persona} />
       </div>
-      <Detail caseId={caseId} persona={persona} />
-    </div>
+    </CasePrintChrome>
   )
 }
 
