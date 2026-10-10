@@ -13,6 +13,8 @@ One env = one resource group = one prefix. Single-tenant. Entra/SSO out of scope
 01-provision.sh  create resources (RG, Postgres, plan + 2 web apps, 3 SWAs, Key Vault)
 02-configure.sh  app settings + Key Vault references + CORS
 03-deploy.sh     build/publish + deploy code (admin-svc → bpm-svc → frontends)
+flowcook-stop.sh / flowcook-start.sh   pause/resume compute (Postgres auto-restarts after 7 days!)
+flowcook-pg-backup.sh / flowcook-pg-restore.sh   stream Postgres ⇄ Blob — see BACKUP-RESTORE.md
 ```
 
 All scripts are **idempotent** — re-run any of them safely.
@@ -114,8 +116,16 @@ curl -s -X POST https://poc-admin-api.flowcook.ai/api/auth/login \
 
 (Seeded admin login — change/disable demo credentials before a real customer.)
 
+## Idle for weeks? Back up and delete the Postgres server
+
+The B1ms Postgres is ~NT$750/month idle and `flowcook-stop.sh` only holds for 7
+days. `./flowcook-pg-backup.sh` → delete the server → `./flowcook-pg-restore.sh`
+when needed. Full runbook: **[BACKUP-RESTORE.md](BACKUP-RESTORE.md)**.
+
 ## Teardown
 
 ```bash
 source 00-config.sh && az group delete -n "$RG" --yes --no-wait
 ```
+
+Backups live in `rg-flowcook-backup` (locked), not in `$RG`, so this is safe for them.
